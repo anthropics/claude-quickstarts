@@ -6,22 +6,22 @@
     "node": ">=18.17.0"
   },
   "scripts": {
-    "dev": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=true NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=true next dev",
-    "build": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=true NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=true next build",
+    "dev": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=true NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=false next dev",
+    "build": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=true NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=false next build",
     "start": "next start",
     "lint": "next lint",
-    "dev:full": "npm run dev",
+    "dev:full": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=true NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=true next dev",
     "dev:left": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=true NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=false next dev",
     "dev:right": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=false NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=true next dev",
     "dev:chat": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=false NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=false next dev",
-    "build:full": "npm run build",
+    "build:full": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=true NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=true next build",
     "build:left": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=true NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=false next build",
     "build:right": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=false NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=true next build",
     "build:chat": "NEXT_PUBLIC_INCLUDE_LEFT_SIDEBAR=false NEXT_PUBLIC_INCLUDE_RIGHT_SIDEBAR=false next build"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^0.0.34",
-    "@anthropic-ai/sdk": "^0.27.1",
+    "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-bedrock-agent-runtime": "^3.621.0",
     "@radix-ui/react-avatar": "^1.1.0",
     "@radix-ui/react-dialog": "^1.1.1",
