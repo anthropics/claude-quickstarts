@@ -11,12 +11,12 @@ convert_path() {
 }
 
 # Check if we're in WSL
-if [ ! -f /proc/version ] || ! grep -q Microsoft /proc/version; then
+if [ -f /proc/version ] && grep -qi microsoft /proc/version; then
+    echo "✅ Running in WSL environment"
+else
     echo "❌ This script should be run in WSL"
     exit 1
 fi
-
-echo "✅ Running in WSL environment"
 
 # Navigate to unified-redaction-hub
 REDACTION_HUB="/home/lroc/unified-redaction-hub"
@@ -55,4 +55,4 @@ echo "   Windows: C:\Users\ramon\Documents\motion_v1.docx"
 echo "   WSL:     /mnt/c/Users/ramon/Documents/motion_v1.docx"
 echo ""
 echo "💡 Tip: Place your motion files in a Windows folder for easy access"
-echo "   Suggested: C:\Users\ramon\Documents\Motions\"
+echo "   Suggested: C:\\Users\\ramon\\Documents\\Motions\\"

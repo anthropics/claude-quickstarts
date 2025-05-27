@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(gh repo clone:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "Bash(mv:*)"
     ],
     "deny": []
   }
