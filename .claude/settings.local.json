@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh repo clone:*)",
+      "Bash(bash:*)"
+    ],
+    "deny": []
+  }
+}

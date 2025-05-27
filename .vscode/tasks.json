@@ -1,0 +1,18 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "go",
+			"label": "go: build package",
+			"command": "build",
+			"args": [
+				"${fileDirname}"
+			],
+			"problemMatcher": [
+				"$go"
+			],
+			"group": "build",
+			"detail": "cd c:\\Users\\ramon\\OneDrive\\Documents\\GitHub\\anthropic-quickstarts; go build ${fileDirname}"
+		}
+	]
+}
