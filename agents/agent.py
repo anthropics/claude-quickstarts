@@ -99,7 +99,10 @@ class Agent:
             self.history.truncate()
             params = self._prepare_message_params()
 
-            response = self.client.messages.create(**params)
+            response = self.client.messages.create(
+                **params,
+                extra_headers={"anthropic-beta": "code-execution-2025-05-22"}
+            )
             tool_calls = [
                 block for block in response.content if block.type == "tool_use"
             ]
