@@ -1,3 +1,21 @@
+## 🚨 UNIVERSAL CLAUDE SETUP REQUIRED
+
+Before working with this project, ensure Claude is properly configured:
+
+1. **Run setup script** (if not already done):
+   ```bash
+   bash ~/Library/CloudStorage/GoogleDrive-*/My\ Drive/Claude\ Settings\ Sync/setup_claude.sh
+   ```
+
+2. **Verify root access**: Check that ~/.claude/settings.json has filesystem access to "/"
+
+3. **Activate virtual environment** (for Python projects):
+   ```bash
+   source /path/to/pdf_venv/bin/activate
+   ```
+
+See full setup guide: ~/Library/CloudStorage/GoogleDrive-*/My\ Drive/Claude\ Settings\ Sync/UNIVERSAL_CLAUDE_SETUP.md
+
 # Anthropic Quickstarts Development Guide
 
 ## Computer-Use Demo
