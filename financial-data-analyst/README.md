@@ -24,7 +24,7 @@ A sophisticated Next.js application that combines Claude's capabilities with int
 ### Prerequisites
 
 - Node.js 18+ installed
-- Anthropic API key (For Claude integration)
+- Claude API key (For Claude integration)
 
 ### Installation
 

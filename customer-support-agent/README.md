@@ -34,9 +34,9 @@ Note: We are adding a 'B' in front of the AWS environment variables for a reason
 
 ##  How to Get Your Keys
 
-### Anthropic API Key
+### Claude API Key
 
-1. Visit [console.anthropic.com](https://console.anthropic.com/dashboard)
+1. Visit [platform.claude.com](https://platform.claude.com/dashboard)
 2. Sign up or log in to your account
 3. Click on "Get API keys"
 4. Copy the key and paste it into your `.env.local` file
