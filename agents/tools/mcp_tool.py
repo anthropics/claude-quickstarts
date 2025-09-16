@@ -2,6 +2,7 @@
 
 from typing import Any
 from .base import Tool
+from ..utils.connections import MCPConnection
 
 
 class MCPTool(Tool):

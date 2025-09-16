@@ -99,9 +99,18 @@ class Agent:
             self.history.truncate()
             params = self._prepare_message_params()
 
+            # Merge headers properly - default beta header can be overridden by message_params
+            default_headers = {"anthropic-beta": "code-execution-2025-05-22"}
+            if "extra_headers" in params:
+                # Pop extra_headers from params and merge with defaults
+                custom_headers = params.pop("extra_headers")
+                merged_headers = {**default_headers, **custom_headers}
+            else:
+                merged_headers = default_headers
+
             response = self.client.messages.create(
                 **params,
-                extra_headers={"anthropic-beta": "code-execution-2025-05-22"}
+                extra_headers=merged_headers
             )
             tool_calls = [
                 block for block in response.content if block.type == "tool_use"

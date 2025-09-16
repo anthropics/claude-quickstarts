@@ -8,8 +8,6 @@ and API parameters.
 
 import os
 import sys
-from typing import Any
-
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -65,8 +63,10 @@ class TestMessageParams:
         )
         
         response = agent.run("What is 2+2?")
-        assert response.content[0].text.strip() in ["4", "2+2=4", "2 + 2 = 4"]
-        self._print(f"Response: {response.content[0].text}")
+        # response is a list of message content blocks
+        assert any("4" in str(block.get("text", "")) for block in response if block.get("type") == "text")
+        response_text = next((block["text"] for block in response if block.get("type") == "text"), "")
+        self._print(f"Response: {response_text}")
         
     def test_custom_headers(self) -> None:
         """Test passing custom headers through message_params."""
@@ -87,8 +87,9 @@ class TestMessageParams:
         assert agent.message_params["extra_headers"]["X-Custom-Header"] == "test-value"
         
         response = agent.run("What is 3+3?")
-        assert "6" in response.content[0].text
-        self._print(f"Response with custom headers: {response.content[0].text}")
+        response_text = next((block["text"] for block in response if block.get("type") == "text"), "")
+        assert "6" in response_text
+        self._print(f"Response with custom headers: {response_text}")
         
     def test_beta_headers(self) -> None:
         """Test passing beta feature headers."""
@@ -105,8 +106,9 @@ class TestMessageParams:
         
         # The API call should succeed even with beta headers
         response = agent.run("What is 5*5?")
-        assert "25" in response.content[0].text
-        self._print(f"Response with beta headers: {response.content[0].text}")
+        response_text = next((block["text"] for block in response if block.get("type") == "text"), "")
+        assert "25" in response_text
+        self._print(f"Response with beta headers: {response_text}")
         
     def test_metadata(self) -> None:
         """Test passing valid metadata fields."""
@@ -122,8 +124,9 @@ class TestMessageParams:
         )
         
         response = agent.run("What is 10/2?")
-        assert "5" in response.content[0].text
-        self._print(f"Response with metadata: {response.content[0].text}")
+        response_text = next((block["text"] for block in response if block.get("type") == "text"), "")
+        assert "5" in response_text
+        self._print(f"Response with metadata: {response_text}")
         
     def test_api_parameters(self) -> None:
         """Test passing various API parameters."""
@@ -145,8 +148,9 @@ class TestMessageParams:
         assert params["temperature"] == 0.7
         
         response = agent.run("Say 'test'")
-        assert response.content[0].text
-        self._print(f"Response with custom params: {response.content[0].text}")
+        response_text = next((block["text"] for block in response if block.get("type") == "text"), "")
+        assert response_text
+        self._print(f"Response with custom params: {response_text}")
         
     def test_parameter_override(self) -> None:
         """Test that message_params override config defaults."""
@@ -219,8 +223,9 @@ class TestMessageParams:
         assert params["top_k"] == 5
         
         response = agent.run("What is 1+1?")
-        assert "2" in response.content[0].text
-        self._print(f"Response with combined params: {response.content[0].text}")
+        response_text = next((block["text"] for block in response if block.get("type") == "text"), "")
+        assert "2" in response_text
+        self._print(f"Response with combined params: {response_text}")
         
     def run_all_tests(self) -> None:
         """Run all test cases."""
