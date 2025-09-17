@@ -1,4 +1,4 @@
-# Anthropic Quickstarts Development Guide
+# Claude Quickstarts Development Guide
 
 ## Computer-Use Demo
 
