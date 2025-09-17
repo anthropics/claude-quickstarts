@@ -38,6 +38,8 @@ jobs:
           pip install -r dev-requirements.txt
       - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
       - uses: jakebailey/pyright-action@v1
+        with:
+          working-directory: computer-use-demo
   pytest:
     runs-on: ubuntu-latest
     defaults:

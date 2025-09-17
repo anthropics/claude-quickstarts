@@ -169,11 +169,12 @@ async def sampling_loop(
         tool_result_content: list[BetaToolResultBlockParam] = []
         for content_block in response_params:
             output_callback(content_block)
-            if content_block.get("type") == "tool_use":
+            if isinstance(content_block, dict) and content_block.get("type") == "tool_use":
+                # Type narrowing for tool use blocks
                 tool_use_block = cast(BetaToolUseBlockParam, content_block)
                 result = await tool_collection.run(
                     name=tool_use_block["name"],
-                    tool_input=cast(dict[str, Any], tool_use_block["input"]),
+                    tool_input=cast(dict[str, Any], tool_use_block.get("input", {})),
                 )
                 tool_result_content.append(
                     _make_api_tool_result(result, tool_use_block["id"])
@@ -278,7 +279,8 @@ def _inject_prompt_caching(
                     {"type": "ephemeral"}
                 )
             else:
-                content[-1].pop("cache_control", None)
+                if isinstance(content[-1], dict) and "cache_control" in content[-1]:
+                    del content[-1]["cache_control"]  # type: ignore
                 # we'll only every have one extra turn per loop
                 break
 
