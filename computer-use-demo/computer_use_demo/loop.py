@@ -169,15 +169,16 @@ async def sampling_loop(
         tool_result_content: list[BetaToolResultBlockParam] = []
         for content_block in response_params:
             output_callback(content_block)
-            if content_block["type"] == "tool_use":
+            if content_block.get("type") == "tool_use":
+                tool_use_block = cast(BetaToolUseBlockParam, content_block)
                 result = await tool_collection.run(
-                    name=content_block["name"],
-                    tool_input=cast(dict[str, Any], content_block["input"]),
+                    name=tool_use_block["name"],
+                    tool_input=cast(dict[str, Any], tool_use_block["input"]),
                 )
                 tool_result_content.append(
-                    _make_api_tool_result(result, content_block["id"])
+                    _make_api_tool_result(result, tool_use_block["id"])
                 )
-                tool_output_callback(result, content_block["id"])
+                tool_output_callback(result, tool_use_block["id"])
 
         if not tool_result_content:
             return messages
