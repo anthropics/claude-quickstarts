@@ -35,7 +35,7 @@ Please use [this form](https://forms.gle/BT1hpBrqDPDUrCqo7) to provide feedback 
 ### Claude API
 
 > [!TIP]
-> You can find your API key in the [Claude Console](https://platform.claude.com/).
+> You can find your API key in the [Claude Console](https://console.anthropic.com/).
 
 ```bash
 export ANTHROPIC_API_KEY=%your_api_key%

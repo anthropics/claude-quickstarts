@@ -4,7 +4,7 @@ Anthropic Quickstarts is a collection of projects designed to help developers qu
 
 ## Getting Started
 
-To use these quickstarts, you'll need an Claude API key. If you don't have one yet, you can sign up for free at [platform.claude.com](https://platform.claude.com).
+To use these quickstarts, you'll need an Claude API key. If you don't have one yet, you can sign up for free at [console.anthropic.com](https://console.anthropic.com).
 
 ## Available Quickstarts
 
