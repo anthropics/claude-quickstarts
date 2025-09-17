@@ -219,8 +219,6 @@ def _maybe_filter_to_n_most_recent_images(
     )
 
     images_to_remove = total_images - images_to_keep
-    # for better cache behavior, we want to remove in chunks
-    images_to_remove -= images_to_remove % min_removal_threshold
 
     for tool_result in tool_result_blocks:
         if isinstance(tool_result.get("content"), list):
@@ -277,7 +275,7 @@ def _inject_prompt_caching(
                     {"type": "ephemeral"}
                 )
             else:
-                content[-1].pop("cache_control", None)
+                content[-1].pop("cache_control", None)  # type: ignore
                 # we'll only every have one extra turn per loop
                 break
 
