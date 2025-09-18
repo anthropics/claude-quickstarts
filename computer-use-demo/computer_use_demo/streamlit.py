@@ -147,6 +147,10 @@ def setup_state():
         st.session_state.token_efficient_tools_beta = False
     if "in_sampling_loop" not in st.session_state:
         st.session_state.in_sampling_loop = False
+    if "tool_version" not in st.session_state:
+        st.session_state.tool_version = "computer_use_20250124"
+    if "tool_versions" not in st.session_state:
+        st.session_state.tool_versions = st.session_state.tool_version
 
 
 def _reset_model():
@@ -164,7 +168,7 @@ def _reset_model_conf():
     )
 
     # If we're in radio selection mode, use the selected tool version
-    if hasattr(st.session_state, "tool_versions"):
+    if "tool_versions" in st.session_state:
         st.session_state.tool_version = st.session_state.tool_versions
     else:
         st.session_state.tool_version = model_conf.tool_version
@@ -177,6 +181,11 @@ def _reset_model_conf():
 
 async def main():
     """Render loop for streamlit"""
+    # Set page config FIRST, before setup_state() or any other streamlit commands
+    is_browser_mode = st.session_state.get("tool_version") == "browser_use_20250910"
+    page_title = "Browser Use Demo" if is_browser_mode else "Computer Use Demo"
+    st.set_page_config(page_title=page_title, page_icon="🤖")
+
     setup_state()
 
     st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)

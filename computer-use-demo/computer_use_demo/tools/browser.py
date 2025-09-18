@@ -88,9 +88,12 @@ class BaseBrowserTool:
 
     async def ensure_browser_running(self) -> bool:
         """Check if Firefox is running and launch it if not."""
-        # Check if Firefox process is running
-        _, stdout, _ = await run("pgrep -f firefox")
+        # Check if Firefox window exists (more reliable than process check)
+        _, stdout, _ = await run(f"{self.xdotool} search --class firefox")
         if stdout.strip():
+            # Browser window exists, ensure it's focused
+            await run(f"{self.xdotool} search --class firefox windowactivate")
+            await asyncio.sleep(0.3)
             return True
 
         # Firefox not running - launch it in background with proper display
@@ -100,11 +103,18 @@ class BaseBrowserTool:
             else "firefox > /dev/null 2>&1 &"
         )
         await run(launch_cmd)
-        await asyncio.sleep(5)  # Wait longer for Firefox to start
 
-        # Verify it started
-        _, stdout, _ = await run("pgrep -f firefox")
-        return bool(stdout.strip())
+        # Wait for Firefox window to appear (poll every 0.5s for up to 15 seconds)
+        for _ in range(30):
+            await asyncio.sleep(0.5)
+            _, stdout, _ = await run(f"{self.xdotool} search --class firefox")
+            if stdout.strip():
+                # Window found, activate it
+                await run(f"{self.xdotool} search --class firefox windowactivate")
+                await asyncio.sleep(1)  # Give it a moment to stabilize
+                return True
+
+        return False
 
     async def close_browser(self) -> ToolResult:
         """Gracefully close Firefox browser."""
