@@ -82,7 +82,7 @@ class EditTool20250124(BaseAnthropicTool):
         elif command == "undo_edit":
             return self.undo_edit(_path)
         raise ToolError(
-            f'Unrecognized command {command}. The allowed commands for the {self.name} tool are: {", ".join(get_args(Command_20250124))}'
+            f"Unrecognized command {command}. The allowed commands for the {self.name} tool are: {', '.join(get_args(Command_20250124))}"
         )
 
     def validate_path(self, command: str, path: Path):
@@ -354,7 +354,7 @@ class EditTool20250429(BaseAnthropicTool):
             return self.insert(_path, insert_line, new_str)
         # Note: undo_edit command was removed in this version
         raise ToolError(
-            f'Unrecognized command {command}. The allowed commands for the {self.name} tool are: {", ".join(get_args(Command_20250429))}'
+            f"Unrecognized command {command}. The allowed commands for the {self.name} tool are: {', '.join(get_args(Command_20250429))}"
         )
 
     def validate_path(self, command: str, path: Path):

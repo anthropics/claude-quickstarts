@@ -66,11 +66,22 @@ CLAUDE_4 = ModelConfig(
     has_thinking=True,
 )
 
+BOBCAT_BROWSER = ModelConfig(
+    tool_version="browser_use_20250910",
+    max_output_tokens=128_000,
+    default_output_tokens=1024 * 16,
+    has_thinking=True,
+)
+
 MODEL_TO_MODEL_CONF: dict[str, ModelConfig] = {
     "claude-3-7-sonnet-20250219": SONNET_3_7,
+    # Claude 4 models - default to computer use, but can manually select browser_use_20250910
     "claude-opus-4@20250508": CLAUDE_4,
     "claude-sonnet-4-20250514": CLAUDE_4,
     "claude-opus-4-20250514": CLAUDE_4,
+    # Bobcat models (internal) - default to browser mode
+    "bobcat-v17-prod": BOBCAT_BROWSER,
+    "bobcat-latest": BOBCAT_BROWSER,
 }
 
 CONFIG_DIR = PosixPath("~/.anthropic").expanduser()
@@ -170,7 +181,11 @@ async def main():
 
     st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)
 
-    st.title("Claude Computer Use Demo")
+    is_browser_mode = (
+        getattr(st.session_state, "tool_version", None) == "browser_use_20250910"
+    )
+    title = "Claude Browser Use Demo" if is_browser_mode else "Claude Computer Use Demo"
+    st.title(title)
 
     if not os.getenv("HIDE_WARNING", False):
         st.warning(WARNING_TEXT)
@@ -183,7 +198,22 @@ async def main():
                 st.session_state.provider = st.session_state.provider_radio
                 st.session_state.auth_validated = False
 
-        provider_options = [option.value for option in APIProvider]
+        # Determine provider options based on tool version
+        is_browser_mode_providers = (
+            getattr(st.session_state, "tool_version", None) == "browser_use_20250910"
+        )
+
+        if is_browser_mode_providers:
+            # Force Anthropic provider for browser mode
+            if (
+                not hasattr(st.session_state, "provider")
+                or st.session_state.provider != APIProvider.ANTHROPIC
+            ):
+                st.session_state.provider = APIProvider.ANTHROPIC
+            provider_options = [APIProvider.ANTHROPIC.value]
+        else:
+            provider_options = [option.value for option in APIProvider]
+
         st.radio(
             "API Provider",
             options=provider_options,
@@ -220,7 +250,30 @@ async def main():
         st.checkbox(
             "Enable token-efficient tools beta", key="token_efficient_tools_beta"
         )
-        versions = get_args(ToolVersion)
+
+        # Filter tool versions based on model compatibility
+        all_versions = list(get_args(ToolVersion))
+        model_name = st.session_state.model
+
+        # Browser mode only works with Claude 4+ and bobcat models
+        browser_compatible_models = [
+            "claude-opus-4@20250508",
+            "claude-sonnet-4-20250514",
+            "claude-opus-4-20250514",
+            "bobcat-v17-prod",
+            "bobcat-latest",
+        ]
+
+        # Check if model supports browser mode
+        if model_name not in browser_compatible_models:
+            # Remove browser_use_20250910 for older models (Claude 3.x)
+            versions = [v for v in all_versions if v != "browser_use_20250910"]
+            # If current selection is browser mode, switch to default
+            if st.session_state.tool_version == "browser_use_20250910":
+                st.session_state.tool_version = "computer_use_20250124"
+        else:
+            versions = all_versions
+
         st.radio(
             "Tool Versions",
             key="tool_versions",
@@ -328,7 +381,7 @@ async def main():
                 ),
                 api_key=st.session_state.api_key,
                 only_n_most_recent_images=st.session_state.only_n_most_recent_images,
-                tool_version=st.session_state.tool_versions,
+                tool_version=st.session_state.tool_version,
                 max_tokens=st.session_state.output_tokens,
                 thinking_budget=st.session_state.thinking_budget
                 if st.session_state.thinking
@@ -513,10 +566,10 @@ def _render_message(
                 thinking_content = message.get("thinking", "")
                 st.markdown(f"[Thinking]\n\n{thinking_content}")
             elif message["type"] == "tool_use":
-                st.code(f'Tool Use: {message["name"]}\nInput: {message["input"]}')
+                st.code(f"Tool Use: {message['name']}\nInput: {message['input']}")
             else:
                 # only expected return types are text and tool_use
-                raise Exception(f'Unexpected response type {message["type"]}')
+                raise Exception(f"Unexpected response type {message['type']}")
         else:
             st.markdown(message)
 
