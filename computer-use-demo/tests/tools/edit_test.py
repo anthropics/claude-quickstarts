@@ -4,13 +4,16 @@ from unittest.mock import patch
 import pytest
 
 from computer_use_demo.tools.base import CLIResult, ToolError, ToolResult
-from computer_use_demo.tools.edit import EditTool
+from computer_use_demo.tools.edit import EditTool20241022, EditTool20250124
+
+
+@pytest.fixture(params=[EditTool20241022, EditTool20250124])
+def edit_tool(request):
+    return request.param()
 
 
 @pytest.mark.asyncio
-async def test_view_command():
-    edit_tool = EditTool()
-
+async def test_view_command(edit_tool):
     # Test viewing a file that exists
     with patch("pathlib.Path.exists", return_value=True), patch(
         "pathlib.Path.is_dir", return_value=False
@@ -66,9 +69,7 @@ async def test_view_command():
 
 
 @pytest.mark.asyncio
-async def test_create_command():
-    edit_tool = EditTool()
-
+async def test_create_command(edit_tool):
     # Test creating a new file with content
     with patch("pathlib.Path.exists", return_value=False), patch(
         "pathlib.Path.write_text"
@@ -95,9 +96,7 @@ async def test_create_command():
 
 
 @pytest.mark.asyncio
-async def test_str_replace_command():
-    edit_tool = EditTool()
-
+async def test_str_replace_command(edit_tool):
     # Test replacing a unique string in a file
     with patch("pathlib.Path.exists", return_value=True), patch(
         "pathlib.Path.is_dir", return_value=False
@@ -160,9 +159,7 @@ async def test_str_replace_command():
 
 
 @pytest.mark.asyncio
-async def test_insert_command():
-    edit_tool = EditTool()
-
+async def test_insert_command(edit_tool):
     # Test inserting a string at a valid line number
     with patch("pathlib.Path.exists", return_value=True), patch(
         "pathlib.Path.is_dir", return_value=False
@@ -242,9 +239,7 @@ async def test_insert_command():
 
 
 @pytest.mark.asyncio
-async def test_undo_edit_command():
-    edit_tool = EditTool()
-
+async def test_undo_edit_command(edit_tool):
     # Test undoing a str_replace operation
     with patch("pathlib.Path.exists", return_value=True), patch(
         "pathlib.Path.is_dir", return_value=False
@@ -293,9 +288,7 @@ async def test_undo_edit_command():
 
 
 @pytest.mark.asyncio
-async def test_validate_path():
-    edit_tool = EditTool()
-
+async def test_validate_path(edit_tool):
     # Test with valid absolute paths
     with patch("pathlib.Path.exists", return_value=True), patch(
         "pathlib.Path.is_dir", return_value=False

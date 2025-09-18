@@ -5,10 +5,10 @@ import shlex
 import shutil
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, TypedDict
+from typing import Literal, TypedDict, cast, get_args
 from uuid import uuid4
 
-from anthropic.types.beta import BetaToolComputerUse20241022Param
+from anthropic.types.beta import BetaToolComputerUse20241022Param, BetaToolUnionParam
 
 from .base import BaseAnthropicTool, ToolError, ToolResult
 from .run import run
@@ -18,7 +18,7 @@ OUTPUT_DIR = "/tmp/outputs"
 TYPING_DELAY_MS = 12
 TYPING_GROUP_SIZE = 50
 
-Action = Literal[
+Action_20241022 = Literal[
     "key",
     "type",
     "mouse_move",
@@ -30,6 +30,20 @@ Action = Literal[
     "screenshot",
     "cursor_position",
 ]
+
+Action_20250124 = (
+    Action_20241022
+    | Literal[
+        "left_mouse_down",
+        "left_mouse_up",
+        "scroll",
+        "hold_key",
+        "wait",
+        "triple_click",
+    ]
+)
+
+ScrollDirection = Literal["up", "down", "left", "right"]
 
 
 class Resolution(TypedDict):
@@ -43,6 +57,14 @@ MAX_SCALING_TARGETS: dict[str, Resolution] = {
     "XGA": Resolution(width=1024, height=768),  # 4:3
     "WXGA": Resolution(width=1280, height=800),  # 16:10
     "FWXGA": Resolution(width=1366, height=768),  # ~16:9
+}
+
+CLICK_BUTTONS = {
+    "left_click": 1,
+    "right_click": 3,
+    "middle_click": 2,
+    "double_click": "--repeat 2 --delay 10 1",
+    "triple_click": "--repeat 3 --delay 10 1",
 }
 
 
@@ -61,14 +83,13 @@ def chunks(s: str, chunk_size: int) -> list[str]:
     return [s[i : i + chunk_size] for i in range(0, len(s), chunk_size)]
 
 
-class ComputerTool(BaseAnthropicTool):
+class BaseComputerTool:
     """
     A tool that allows the agent to interact with the screen, keyboard, and mouse of the current computer.
     The tool parameters are defined by Anthropic and are not editable.
     """
 
     name: Literal["computer"] = "computer"
-    api_type: Literal["computer_20241022"] = "computer_20241022"
     width: int
     height: int
     display_num: int | None
@@ -86,9 +107,6 @@ class ComputerTool(BaseAnthropicTool):
             "display_height_px": height,
             "display_number": self.display_num,
         }
-
-    def to_params(self) -> BetaToolComputerUse20241022Param:
-        return {"name": self.name, "type": self.api_type, **self.options}
 
     def __init__(self):
         super().__init__()
@@ -108,7 +126,7 @@ class ComputerTool(BaseAnthropicTool):
     async def __call__(
         self,
         *,
-        action: Action,
+        action: Action_20241022,
         text: str | None = None,
         coordinate: tuple[int, int] | None = None,
         **kwargs,
@@ -118,21 +136,18 @@ class ComputerTool(BaseAnthropicTool):
                 raise ToolError(f"coordinate is required for {action}")
             if text is not None:
                 raise ToolError(f"text is not accepted for {action}")
-            if not isinstance(coordinate, list) or len(coordinate) != 2:
-                raise ToolError(f"{coordinate} must be a tuple of length 2")
-            if not all(isinstance(i, int) and i >= 0 for i in coordinate):
-                raise ToolError(f"{coordinate} must be a tuple of non-negative ints")
 
-            x, y = self.scale_coordinates(
-                ScalingSource.API, coordinate[0], coordinate[1]
-            )
+            x, y = self.validate_and_get_coordinates(coordinate)
 
             if action == "mouse_move":
-                return await self.shell(f"{self.xdotool} mousemove --sync {x} {y}")
+                command_parts = [self.xdotool, f"mousemove --sync {x} {y}"]
+                return await self.shell(" ".join(command_parts))
             elif action == "left_click_drag":
-                return await self.shell(
-                    f"{self.xdotool} mousedown 1 mousemove --sync {x} {y} mouseup 1"
-                )
+                command_parts = [
+                    self.xdotool,
+                    f"mousedown 1 mousemove --sync {x} {y} mouseup 1",
+                ]
+                return await self.shell(" ".join(command_parts))
 
         if action in ("key", "type"):
             if text is None:
@@ -143,12 +158,18 @@ class ComputerTool(BaseAnthropicTool):
                 raise ToolError(output=f"{text} must be a string")
 
             if action == "key":
-                return await self.shell(f"{self.xdotool} key -- {text}")
+                command_parts = [self.xdotool, f"key -- {text}"]
+                return await self.shell(" ".join(command_parts))
             elif action == "type":
                 results: list[ToolResult] = []
                 for chunk in chunks(text, TYPING_GROUP_SIZE):
-                    cmd = f"{self.xdotool} type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}"
-                    results.append(await self.shell(cmd, take_screenshot=False))
+                    command_parts = [
+                        self.xdotool,
+                        f"type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}",
+                    ]
+                    results.append(
+                        await self.shell(" ".join(command_parts), take_screenshot=False)
+                    )
                 screenshot_base64 = (await self.screenshot()).base64_image
                 return ToolResult(
                     output="".join(result.output or "" for result in results),
@@ -172,8 +193,9 @@ class ComputerTool(BaseAnthropicTool):
             if action == "screenshot":
                 return await self.screenshot()
             elif action == "cursor_position":
+                command_parts = [self.xdotool, "getmouselocation --shell"]
                 result = await self.shell(
-                    f"{self.xdotool} getmouselocation --shell",
+                    " ".join(command_parts),
                     take_screenshot=False,
                 )
                 output = result.output or ""
@@ -184,15 +206,18 @@ class ComputerTool(BaseAnthropicTool):
                 )
                 return result.replace(output=f"X={x},Y={y}")
             else:
-                click_arg = {
-                    "left_click": "1",
-                    "right_click": "3",
-                    "middle_click": "2",
-                    "double_click": "--repeat 2 --delay 500 1",
-                }[action]
-                return await self.shell(f"{self.xdotool} click {click_arg}")
+                command_parts = [self.xdotool, f"click {CLICK_BUTTONS[action]}"]
+                return await self.shell(" ".join(command_parts))
 
         raise ToolError(f"Invalid action: {action}")
+
+    def validate_and_get_coordinates(self, coordinate: tuple[int, int] | None = None):
+        if not isinstance(coordinate, list) or len(coordinate) != 2:
+            raise ToolError(f"{coordinate} must be a tuple of length 2")
+        if not all(isinstance(i, int) and i >= 0 for i in coordinate):
+            raise ToolError(f"{coordinate} must be a tuple of non-negative ints")
+
+        return self.scale_coordinates(ScalingSource.API, coordinate[0], coordinate[1])
 
     async def screenshot(self):
         """Take a screenshot of the current screen and return the base64 encoded image."""
@@ -258,3 +283,120 @@ class ComputerTool(BaseAnthropicTool):
             return round(x / x_scaling_factor), round(y / y_scaling_factor)
         # scale down
         return round(x * x_scaling_factor), round(y * y_scaling_factor)
+
+
+class ComputerTool20241022(BaseComputerTool, BaseAnthropicTool):
+    api_type: Literal["computer_20241022"] = "computer_20241022"
+
+    def to_params(self) -> BetaToolComputerUse20241022Param:
+        return {"name": self.name, "type": self.api_type, **self.options}
+
+
+class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
+    api_type: Literal["computer_20250124"] = "computer_20250124"
+
+    def to_params(self):
+        return cast(
+            BetaToolUnionParam,
+            {"name": self.name, "type": self.api_type, **self.options},
+        )
+
+    async def __call__(
+        self,
+        *,
+        action: Action_20250124,
+        text: str | None = None,
+        coordinate: tuple[int, int] | None = None,
+        scroll_direction: ScrollDirection | None = None,
+        scroll_amount: int | None = None,
+        duration: int | float | None = None,
+        key: str | None = None,
+        **kwargs,
+    ):
+        if action in ("left_mouse_down", "left_mouse_up"):
+            if coordinate is not None:
+                raise ToolError(f"coordinate is not accepted for {action=}.")
+            command_parts = [
+                self.xdotool,
+                f"{'mousedown' if action == 'left_mouse_down' else 'mouseup'} 1",
+            ]
+            return await self.shell(" ".join(command_parts))
+        if action == "scroll":
+            if scroll_direction is None or scroll_direction not in get_args(
+                ScrollDirection
+            ):
+                raise ToolError(
+                    f"{scroll_direction=} must be 'up', 'down', 'left', or 'right'"
+                )
+            if not isinstance(scroll_amount, int) or scroll_amount < 0:
+                raise ToolError(f"{scroll_amount=} must be a non-negative int")
+            mouse_move_part = ""
+            if coordinate is not None:
+                x, y = self.validate_and_get_coordinates(coordinate)
+                mouse_move_part = f"mousemove --sync {x} {y}"
+            scroll_button = {
+                "up": 4,
+                "down": 5,
+                "left": 6,
+                "right": 7,
+            }[scroll_direction]
+
+            command_parts = [self.xdotool, mouse_move_part]
+            if text:
+                command_parts.append(f"keydown {text}")
+            command_parts.append(f"click --repeat {scroll_amount} {scroll_button}")
+            if text:
+                command_parts.append(f"keyup {text}")
+
+            return await self.shell(" ".join(command_parts))
+
+        if action in ("hold_key", "wait"):
+            if duration is None or not isinstance(duration, (int, float)):
+                raise ToolError(f"{duration=} must be a number")
+            if duration < 0:
+                raise ToolError(f"{duration=} must be non-negative")
+            if duration > 100:
+                raise ToolError(f"{duration=} is too long.")
+
+            if action == "hold_key":
+                if text is None:
+                    raise ToolError(f"text is required for {action}")
+                escaped_keys = shlex.quote(text)
+                command_parts = [
+                    self.xdotool,
+                    f"keydown {escaped_keys}",
+                    f"sleep {duration}",
+                    f"keyup {escaped_keys}",
+                ]
+                return await self.shell(" ".join(command_parts))
+
+            if action == "wait":
+                await asyncio.sleep(duration)
+                return await self.screenshot()
+
+        if action in (
+            "left_click",
+            "right_click",
+            "double_click",
+            "triple_click",
+            "middle_click",
+        ):
+            if text is not None:
+                raise ToolError(f"text is not accepted for {action}")
+            mouse_move_part = ""
+            if coordinate is not None:
+                x, y = self.validate_and_get_coordinates(coordinate)
+                mouse_move_part = f"mousemove --sync {x} {y}"
+
+            command_parts = [self.xdotool, mouse_move_part]
+            if key:
+                command_parts.append(f"keydown {key}")
+            command_parts.append(f"click {CLICK_BUTTONS[action]}")
+            if key:
+                command_parts.append(f"keyup {key}")
+
+            return await self.shell(" ".join(command_parts))
+
+        return await super().__call__(
+            action=action, text=text, coordinate=coordinate, key=key, **kwargs
+        )

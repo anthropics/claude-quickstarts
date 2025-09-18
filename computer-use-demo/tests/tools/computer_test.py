@@ -3,16 +3,17 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from computer_use_demo.tools.computer import (
-    ComputerTool,
+    ComputerTool20241022,
+    ComputerTool20250124,
     ScalingSource,
     ToolError,
     ToolResult,
 )
 
 
-@pytest.fixture
-def computer_tool():
-    return ComputerTool()
+@pytest.fixture(params=[ComputerTool20241022, ComputerTool20250124])
+def computer_tool(request):
+    return request.param()
 
 
 @pytest.mark.asyncio

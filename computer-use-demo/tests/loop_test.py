@@ -46,6 +46,7 @@ async def test_loop():
             tool_output_callback=tool_output_callback,
             api_response_callback=api_response_callback,
             api_key="test-key",
+            tool_version="computer_use_20250124",
         )
 
         assert len(result) == 4
@@ -59,7 +60,7 @@ async def test_loop():
             name="computer", tool_input={"action": "test"}
         )
         output_callback.assert_called_with(
-            BetaTextBlockParam(text="Done!", type="text")
+            BetaTextBlockParam(text="Done!", type="text", citations=None)
         )
         assert output_callback.call_count == 3
         assert tool_output_callback.call_count == 1

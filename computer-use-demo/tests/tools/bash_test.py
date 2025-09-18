@@ -1,11 +1,11 @@
 import pytest
 
-from computer_use_demo.tools.bash import BashTool, ToolError
+from computer_use_demo.tools.bash import BashTool20241022, BashTool20250124, ToolError
 
 
-@pytest.fixture
-def bash_tool():
-    return BashTool()
+@pytest.fixture(params=[BashTool20241022, BashTool20250124])
+def bash_tool(request):
+    return request.param()
 
 
 @pytest.mark.asyncio

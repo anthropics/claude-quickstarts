@@ -1,0 +1,27 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*/.ipynb_checkpoints/*
+
+# MacOS
+.DS_Store
+
+# Environment variables
+.env
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# MCP logs
+*.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
