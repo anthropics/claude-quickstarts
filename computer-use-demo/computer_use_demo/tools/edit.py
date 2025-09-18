@@ -301,7 +301,7 @@ class EditTool20250429(BaseAnthropicTool):
     The tool parameters are defined by Anthropic and are not editable.
     """
 
-    api_type: Literal["str_replace_based_edit_tool"] = "str_replace_based_edit_tool"
+    api_type: Literal["text_editor_20250429"] = "text_editor_20250429"
     name: Literal["str_replace_based_edit_tool"] = "str_replace_based_edit_tool"
 
     _file_history: dict[Path, list[str]]
