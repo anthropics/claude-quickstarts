@@ -17,6 +17,7 @@ from .base import BaseAnthropicTool, ToolError, ToolResult
 def log(msg):
     print(f"[BrowserTool] {msg}")
 
+
 OUTPUT_DIR = Path("/tmp/outputs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -26,7 +27,7 @@ class BrowserOptions(TypedDict):
     display_height_px: int
 
 
-class LocalBrowserTool(BaseAnthropicTool):
+class BrowserTool(BaseAnthropicTool):
     """
     A tool that allows the agent to interact with a web browser locally using Playwright.
     Connects to a persistent browser server to maintain state across Streamlit requests.
@@ -62,11 +63,7 @@ class LocalBrowserTool(BaseAnthropicTool):
         """Convert tool to API parameters."""
         return cast(
             BetaToolUnionParam,
-            {
-                "name": self.name,
-                "type": self.api_type,
-                **self.options
-            },
+            {"name": self.name, "type": self.api_type, **self.options},
         )
 
     async def _ensure_browser(self) -> None:
@@ -75,6 +72,7 @@ class LocalBrowserTool(BaseAnthropicTool):
             # Start Playwright
             if self._playwright is None:
                 from playwright.async_api import async_playwright
+
                 self._playwright = await async_playwright().start()
 
             # Connect to browser server or launch new browser
@@ -83,7 +81,11 @@ class LocalBrowserTool(BaseAnthropicTool):
                     # Connect to existing browser server via CDP
                     try:
                         log(f"Connecting to browser server at {self.cdp_url}")
-                        self._browser = await self._playwright.chromium.connect_over_cdp(self.cdp_url)
+                        self._browser = (
+                            await self._playwright.chromium.connect_over_cdp(
+                                self.cdp_url
+                            )
+                        )
                         log("Connected to browser server successfully")
 
                         # Get existing contexts/pages or create new ones
@@ -91,7 +93,9 @@ class LocalBrowserTool(BaseAnthropicTool):
                         if contexts:
                             # Reuse existing context
                             self._context = contexts[0]
-                            log(f"Reusing existing context with {len(self._context.pages)} pages")
+                            log(
+                                f"Reusing existing context with {len(self._context.pages)} pages"
+                            )
 
                             # Get existing page or create new one
                             if self._context.pages:
@@ -105,7 +109,7 @@ class LocalBrowserTool(BaseAnthropicTool):
                             log("Creating new context")
                             self._context = await self._browser.new_context(
                                 viewport={"width": self.width, "height": self.height},
-                                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                                user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                             )
                             self._page = await self._context.new_page()
                             log("Created new page")
@@ -120,15 +124,15 @@ class LocalBrowserTool(BaseAnthropicTool):
                         self._browser = await self._playwright.chromium.launch(
                             headless=False,
                             args=[
-                                '--disable-blink-features=AutomationControlled',
-                                '--disable-dev-shm-usage',
-                                '--no-sandbox',
-                            ]
+                                "--disable-blink-features=AutomationControlled",
+                                "--disable-dev-shm-usage",
+                                "--no-sandbox",
+                            ],
                         )
                         # Create context and page for fallback browser
                         self._context = await self._browser.new_context(
                             viewport={"width": self.width, "height": self.height},
-                            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                            user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                         )
                         self._page = await self._context.new_page()
                         self._page.set_default_timeout(30000)
@@ -137,15 +141,15 @@ class LocalBrowserTool(BaseAnthropicTool):
                     self._browser = await self._playwright.chromium.launch(
                         headless=False,
                         args=[
-                            '--disable-blink-features=AutomationControlled',
-                            '--disable-dev-shm-usage',
-                            '--no-sandbox',
-                        ]
+                            "--disable-blink-features=AutomationControlled",
+                            "--disable-dev-shm-usage",
+                            "--no-sandbox",
+                        ],
                     )
                     # Create context and page
                     self._context = await self._browser.new_context(
                         viewport={"width": self.width, "height": self.height},
-                        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                        user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                     )
                     self._page = await self._context.new_page()
                     self._page.set_default_timeout(30000)
@@ -166,11 +170,7 @@ class LocalBrowserTool(BaseAnthropicTool):
             screenshot_bytes = screenshot_path.read_bytes()
             image_base64 = base64.b64encode(screenshot_bytes).decode()
 
-            return ToolResult(
-                output="",
-                error=None,
-                base64_image=image_base64
-            )
+            return ToolResult(output="", error=None, base64_image=image_base64)
         except Exception as e:
             raise ToolError(f"Failed to take screenshot: {str(e)}") from e
 
@@ -254,13 +254,13 @@ class LocalBrowserTool(BaseAnthropicTool):
         await self.__call__(action="close_browser")
 
 
-def get_browser_tool(width: int = 1280, height: int = 720) -> LocalBrowserTool:
+def get_browser_tool(width: int = 1280, height: int = 720) -> BrowserTool:
     """Create a new browser tool instance for each request."""
     # Always create a new instance to avoid event loop issues
-    return LocalBrowserTool(width=width, height=height)
+    return BrowserTool(width=width, height=height)
 
 
-class BrowserTool20250910Local(LocalBrowserTool):
+class BrowserTool20250910(BrowserTool):
     """Browser tool implementation for local Playwright execution."""
 
     def __init__(self):
