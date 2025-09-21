@@ -1,6 +1,7 @@
 from .base import CLIResult, ToolResult
 from .bash import BashTool20241022, BashTool20250124
 from .browser import BrowserTool20250910
+from .browser_local import BrowserTool20250910Local, get_browser_tool
 from .collection import ToolCollection
 from .computer import ComputerTool20241022, ComputerTool20250124
 from .edit import EditTool20241022, EditTool20250124, EditTool20250429
@@ -10,6 +11,7 @@ __ALL__ = [
     BashTool20241022,
     BashTool20250124,
     BrowserTool20250910,
+    BrowserTool20250910Local,
     CLIResult,
     ComputerTool20241022,
     ComputerTool20250124,
@@ -20,4 +22,5 @@ __ALL__ = [
     ToolResult,
     ToolVersion,
     TOOL_GROUPS_BY_VERSION,
+    get_browser_tool,
 ]

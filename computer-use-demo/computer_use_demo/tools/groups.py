@@ -4,6 +4,7 @@ from typing import Literal
 from .base import BaseAnthropicTool
 from .bash import BashTool20241022, BashTool20250124
 from .browser import BrowserTool20250910
+from .browser_local import BrowserTool20250910Local
 from .computer import ComputerTool20241022, ComputerTool20250124
 from .edit import EditTool20241022, EditTool20250124, EditTool20250429
 
@@ -12,6 +13,7 @@ ToolVersion = Literal[
     "computer_use_20241022",
     "computer_use_20250429",
     "browser_use_20250910",
+    "browser_use_20250910_local",
 ]
 BetaFlag = Literal[
     "computer-use-2024-10-22",
@@ -47,6 +49,11 @@ TOOL_GROUPS: list[ToolGroup] = [
     ToolGroup(
         version="browser_use_20250910",
         tools=[BrowserTool20250910],
+        beta_flag="browser-use-2025-09-10",
+    ),
+    ToolGroup(
+        version="browser_use_20250910_local",
+        tools=[BrowserTool20250910Local],
         beta_flag="browser-use-2025-09-10",
     ),
 ]

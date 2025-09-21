@@ -2,6 +2,7 @@
 Agentic sampling loop that calls the Claude API and local implementation of anthropic-defined computer use tools.
 """
 
+import os
 import platform
 from collections.abc import Callable
 from datetime import datetime
@@ -111,9 +112,18 @@ async def sampling_loop(
     Agentic sampling loop for the assistant/tool interaction of computer use.
     """
     tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
-    tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
 
-    if tool_version == "browser_use_20250910":
+    # Check if we should use the local browser tool
+    if tool_version == "browser_use_20250910_local" or (
+        tool_version == "browser_use_20250910" and os.environ.get("USE_LOCAL_BROWSER") == "true"
+    ):
+        # Use local browser with Playwright
+        from .tools.browser_local import get_browser_tool
+        tool_collection = ToolCollection(get_browser_tool())
+    else:
+        tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
+
+    if tool_version in ["browser_use_20250910", "browser_use_20250910_local"]:
         base_prompt = BROWSER_SYSTEM_PROMPT
     else:
         base_prompt = SYSTEM_PROMPT

@@ -148,7 +148,11 @@ def setup_state():
     if "in_sampling_loop" not in st.session_state:
         st.session_state.in_sampling_loop = False
     if "tool_version" not in st.session_state:
-        st.session_state.tool_version = "computer_use_20250124"
+        # Check if running locally with browser mode
+        if os.environ.get("USE_LOCAL_BROWSER") == "true":
+            st.session_state.tool_version = "browser_use_20250910_local"
+        else:
+            st.session_state.tool_version = "computer_use_20250124"
     if "tool_versions" not in st.session_state:
         st.session_state.tool_versions = st.session_state.tool_version
 
@@ -182,7 +186,7 @@ def _reset_model_conf():
 async def main():
     """Render loop for streamlit"""
     # Set page config FIRST, before setup_state() or any other streamlit commands
-    is_browser_mode = st.session_state.get("tool_version") == "browser_use_20250910"
+    is_browser_mode = st.session_state.get("tool_version") in ["browser_use_20250910", "browser_use_20250910_local"]
     page_title = "Browser Use Demo" if is_browser_mode else "Computer Use Demo"
     st.set_page_config(page_title=page_title, page_icon="🤖")
 
@@ -273,15 +277,23 @@ async def main():
             "bobcat-latest",
         ]
 
+        # Check if we're running locally
+        is_local = os.environ.get("USE_LOCAL_BROWSER") == "true"
+
         # Check if model supports browser mode
         if model_name not in browser_compatible_models:
-            # Remove browser_use_20250910 for older models (Claude 3.x)
-            versions = [v for v in all_versions if v != "browser_use_20250910"]
+            # Remove browser modes for older models (Claude 3.x)
+            versions = [v for v in all_versions if not v.startswith("browser_use")]
             # If current selection is browser mode, switch to default
-            if st.session_state.tool_version == "browser_use_20250910":
+            if st.session_state.tool_version.startswith("browser_use"):
                 st.session_state.tool_version = "computer_use_20250124"
         else:
-            versions = all_versions
+            # Show local browser option only when running locally
+            if is_local:
+                versions = all_versions
+            else:
+                # In Docker, don't show local browser option
+                versions = [v for v in all_versions if v != "browser_use_20250910_local"]
 
         st.radio(
             "Tool Versions",
