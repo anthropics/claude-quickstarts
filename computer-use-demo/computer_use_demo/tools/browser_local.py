@@ -176,7 +176,6 @@ class BrowserTool(BaseAnthropicTool):
                             args=[
                                 "--disable-blink-features=AutomationControlled",
                                 "--disable-dev-shm-usage",
-                                "--no-sandbox",
                             ],
                         )
                         # Create context and page for fallback browser
@@ -187,13 +186,13 @@ class BrowserTool(BaseAnthropicTool):
                         self._page = await self._context.new_page()
                         self._page.set_default_timeout(30000)
                 else:
-                    # No browser server configured, launch directly
+                    # No CDP URL provided, launch new browser directly
+                    log("No CDP URL provided, launching new browser")
                     self._browser = await self._playwright.chromium.launch(
                         headless=False,
                         args=[
                             "--disable-blink-features=AutomationControlled",
                             "--disable-dev-shm-usage",
-                            "--no-sandbox",
                         ],
                     )
                     # Create context and page
@@ -224,7 +223,24 @@ class BrowserTool(BaseAnthropicTool):
             raise ToolError(f"Script file not found: {filename}")
 
         script = script_path.read_text()
-        return await self._execute_js(script, *args)
+
+        # Special handling for browser_dom_script.js
+        if filename == "browser_dom_script.js":
+            # The DOM script defines window.__generateAccessibilityTree function
+            # We need to inject it and then call it
+            filter_type = args[0] if args else ""
+            combined_expression = f"""
+                (function() {{
+                    {script}
+                    return window.__generateAccessibilityTree('{filter_type}');
+                }})()
+            """
+            return await self._execute_js(combined_expression)
+        else:
+            # For other scripts, wrap as a function and call with arguments
+            escaped_args = ", ".join(json.dumps(arg) for arg in args)
+            js_expression = f"({script})({escaped_args})"
+            return await self._execute_js(js_expression)
 
 
     async def _take_screenshot(self) -> ToolResult:
@@ -334,15 +350,14 @@ class BrowserTool(BaseAnthropicTool):
                 if not element_info.get("success", False):
                     raise ToolError(element_info.get("message", "Failed to find element"))
 
-                # Calculate center of element
-                x = element_info["x"] + element_info["width"] // 2
-                y = element_info["y"] + element_info["height"] // 2
+                # Get the coordinates from element_info
+                click_x, click_y = element_info["coordinates"]
 
                 # Move to element and click
-                await self._page.mouse.move(x, y)
+                await self._page.mouse.move(click_x, click_y)
                 await asyncio.sleep(0.1)
-                await self._page.mouse.click(x, y, button=button, click_count=click_count)
-                log(f"Clicked element with ref: {ref} at ({x}, {y})")
+                await self._page.mouse.click(click_x, click_y, button=button, click_count=click_count)
+                log(f"Clicked element with ref: {ref} at ({click_x}, {click_y})")
                 return ToolResult(output=f"Clicked element with ref: {ref}", error=None)
             elif text:
                 # Click on element containing text
@@ -520,7 +535,10 @@ class BrowserTool(BaseAnthropicTool):
             # Use the browser_dom_script.js from reference implementation
             dom_tree = await self._execute_js_from_file("browser_dom_script.js", filter_type)
 
-            if isinstance(dom_tree, dict):
+            # The script returns {pageContent: string}, extract just the pageContent
+            if isinstance(dom_tree, dict) and "pageContent" in dom_tree:
+                return ToolResult(output=dom_tree["pageContent"], error=None)
+            elif isinstance(dom_tree, dict):
                 dom_tree_json = json.dumps(dom_tree, indent=2)
             else:
                 dom_tree_json = str(dom_tree)
@@ -537,40 +555,149 @@ class BrowserTool(BaseAnthropicTool):
 
         try:
             # Use the browser_text_script.js from reference implementation
-            page_text = await self._execute_js_from_file("browser_text_script.js")
-            return ToolResult(output=page_text, error=None)
+            result = await self._execute_js_from_file("browser_text_script.js")
+
+            # Format the output like the reference implementation
+            if isinstance(result, dict):
+                output = f"""Title: {result.get("title", "N/A")}
+URL: {result.get("url", "N/A")}
+Source element: <{result.get("source", "unknown")}>
+---
+{result.get("text", "")}"""
+                return ToolResult(output=output, error=None)
+            else:
+                return ToolResult(output=str(result), error=None)
 
         except Exception as e:
             raise ToolError(f"Failed to get page text: {str(e)}") from e
 
-    async def _find(self, text: str) -> ToolResult:
-        """Find text on the page and highlight it."""
+    async def _find(self, search_query: str) -> ToolResult:
+        """Find elements on the page matching the search query using AI."""
         if self._page is None:
             raise ToolError("Browser not initialized")
 
         try:
-            # Use Playwright's built-in text search
-            elements = await self._page.query_selector_all(f"text={text}")
+            # First get the DOM tree for analysis
+            dom_tree = await self._execute_js_from_file("browser_dom_script.js", "all")
+
+            if isinstance(dom_tree, dict) and "pageContent" in dom_tree:
+                dom_tree_json = dom_tree["pageContent"]
+            else:
+                dom_tree_json = json.dumps(dom_tree, indent=2)
+
+            # Try to use Anthropic API if available
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
+            if api_key:
+                try:
+                    from anthropic import AsyncAnthropic
+
+                    client = AsyncAnthropic(api_key=api_key)
+
+                    prompt = f"""You are helping find elements on a web page. The user wants to find: "{search_query}"
+
+Here is the accessibility tree of the page:
+{dom_tree_json}
+
+Find ALL elements that match the user's query. Return up to 20 most relevant matches, ordered by relevance.
+
+Return your findings in this exact format (one line per matching element):
+
+FOUND: <total_number_of_matching_elements>
+SHOWING: <number_shown_up_to_20>
+---
+ref_X | role | name | type | reason why this matches
+ref_Y | role | name | type | reason why this matches
+...
+
+If there are more than 20 matches, add this line at the end:
+MORE: Use a more specific query to see additional results
+
+If no matching elements are found, return only:
+FOUND: 0
+ERROR: explanation of why no elements were found"""
+
+                    response = await client.messages.create(
+                        model="claude-3-5-sonnet-20241022",
+                        max_tokens=800,
+                        temperature=1.0,
+                        messages=[{"role": "user", "content": prompt}]
+                    )
+
+                    # Handle the response properly
+                    if hasattr(response.content[0], 'text'):
+                        response_text = response.content[0].text.strip()
+                    else:
+                        # Handle other content types if needed
+                        response_text = str(response.content[0])
+                    lines = [line.strip() for line in response_text.split("\n") if line.strip()]
+
+                    total_found = 0
+                    elements = []
+                    has_more = False
+                    error_message = None
+
+                    for line in lines:
+                        if line.startswith("FOUND:"):
+                            try:
+                                total_found = int(line.split(":")[1].strip())
+                            except (ValueError, IndexError):
+                                total_found = 0
+                        elif line.startswith("SHOWING:"):
+                            pass
+                        elif line.startswith("ERROR:"):
+                            error_message = line[6:].strip()
+                        elif line.startswith("MORE:"):
+                            has_more = True
+                        elif line.startswith("ref_") and "|" in line:
+                            parts = [p.strip() for p in line.split("|")]
+                            if len(parts) >= 4:
+                                elements.append({
+                                    "ref": parts[0],
+                                    "role": parts[1],
+                                    "name": parts[2] if len(parts) > 2 else "",
+                                    "type": parts[3] if len(parts) > 3 else "",
+                                    "description": parts[4] if len(parts) > 4 else ""
+                                })
+
+                    if total_found == 0 or len(elements) == 0:
+                        return ToolResult(output=error_message or "No matching elements found", error=None)
+
+                    message = f"Found {total_found} matching element{'s' if total_found != 1 else ''}"
+                    if has_more:
+                        message += f" (showing first {len(elements)}, use a more specific query to narrow results)"
+
+                    # Format elements for output
+                    elements_output = []
+                    for el in elements:
+                        element_str = f"- {el['ref']}: {el['role']}"
+                        if el.get('name'):
+                            element_str += f" {el['name']}"
+                        if el.get('type'):
+                            element_str += f" {el['type']}"
+                        if el.get('description'):
+                            element_str += f" - {el['description']}"
+                        elements_output.append(element_str)
+
+                    elements_str = "\n".join(elements_output)
+                    return ToolResult(output=f"{message}\n\n{elements_str}", error=None)
+
+                except Exception as e:
+                    log(f"Failed to use AI for find, falling back to simple search: {e}")
+
+            # Fallback to simple text search if AI is not available
+            elements = await self._page.query_selector_all(f"*:has-text('{search_query}')")
 
             if not elements:
-                return ToolResult(output=f"Text '{text}' not found on page", error=None)
+                return ToolResult(output=f"No matching elements found for: {search_query}", error=None)
 
-            # Highlight first match
-            await self._page.evaluate("""
-                (element) => {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    element.style.backgroundColor = 'yellow';
-                    element.style.outline = '2px solid red';
-                }
-            """, elements[0])
-
+            # For simple fallback, just report count (no ref_ids without AI analysis)
             return ToolResult(
-                output=f"Found {len(elements)} instance(s) of '{text}'. First match highlighted.",
+                output=f"Found {len(elements)} matching element{'s' if len(elements) != 1 else ''} (Note: AI-based search with ref_ids requires ANTHROPIC_API_KEY)",
                 error=None
             )
 
         except Exception as e:
-            raise ToolError(f"Failed to find text: {str(e)}") from e
+            raise ToolError(f"Failed to find elements: {str(e)}") from e
 
     async def _form_input(self, ref: str, value: Any) -> ToolResult:
         """Fill a form field with a value."""
