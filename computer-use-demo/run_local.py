@@ -50,8 +50,12 @@ def start_browser_server():
     """Start the browser server in the background."""
     print("\nStarting browser server...")
 
-    # Path to browser server script
-    browser_server_path = Path(__file__).parent / "browser_server.py"
+    # Try the new Playwright server first, fallback to old one
+    browser_server_path = Path(__file__).parent / "browser_server_playwright.py"
+    use_playwright_server = browser_server_path.exists()
+
+    if not use_playwright_server:
+        browser_server_path = Path(__file__).parent / "browser_server.py"
 
     if not browser_server_path.exists():
         print(f"Warning: Browser server script not found at {browser_server_path}")
@@ -63,20 +67,28 @@ def start_browser_server():
         process = subprocess.Popen(
             ["python", str(browser_server_path)],
             stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stderr=subprocess.DEVNULL,
+            env={**os.environ}  # Pass environment variables including WIDTH/HEIGHT
         )
 
-        # Give Chrome time to start
-        print("  Launching Chrome browser...")
-        time.sleep(2)
+        # Give browser time to start
+        if use_playwright_server:
+            print("  Launching Playwright browser with persistent context...")
+        else:
+            print("  Launching Chrome browser...")
+        time.sleep(3)  # Give a bit more time for Playwright
 
         # Check if process is still running
         if process.poll() is not None:
             print("Browser server failed to start")
             return None
 
-        # Set the CDP endpoint (HTTP endpoint, not WebSocket)
-        cdp_url = "http://127.0.0.1:9222"
+        # Set the CDP endpoint
+        if use_playwright_server:
+            cdp_url = "http://127.0.0.1:9223"  # Playwright server uses port 9223
+        else:
+            cdp_url = "http://127.0.0.1:9222"  # Chrome CDP uses port 9222
+
         os.environ["BROWSER_CDP_URL"] = cdp_url
         print(f"\n✅ Browser server ready at {cdp_url}")
 

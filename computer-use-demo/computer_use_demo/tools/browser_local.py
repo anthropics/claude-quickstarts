@@ -2,9 +2,10 @@
 
 import asyncio
 import base64
+import json
 import os
 from pathlib import Path
-from typing import Literal, Optional, TypedDict, cast
+from typing import Any, Literal, Optional, TypedDict, cast
 from uuid import uuid4
 
 from anthropic.types.beta import BetaToolUnionParam
@@ -21,10 +22,39 @@ def log(msg):
 OUTPUT_DIR = Path("/tmp/outputs")
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
+# Directory containing browser tool utility files (JS scripts)
+BROWSER_TOOL_UTILS_DIR = Path(__file__).parent / "browser_tool_utils"
+
 
 class BrowserOptions(TypedDict):
     display_width_px: int
     display_height_px: int
+
+
+Actions = Literal[
+    "navigate",
+    "screenshot",
+    "left_click",
+    "right_click",
+    "middle_click",
+    "double_click",
+    "triple_click",
+    "left_click_drag",
+    "left_mouse_down",
+    "left_mouse_up",
+    "scroll",
+    "scroll_to",
+    "type",
+    "key",
+    "hold_key",
+    "read_page",
+    "find",
+    "get_page_text",
+    "wait",
+    "form_input",
+    "zoom",
+    "close_browser",
+]
 
 
 class BrowserTool(BaseAnthropicTool):
@@ -48,6 +78,7 @@ class BrowserTool(BaseAnthropicTool):
         self.width = width
         self.height = height
         self._initialized = False
+        self._event_loop = None  # Track which event loop we're initialized in
         # Get CDP URL from environment
         self.cdp_url = os.environ.get("BROWSER_CDP_URL")
 
@@ -68,6 +99,21 @@ class BrowserTool(BaseAnthropicTool):
 
     async def _ensure_browser(self) -> None:
         """Connect to browser server and ensure page is ready."""
+        # Check if we're in a different event loop than when we initialized
+        try:
+            current_loop = asyncio.get_running_loop()
+            if self._initialized and hasattr(self, '_event_loop'):
+                if self._event_loop != current_loop:
+                    log("Event loop changed, resetting browser connection")
+                    # Reset the browser connection for the new event loop
+                    self._initialized = False
+                    self._browser = None
+                    self._context = None
+                    self._page = None
+                    self._playwright = None
+        except RuntimeError:
+            pass  # No event loop running
+
         if not self._initialized:
             # Start Playwright
             if self._playwright is None:
@@ -101,8 +147,12 @@ class BrowserTool(BaseAnthropicTool):
                             if self._context.pages:
                                 self._page = self._context.pages[0]
                                 log("Reusing existing page")
+                                # Ensure the viewport matches our expected size
+                                await self._page.set_viewport_size({"width": self.width, "height": self.height})
+                                log(f"Set viewport to {self.width}x{self.height}")
                             else:
                                 self._page = await self._context.new_page()
+                                await self._page.set_viewport_size({"width": self.width, "height": self.height})
                                 log("Created new page in existing context")
                         else:
                             # No existing context, create new one
@@ -155,6 +205,27 @@ class BrowserTool(BaseAnthropicTool):
                     self._page.set_default_timeout(30000)
 
             self._initialized = True
+            # Store the event loop we initialized in
+            try:
+                self._event_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                self._event_loop = None
+
+    async def _execute_js(self, script: str, *args) -> Any:
+        """Execute JavaScript in the browser."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+        return await self._page.evaluate(script, *args)
+
+    async def _execute_js_from_file(self, filename: str, *args) -> Any:
+        """Load and execute JavaScript from a file."""
+        script_path = BROWSER_TOOL_UTILS_DIR / filename
+        if not script_path.exists():
+            raise ToolError(f"Script file not found: {filename}")
+
+        script = script_path.read_text()
+        return await self._execute_js(script, *args)
+
 
     async def _take_screenshot(self) -> ToolResult:
         """Take a screenshot of the current page."""
@@ -174,20 +245,392 @@ class BrowserTool(BaseAnthropicTool):
         except Exception as e:
             raise ToolError(f"Failed to take screenshot: {str(e)}") from e
 
+    async def _zoom_screenshot(
+        self, x: int, y: int, width: int, height: int
+    ) -> ToolResult:
+        """Take a screenshot of a specific region."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            # Take screenshot with clipping
+            screenshot_path = OUTPUT_DIR / f"zoom_screenshot_{uuid4().hex}.png"
+            await self._page.screenshot(
+                path=str(screenshot_path),
+                clip={"x": x, "y": y, "width": width, "height": height}
+            )
+
+            # Read the file and encode to base64
+            screenshot_bytes = screenshot_path.read_bytes()
+            image_base64 = base64.b64encode(screenshot_bytes).decode()
+
+            return ToolResult(output="", error=None, base64_image=image_base64)
+        except Exception as e:
+            raise ToolError(f"Failed to take zoom screenshot: {str(e)}") from e
+
+    async def _navigate(self, url: str) -> ToolResult:
+        """Navigate to a URL."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            # Add protocol if missing
+            if not url.startswith(("http://", "https://", "file://", "about:")):
+                url = f"https://{url}"
+
+            await self._page.goto(url, wait_until="domcontentloaded")
+            await asyncio.sleep(2)  # Wait for page to stabilize
+
+            # Take screenshot after navigation
+            return await self._take_screenshot()
+
+        except Exception as e:
+            raise ToolError(f"Failed to navigate to {url}: {str(e)}") from e
+
+    async def _click(
+        self,
+        action: str,
+        coordinate: Optional[tuple[int, int]] = None,
+        ref: Optional[str] = None,
+        text: Optional[str] = None
+    ) -> ToolResult:
+        """Handle various click actions."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            button = "left"
+            click_count = 1
+
+            if action == "right_click":
+                button = "right"
+            elif action == "middle_click":
+                button = "middle"
+            elif action == "double_click":
+                click_count = 2
+            elif action == "triple_click":
+                click_count = 3
+
+            if coordinate:
+                x, y = coordinate
+                # Ensure the page has focus
+                await self._page.bring_to_front()
+
+                # Move mouse to position and click
+                await self._page.mouse.move(x, y)
+                await asyncio.sleep(0.01)  # Small delay to ensure mouse is positioned
+
+                # Perform the click based on type
+                await self._page.mouse.click(x, y, button=button, click_count=click_count)
+
+                log(f"Clicked at ({x}, {y}) with button={button}, click_count={click_count}")
+                return ToolResult(output=f"Clicked at ({x}, {y})", error=None)
+            elif ref:
+                # Use the browser_element_script.js to find and click element
+                element_info = await self._execute_js_from_file(
+                    "browser_element_script.js", ref
+                )
+
+                if not element_info.get("success", False):
+                    raise ToolError(element_info.get("message", "Failed to find element"))
+
+                # Calculate center of element
+                x = element_info["x"] + element_info["width"] // 2
+                y = element_info["y"] + element_info["height"] // 2
+
+                # Move to element and click
+                await self._page.mouse.move(x, y)
+                await asyncio.sleep(0.1)
+                await self._page.mouse.click(x, y, button=button, click_count=click_count)
+                log(f"Clicked element with ref: {ref} at ({x}, {y})")
+                return ToolResult(output=f"Clicked element with ref: {ref}", error=None)
+            elif text:
+                # Click on element containing text
+                await self._page.click(f"text={text}", button=button, click_count=click_count)
+                return ToolResult(output=f"Clicked on text: {text}", error=None)
+            else:
+                raise ToolError("Either coordinate, ref, or text is required for click action")
+
+        except Exception as e:
+            raise ToolError(f"Failed to perform {action}: {str(e)}") from e
+
+    async def _type_text(self, text: str) -> ToolResult:
+        """Type text into the focused element."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            await self._page.keyboard.type(text)
+            return ToolResult(output=f"Typed: {text}", error=None)
+        except Exception as e:
+            raise ToolError(f"Failed to type text: {str(e)}") from e
+
+    async def _press_key(self, key: str, hold: bool = False, duration: float = 0.01) -> ToolResult:
+        """Press a keyboard key or key combination."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            # Load the key map
+            from .browser_tool_utils.browser_key_map import KEY_MAP
+
+            # Handle key combinations (e.g., "cmd+a", "ctrl+c")
+            if "+" in key:
+                await self._page.keyboard.press(key)
+                return ToolResult(output=f"Pressed key combination: {key}", error=None)
+
+            # Map single key if needed
+            key_info = KEY_MAP.get(key.lower())
+            if key_info:
+                key_to_press = key_info.code if hasattr(key_info, 'code') else key
+            else:
+                key_to_press = key
+
+            if hold:
+                await self._page.keyboard.down(key_to_press)
+                await asyncio.sleep(duration)
+                await self._page.keyboard.up(key_to_press)
+                return ToolResult(output=f"Held key '{key}' for {duration} seconds", error=None)
+            else:
+                await self._page.keyboard.press(key_to_press)
+                return ToolResult(output=f"Pressed key: {key}", error=None)
+
+        except Exception as e:
+            raise ToolError(f"Failed to press key '{key}': {str(e)}") from e
+
+    async def _scroll(
+        self,
+        coordinate: Optional[tuple[int, int]] = None,
+        direction: Optional[str] = None,
+        amount: Optional[int] = None
+    ) -> ToolResult:
+        """Scroll the page or element."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            if not direction:
+                direction = "down"
+            if not amount:
+                amount = 3  # Default scroll amount
+
+            # Calculate scroll delta based on direction
+            delta_x = 0
+            delta_y = 0
+
+            if direction == "up":
+                delta_y = -amount * 100
+            elif direction == "down":
+                delta_y = amount * 100
+            elif direction == "left":
+                delta_x = -amount * 100
+            elif direction == "right":
+                delta_x = amount * 100
+
+            if coordinate:
+                x, y = coordinate
+                await self._page.mouse.wheel(delta_x, delta_y)
+            else:
+                # Scroll the main page
+                await self._page.evaluate(f"window.scrollBy({delta_x}, {delta_y})")
+
+            return ToolResult(
+                output=f"Scrolled {direction} by {amount} units",
+                error=None
+            )
+
+        except Exception as e:
+            raise ToolError(f"Failed to scroll: {str(e)}") from e
+
+    async def _scroll_to(self, ref: str) -> ToolResult:
+        """Scroll to a specific element."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            element_info = await self._execute_js_from_file(
+                "browser_element_script.js", ref
+            )
+
+            if not element_info["success"]:
+                raise ToolError(element_info.get("message", "Failed to find element"))
+
+            return ToolResult(output=f"Scrolled to element with ref: {ref}", error=None)
+
+        except Exception as e:
+            raise ToolError(f"Failed to scroll to element: {str(e)}") from e
+
+    async def _drag(
+        self,
+        start_x: int,
+        start_y: int,
+        end_x: int,
+        end_y: int
+    ) -> ToolResult:
+        """Perform a drag operation."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            await self._page.mouse.move(start_x, start_y)
+            await self._page.mouse.down()
+            await self._page.mouse.move(end_x, end_y)
+            await self._page.mouse.up()
+
+            return ToolResult(
+                output=f"Dragged from ({start_x}, {start_y}) to ({end_x}, {end_y})",
+                error=None
+            )
+
+        except Exception as e:
+            raise ToolError(f"Failed to perform drag: {str(e)}") from e
+
+    async def _mouse_down(self, x: int, y: int) -> ToolResult:
+        """Press mouse button down."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            await self._page.mouse.move(x, y)
+            await self._page.mouse.down()
+            return ToolResult(output=f"Mouse down at ({x}, {y})", error=None)
+
+        except Exception as e:
+            raise ToolError(f"Failed to perform mouse down: {str(e)}") from e
+
+    async def _mouse_up(self, x: int, y: int) -> ToolResult:
+        """Release mouse button."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            await self._page.mouse.move(x, y)
+            await self._page.mouse.up()
+            return ToolResult(output=f"Mouse up at ({x}, {y})", error=None)
+
+        except Exception as e:
+            raise ToolError(f"Failed to perform mouse up: {str(e)}") from e
+
+    async def _read_page(self, filter_type: str = "") -> ToolResult:
+        """Get the DOM tree of the current page."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            # Use the browser_dom_script.js from reference implementation
+            dom_tree = await self._execute_js_from_file("browser_dom_script.js", filter_type)
+
+            if isinstance(dom_tree, dict):
+                dom_tree_json = json.dumps(dom_tree, indent=2)
+            else:
+                dom_tree_json = str(dom_tree)
+
+            return ToolResult(output=dom_tree_json, error=None)
+
+        except Exception as e:
+            raise ToolError(f"Failed to read page: {str(e)}") from e
+
+    async def _get_page_text(self) -> ToolResult:
+        """Get the text content of the current page."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            # Use the browser_text_script.js from reference implementation
+            page_text = await self._execute_js_from_file("browser_text_script.js")
+            return ToolResult(output=page_text, error=None)
+
+        except Exception as e:
+            raise ToolError(f"Failed to get page text: {str(e)}") from e
+
+    async def _find(self, text: str) -> ToolResult:
+        """Find text on the page and highlight it."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            # Use Playwright's built-in text search
+            elements = await self._page.query_selector_all(f"text={text}")
+
+            if not elements:
+                return ToolResult(output=f"Text '{text}' not found on page", error=None)
+
+            # Highlight first match
+            await self._page.evaluate("""
+                (element) => {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.style.backgroundColor = 'yellow';
+                    element.style.outline = '2px solid red';
+                }
+            """, elements[0])
+
+            return ToolResult(
+                output=f"Found {len(elements)} instance(s) of '{text}'. First match highlighted.",
+                error=None
+            )
+
+        except Exception as e:
+            raise ToolError(f"Failed to find text: {str(e)}") from e
+
+    async def _form_input(self, ref: str, value: Any) -> ToolResult:
+        """Fill a form field with a value."""
+        if self._page is None:
+            raise ToolError("Browser not initialized")
+
+        try:
+            # Use the browser_form_input_script.js from reference implementation
+            result = await self._execute_js_from_file(
+                "browser_form_input_script.js", ref, value
+            )
+
+            if isinstance(result, dict) and not result.get("success", False):
+                raise ToolError(result.get("message", "Failed to fill form field"))
+
+            return ToolResult(output=f"Filled form field {ref} with value: {value}", error=None)
+
+        except Exception as e:
+            raise ToolError(f"Failed to fill form field: {str(e)}") from e
+
+    async def _wait(self, duration: float) -> ToolResult:
+        """Wait for a specified duration."""
+        try:
+            await asyncio.sleep(duration)
+            return ToolResult(
+                output=f"Waited for {duration} second{'s' if duration != 1 else ''}",
+                error=None
+            )
+        except Exception as e:
+            raise ToolError(f"Failed to wait: {str(e)}") from e
+
     async def __call__(
         self,
         *,
-        action: Literal["navigate", "screenshot", "close_browser"],
+        action: Actions,
         text: Optional[str] = None,
+        ref: Optional[str] = None,
+        coordinate: Optional[tuple[int, int]] = None,
+        start_coordinate: Optional[tuple[int, int]] = None,
+        scroll_direction: Optional[Literal["up", "down", "left", "right"]] = None,
+        scroll_amount: Optional[int] = None,
+        duration: Optional[float] = None,
+        value: Optional[Any] = None,
+        region: Optional[tuple[int, int, int, int]] = None,
         **kwargs,
     ) -> ToolResult:
         """
         Execute browser actions.
 
-        Currently supported actions:
-        - navigate: Navigate to a URL
-        - screenshot: Take a screenshot of the current page
-        - close_browser: Close the browser instance
+        Parameters:
+        - action: The action to perform
+        - text: Text input for type, key, navigate, find actions
+        - ref: Element reference for element-based actions
+        - coordinate: (x, y) coordinates for mouse actions
+        - start_coordinate: Starting point for drag actions
+        - scroll_direction: Direction for scroll action
+        - scroll_amount: Amount to scroll
+        - duration: Duration for wait or hold_key actions
+        - value: Value for form_input action
+        - region: (x, y, width, height) for zoom screenshot
         """
 
         # Ensure browser is running for all actions except close
@@ -197,25 +640,87 @@ class BrowserTool(BaseAnthropicTool):
         if action == "navigate":
             if not text:
                 raise ToolError("URL is required for navigate action")
-
-            if self._page is None:
-                raise ToolError("Browser not initialized")
-
-            try:
-                # Navigate to the URL
-                await self._page.goto(text, wait_until="domcontentloaded")
-
-                # Wait a bit for page to stabilize
-                await asyncio.sleep(2)
-
-                # Take and return screenshot
-                return await self._take_screenshot()
-
-            except Exception as e:
-                raise ToolError(f"Failed to navigate to {text}: {str(e)}") from e
+            return await self._navigate(text)
 
         elif action == "screenshot":
             return await self._take_screenshot()
+
+        elif action == "zoom":
+            if not region:
+                raise ToolError("Region (x, y, width, height) is required for zoom action")
+            x, y, w, h = region
+            return await self._zoom_screenshot(x, y, w, h)
+
+        elif action in ["left_click", "right_click", "middle_click", "double_click", "triple_click"]:
+            return await self._click(action, coordinate, ref, text)
+
+        elif action == "type":
+            if not text:
+                raise ToolError("Text is required for type action")
+            return await self._type_text(text)
+
+        elif action == "key":
+            if not text:
+                raise ToolError("Key is required for key action")
+            return await self._press_key(text)
+
+        elif action == "hold_key":
+            if not text:
+                raise ToolError("Key is required for hold_key action")
+            if not duration:
+                duration = 1.0
+            return await self._press_key(text, hold=True, duration=duration)
+
+        elif action == "scroll":
+            return await self._scroll(coordinate, scroll_direction, scroll_amount)
+
+        elif action == "scroll_to":
+            if not ref:
+                raise ToolError("Element reference is required for scroll_to action")
+            return await self._scroll_to(ref)
+
+        elif action == "left_click_drag":
+            if not start_coordinate or not coordinate:
+                raise ToolError("Both start_coordinate and coordinate are required for drag action")
+            start_x, start_y = start_coordinate
+            end_x, end_y = coordinate
+            return await self._drag(start_x, start_y, end_x, end_y)
+
+        elif action == "left_mouse_down":
+            if not coordinate:
+                raise ToolError("Coordinate is required for mouse_down action")
+            x, y = coordinate
+            return await self._mouse_down(x, y)
+
+        elif action == "left_mouse_up":
+            if not coordinate:
+                raise ToolError("Coordinate is required for mouse_up action")
+            x, y = coordinate
+            return await self._mouse_up(x, y)
+
+        elif action == "read_page":
+            filter_type = text if text in ["interactive", ""] else ""
+            return await self._read_page(filter_type)
+
+        elif action == "get_page_text":
+            return await self._get_page_text()
+
+        elif action == "find":
+            if not text:
+                raise ToolError("Text is required for find action")
+            return await self._find(text)
+
+        elif action == "form_input":
+            if not ref:
+                raise ToolError("Element reference is required for form_input action")
+            if value is None:
+                raise ToolError("Value is required for form_input action")
+            return await self._form_input(ref, value)
+
+        elif action == "wait":
+            if not duration:
+                duration = 1.0
+            return await self._wait(duration)
 
         elif action == "close_browser":
             # When connected to CDP server, just disconnect without closing tabs
@@ -247,17 +752,28 @@ class BrowserTool(BaseAnthropicTool):
             return ToolResult(output="Browser session closed successfully", error=None)
 
         else:
-            raise ToolError(f"Unsupported action: {action}")
+            raise ToolError(f"Unknown action: {action}")
 
     async def cleanup(self):
         """Cleanup method to ensure browser is closed properly."""
         await self.__call__(action="close_browser")
 
 
+# Global singleton instance to maintain browser state
+_browser_tool_instance = None
+
 def get_browser_tool(width: int = 1280, height: int = 720) -> BrowserTool:
-    """Create a new browser tool instance for each request."""
-    # Always create a new instance to avoid event loop issues
-    return BrowserTool(width=width, height=height)
+    """Get or create a persistent browser tool instance."""
+    global _browser_tool_instance
+
+    # Create singleton instance if it doesn't exist
+    if _browser_tool_instance is None:
+        log("Creating new browser tool instance")
+        _browser_tool_instance = BrowserTool(width=width, height=height)
+    else:
+        log("Reusing existing browser tool instance")
+
+    return _browser_tool_instance
 
 
 class BrowserTool20250910(BrowserTool):
