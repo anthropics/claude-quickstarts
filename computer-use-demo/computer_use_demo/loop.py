@@ -115,10 +115,12 @@ async def sampling_loop(
 
     # Check if we should use the local browser tool
     if tool_version == "browser_use_20250910_local" or (
-        tool_version == "browser_use_20250910" and os.environ.get("USE_LOCAL_BROWSER") == "true"
+        tool_version == "browser_use_20250910"
+        and os.environ.get("USE_LOCAL_BROWSER") == "true"
     ):
         # Use local browser with Playwright
-        from .tools.browser_local import get_browser_tool
+        from .tools.browser import get_browser_tool
+
         tool_collection = ToolCollection(get_browser_tool())
     else:
         tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))

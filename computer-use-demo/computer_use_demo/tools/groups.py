@@ -3,7 +3,7 @@ from typing import Literal
 
 from .base import BaseAnthropicTool
 from .bash import BashTool20241022, BashTool20250124
-from .browser_local import BrowserTool20250910
+from .browser import BrowserTool20250910
 from .computer import ComputerTool20241022, ComputerTool20250124
 from .edit import EditTool20241022, EditTool20250124, EditTool20250429
 
