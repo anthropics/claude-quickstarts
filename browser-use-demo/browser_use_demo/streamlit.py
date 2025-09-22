@@ -59,7 +59,7 @@ STREAMLIT_STYLE = """
 BROWSER_COMPATIBLE_MODELS = [
     "claude-sonnet-4-20250514",
     "claude-opus-4-20250514",
-    "bobcat-v21-prod",
+    "claude-boucle-eap",
 ]
 
 class Sender(StrEnum):

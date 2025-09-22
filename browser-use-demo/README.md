@@ -142,7 +142,7 @@ To modify the browser tool or add features:
 
 **API errors?**
 - Verify your Anthropic API key is set correctly
-- Check you're using a compatible model (Claude 4 models: claude-sonnet-4-20250514, claude-opus-4-20250514, or bobcat-v21-prod)
+- Check you're using a compatible model (Claude 4 models: claude-sonnet-4-20250514, claude-opus-4-20250514, or claude-boucle-eap)
 
 **Browser actions failing?**
 - Some websites may have anti-automation measures
