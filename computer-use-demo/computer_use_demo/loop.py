@@ -2,7 +2,6 @@
 Agentic sampling loop that calls the Claude API and local implementation of anthropic-defined computer use tools.
 """
 
-import os
 import platform
 from collections.abc import Callable
 from datetime import datetime
@@ -59,34 +58,12 @@ SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 * When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use str_replace_based_edit_tool or `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
 * When viewing a page it can be helpful to zoom out so that you can see everything on the page.  Either that, or make sure you scroll down to see everything before deciding something isn't available.
 * When using your computer function calls, they take a while to run and send back to you.  Where possible/feasible, try to chain multiple of these calls all into one function calls request.
-* The current date is {datetime.today().strftime("%A, %B %-d, %Y")}.
+* The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
 </SYSTEM_CAPABILITY>
 
 <IMPORTANT>
 * When using Firefox, if a startup wizard appears, IGNORE IT.  Do not even click "skip this step".  Instead, click on the address bar where it says "Search or enter address", and enter the appropriate search term or URL there.
 * If the item you are looking at is a pdf, if after taking a single screenshot of the pdf it seems that you want to read the entire document instead of trying to continue to read the pdf from your screenshots + navigation, determine the URL, use curl to download the pdf, install and use pdftotext to convert it to a text file, and then read that text file directly with your str_replace_based_edit_tool.
-</IMPORTANT>"""
-
-BROWSER_SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
-* You are using a web browser to interact with websites and web applications.
-* You have access to browser actions like navigate, click, type, scroll, and screenshot.
-* Firefox ESR is the browser being used on this system.
-* The current date is {datetime.today().strftime("%A, %B %-d, %Y")}.
-</SYSTEM_CAPABILITY>
-
-<BROWSER_GUIDELINES>
-* When navigating to a URL, use the full URL including https:// or http://
-* Take screenshots frequently to see the current state of the page
-* If a page is loading slowly, use the wait action to give it time
-* For form filling, click on input fields before typing
-* Use scroll actions to see more content on long pages
-* Use keyboard shortcuts with the press action (e.g., "ctrl+a" to select all)
-</BROWSER_GUIDELINES>
-
-<IMPORTANT>
-* When Firefox shows a startup wizard or any popup, close it or navigate directly to your target URL
-* Always verify actions succeeded by taking a screenshot after important operations
-* If clicking on an element doesn't work with coordinates, try clicking nearby or scrolling first
 </IMPORTANT>"""
 
 
@@ -112,27 +89,10 @@ async def sampling_loop(
     Agentic sampling loop for the assistant/tool interaction of computer use.
     """
     tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
-
-    # Check if we should use the local browser tool
-    if tool_version == "browser_use_20250910_local" or (
-        tool_version == "browser_use_20250910"
-        and os.environ.get("USE_LOCAL_BROWSER") == "true"
-    ):
-        # Use local browser with Playwright
-        from .tools.browser import get_browser_tool
-
-        tool_collection = ToolCollection(get_browser_tool())
-    else:
-        tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
-
-    if tool_version in ["browser_use_20250910", "browser_use_20250910_local"]:
-        base_prompt = BROWSER_SYSTEM_PROMPT
-    else:
-        base_prompt = SYSTEM_PROMPT
-
+    tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
     system = BetaTextBlockParam(
         type="text",
-        text=f"{base_prompt}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
+        text=f"{SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
     )
 
     while True:
