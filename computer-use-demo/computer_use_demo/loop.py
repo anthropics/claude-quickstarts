@@ -169,7 +169,10 @@ async def sampling_loop(
         tool_result_content: list[BetaToolResultBlockParam] = []
         for content_block in response_params:
             output_callback(content_block)
-            if isinstance(content_block, dict) and content_block.get("type") == "tool_use":
+            if (
+                isinstance(content_block, dict)
+                and content_block.get("type") == "tool_use"
+            ):
                 # Type narrowing for tool use blocks
                 tool_use_block = cast(BetaToolUseBlockParam, content_block)
                 result = await tool_collection.run(
