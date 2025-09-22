@@ -66,11 +66,11 @@ RUN git clone --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
     ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
 
 # Setup user
-ENV USERNAME=browseruse
+ENV USERNAME=browsertoolsapi
 ENV HOME=/home/$USERNAME
 RUN useradd -m -s /bin/bash -d $HOME $USERNAME
 RUN echo "${USERNAME} ALL=(ALL) NOPASSWD: ALL" >> /etc/sudoers
-USER browseruse
+USER browsertoolsapi
 WORKDIR $HOME
 
 # Setup Python
@@ -93,8 +93,8 @@ RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0
     python -m pip config set global.disable-pip-version-check true
 
 # Copy requirements and install dependencies
-COPY --chown=$USERNAME:$USERNAME browser_use_demo/requirements.txt $HOME/browser_use_demo/requirements.txt
-RUN python -m pip install -r $HOME/browser_use_demo/requirements.txt
+COPY --chown=$USERNAME:$USERNAME browser_tools_api_demo/requirements.txt $HOME/browser_tools_api_demo/requirements.txt
+RUN python -m pip install -r $HOME/browser_tools_api_demo/requirements.txt
 
 # Install Playwright and Chromium
 RUN python -m playwright install chromium && \
@@ -102,7 +102,7 @@ RUN python -m playwright install chromium && \
 
 # Setup desktop environment & app
 COPY --chown=$USERNAME:$USERNAME image/ $HOME
-COPY --chown=$USERNAME:$USERNAME browser_use_demo/ $HOME/browser_use_demo/
+COPY --chown=$USERNAME:$USERNAME browser_tools_api_demo/ $HOME/browser_tools_api_demo/
 
 ARG DISPLAY_NUM=1
 ARG HEIGHT=1080

@@ -1,5 +1,5 @@
 """
-Browser Use Demo - Streamlit interface for browser automation with Claude
+Browser Tools API Demo - Streamlit interface for browser automation with Claude
 """
 
 import asyncio
@@ -20,11 +20,11 @@ from anthropic.types.beta import (
     BetaToolResultBlockParam,
 )
 
-from browser_use_demo.loop import (
+from browser_tools_api_demo.loop import (
     APIProvider,
     sampling_loop,
 )
-from browser_use_demo.tools import ToolResult
+from browser_tools_api_demo.tools import ToolResult
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
     APIProvider.ANTHROPIC: "claude-sonnet-4-20250514",
@@ -209,7 +209,7 @@ async def run_agent(user_input: str):
 def main():
     """Main application entry point."""
     st.set_page_config(
-        page_title="Claude Browser Use Demo",
+        page_title="Claude Browser Tools API Demo",
         page_icon="🌐",
         layout="wide"
     )
@@ -282,7 +282,7 @@ def main():
             st.rerun()
 
     # Main chat interface
-    st.title("🌐 Claude Browser Use Demo")
+    st.title("🌐 Claude Browser Tools API Demo")
     st.markdown(
         "This demo showcases Claude's ability to interact with web browsers using "
         "Playwright automation. Ask Claude to navigate websites, fill forms, "
