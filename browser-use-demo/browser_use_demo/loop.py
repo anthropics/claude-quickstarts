@@ -90,8 +90,10 @@ async def sampling_loop(
     """
     Sampling loop for browser automation.
     """
-    # Create browser tool
-    browser_tool = BrowserTool(width=1280, height=800)
+    # Create browser tool with environment dimensions (fallback to WIDTH/HEIGHT from Docker)
+    browser_width = int(os.environ.get('BROWSER_WIDTH', os.environ.get('WIDTH', '1920')))
+    browser_height = int(os.environ.get('BROWSER_HEIGHT', os.environ.get('HEIGHT', '1080')))
+    browser_tool = BrowserTool(width=browser_width, height=browser_height)
     tool_collection = ToolCollection(browser_tool)
 
     # Build system prompt

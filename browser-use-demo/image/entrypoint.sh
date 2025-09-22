@@ -1,6 +1,14 @@
 #!/bin/bash
 set -e
 
+# Validate environment configuration
+echo "Validating environment configuration..."
+python validate_env.py
+if [ $? -ne 0 ]; then
+    echo "Environment validation failed. Exiting."
+    exit 1
+fi
+
 ./start_all.sh
 ./novnc_startup.sh
 

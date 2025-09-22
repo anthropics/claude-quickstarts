@@ -27,10 +27,10 @@ Unlike the computer-use demo, this focuses specifically on browser automation, m
 
 ### Prerequisites
 
-- Docker installed on your system
+- Docker and Docker Compose installed on your system
 - Anthropic API key
 
-### Build and Run
+### Setup
 
 1. **Clone the repository**:
    ```bash
@@ -38,14 +38,35 @@ Unlike the computer-use demo, this focuses specifically on browser automation, m
    cd browser-use-demo
    ```
 
-2. **Build the Docker image**:
+2. **Configure environment**:
+   ```bash
+   cp .env.example .env
+   # Edit .env file and add your ANTHROPIC_API_KEY
+   # Optionally adjust display resolution (defaults to 1920x1080)
+   ```
+
+### Running with Docker Compose (Recommended)
+
+```bash
+# For production use:
+docker-compose up --build
+
+# For development with file watching (auto-sync changes):
+docker-compose up --build --watch
+```
+
+### Running with Docker (Alternative)
+
+1. **Build the Docker image**:
    ```bash
    docker build . -t browser-use-demo:latest
    ```
 
-3. **Run the container**:
+2. **Run the container**:
    ```bash
    docker run -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+     -e BROWSER_WIDTH=1920 -e BROWSER_HEIGHT=1080 \
+     -e WIDTH=1920 -e HEIGHT=1080 \
      -v $(pwd)/browser_use_demo:/home/browseruse/browser_use_demo/ \
      -p 5900:5900 -p 8501:8501 -p 6080:6080 -p 8080:8080 \
      -it browser-use-demo:latest
