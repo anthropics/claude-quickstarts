@@ -1,27 +1,25 @@
 # Claude Browser Tools API Demo
 
-A containerized web automation demo showcasing Claude's ability to interact with web browsers using Playwright.
+The browser-tools-api-demo is a complete reference implementation for the browser tools api, demonstrating how to implement each action using Playwright as the browser automation framework. It provides a containerized Streamlit interface showcasing every action supported by browser tools including navigation, DOM-based content extraction, and form manipulation.
 
-## Overview
+## Overview of the Browser Tools API
 
-This demo provides a Streamlit-based interface where you can interact with Claude to:
-- Navigate websites
-- Extract information from web pages
-- Fill out forms
-- Interact with web applications
-- Take screenshots
-- Read and analyze web content
+The browser tools api enables Claude to interact with web browsers and web applications. This tool provides:
 
-Unlike the computer-use demo, this focuses specifically on browser automation, making it simpler and more focused on web-specific tasks.
+- **DOM access**: Read page structure with element references
+- **Navigation control**: Browse URLs and manage browser history
+- **Form manipulation**: Directly set form input values
+- **Text extraction**: Get all text content from pages
+- **Element targeting**: Interact with elements via ref or coordinate parameters
+- **Smart scrolling**: Scroll to specific elements or in specific directions
+- **Page search**: Find and highlight text on pages
+- **Visual capture**: Take screenshots and capture zoomed regions
 
-## Features
+### Browser Tools API Advantages
 
-- 🌐 **Browser Automation**: Full Chromium browser running in Docker container
-- 👁️ **Visual Feedback**: See the browser through VNC/NoVNC interface
-- 📝 **Content Extraction**: Extract text and structured data from websites
-- 🎯 **Precise Interactions**: Click, type, scroll, and navigate with accuracy
-- 🛠️ **Action Logging**: View tool usage inline with chat messages
-- 🔒 **Secure**: Fully containerized environment with isolated browser
+- **Reliability**: Element-based targeting via the `ref` parameter works across different screen sizes and layouts, unlike pixel coordinates that break when windows resize
+- **Direct DOM manipulation**: Provides structured visibility into page elements and their properties, enabling precise interactions with dynamic content, hidden elements, and complex web applications
+- **Web-specific actions**: Built-in support for navigation, text extraction, and form completion
 
 ## Quick Start
 
@@ -62,12 +60,54 @@ docker-compose up --build --watch
 
 ## Usage Examples
 
-Once the demo is running, try these prompts in the Streamlit interface:
+Once the demo is running, try these prompts in the Streamlit interface to see how the browser tools api takes actions:
 
 - "Navigate to news.ycombinator.com and tell me the top 3 stories"
 - "Go to google.com and search for 'Anthropic Claude'"
 - "Visit wikipedia.org and find information about artificial intelligence"
 - "Navigate to github.com and search for 'playwright'"
+
+Note that the current playwright implementation hits CAPTCHAs when searching Google.com. To avoid this, we recommended that you specify the website in the prompt (ie. navigate to Anthropic.com and search for x). 
+
+## Implementation Reference
+
+This demo shows how to build browser automation with Claude using Playwright. All browser actions (navigate, click, type, scroll, form_input, etc.) are implemented as methods in [browser.py](browser_use_demo/tools/browser.py) using Playwright's async API.
+
+### Key Files
+
+- **[browser.py](browser_tools_api_demo/tools/browser.py)** - Main tool with all browser actions
+- **[loop.py](browser_tools_api_demo/loop.py)** - Sampling loop for API calls and response handling
+- **[streamlit.py](browser_tools_api_demo/streamlit.py)** - Chat UI
+- **[browser_tool_utils/](browser_tools_api_demo/browser_tool_utils/)** - JavaScript utilities for DOM extraction, element finding, and form manipulation
+
+### Core Patterns
+
+**Element references:** JavaScript utilities generate `ref` identifiers for reliable element targeting across screen sizes (replacing brittle pixel coordinates).
+
+**Tool setup:**
+```python
+browser_tool = BrowserTool(width=1280, height=800)
+
+def to_params(self):
+    return {
+        "name": "browser",
+        "type": "browser_20250910",
+        "display_width_px": self.width,
+        "display_height_px": self.height,
+    }
+```
+
+
+### Modifying & Using as a Template
+
+**To modify this demo:**
+1. Edit `browser_tools_api_demo/tools/browser.py` to add features or change behavior
+2. Rebuild the Docker image (volume mount allows live Python code updates)
+
+**To use as a template for your own project:**
+1. Copy [browser.py](browser_tools_api_demo/tools/browser.py) and [browser_tool_utils/](browser_tools_api_demo/browser_tool_utils/)
+2. Adapt [loop.py](browser_tools_api_demo/loop.py) for your API integration
+3. Build your UI or use [streamlit.py](browser_tools_api_demo/streamlit.py) as a starting point
 
 ## Architecture
 
@@ -97,45 +137,38 @@ Once the demo is running, try these prompts in the Streamlit interface:
 └──────────────────────────────────┘
 ```
 
-## Browser Actions
+## How the Browser Tools API Differs from Computer Use
 
-Claude can perform these browser actions:
+The browser tools api is specifically optimized for web automation with DOM-aware features like element targeting, page reading, and form manipulation. While it shares core capabilities with computer use (mouse/keyboard control, screenshots), browser tools adds web-specific actions like navigation control and DOM inspection. Computer use provides general desktop control with cursor tracking for any application, while browser tools focuses exclusively on browser-based tasks.
 
-- **navigate**: Go to a URL
-- **screenshot**: Take a screenshot of the page
-- **click**: Click on elements (left, right, double, triple clicks)
-- **type**: Enter text in input fields
-- **key**: Press keyboard keys
-- **scroll**: Scroll the page
-- **read_page**: Extract DOM structure and content
-- **get_page_text**: Extract all text from the page
-- **find**: Search for elements on the page
-- **wait**: Wait for a specified duration
+### New Actions Added to the Browser Tools API
 
-## Important Notes
+The browser tools api includes web-optimized actions not available in computer use:
 
-### Content Extraction
+- **navigate**: Visit URLs or traverse browser history
+- **read_page**: Extract DOM tree structure with element references
+- **get_page_text**: Extract all text content from the page
+- **find**: Search and highlight text on pages
+- **form_input**: Set form element values directly
+- **scroll_to**: Scroll elements into view
+- **zoom**: Take zoomed screenshots of specific regions
 
-To extract text content from web pages, Claude should use:
-- `read_page`: Returns structured DOM with element references
-- `get_page_text`: Returns all text content in readable format
+### Computer Use Actions Removed from the Browser Tools API
 
-The `screenshot` action only returns an image and cannot extract text.
+Desktop-level actions that are not available in the browser tools api:
 
-### Security
+- **cursor_position**: Get the current (x, y) pixel coordinate of the cursor
+- **mouse_move**: Move the cursor to specified coordinates without clicking
 
-This demo runs a browser in a containerized environment. While isolated, please:
-- Don't enter personal credentials or sensitive information
-- Be cautious about the websites you visit
-- Remember this is a demonstration tool, not for production use
+These actions are no longer relevant in the browser tools api as you typically interact with elements directly. The `ref` parameter enables reliable element-based tracking and replaces the need for cursor tracking.
 
-## Development
+## Security & Safety
 
-To modify the browser tool or add features:
+This demo runs a browser in a containerized environment. While isolated, please note:
 
-1. Edit files in `browser_tools_api_demo/tools/browser.py`
-2. Rebuild the Docker image
-3. The volume mount allows live code updates for the Python files
+- **Don't enter personal credentials or sensitive information** - This is a demonstration tool
+- **Be cautious about the websites you visit** - Some sites may have anti-automation measures
+- **Not for production use** - This demo is for learning and development purposes only
 
 ## Troubleshooting
 
@@ -152,10 +185,6 @@ To modify the browser tool or add features:
 - Some websites may have anti-automation measures
 - Try simpler websites first to test functionality
 - Check the browser view to see what's happening
-
-## License
-
-This demo is provided as-is for demonstration purposes. See the main repository license for details.
 
 ## Credits
 
