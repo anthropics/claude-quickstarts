@@ -30,7 +30,7 @@ from anthropic.types.beta import (
 from .tools import BrowserTool, ToolCollection, ToolResult
 
 PROMPT_CACHING_BETA_FLAG = "prompt-caching-2024-07-31"
-BROWSER_USE_BETA_FLAG = "browser-use-2025-09-10"
+BROWSER_TOOLS_BETA_FLAG = "browser-tools-2025-09-10"
 
 class APIProvider(StrEnum):
     ANTHROPIC = "anthropic"
@@ -104,7 +104,7 @@ async def sampling_loop(
 
     while True:
         # Configure client and betas
-        betas = [BROWSER_USE_BETA_FLAG]
+        betas = [BROWSER_TOOLS_BETA_FLAG]
         enable_prompt_caching = False
 
         if provider == APIProvider.ANTHROPIC:

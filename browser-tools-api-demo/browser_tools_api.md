@@ -66,7 +66,7 @@ import anthropic
 
 client = anthropic.Anthropic().with_options(
     default_headers={
-        "anthropic-beta": "browser-use-2025-09-10",
+        "anthropic-beta": "browser-tools-2025-09-10",
     }
 )
 
