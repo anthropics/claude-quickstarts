@@ -1,7 +1,8 @@
 /*
  * Modifications Copyright (c) 2025 Anthropic, PBC
- * Modified from original Microsoft Playwright source on 9/23/25
+ * Modified from original Microsoft Playwright source
  * Original Microsoft Playwright source licensed under Apache License 2.0
+ * See CHANGELOG.md for details
  */
 
 // Content script that defines the accessibility tree generation function in the MAIN context
