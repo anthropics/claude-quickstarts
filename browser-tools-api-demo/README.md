@@ -1,4 +1,4 @@
-# Claude Browser Use Demo
+# Claude Browser Tools API Demo
 
 A containerized web automation demo showcasing Claude's ability to interact with web browsers using Playwright.
 
@@ -27,31 +27,35 @@ Unlike the computer-use demo, this focuses specifically on browser automation, m
 
 ### Prerequisites
 
-- Docker installed on your system
+- Docker and Docker Compose installed on your system
 - Anthropic API key
 
-### Build and Run
+### Setup
 
 1. **Clone the repository**:
    ```bash
    git clone <repository-url>
-   cd browser-use-demo
+   cd browser-tools-api-demo
    ```
 
-2. **Build the Docker image**:
+2. **Configure environment**:
    ```bash
-   docker build . -t browser-use-demo:latest
+   cp .env.example .env
+   # Edit .env file and add your ANTHROPIC_API_KEY
+   # Optionally adjust display resolution (defaults to 1920x1080)
    ```
 
-3. **Run the container**:
-   ```bash
-   docker run -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
-     -v $(pwd)/browser_use_demo:/home/browseruse/browser_use_demo/ \
-     -p 5900:5900 -p 8501:8501 -p 6080:6080 -p 8080:8080 \
-     -it browser-use-demo:latest
-   ```
+### Running with Docker Compose
 
-4. **Access the interfaces**:
+```bash
+# For production use:
+docker-compose up --build
+
+# For development with file watching (auto-sync changes):
+docker-compose up --build --watch
+```
+
+### Access the interfaces:
    - **Main UI**: http://localhost:8080 (Streamlit interface)
    - **NoVNC Browser View**: http://localhost:6080 (see the browser)
    - **VNC**: Connect any VNC client to localhost:5900
@@ -129,7 +133,7 @@ This demo runs a browser in a containerized environment. While isolated, please:
 
 To modify the browser tool or add features:
 
-1. Edit files in `browser_use_demo/tools/browser.py`
+1. Edit files in `browser_tools_api_demo/tools/browser.py`
 2. Rebuild the Docker image
 3. The volume mount allows live code updates for the Python files
 

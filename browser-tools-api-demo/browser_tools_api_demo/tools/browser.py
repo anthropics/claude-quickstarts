@@ -81,11 +81,19 @@ class BrowserTool(BaseAnthropicTool):
     _page: Optional[Page] = None
     _playwright = None
 
-    def __init__(self, width: int = 1280, height: int = 800):
+    def __init__(self, width: int = 1920, height: int = 1080):
         """Initialize the browser tool with specified viewport dimensions."""
         super().__init__()
-        self.width = width
-        self.height = height
+        # Require environment variables if not provided as arguments
+        if 'BROWSER_WIDTH' in os.environ:
+            self.width = int(os.environ['BROWSER_WIDTH'])
+        else:
+            self.width = width
+
+        if 'BROWSER_HEIGHT' in os.environ:
+            self.height = int(os.environ['BROWSER_HEIGHT'])
+        else:
+            self.height = height
         self._initialized = False
         self._event_loop = None  # Track which event loop we're initialized in
 
