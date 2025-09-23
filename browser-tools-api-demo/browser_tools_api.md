@@ -1,10 +1,10 @@
-# Browser Tool API
+# Browser Tools API
 
 ---
 
 ## Overview
 
-The browser tool API is an Anthropic set of tools that enable Claude to interact with web browsers and web applications through the Messages API. It provides the following features: 
+The browser tools API is an Anthropic set of tools that enable Claude to interact with web browsers and web applications through the Messages API. It provides the following features: 
 
 * **DOM access**: Read page structure with element references  
 * **Navigation control**: Browse URLs and manage browser history   
@@ -15,7 +15,7 @@ The browser tool API is an Anthropic set of tools that enable Claude to interact
 * **Page search**: Find and highlight text on pages  
 * **Visual capture**: Take screenshots and capture zoomed regions
 
-The browser tool advantages:
+The browser tools API advantages:
 
 * **Reliability:** element-based targeting via the ref parameter works across different screen sizes and layouts, unlike pixel coordinates that break when windows resize.   
 * **Direct DOM manipulation:** provides structured visibility into page elements and their properties, enabling precise interactions with dynamic content, hidden elements, and complex web applications.  
@@ -23,13 +23,13 @@ The browser tool advantages:
 
 ---
 
-## How the browser tool API differs from computer use
+## How the browser tools API differs from computer use
 
-The browser tool API is specifically optimized for web automation with DOM-aware features like element targeting, page reading, and form manipulation. While it shares core capabilities with computer use (mouse/keyboard control, screenshots), the browser tool API adds web-specific actions like navigation control and DOM inspection. Computer use provides general desktop control with cursor tracking for any application, while the browser tool API focuses exclusively on browser-based tasks.
+The browser tools API is specifically optimized for web automation with DOM-aware features like element targeting, page reading, and form manipulation. While it shares core capabilities with computer use (mouse/keyboard control, screenshots), the browser tools API adds web-specific actions like navigation control and DOM inspection. Computer use provides general desktop control with cursor tracking for any application, while the browser tools API focuses exclusively on browser-based tasks.
 
-### New actions added to the browser tool API
+### New actions added to the browser tools API
 
-The browser tool API includes web-optimized actions not available in computer use:
+The browser tools API includes web-optimized actions not available in computer use:
 
 * **navigate**: Visit URLs or traverse browser history  
 * **read_page**: Extract DOM tree structure with element references  
@@ -39,20 +39,20 @@ The browser tool API includes web-optimized actions not available in computer us
 * **scroll_to**: Scroll elements into view  
 * **zoom**: Take zoomed screenshots of specific regions
 
-### Computer use actions removed from the browser tool API
+### Computer use actions removed from the browser tools API
 
-Desktop-level actions that are not available in the browser tool API:
+Desktop-level actions that are not available in the browser tools API:
 
 * **cursor_position**: Get the current (x, y) pixel coordinate of the cursor  
 * **mouse_move**: Move the cursor to specified coordinates without clicking
 
-These actions are no longer relevant in the browser tool API as you typically interact with the elements directly. The **ref** parameter enables reliable element-based tracking and replaces the need for cursor tracking.  
+These actions are no longer relevant in the browser tools API as you typically interact with the elements directly. The **ref** parameter enables reliable element-based tracking and replaces the need for cursor tracking.  
 
 ---
 
 ## Security Considerations
 
-The browser tool API is a beta feature. Please be aware that the browser tool API poses unique risks that are distinct from standard API features or chat interfaces. These risks are heightened when using the tool to interact with the internet. To minimize risks, consider taking precautions such as:
+The browser tools API is a beta feature. Please be aware that the browser tools API poses unique risks that are distinct from standard API features or chat interfaces. These risks are heightened when using the tool to interact with the internet. To minimize risks, consider taking precautions such as:
 
 1. Run the browser in an isolated virtual machine or container environment with minimal privileges to prevent direct system attacks or accidents.  
 2. Avoid giving the model access to sensitive data, such as account login information, to prevent information theft.  
@@ -61,7 +61,7 @@ The browser tool API is a beta feature. Please be aware that the browser tool AP
 
 In some circumstances, Claude will follow commands found in content even if it conflicts with the user's instructions. For example, instructions on webpages or contained in images may override user instructions or cause Claude to make mistakes. We suggest taking precautions to isolate Claude from sensitive data and actions to avoid risks related to prompt injection.
 
-Finally, please inform end users of relevant risks and obtain their consent prior to enabling the browser tool API in your own products.
+Finally, please inform end users of relevant risks and obtain their consent prior to enabling the browser tools API in your own products.
 
 ---
 
@@ -114,9 +114,9 @@ print(message)
 ```
 
 
-## The browser tool API actions reference
+## The browser tools API actions reference
 
-The browser tool API supports the following actions. 
+The browser tools API supports the following actions. 
 
 ### Navigation & Page Information
 
