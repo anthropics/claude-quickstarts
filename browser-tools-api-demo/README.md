@@ -198,6 +198,10 @@ These actions are no longer relevant in the browser tools API as you typically i
 - Try simpler websites first to test functionality
 - Check the browser view to see what's happening
 
+## Attribution
+
+This software includes components from Microsoft Playwright. See the [NOTICE](NOTICE) file for details.
+
 ## Credits
 
 Built with:

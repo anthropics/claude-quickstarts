@@ -1,3 +1,7 @@
+# Modifications Copyright (c) 2025 Anthropic, PBC
+# Modified from original Microsoft Playwright source on 9/23/25
+# Original Microsoft Playwright source licensed under Apache License 2.0
+
 """Browser automation tool using Playwright for web interaction."""
 
 import asyncio
