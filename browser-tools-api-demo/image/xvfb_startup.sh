@@ -29,8 +29,17 @@ wait_for_xvfb() {
 
 # Check if Xvfb is already running
 if check_xvfb_running; then
-    echo "Xvfb is already running on display ${DISPLAY}"
-    exit 0
+    echo "Lock file found for display ${DISPLAY}, checking if display is accessible..."
+    # Verify that the display is actually accessible
+    if xdpyinfo >/dev/null 2>&1; then
+        echo "Xvfb is already running and accessible on display ${DISPLAY}"
+        exit 0
+    else
+        echo "Display ${DISPLAY} is not accessible, cleaning up stale lock file..."
+        rm -f /tmp/.X${DISPLAY_NUM}-lock
+        # Also clean up the socket if it exists
+        rm -f /tmp/.X11-unix/X${DISPLAY_NUM}
+    fi
 fi
 
 # Start Xvfb
