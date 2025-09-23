@@ -15,7 +15,7 @@ The browser tools API enables Claude to interact with web browsers and web appli
 - **Page search**: Find and highlight text on pages
 - **Visual capture**: Take screenshots and capture zoomed regions
 
-### browser tools API Advantages
+### Browser tools API Advantages
 
 - **Reliability**: Element-based targeting via the `ref` parameter works across different screen sizes and layouts, unlike pixel coordinates that break when windows resize
 - **Direct DOM manipulation**: Provides structured visibility into page elements and their properties, enabling precise interactions with dynamic content, hidden elements, and complex web applications
@@ -79,9 +79,6 @@ The browser tools API is a beta feature. Please be aware that the browser tools 
 4. Ask a human to confirm decisions that may result in meaningful real-world consequences as well as any tasks requiring affirmative consent, such as accepting cookies, executing financial transactions, or agreeing to terms of service.
 
 In some circumstances, Claude will follow commands found in content even if it conflicts with the user's instructions. For example, instructions on webpages or contained in images may override user instructions or cause Claude to make mistakes. We suggest taking precautions to isolate Claude from sensitive data and actions to avoid risks related to prompt injection.
-
-Finally, please inform end users of relevant risks and obtain their consent prior to enabling the browser tools API in your own products.
-
 
 Finally, please inform end users of relevant risks and obtain their consent prior to enabling the browser tools API in your own products.
 
