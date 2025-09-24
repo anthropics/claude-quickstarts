@@ -1,3 +1,10 @@
+/*
+ * Modifications Copyright (c) 2025 Anthropic, PBC
+ * Modified from original Microsoft Playwright source
+ * Original Microsoft Playwright source licensed under Apache License 2.0
+ * See CHANGELOG.md for details
+ */
+
 // Script for interacting with elements by their reference IDs
 
 (function(elementRef) {

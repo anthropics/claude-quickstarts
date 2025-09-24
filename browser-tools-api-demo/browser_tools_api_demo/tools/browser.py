@@ -1,9 +1,15 @@
+# Modifications Copyright (c) 2025 Anthropic, PBC
+# Modified from original Microsoft Playwright source
+# Original Microsoft Playwright source licensed under Apache License 2.0
+# See CHANGELOG.md for details
+
 """Browser automation tool using Playwright for web interaction."""
 
 import asyncio
 import base64
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Any, Literal, Optional, TypedDict, cast
 from uuid import uuid4
@@ -114,28 +120,55 @@ class BrowserTool(BaseAnthropicTool):
 
     async def _ensure_browser(self) -> None:
         """Launch browser and ensure page is ready."""
-        try:
-            current_loop = asyncio.get_running_loop()
-            if self._initialized and hasattr(self, "_event_loop"):
-                if self._event_loop != current_loop:
-                    self._initialized = False
-                    self._browser = None
-                    self._context = None
-                    self._page = None
-                    self._playwright = None
-        except RuntimeError:
-            pass
+        # NOTE: We intentionally DON'T reset the browser if the event loop changes
+        # The browser should persist across conversation turns
+        # Commenting out event loop check that was causing browser resets:
+        # try:
+        #     current_loop = asyncio.get_running_loop()
+        #     if self._initialized and hasattr(self, "_event_loop"):
+        #         if self._event_loop != current_loop:
+        #             self._initialized = False
+        #             self._browser = None
+        #             self._context = None
+        #             self._page = None
+        #             self._playwright = None
+        # except RuntimeError:
+        #     pass
+
+        if self._initialized:
+            print(f"[Browser] Reusing existing browser instance", file=sys.stderr, flush=True)
+            if self._page:
+                current_url = self._page.url
+                print(f"[Browser] Current page URL: {current_url}", file=sys.stderr, flush=True)
 
         if not self._initialized:
+            print(f"[Browser] Initializing browser for first time", file=sys.stderr, flush=True)
             if self._playwright is None:
                 from playwright.async_api import async_playwright
 
                 self._playwright = await async_playwright().start()
 
             if self._browser is None:
+                # Simple approach: Use standard viewport that we know works
+                # Default to 1280x720 which is Playwright's standard
+                viewport_width = 1280
+                viewport_height = 720
+
+                # Get display dimensions from environment
+                display_height = int(os.environ.get('DISPLAY_HEIGHT', '720'))
+
+                # Window should fill the entire display
+                # The viewport will be smaller due to chrome, but that's ok
+                window_width = viewport_width
+                window_height = display_height  # Use full display height
+
+                # Launch browser maximized with window manager
                 self._browser = await self._playwright.chromium.launch(
                     headless=False,
                     args=[
+                        f"--window-size={window_width},{window_height}",
+                        "--window-position=0,0",
+                        "--start-maximized",  # Maximize within window manager
                         "--disable-blink-features=AutomationControlled",
                         "--disable-dev-shm-usage",
                         "--no-sandbox",
@@ -143,12 +176,17 @@ class BrowserTool(BaseAnthropicTool):
                         f"--display=:{os.environ.get('DISPLAY_NUM', '1')}",
                     ],
                 )
+
+                # Create context with explicit viewport
                 self._context = await self._browser.new_context(
-                    viewport={"width": self.width, "height": self.height},
+                    viewport={"width": viewport_width, "height": viewport_height},
                     user_agent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 )
                 self._page = await self._context.new_page()
                 self._page.set_default_timeout(30000)
+
+                print(f"[Viewport] Browser initialized with {viewport_width}x{viewport_height}", file=sys.stderr, flush=True)
+                print(f"[Browser] New browser instance created", file=sys.stderr, flush=True)
 
             self._initialized = True
             try:

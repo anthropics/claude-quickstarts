@@ -87,6 +87,15 @@ def setup_state():
         st.session_state.hide_screenshots = False
     if "tools" not in st.session_state:
         st.session_state.tools = {}
+    if "browser_tool" not in st.session_state:
+        # Create persistent browser tool instance
+        from browser_tools_api_demo.tools import BrowserTool
+        browser_width = int(os.environ.get('BROWSER_WIDTH', os.environ.get('WIDTH', '1920')))
+        browser_height = int(os.environ.get('BROWSER_HEIGHT', os.environ.get('HEIGHT', '1080')))
+        st.session_state.browser_tool = BrowserTool(width=browser_width, height=browser_height)
+    if "event_loop" not in st.session_state:
+        # Create persistent event loop for async operations
+        st.session_state.event_loop = None
 
 def authenticate():
     """Handle API key authentication."""
@@ -154,16 +163,8 @@ async def run_agent(user_input: str):
         # Display user message
         _render_message(Sender.USER, user_input)
 
-        # Prepare messages for API
-        api_messages = []
-        for msg in st.session_state.messages:
-            if msg["role"] == "user":
-                api_messages.append({
-                    "role": "user",
-                    "content": msg["content"]
-                })
-            else:
-                api_messages.append(msg)
+        # Prepare messages for API - preserve full conversation history
+        api_messages = list(st.session_state.messages)
 
         # Setup callbacks for streaming responses
         def output_callback(content_block: BetaContentBlockParam):
@@ -180,8 +181,8 @@ async def run_agent(user_input: str):
             if error:
                 st.error(f"API Error: {error}")
 
-        # Run the agent
-        response = await sampling_loop(
+        # Run the agent with persistent browser tool
+        updated_messages = await sampling_loop(
             model=st.session_state.model,
             provider=st.session_state.provider,
             system_prompt_suffix=st.session_state.system_prompt,
@@ -191,14 +192,13 @@ async def run_agent(user_input: str):
             api_response_callback=api_response_callback,
             api_key=st.session_state.api_key,
             max_tokens=st.session_state.max_tokens,
+            browser_tool=st.session_state.browser_tool,  # Pass persistent browser instance
+            only_n_most_recent_images=3,  # Keep only 3 most recent screenshots for context
         )
 
-        # Store the response in session state
-        if response and "content" in response:
-            st.session_state.messages.append({
-                "role": "assistant",
-                "content": response["content"]
-            })
+        # Update session state with the complete message history
+        if updated_messages:
+            st.session_state.messages = updated_messages
 
     except RateLimitError:
         st.error("Rate limit exceeded. Please wait before sending another message.")
@@ -296,7 +296,19 @@ def main():
     # Display conversation history
     for message in st.session_state.messages:
         if message["role"] == "user":
-            _render_message(Sender.USER, message["content"])
+            content = message["content"]
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict):
+                        if block.get("type") == "text":
+                            _render_message(Sender.USER, block["text"])
+                        elif block.get("type") == "image":
+                            # Skip rendering screenshot images in history
+                            pass
+                    else:
+                        _render_message(Sender.USER, block)
+            else:
+                _render_message(Sender.USER, content)
         elif message["role"] == "assistant":
             if isinstance(message["content"], list):
                 for block in message["content"]:
@@ -309,7 +321,14 @@ def main():
 
     # Chat input
     if prompt := st.chat_input("Ask Claude to browse the web..."):
-        asyncio.run(run_agent(prompt))
+        # Use a persistent event loop to avoid Playwright issues with asyncio.run()
+        if st.session_state.event_loop is None or st.session_state.event_loop.is_closed():
+            st.session_state.event_loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(st.session_state.event_loop)
+        else:
+            asyncio.set_event_loop(st.session_state.event_loop)
+
+        st.session_state.event_loop.run_until_complete(run_agent(prompt))
 
 if __name__ == "__main__":
     main()

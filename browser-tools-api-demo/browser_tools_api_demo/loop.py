@@ -6,7 +6,7 @@ import os
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, cast
+from typing import Any, Optional, cast
 
 import httpx
 from anthropic import (
@@ -44,6 +44,15 @@ BROWSER_SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
 * Chromium is the browser being used via Playwright automation.
 * The current date is {datetime.today().strftime("%A, %B %-d, %Y")}.
 </SYSTEM_CAPABILITY>
+
+<BROWSER_STATE_AWARENESS>
+CRITICAL: The browser maintains its state between conversations!
+* You will receive a screenshot showing the CURRENT browser state at the start of each turn
+* LOOK AT THE SCREENSHOT to see what page is currently displayed
+* If you're already on the correct page, DO NOT navigate again - just proceed with the requested action
+* DO NOT repeat previous navigation steps if already on the destination page
+* Example: If asked to "click Interpretability" and screenshot shows you're on the Research page, just click Interpretability - DO NOT re-navigate to Anthropic or Research first
+</BROWSER_STATE_AWARENESS>
 
 <BROWSER_GUIDELINES>
 * When navigating to a URL, use the full URL including https:// or http://
@@ -86,14 +95,21 @@ async def sampling_loop(
     api_key: str,
     only_n_most_recent_images: int | None = None,
     max_tokens: int = 4096,
+    browser_tool: Optional[BrowserTool] = None,
 ):
     """
     Sampling loop for browser automation.
+
+    Args:
+        browser_tool: Optional persistent browser tool instance. If not provided, creates a new one.
     """
-    # Create browser tool with environment dimensions (fallback to WIDTH/HEIGHT from Docker)
-    browser_width = int(os.environ.get('BROWSER_WIDTH', os.environ.get('WIDTH', '1920')))
-    browser_height = int(os.environ.get('BROWSER_HEIGHT', os.environ.get('HEIGHT', '1080')))
-    browser_tool = BrowserTool(width=browser_width, height=browser_height)
+    # Reuse existing browser tool or create a new one
+    if browser_tool is None:
+        # Create browser tool with environment dimensions (fallback to WIDTH/HEIGHT from Docker)
+        browser_width = int(os.environ.get('BROWSER_WIDTH', os.environ.get('WIDTH', '1920')))
+        browser_height = int(os.environ.get('BROWSER_HEIGHT', os.environ.get('HEIGHT', '1080')))
+        browser_tool = BrowserTool(width=browser_width, height=browser_height)
+
     tool_collection = ToolCollection(browser_tool)
 
     # Build system prompt
@@ -129,29 +145,49 @@ async def sampling_loop(
         # Take screenshot if needed
         screenshot_base64 = None
         if only_n_most_recent_images:
+            # Ensure browser is initialized and page is ready before screenshot
+            await tool_collection.tool_map["browser"]._ensure_browser()
+
+            # Wait a moment for any pending navigation to complete
+            import asyncio
+            await asyncio.sleep(0.5)
+
             screenshot_result = await tool_collection.tool_map["browser"](
                 action="screenshot"
             )
             if screenshot_result and screenshot_result.base64_image:
                 screenshot_base64 = screenshot_result.base64_image
-
         # Filter recent images
         if only_n_most_recent_images:
             _maybe_filter_to_n_most_recent_images(messages, only_n_most_recent_images)
+
             if screenshot_base64:
-                messages.append({
-                    "role": "user",
-                    "content": [
-                        BetaImageBlockParam(
-                            type="image",
-                            source={
-                                "type": "base64",
-                                "media_type": "image/png",
-                                "data": screenshot_base64,
-                            }
-                        )
-                    ]
-                })
+                # Add screenshot to the last user message if it exists, otherwise create new message
+                screenshot_block = BetaImageBlockParam(
+                    type="image",
+                    source={
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": screenshot_base64,
+                    }
+                )
+
+                if messages and messages[-1]["role"] == "user":
+                    # Append to existing user message
+                    last_content = messages[-1]["content"]
+                    if isinstance(last_content, str):
+                        messages[-1]["content"] = [
+                            BetaTextBlockParam(type="text", text=last_content),
+                            screenshot_block
+                        ]
+                    elif isinstance(last_content, list):
+                        messages[-1]["content"].append(screenshot_block)
+                else:
+                    # Create new user message with just the screenshot
+                    messages.append({
+                        "role": "user",
+                        "content": [screenshot_block]
+                    })
 
         # Make API call
         try:
@@ -265,7 +301,7 @@ async def sampling_loop(
         # Check if we need to continue
         if not any(block.type == "tool_use" for block in response.content):
             messages.append(assistant_message)
-            break
+            return messages
 
 def _maybe_filter_to_n_most_recent_images(
     messages: list[BetaMessageParam],

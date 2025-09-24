@@ -1,5 +1,9 @@
 # Claude Quickstarts Development Guide
 
+## Legal
+
+- When changes are made to files that have a copyright notice add them to that subdirectory's CHANGELOG.md file.
+
 ## Computer-Use Demo
 
 ### Setup & Development
