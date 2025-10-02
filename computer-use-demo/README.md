@@ -1,7 +1,7 @@
 # Anthropic Computer Use Demo
 
 > [!NOTE]
-> Now featuring support for the new Claude 4 models! The latest Claude 4 Sonnet (claude-sonnet-4-20250514) is now the default model, with Claude 4 Opus (claude-opus-4-20250514) also available. These models bring next-generation capabilities with the updated str_replace_based_edit_tool that replaces the previous str_replace_editor tool. The undo_edit command has been removed in this latest version for a more streamlined experience.
+> Now featuring support for the new Claude 4 models! The latest Claude 4.5 Sonnet (claude-sonnet-4-5-20250929) is now the default model, with Claude 4 Sonnet (claude-sonnet-4-20250514) and Claude 4 Opus (claude-opus-4-20250514) also available. These models bring next-generation capabilities with the updated str_replace_based_edit_tool that replaces the previous str_replace_editor tool. The undo_edit command has been removed in this latest version for a more streamlined experience.
 
 > [!CAUTION]
 > Computer use is a beta feature. Please be aware that computer use poses unique risks that are distinct from standard API features or chat interfaces. These risks are heightened when using computer use to interact with the internet. To minimize risks, consider taking precautions such as:
