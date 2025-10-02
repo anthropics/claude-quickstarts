@@ -32,7 +32,7 @@ from computer_use_demo.loop import (
 from computer_use_demo.tools import ToolResult, ToolVersion
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
-    APIProvider.ANTHROPIC: "claude-sonnet-4-20250514",
+    APIProvider.ANTHROPIC: "claude-sonnet-4-5-20250929",
     APIProvider.BEDROCK: "anthropic.claude-3-5-sonnet-20241022-v2:0",
     APIProvider.VERTEX: "claude-3-5-sonnet-v2@20241022",
 }
@@ -66,10 +66,18 @@ CLAUDE_4 = ModelConfig(
     has_thinking=True,
 )
 
+CLAUDE_4_5 = ModelConfig(
+    tool_version="computer_use_20250124",
+    max_output_tokens=128_000,
+    default_output_tokens=1024 * 16,
+    has_thinking=True,
+)
+
 MODEL_TO_MODEL_CONF: dict[str, ModelConfig] = {
     "claude-3-7-sonnet-20250219": SONNET_3_7,
     "claude-opus-4@20250508": CLAUDE_4,
     "claude-sonnet-4-20250514": CLAUDE_4,
+    "claude-sonnet-4-5-20250929": CLAUDE_4_5,
     "claude-opus-4-20250514": CLAUDE_4,
 }
 
@@ -513,10 +521,10 @@ def _render_message(
                 thinking_content = message.get("thinking", "")
                 st.markdown(f"[Thinking]\n\n{thinking_content}")
             elif message["type"] == "tool_use":
-                st.code(f'Tool Use: {message["name"]}\nInput: {message["input"]}')
+                st.code(f"Tool Use: {message['name']}\nInput: {message['input']}")
             else:
                 # only expected return types are text and tool_use
-                raise Exception(f'Unexpected response type {message["type"]}')
+                raise Exception(f"Unexpected response type {message['type']}")
         else:
             st.markdown(message)
 
