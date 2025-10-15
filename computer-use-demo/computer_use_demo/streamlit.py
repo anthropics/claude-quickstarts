@@ -73,12 +73,22 @@ CLAUDE_4_5 = ModelConfig(
     has_thinking=True,
 )
 
+HAIKU_4_5 = ModelConfig(
+    tool_version="computer_use_20250124",
+    max_output_tokens=1024 * 8,
+    default_output_tokens=1024 * 4,
+    has_thinking=False,
+)
+
 MODEL_TO_MODEL_CONF: dict[str, ModelConfig] = {
     "claude-3-7-sonnet-20250219": SONNET_3_7,
     "claude-opus-4@20250508": CLAUDE_4,
     "claude-sonnet-4-20250514": CLAUDE_4,
     "claude-sonnet-4-5-20250929": CLAUDE_4_5,
     "claude-opus-4-20250514": CLAUDE_4,
+    "claude-haiku-4-5-20251001": HAIKU_4_5,
+    "anthropic.claude-haiku-4-5-20251001-v1:0": HAIKU_4_5,  # Bedrock
+    "claude-haiku-4-5@20251001": HAIKU_4_5,  # Vertex
 }
 
 CONFIG_DIR = PosixPath("~/.anthropic").expanduser()
