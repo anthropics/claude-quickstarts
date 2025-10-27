@@ -90,9 +90,16 @@ RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0
 COPY --chown=$USERNAME:$USERNAME computer_use_demo/requirements.txt $HOME/computer_use_demo/requirements.txt
 RUN python -m pip install -r $HOME/computer_use_demo/requirements.txt
 
+# Install Playwright browsers for DocuSeal automation
+RUN python -m playwright install chromium && \
+    python -m playwright install-deps chromium
+
 # setup desktop env & app
 COPY --chown=$USERNAME:$USERNAME image/ $HOME
 COPY --chown=$USERNAME:$USERNAME computer_use_demo/ $HOME/computer_use_demo/
+
+# Copy DocuSeal skills
+COPY --chown=$USERNAME:$USERNAME skills/ /home/computeruse/skills/
 
 ARG DISPLAY_NUM=1
 ARG HEIGHT=768

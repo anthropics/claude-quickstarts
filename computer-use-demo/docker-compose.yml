@@ -1,0 +1,140 @@
+version: '3.8'
+
+services:
+  # Claude Computer Use Agent with DocuSeal integration
+  claude-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: claude-docuseal-agent
+    environment:
+      # Anthropic API
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+
+      # DocuSeal configuration
+      - DOCUSEAL_URL=${DOCUSEAL_URL:-http://docuseal:3000}
+      - DOCUSEAL_API_KEY=${DOCUSEAL_API_KEY}
+
+      # Display configuration
+      - WIDTH=${WIDTH:-1024}
+      - HEIGHT=${HEIGHT:-768}
+      - DISPLAY_NUM=1
+
+      # API provider (anthropic, bedrock, or vertex)
+      - API_PROVIDER=${API_PROVIDER:-anthropic}
+
+    ports:
+      - "5900:5900"   # VNC
+      - "8501:8501"   # Streamlit
+      - "6080:6080"   # noVNC web interface
+      - "8080:8080"   # Combined interface
+    volumes:
+      # Persist settings between runs
+      - anthropic-settings:/home/computeruse/.anthropic
+
+      # Development: mount local code for live updates
+      - ./computer_use_demo:/home/computeruse/computer_use_demo
+      - ./skills:/home/computeruse/skills
+
+      # Logs
+      - ./logs:/home/computeruse/logs
+    restart: unless-stopped
+    depends_on:
+      - docuseal
+    networks:
+      - docuseal-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8501"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # DocuSeal instance for template management
+  docuseal:
+    image: docuseal/docuseal:latest
+    container_name: docuseal
+    environment:
+      # Database configuration
+      - DATABASE_URL=postgresql://docuseal:docuseal_password@postgres:5432/docuseal
+
+      # Secret key for encryption (change in production!)
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE:-change_me_in_production_minimum_32_characters}
+
+      # Application URL
+      - APP_URL=${DOCUSEAL_PUBLIC_URL:-http://localhost:3000}
+
+      # Email configuration (optional)
+      - SMTP_ADDRESS=${SMTP_ADDRESS:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_DOMAIN=${SMTP_DOMAIN:-}
+
+    ports:
+      - "3000:3000"
+    volumes:
+      - docuseal-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - docuseal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # PostgreSQL database for DocuSeal
+  postgres:
+    image: postgres:15-alpine
+    container_name: docuseal-postgres
+    environment:
+      - POSTGRES_DB=docuseal
+      - POSTGRES_USER=docuseal
+      - POSTGRES_PASSWORD=docuseal_password
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - docuseal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U docuseal"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Nginx reverse proxy (optional, for production)
+  nginx:
+    image: nginx:alpine
+    container_name: docuseal-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - claude-agent
+      - docuseal
+    networks:
+      - docuseal-network
+    restart: unless-stopped
+    profiles:
+      - production
+
+volumes:
+  # Persistent storage
+  anthropic-settings:
+    driver: local
+  docuseal-data:
+    driver: local
+  postgres-data:
+    driver: local
+
+networks:
+  docuseal-network:
+    driver: bridge
