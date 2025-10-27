@@ -1,0 +1,815 @@
+{
+  "examples": [
+    {
+      "name": "Simple Signature Block",
+      "description": "Basic signature and date fields at bottom of document",
+      "use_case": "Quick signature capture for single-page documents",
+      "fields": [
+        {
+          "name": "Client Signature",
+          "type": "signature",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.85,
+              "w": 0.3,
+              "h": 0.05,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Date Signed",
+          "type": "date",
+          "required": true,
+          "default_value": "{{date}}",
+          "areas": [
+            {
+              "x": 0.6,
+              "y": 0.85,
+              "w": 0.15,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Dual Signature Contract",
+      "description": "Two-party signature block with names and dates",
+      "use_case": "Contracts, agreements, NDAs",
+      "fields": [
+        {
+          "name": "Party A Name",
+          "type": "text",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.75,
+              "w": 0.3,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Party A Signature",
+          "type": "signature",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.82,
+              "w": 0.3,
+              "h": 0.05,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Party A Date",
+          "type": "date",
+          "required": true,
+          "default_value": "{{date}}",
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.90,
+              "w": 0.15,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Party B Name",
+          "type": "text",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.6,
+              "y": 0.75,
+              "w": 0.3,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Party B Signature",
+          "type": "signature",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.6,
+              "y": 0.82,
+              "w": 0.3,
+              "h": 0.05,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Party B Date",
+          "type": "date",
+          "required": true,
+          "default_value": "{{date}}",
+          "areas": [
+            {
+              "x": 0.6,
+              "y": 0.90,
+              "w": 0.15,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Contact Information Form",
+      "description": "Two-column form for collecting contact details",
+      "use_case": "Registration forms, client intake",
+      "fields": [
+        {
+          "name": "First Name",
+          "type": "text",
+          "required": true,
+          "validation_pattern": "^[A-Za-z\\s]+$",
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.2,
+              "w": 0.35,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Last Name",
+          "type": "text",
+          "required": true,
+          "validation_pattern": "^[A-Za-z\\s]+$",
+          "areas": [
+            {
+              "x": 0.55,
+              "y": 0.2,
+              "w": 0.35,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Email Address",
+          "type": "text",
+          "required": true,
+          "validation_pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.27,
+              "w": 0.35,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Phone Number",
+          "type": "text",
+          "required": true,
+          "validation_pattern": "^\\+?[0-9\\s\\-\\(\\)]+$",
+          "areas": [
+            {
+              "x": 0.55,
+              "y": 0.27,
+              "w": 0.35,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Street Address",
+          "type": "text",
+          "required": false,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.34,
+              "w": 0.8,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "City",
+          "type": "text",
+          "required": false,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.41,
+              "w": 0.25,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "State",
+          "type": "select",
+          "required": false,
+          "options": [
+            "AL",
+            "AK",
+            "AZ",
+            "AR",
+            "CA",
+            "CO",
+            "CT",
+            "DE",
+            "FL",
+            "GA"
+          ],
+          "areas": [
+            {
+              "x": 0.45,
+              "y": 0.41,
+              "w": 0.15,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "ZIP Code",
+          "type": "text",
+          "required": false,
+          "validation_pattern": "^\\d{5}(-\\d{4})?$",
+          "areas": [
+            {
+              "x": 0.7,
+              "y": 0.41,
+              "w": 0.2,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Multi-Page Agreement with Initials",
+      "description": "Initials on each page, signature at end",
+      "use_case": "Multi-page contracts requiring page-by-page acknowledgment",
+      "fields": [
+        {
+          "name": "Page Acknowledgment",
+          "type": "initials",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.85,
+              "y": 0.92,
+              "w": 0.08,
+              "h": 0.04,
+              "page": 1
+            },
+            {
+              "x": 0.85,
+              "y": 0.92,
+              "w": 0.08,
+              "h": 0.04,
+              "page": 2
+            },
+            {
+              "x": 0.85,
+              "y": 0.92,
+              "w": 0.08,
+              "h": 0.04,
+              "page": 3
+            }
+          ]
+        },
+        {
+          "name": "Printed Name",
+          "type": "text",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.78,
+              "w": 0.35,
+              "h": 0.03,
+              "page": 4
+            }
+          ]
+        },
+        {
+          "name": "Final Signature",
+          "type": "signature",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.85,
+              "w": 0.35,
+              "h": 0.05,
+              "page": 4
+            }
+          ]
+        },
+        {
+          "name": "Date Signed",
+          "type": "date",
+          "required": true,
+          "default_value": "{{date}}",
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.92,
+              "w": 0.2,
+              "h": 0.03,
+              "page": 4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Checkbox Agreement Form",
+      "description": "Multiple checkbox options with signature",
+      "use_case": "Terms of service, consent forms, preference selection",
+      "fields": [
+        {
+          "name": "I agree to the terms",
+          "type": "checkbox",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.5,
+              "w": 0.02,
+              "h": 0.02,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "I consent to data processing",
+          "type": "checkbox",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.55,
+              "w": 0.02,
+              "h": 0.02,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "I opt in to marketing",
+          "type": "checkbox",
+          "required": false,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.6,
+              "w": 0.02,
+              "h": 0.02,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Signature",
+          "type": "signature",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.85,
+              "w": 0.3,
+              "h": 0.05,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Employment Application",
+      "description": "Comprehensive employment application form",
+      "use_case": "Job applications, onboarding forms",
+      "fields": [
+        {
+          "name": "Full Name",
+          "type": "text",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.15,
+              "w": 0.4,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Social Security Number",
+          "type": "text",
+          "required": true,
+          "validation_pattern": "^\\d{3}-\\d{2}-\\d{4}$",
+          "areas": [
+            {
+              "x": 0.6,
+              "y": 0.15,
+              "w": 0.3,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Email",
+          "type": "text",
+          "required": true,
+          "validation_pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.22,
+              "w": 0.35,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Phone",
+          "type": "text",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.55,
+              "y": 0.22,
+              "w": 0.35,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Position Applied For",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Software Engineer",
+            "Product Manager",
+            "Designer",
+            "Sales Representative",
+            "Customer Support"
+          ],
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.29,
+              "w": 0.4,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Available Start Date",
+          "type": "date",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.6,
+              "y": 0.29,
+              "w": 0.3,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Expected Salary",
+          "type": "number",
+          "required": false,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.36,
+              "w": 0.2,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Applicant Signature",
+          "type": "signature",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.85,
+              "w": 0.35,
+              "h": 0.05,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Application Date",
+          "type": "date",
+          "required": true,
+          "default_value": "{{date}}",
+          "areas": [
+            {
+              "x": 0.6,
+              "y": 0.88,
+              "w": 0.2,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Payment Authorization",
+      "description": "Payment field with authorization signature",
+      "use_case": "Payment processing, billing authorization",
+      "fields": [
+        {
+          "name": "Cardholder Name",
+          "type": "text",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.4,
+              "w": 0.4,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Payment Amount",
+          "type": "payment",
+          "required": true,
+          "default_value": "100.00",
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.5,
+              "w": 0.3,
+              "h": 0.05,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Authorization Signature",
+          "type": "signature",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.7,
+              "w": 0.3,
+              "h": 0.05,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Date",
+          "type": "date",
+          "required": true,
+          "default_value": "{{date}}",
+          "areas": [
+            {
+              "x": 0.5,
+              "y": 0.73,
+              "w": 0.2,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Radio Button Selection",
+      "description": "Radio buttons for single-choice options",
+      "use_case": "Multiple choice questions, preference selection",
+      "fields": [
+        {
+          "name": "Payment Method",
+          "type": "radio",
+          "required": true,
+          "options": [
+            "Credit Card",
+            "Bank Transfer",
+            "Check",
+            "Cash"
+          ],
+          "areas": [
+            {
+              "x": 0.15,
+              "y": 0.3,
+              "w": 0.02,
+              "h": 0.02,
+              "page": 1
+            },
+            {
+              "x": 0.15,
+              "y": 0.35,
+              "w": 0.02,
+              "h": 0.02,
+              "page": 1
+            },
+            {
+              "x": 0.15,
+              "y": 0.4,
+              "w": 0.02,
+              "h": 0.02,
+              "page": 1
+            },
+            {
+              "x": 0.15,
+              "y": 0.45,
+              "w": 0.02,
+              "h": 0.02,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Image Upload Form",
+      "description": "Form with image and file upload fields",
+      "use_case": "Profile creation, document submission",
+      "fields": [
+        {
+          "name": "Profile Photo",
+          "type": "image",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.7,
+              "y": 0.15,
+              "w": 0.15,
+              "h": 0.15,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Full Name",
+          "type": "text",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.15,
+              "w": 0.5,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Resume Upload",
+          "type": "file",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.4,
+              "w": 0.4,
+              "h": 0.04,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Supporting Documents",
+          "type": "file",
+          "required": false,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.47,
+              "w": 0.4,
+              "h": 0.04,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Invoice Template",
+      "description": "Invoice with line items and payment fields",
+      "use_case": "Billing, invoicing",
+      "fields": [
+        {
+          "name": "Invoice Number",
+          "type": "text",
+          "required": true,
+          "default_value": "INV-001",
+          "areas": [
+            {
+              "x": 0.7,
+              "y": 0.12,
+              "w": 0.2,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Invoice Date",
+          "type": "date",
+          "required": true,
+          "default_value": "{{date}}",
+          "areas": [
+            {
+              "x": 0.7,
+              "y": 0.17,
+              "w": 0.2,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Client Name",
+          "type": "text",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.25,
+              "w": 0.4,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Total Amount",
+          "type": "number",
+          "required": true,
+          "areas": [
+            {
+              "x": 0.7,
+              "y": 0.7,
+              "w": 0.2,
+              "h": 0.04,
+              "page": 1
+            }
+          ]
+        },
+        {
+          "name": "Payment Terms",
+          "type": "select",
+          "required": true,
+          "options": [
+            "Net 30",
+            "Net 60",
+            "Due on Receipt",
+            "Net 90"
+          ],
+          "default_value": "Net 30",
+          "areas": [
+            {
+              "x": 0.1,
+              "y": 0.8,
+              "w": 0.25,
+              "h": 0.03,
+              "page": 1
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
