@@ -22,7 +22,7 @@ A financial data analyst powered by Claude. This project demonstrates how to lev
 
 ### Computer Use Demo
 
-An environment and tools that Claude can use to control a desktop computer. This project demonstrates how to leverage the computer use capabilities of the new Claude 3.5 Sonnet model.
+An environment and tools that Claude can use to control a desktop computer. This project demonstrates how to leverage the computer use capabilities of the new Claude 3.7 Sonnet model.
 
 [Go to Computer Use Demo Quickstart](./computer-use-demo)
 
