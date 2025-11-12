@@ -18,7 +18,7 @@
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.452.0",
-    "next": "14.2.15",
+    "next": "^14.2.33",
     "next-themes": "^0.3.0",
     "pdfjs-dist": "^4.7.76",
     "react": "^18",
