@@ -16,7 +16,7 @@ Before working with this project, ensure Claude is properly configured:
 
 See full setup guide: ~/Library/CloudStorage/GoogleDrive-*/My\ Drive/Claude\ Settings\ Sync/UNIVERSAL_CLAUDE_SETUP.md
 
-# Anthropic Quickstarts Development Guide
+# Claude Quickstarts Development Guide
 
 ## Computer-Use Demo
 

@@ -18,7 +18,13 @@ from .utils.tool_util import execute_tools
 class ModelConfig:
     """Configuration settings for Claude model parameters."""
 
-    model: str = "claude-3-7-sonnet-20250219"
+    # Available models include:
+    # - claude-sonnet-4-20250514 (default)
+    # - claude-opus-4-20250514
+    # - claude-haiku-4-5-20251001
+    # - claude-3-5-sonnet-20240620
+    # - claude-3-haiku-20240307
+    model: str = "claude-sonnet-4-20250514"
     max_tokens: int = 4096
     temperature: float = 1.0
     context_window_tokens: int = 180000
@@ -36,13 +42,28 @@ class Agent:
         config: ModelConfig | None = None,
         verbose: bool = False,
         client: Anthropic | None = None,
+        message_params: dict[str, Any] | None = None,
     ):
+        """Initialize an Agent.
+        
+        Args:
+            name: Agent identifier for logging
+            system: System prompt for the agent
+            tools: List of tools available to the agent
+            mcp_servers: MCP server configurations
+            config: Model configuration with defaults
+            verbose: Enable detailed logging
+            client: Anthropic client instance
+            message_params: Additional parameters for client.messages.create().
+                           These override any conflicting parameters from config.
+        """
         self.name = name
         self.system = system
         self.verbose = verbose
         self.tools = list(tools or [])
         self.config = config or ModelConfig()
         self.mcp_servers = mcp_servers or []
+        self.message_params = message_params or {}
         self.client = client or Anthropic(
             api_key=os.environ.get("ANTHROPIC_API_KEY", "")
         )
@@ -56,9 +77,12 @@ class Agent:
         if self.verbose:
             print(f"\n[{self.name}] Agent initialized")
 
-    def _prepare_api_params(self) -> dict[str, Any]:
-        """Prepare parameters for Claude API call."""
-        # Use system prompt directly without prefixing
+    def _prepare_message_params(self) -> dict[str, Any]:
+        """Prepare parameters for client.messages.create() call.
+        
+        Returns a dict with base parameters from config, with any
+        message_params overriding conflicting keys.
+        """
         return {
             "model": self.config.model,
             "max_tokens": self.config.max_tokens,
@@ -66,6 +90,7 @@ class Agent:
             "system": self.system,
             "messages": self.history.format_for_api(),
             "tools": [tool.to_dict() for tool in self.tools],
+            **self.message_params,
         }
 
     async def _agent_loop(self, user_input: str) -> list[dict[str, Any]]:
@@ -78,9 +103,21 @@ class Agent:
 
         while True:
             self.history.truncate()
-            params = self._prepare_api_params()
+            params = self._prepare_message_params()
 
-            response = self.client.messages.create(**params)
+            # Merge headers properly - default beta header can be overridden by message_params
+            default_headers = {"anthropic-beta": "code-execution-2025-05-22"}
+            if "extra_headers" in params:
+                # Pop extra_headers from params and merge with defaults
+                custom_headers = params.pop("extra_headers")
+                merged_headers = {**default_headers, **custom_headers}
+            else:
+                merged_headers = default_headers
+
+            response = self.client.messages.create(
+                **params,
+                extra_headers=merged_headers
+            )
             tool_calls = [
                 block for block in response.content if block.type == "tool_use"
             ]

@@ -557,5 +557,10 @@ class EditTool20250429(BaseAnthropicTool):
         )
 
 
+class EditTool20250728(EditTool20250124):
+    api_type: Literal["text_editor_20250728"] = "text_editor_20250728"  # pyright: ignore[reportIncompatibleVariableOverride]
+    name: Literal["str_replace_based_edit_tool"] = "str_replace_based_edit_tool"  # pyright: ignore[reportIncompatibleVariableOverride]
+
+
 class EditTool20241022(EditTool20250124):
     api_type: Literal["text_editor_20250429"] = "text_editor_20250429"  # pyright: ignore[reportIncompatibleVariableOverride]

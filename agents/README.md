@@ -1,16 +1,16 @@
 # Agents
 
-A minimal educational implementation of LLM agents using the Anthropic API.
+A minimal educational implementation of LLM agents using the Claude API.
 
 > **Note:** This is NOT an SDK, but a reference implementation of key concepts
 
 ## Overview & Core Components
 
-This repo demonstrates how to [build effective agents](https://www.anthropic.com/engineering/building-effective-agents) with the Anthropic API. It shows how sophisticated AI behaviors can emerge from a simple foundation: LLMs using tools in a loop. This implementation is not prescriptive - the core logic is <300 lines of code and deliberately lacks production features. Feel free to translate these patterns to your language and production stack ([Claude Code](https://docs.anthropic.com/en/docs/agents-and-tools/claude-code/overview) can help!)
+This repo demonstrates how to [build effective agents](https://www.anthropic.com/engineering/building-effective-agents) with the Claude API. It shows how sophisticated AI behaviors can emerge from a simple foundation: LLMs using tools in a loop. This implementation is not prescriptive - the core logic is <300 lines of code and deliberately lacks production features. Feel free to translate these patterns to your language and production stack ([Claude Code](https://docs.claude.com/en/docs/agents-and-tools/claude-code/overview) can help!)
 
 It contains three components:
 
-- `agent.py`: Manages Anthropic API interactions and tool execution
+- `agent.py`: Manages Claude API interactions and tool execution
 - `tools/`: Tool implementations (both native and MCP tools)
 - `utils/`: Utilities for message history and MCP server connections
 
@@ -43,6 +43,6 @@ From this foundation, you can add domain-specific tools, optimize performance, o
 ## Requirements
 
 - Python 3.8+
-- Anthropic API key (set as `ANTHROPIC_API_KEY` environment variable)
+- Claude API key (set as `ANTHROPIC_API_KEY` environment variable)
 - `anthropic` Python library
 - `mcp` Python library

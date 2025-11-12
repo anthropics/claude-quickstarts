@@ -192,7 +192,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    console.log("🚀 Final Anthropic API Request:", {
+    console.log("🚀 Final Claude API Request:", {
       endpoint: "messages.create",
       model,
       max_tokens: 4096,
@@ -329,7 +329,7 @@ Never:
 Focus on clear financial insights and let the visualization enhance understanding.`,
     });
 
-    console.log("✅ Anthropic API Response received:", {
+    console.log("✅ Claude API Response received:", {
       status: "success",
       stopReason: response.stop_reason,
       hasToolUse: response.content.some((c) => c.type === "tool_use"),

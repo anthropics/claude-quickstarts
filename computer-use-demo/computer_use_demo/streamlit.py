@@ -32,7 +32,7 @@ from computer_use_demo.loop import (
 from computer_use_demo.tools import ToolResult, ToolVersion
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
-    APIProvider.ANTHROPIC: "claude-sonnet-4-20250514",
+    APIProvider.ANTHROPIC: "claude-sonnet-4-5-20250929",
     APIProvider.BEDROCK: "anthropic.claude-3-5-sonnet-20241022-v2:0",
     APIProvider.VERTEX: "claude-3-5-sonnet-v2@20241022",
 }
@@ -66,11 +66,29 @@ CLAUDE_4 = ModelConfig(
     has_thinking=True,
 )
 
+CLAUDE_4_5 = ModelConfig(
+    tool_version="computer_use_20250124",
+    max_output_tokens=128_000,
+    default_output_tokens=1024 * 16,
+    has_thinking=True,
+)
+
+HAIKU_4_5 = ModelConfig(
+    tool_version="computer_use_20250124",
+    max_output_tokens=1024 * 8,
+    default_output_tokens=1024 * 4,
+    has_thinking=False,
+)
+
 MODEL_TO_MODEL_CONF: dict[str, ModelConfig] = {
     "claude-3-7-sonnet-20250219": SONNET_3_7,
     "claude-opus-4@20250508": CLAUDE_4,
     "claude-sonnet-4-20250514": CLAUDE_4,
+    "claude-sonnet-4-5-20250929": CLAUDE_4_5,
     "claude-opus-4-20250514": CLAUDE_4,
+    "claude-haiku-4-5-20251001": HAIKU_4_5,
+    "anthropic.claude-haiku-4-5-20251001-v1:0": HAIKU_4_5,  # Bedrock
+    "claude-haiku-4-5@20251001": HAIKU_4_5,  # Vertex
 }
 
 CONFIG_DIR = PosixPath("~/.anthropic").expanduser()
@@ -196,7 +214,7 @@ async def main():
 
         if st.session_state.provider == APIProvider.ANTHROPIC:
             st.text_input(
-                "Anthropic API Key",
+                "Claude API Key",
                 type="password",
                 key="api_key",
                 on_change=lambda: save_to_storage("api_key", st.session_state.api_key),
@@ -272,7 +290,7 @@ async def main():
                 _render_message(message["role"], message["content"])
             elif isinstance(message["content"], list):
                 for block in message["content"]:
-                    # the tool result we send back to the Anthropic API isn't sufficient to render all details,
+                    # the tool result we send back to the Claude API isn't sufficient to render all details,
                     # so we store the tool use responses
                     if isinstance(block, dict) and block["type"] == "tool_result":
                         _render_message(
@@ -371,7 +389,7 @@ def track_sampling_loop():
 def validate_auth(provider: APIProvider, api_key: str | None):
     if provider == APIProvider.ANTHROPIC:
         if not api_key:
-            return "Enter your Anthropic API key in the sidebar to continue."
+            return "Enter your Claude API key in the sidebar to continue."
     if provider == APIProvider.BEDROCK:
         import boto3
 
@@ -469,7 +487,7 @@ def _render_error(error: Exception):
     if isinstance(error, RateLimitError):
         body = "You have been rate limited."
         if retry_after := error.response.headers.get("retry-after"):
-            body += f" **Retry after {str(timedelta(seconds=int(retry_after)))} (HH:MM:SS).** See our API [documentation](https://docs.anthropic.com/en/api/rate-limits) for more details."
+            body += f" **Retry after {str(timedelta(seconds=int(retry_after)))} (HH:MM:SS).** See our API [documentation](https://docs.claude.com/en/api/rate-limits) for more details."
         body += f"\n\n{error.message}"
     else:
         body = str(error)
@@ -513,10 +531,10 @@ def _render_message(
                 thinking_content = message.get("thinking", "")
                 st.markdown(f"[Thinking]\n\n{thinking_content}")
             elif message["type"] == "tool_use":
-                st.code(f'Tool Use: {message["name"]}\nInput: {message["input"]}')
+                st.code(f"Tool Use: {message['name']}\nInput: {message['input']}")
             else:
                 # only expected return types are text and tool_use
-                raise Exception(f'Unexpected response type {message["type"]}')
+                raise Exception(f"Unexpected response type {message['type']}")
         else:
             st.markdown(message)
 
