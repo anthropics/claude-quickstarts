@@ -43,6 +43,8 @@ Action_20250124 = (
     ]
 )
 
+Action_20251124 = Action_20250124 | Literal["zoom"]
+
 ScrollDirection = Literal["up", "down", "left", "right"]
 
 
@@ -399,4 +401,80 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
 
         return await super().__call__(
             action=action, text=text, coordinate=coordinate, key=key, **kwargs
+        )
+
+
+class ComputerTool20251124(ComputerTool20250124):
+    api_type: Literal["computer_20251124"] = "computer_20251124"  # pyright: ignore[reportIncompatibleVariableOverride]
+
+    @property
+    def options(self) -> ComputerToolOptions:  # pyright: ignore[reportIncompatibleMethodOverride]
+        return {**super().options, "enable_zoom": True}  # pyright: ignore[reportReturnType]
+
+    async def __call__(
+        self,
+        *,
+        action: Action_20251124,
+        text: str | None = None,
+        coordinate: tuple[int, int] | None = None,
+        scroll_direction: ScrollDirection | None = None,
+        scroll_amount: int | None = None,
+        duration: int | float | None = None,
+        key: str | None = None,
+        region: tuple[int, int, int, int] | None = None,
+        **kwargs,
+    ):
+        if action == "zoom":
+            if (
+                region is None
+                or not isinstance(region, (list, tuple))
+                or len(region) != 4
+            ):
+                raise ToolError(
+                    f"{region=} must be a tuple of 4 coordinates (x0, y0, x1, y1)"
+                )
+            if not all(isinstance(c, int) and c >= 0 for c in region):
+                raise ToolError(f"{region=} must contain non-negative integers")
+
+            x0, y0, x1, y1 = region
+            # Scale coordinates from API space to screen space
+            x0, y0 = self.scale_coordinates(ScalingSource.API, x0, y0)
+            x1, y1 = self.scale_coordinates(ScalingSource.API, x1, y1)
+
+            # Take a screenshot and crop to the specified region
+            screenshot_result = await self.screenshot()
+            if not screenshot_result.base64_image:
+                raise ToolError("Failed to take screenshot for zoom")
+
+            # Crop the image using ImageMagick convert
+            output_dir = Path(OUTPUT_DIR)
+            temp_path = output_dir / f"screenshot_{uuid4().hex}.png"
+            cropped_path = output_dir / f"zoomed_{uuid4().hex}.png"
+
+            # Write the screenshot to a temp file
+            temp_path.write_bytes(base64.b64decode(screenshot_result.base64_image))
+
+            # Crop using ImageMagick: convert input -crop WxH+X+Y output
+            width = x1 - x0
+            height = y1 - y0
+            crop_cmd = f"convert {temp_path} -crop {width}x{height}+{x0}+{y0} +repage {cropped_path}"
+            await run(crop_cmd)
+
+            if cropped_path.exists():
+                cropped_base64 = base64.b64encode(cropped_path.read_bytes()).decode()
+                temp_path.unlink(missing_ok=True)
+                cropped_path.unlink(missing_ok=True)
+                return ToolResult(base64_image=cropped_base64)
+
+            raise ToolError("Failed to crop screenshot for zoom")
+
+        return await super().__call__(
+            action=action,
+            text=text,
+            coordinate=coordinate,
+            scroll_direction=scroll_direction,
+            scroll_amount=scroll_amount,
+            duration=duration,
+            key=key,
+            **kwargs,
         )

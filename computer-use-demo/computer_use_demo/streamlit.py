@@ -32,9 +32,9 @@ from computer_use_demo.loop import (
 from computer_use_demo.tools import ToolResult, ToolVersion
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
-    APIProvider.ANTHROPIC: "claude-sonnet-4-5-20250929",
-    APIProvider.BEDROCK: "anthropic.claude-3-5-sonnet-20241022-v2:0",
-    APIProvider.VERTEX: "claude-3-5-sonnet-v2@20241022",
+    APIProvider.ANTHROPIC: "claude-haiku-4-5-20251001",
+    APIProvider.BEDROCK: "anthropic.claude-haiku-4-5-20251001-v1:0",
+    APIProvider.VERTEX: "claude-haiku-4-5@20251001",
 }
 
 
@@ -46,39 +46,30 @@ class ModelConfig:
     has_thinking: bool = False
 
 
-SONNET_3_5_NEW = ModelConfig(
-    tool_version="computer_use_20241022",
-    max_output_tokens=1024 * 8,
-    default_output_tokens=1024 * 4,
-)
-
-SONNET_3_7 = ModelConfig(
-    tool_version="computer_use_20250124",
-    max_output_tokens=128_000,
-    default_output_tokens=1024 * 16,
-    has_thinking=True,
-)
-
 CLAUDE_4 = ModelConfig(
-    tool_version="computer_use_20250124",
-    max_output_tokens=128_000,
+    tool_version="computer_use_20250429",
+    max_output_tokens=64_000,
     default_output_tokens=1024 * 16,
     has_thinking=True,
 )
 
-CLAUDE_4_5 = ModelConfig(
-    tool_version="computer_use_20250124",
-    max_output_tokens=128_000,
+CLAUDE_4_WITH_ZOOMABLE_TOOL = ModelConfig(
+    tool_version="computer_use_20251124",
+    max_output_tokens=64_000,
     default_output_tokens=1024 * 16,
     has_thinking=True,
 )
+
 
 MODEL_TO_MODEL_CONF: dict[str, ModelConfig] = {
-    "claude-3-7-sonnet-20250219": SONNET_3_7,
-    "claude-opus-4@20250508": CLAUDE_4,
-    "claude-sonnet-4-20250514": CLAUDE_4,
-    "claude-sonnet-4-5-20250929": CLAUDE_4_5,
-    "claude-opus-4-20250514": CLAUDE_4,
+    "claude-opus-4-1-20250805": CLAUDE_4,
+    "claude-sonnet-4-5-20250929": CLAUDE_4,
+    "anthropic.claude-sonnet-4-5-20250929-v1:0": CLAUDE_4,
+    "claude-sonnet-4-5@20250929": CLAUDE_4,
+    "claude-haiku-4-5-20251001": CLAUDE_4,
+    "anthropic.claude-haiku-4-5-20251001-v1:0": CLAUDE_4,
+    "claude-haiku-4-5@20251001": CLAUDE_4,
+    "claude-opus-4-5-20251101": CLAUDE_4_WITH_ZOOMABLE_TOOL,
 }
 
 CONFIG_DIR = PosixPath("~/.anthropic").expanduser()
@@ -155,9 +146,7 @@ def _reset_model():
 
 def _reset_model_conf():
     model_conf = (
-        MODEL_TO_MODEL_CONF.get(
-            st.session_state.model, SONNET_3_5_NEW
-        )  # Default fallback
+        MODEL_TO_MODEL_CONF.get(st.session_state.model, CLAUDE_4)  # Default fallback
     )
 
     # If we're in radio selection mode, use the selected tool version
@@ -235,7 +224,9 @@ async def main():
             options=versions,
             index=versions.index(st.session_state.tool_version),
             on_change=lambda: setattr(
-                st.session_state, "tool_version", st.session_state.tool_versions
+                st.session_state,
+                "tool_version",
+                st.session_state.get("tool_versions", st.session_state.tool_version),
             ),
         )
 

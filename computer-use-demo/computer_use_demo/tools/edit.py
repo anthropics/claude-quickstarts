@@ -13,7 +13,7 @@ Command_20250124 = Literal[
     "undo_edit",
 ]
 
-Command_20250429 = Literal[
+Command_20250728 = Literal[
     "view",
     "create",
     "str_replace",
@@ -82,7 +82,7 @@ class EditTool20250124(BaseAnthropicTool):
         elif command == "undo_edit":
             return self.undo_edit(_path)
         raise ToolError(
-            f'Unrecognized command {command}. The allowed commands for the {self.name} tool are: {", ".join(get_args(Command_20250124))}'
+            f"Unrecognized command {command}. The allowed commands for the {self.name} tool are: {', '.join(get_args(Command_20250124))}"
         )
 
     def validate_path(self, command: str, path: Path):
@@ -295,13 +295,13 @@ class EditTool20250124(BaseAnthropicTool):
         )
 
 
-class EditTool20250429(BaseAnthropicTool):
+class EditTool20250728(BaseAnthropicTool):
     """
     An filesystem editor tool that allows the agent to view, create, and edit files.
     The tool parameters are defined by Anthropic and are not editable.
     """
 
-    api_type: Literal["str_replace_based_edit_tool"] = "str_replace_based_edit_tool"
+    api_type: Literal["text_editor_20250728"] = "text_editor_20250728"
     name: Literal["str_replace_based_edit_tool"] = "str_replace_based_edit_tool"
 
     _file_history: dict[Path, list[str]]
@@ -319,7 +319,7 @@ class EditTool20250429(BaseAnthropicTool):
     async def __call__(
         self,
         *,
-        command: Command_20250429,
+        command: Command_20250728,
         path: str,
         file_text: str | None = None,
         view_range: list[int] | None = None,
@@ -354,7 +354,7 @@ class EditTool20250429(BaseAnthropicTool):
             return self.insert(_path, insert_line, new_str)
         # Note: undo_edit command was removed in this version
         raise ToolError(
-            f'Unrecognized command {command}. The allowed commands for the {self.name} tool are: {", ".join(get_args(Command_20250429))}'
+            f"Unrecognized command {command}. The allowed commands for the {self.name} tool are: {', '.join(get_args(Command_20250728))}"
         )
 
     def validate_path(self, command: str, path: Path):
@@ -555,11 +555,6 @@ class EditTool20250429(BaseAnthropicTool):
             + file_content
             + "\n"
         )
-
-
-class EditTool20250728(EditTool20250124):
-    api_type: Literal["text_editor_20250728"] = "text_editor_20250728"  # pyright: ignore[reportIncompatibleVariableOverride]
-    name: Literal["str_replace_based_edit_tool"] = "str_replace_based_edit_tool"  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
 class EditTool20241022(EditTool20250124):
