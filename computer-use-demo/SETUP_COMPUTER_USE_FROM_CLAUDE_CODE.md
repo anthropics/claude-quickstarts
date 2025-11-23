@@ -256,13 +256,18 @@ print('✓ All imports successful')
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}"
 
 # Start Streamlit (using port 8502 since 8501 may be used by Docker)
-streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 0.0.0.0
+# SECURE: Bind to localhost only (127.0.0.1)
+streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 127.0.0.1
+
+# INSECURE: Bind to all interfaces (0.0.0.0) - only use if you need remote access AND have firewall rules
+# streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 0.0.0.0
 ```
 
 **What to expect:**
-- Streamlit server starts on port 8502
+- Streamlit server starts on port 8502 (localhost only - secure!)
 - You'll see output like "You can now view your Streamlit app in your browser"
 - Access at: `http://localhost:8502`
+- For remote access, use SSH tunnel (see Security Considerations section)
 
 **To stop:** Press `Ctrl+C`
 
@@ -293,7 +298,10 @@ WorkingDirectory=$WORKING_DIR
 Environment="ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
 Environment="PATH=$VENV_PATH:/usr/local/bin:/usr/bin:/bin"
 Environment="DISPLAY=:0"
-ExecStart=$VENV_PATH/streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 0.0.0.0
+# SECURE: Localhost only - use SSH tunnel for remote access
+ExecStart=$VENV_PATH/streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 127.0.0.1
+# INSECURE alternative (only if you set up firewall rules):
+# ExecStart=$VENV_PATH/streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 0.0.0.0
 Restart=always
 RestartSec=10
 
@@ -337,28 +345,58 @@ sudo journalctl -u computer-use-demo -f --lines=50
 
 ## Part 6: Access the Interface
 
-### Local Access
+### Local Access (Default - Secure)
 
-Open browser to: `http://localhost:8502`
+If using `--server.address 127.0.0.1` (recommended):
 
-### Remote Access (if VM has external IP)
+Open browser on the VM to: `http://localhost:8502`
+
+### Remote Access (Choose One Method)
+
+#### Method 1: SSH Tunnel (RECOMMENDED - Most Secure)
+
+From your local machine:
+```bash
+# Create SSH tunnel
+ssh -L 8502:localhost:8502 user@<VM_IP>
+
+# Then access in your local browser:
+# http://localhost:8502
+```
+
+This is the most secure method - no firewall changes needed!
+
+#### Method 2: Direct Access with Firewall Rules (Less Secure)
+
+Only if you must use `--server.address 0.0.0.0`:
 
 1. Find VM IP address:
 ```bash
 hostname -I | awk '{print $1}'
 ```
 
-2. Access from host machine: `http://<VM_IP>:8502`
-
-### Firewall Configuration (if needed)
+2. Configure firewall to restrict access:
 
 ```bash
-# Allow port 8502 through firewall
-sudo ufw allow 8502/tcp
+# Deny all by default
+sudo ufw deny 8502/tcp
 
-# Or for iptables
-sudo iptables -A INPUT -p tcp --dport 8502 -j ACCEPT
+# Allow ONLY from your trusted IP
+sudo ufw allow from YOUR_IP to any port 8502
+
+# Example: Allow from 203.0.113.50
+sudo ufw allow from 203.0.113.50 to any port 8502
+
+# Enable firewall if not already
+sudo ufw enable
+
+# Verify rules
+sudo ufw status numbered
 ```
+
+3. Access from trusted machine: `http://<VM_IP>:8502`
+
+**⚠️ WARNING:** Using `0.0.0.0` binding without proper firewall rules exposes your system to the internet!
 
 ---
 
@@ -448,7 +486,12 @@ sudo systemctl start computer-use-demo
 cd ~/anthropic-quickstarts/computer-use-demo
 source .venv/bin/activate
 export ANTHROPIC_API_KEY="your-key-here"  # if not already set
-streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 0.0.0.0
+
+# SECURE: Localhost only
+streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 127.0.0.1
+
+# For remote access, use SSH tunnel from your local machine:
+# ssh -L 8502:localhost:8502 user@vm-ip
 ```
 
 ### Stopping Computer Use Demo
@@ -655,20 +698,127 @@ curl https://api.anthropic.com/v1/messages \
 
 ## Security Considerations
 
+### ⚠️ CRITICAL: Network Security
+
+**The default configuration in this guide uses `--server.address 0.0.0.0` which accepts connections from ANY IP address!**
+
+If your VM has a public IP or is accessible from the internet, **anyone** who finds port 8502 could:
+- Access the Computer Use Demo UI
+- Control your desktop if they have/guess your API key
+- Use your compute resources
+
+### Secure Configuration Options
+
+#### Option 1: Localhost Only (MOST SECURE - Recommended)
+
+Only allow connections from the local machine:
+
+```bash
+# Start Streamlit bound to localhost only
+streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 127.0.0.1
+```
+
+**Systemd service (localhost only):**
+```bash
+ExecStart=$VENV_PATH/streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 127.0.0.1
+```
+
+**Access from remote machine via SSH tunnel:**
+```bash
+# From your local machine, create SSH tunnel to VM
+ssh -L 8502:localhost:8502 user@your-vm-ip
+
+# Then access in browser: http://localhost:8502
+```
+
+#### Option 2: Restrict to Specific IPs (Firewall Rules)
+
+If you need direct remote access, restrict to specific trusted IPs:
+
+```bash
+# Default: deny all incoming on port 8502
+sudo ufw deny 8502/tcp
+
+# Allow only from specific IP (e.g., your home/office)
+sudo ufw allow from YOUR_TRUSTED_IP to any port 8502
+
+# Example: Allow from 203.0.113.50
+sudo ufw allow from 203.0.113.50 to any port 8502
+
+# Check rules
+sudo ufw status numbered
+```
+
+**For iptables:**
+```bash
+# Drop all connections to port 8502 by default
+sudo iptables -A INPUT -p tcp --dport 8502 -j DROP
+
+# Allow from specific IP
+sudo iptables -I INPUT -p tcp -s YOUR_TRUSTED_IP --dport 8502 -j ACCEPT
+
+# Save rules
+sudo netfilter-persistent save
+```
+
+#### Option 3: VPN Access Only
+
+Run a VPN (WireGuard, OpenVPN, Tailscale) and only allow connections through VPN:
+
+```bash
+# Example with WireGuard (assuming VPN interface is wg0)
+sudo ufw allow in on wg0 to any port 8502
+sudo ufw deny 8502/tcp
+```
+
+#### Option 4: Reverse Proxy with Authentication
+
+Use nginx with basic auth:
+
+```nginx
+# /etc/nginx/sites-available/computer-use
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    location / {
+        auth_basic "Computer Use Demo";
+        auth_basic_user_file /etc/nginx/.htpasswd;
+
+        proxy_pass http://127.0.0.1:8502;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
+```
+
+Create password file:
+```bash
+sudo apt-get install apache2-utils
+sudo htpasswd -c /etc/nginx/.htpasswd yourusername
+```
+
 ### What to Watch For
 
 - Computer Use has **full desktop access** - it can click anything you can click
 - It can open applications, modify system settings, browse the web
 - It uses your API key - make sure it's kept secure
 - All actions happen on your real system - not sandboxed
+- **Port 8502 exposed to internet = anyone can try to access your system**
+- **No built-in authentication** - Streamlit has no password protection by default
 
 ### Best Practices
 
-1. **Run on dedicated/test systems** - Don't run on production machines
-2. **Monitor activity** - Watch what Claude is doing through the UI
-3. **Limit sensitive access** - Don't leave sensitive files/apps open
-4. **Regular snapshots** - Take VM snapshots before major tasks
-5. **Review before confirming** - Check proposed actions before letting Claude proceed
+1. **DEFAULT TO LOCALHOST** - Use `127.0.0.1` binding unless you specifically need remote access
+2. **Use SSH tunneling** - Safest way to access remotely
+3. **Run on dedicated/test systems** - Don't run on production machines
+4. **Monitor activity** - Watch what Claude is doing through the UI
+5. **Limit sensitive access** - Don't leave sensitive files/apps open
+6. **Regular snapshots** - Take VM snapshots before major tasks
+7. **Review before confirming** - Check proposed actions before letting Claude proceed
+8. **Firewall rules** - Always configure firewall to restrict access
+9. **Monitor connections** - Check `sudo netstat -tulpn | grep 8502` regularly
+10. **API key rotation** - Change API keys periodically
 
 ---
 
