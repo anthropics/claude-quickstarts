@@ -255,14 +255,14 @@ print('✓ All imports successful')
 # Set API key if needed
 export ANTHROPIC_API_KEY="${ANTHROPIC_API_KEY}"
 
-# Start Streamlit
-streamlit run computer_use_demo/streamlit.py --server.port 8501 --server.address 0.0.0.0
+# Start Streamlit (using port 8502 since 8501 may be used by Docker)
+streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 0.0.0.0
 ```
 
 **What to expect:**
-- Streamlit server starts on port 8501
+- Streamlit server starts on port 8502
 - You'll see output like "You can now view your Streamlit app in your browser"
-- Access at: `http://localhost:8501`
+- Access at: `http://localhost:8502`
 
 **To stop:** Press `Ctrl+C`
 
@@ -293,7 +293,7 @@ WorkingDirectory=$WORKING_DIR
 Environment="ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY"
 Environment="PATH=$VENV_PATH:/usr/local/bin:/usr/bin:/bin"
 Environment="DISPLAY=:0"
-ExecStart=$VENV_PATH/streamlit run computer_use_demo/streamlit.py --server.port 8501 --server.address 0.0.0.0
+ExecStart=$VENV_PATH/streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 0.0.0.0
 Restart=always
 RestartSec=10
 
@@ -326,8 +326,8 @@ sudo systemctl status computer-use-demo
 # Check if service is active
 systemctl is-active computer-use-demo
 
-# Check if listening on port 8501
-ss -tlnp | grep 8501
+# Check if listening on port 8502
+ss -tlnp | grep 8502
 
 # Check logs
 sudo journalctl -u computer-use-demo -f --lines=50
@@ -339,7 +339,7 @@ sudo journalctl -u computer-use-demo -f --lines=50
 
 ### Local Access
 
-Open browser to: `http://localhost:8501`
+Open browser to: `http://localhost:8502`
 
 ### Remote Access (if VM has external IP)
 
@@ -348,16 +348,16 @@ Open browser to: `http://localhost:8501`
 hostname -I | awk '{print $1}'
 ```
 
-2. Access from host machine: `http://<VM_IP>:8501`
+2. Access from host machine: `http://<VM_IP>:8502`
 
 ### Firewall Configuration (if needed)
 
 ```bash
-# Allow port 8501 through firewall
-sudo ufw allow 8501/tcp
+# Allow port 8502 through firewall
+sudo ufw allow 8502/tcp
 
 # Or for iptables
-sudo iptables -A INPUT -p tcp --dport 8501 -j ACCEPT
+sudo iptables -A INPUT -p tcp --dport 8502 -j ACCEPT
 ```
 
 ---
@@ -409,7 +409,7 @@ echo ""
 echo "4. Service Status:"
 if systemctl is-active --quiet computer-use-demo; then
     echo "  ✓ Service is running"
-    ss -tlnp 2>/dev/null | grep -q 8501 && echo "  ✓ Listening on port 8501" || echo "  ✗ Not listening on port 8501"
+    ss -tlnp 2>/dev/null | grep -q 8502 && echo "  ✓ Listening on port 8502" || echo "  ✗ Not listening on port 8502"
 else
     echo "  ⚠ Service not running (can be started manually)"
 fi
@@ -448,7 +448,7 @@ sudo systemctl start computer-use-demo
 cd ~/anthropic-quickstarts/computer-use-demo
 source .venv/bin/activate
 export ANTHROPIC_API_KEY="your-key-here"  # if not already set
-streamlit run computer_use_demo/streamlit.py --server.port 8501 --server.address 0.0.0.0
+streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 0.0.0.0
 ```
 
 ### Stopping Computer Use Demo
@@ -518,11 +518,11 @@ Once installed, Claude can:
 
 **1. Streamlit won't start**
 ```bash
-# Check if port 8501 is already in use
-ss -tlnp | grep 8501
+# Check if port 8502 is already in use
+ss -tlnp | grep 8502
 
-# If in use, kill the process or use different port
-streamlit run computer_use_demo/streamlit.py --server.port 8502
+# If in use, kill the process or use different port (e.g., 8503)
+streamlit run computer_use_demo/streamlit.py --server.port 8503
 ```
 
 **2. ImportError for anthropic or streamlit**
@@ -596,7 +596,7 @@ curl https://api.anthropic.com/v1/messages \
 │                                                  │
 │  ┌────────────────────────────────────────────┐ │
 │  │  Computer Use Demo (Being Installed)       │ │
-│  │  - Streamlit web UI (port 8501)           │ │
+│  │  - Streamlit web UI (port 8502)           │ │
 │  │  - Desktop/GUI control                     │ │
 │  │  - Screenshot capabilities                 │ │
 │  │  - Full system control                     │ │
@@ -619,7 +619,7 @@ curl https://api.anthropic.com/v1/messages \
 
 2. **Computer Use** (what we're installing):
    - Best for: GUI interaction, visual tasks, web browsing
-   - Access method: Web browser (localhost:8501)
+   - Access method: Web browser (localhost:8502)
    - New capabilities: Screenshots, mouse clicks, desktop control
 
 3. **Combined power:**
@@ -632,7 +632,7 @@ curl https://api.anthropic.com/v1/messages \
 ## Next Steps After Installation
 
 1. **Test basic functionality:**
-   - Open the UI at http://localhost:8501
+   - Open the UI at http://localhost:8502
    - Try a simple command like "Take a screenshot of the desktop"
    - Verify you see the screenshot in the chat
 
@@ -727,7 +727,7 @@ sudo systemctl restart computer-use-demo
 
 **What you've installed:**
 - Computer Use Demo with full GUI control capabilities
-- Streamlit web interface on port 8501
+- Streamlit web interface on port 8502 (avoiding conflict with Docker on 8501)
 - System dependencies (scrot, xdotool, imagemagick)
 - Python environment with required packages
 - Optional: systemd service for auto-start
@@ -740,7 +740,7 @@ sudo systemctl restart computer-use-demo
 - Perform visual debugging and testing
 
 **How to access:**
-- Open browser to http://localhost:8501
+- Open browser to http://localhost:8502
 - Enter your API key if not already configured
 - Start giving Claude visual/GUI tasks!
 
