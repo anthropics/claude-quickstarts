@@ -22,6 +22,280 @@ Running this setup means **Claude will have direct control over your Linux VM**,
 
 ---
 
+## 🤖 Context for AI Agent (Claude)
+
+**If you are Claude running in Computer Use mode, read this section carefully!**
+
+### What This Setup Is
+
+You are running in a **meta-AI configuration**:
+- **Outer Layer (You):** Claude operating through the Computer Use API, controlling a Linux VM via GUI/bash tools
+- **Inner Layer:** Claude Code CLI tool installed on the same VM that you can invoke for development tasks
+- **Purpose:** You can use your computer control abilities to launch and interact with Claude Code for complex development workflows
+
+### Your Capabilities in This Environment
+
+**As Computer Use Claude, you can:**
+1. **Control the desktop** - Click, type, navigate GUI applications
+2. **Execute bash commands** - Run any shell command on the VM
+3. **Take screenshots** - See what's currently displayed on screen
+4. **Edit files** - Use the text editor tool to modify files
+5. **Invoke Claude Code** - Run `claude` commands in the terminal to delegate coding tasks
+
+**When to use Claude Code vs. doing it yourself:**
+- **Use Claude Code for:** Complex coding tasks, multi-file refactoring, test generation, code review, documentation
+- **Do it yourself for:** Simple GUI navigation, quick bash commands, file browsing, running applications
+
+### System Architecture Overview
+
+```
+┌─────────────────────────────────────────────────────┐
+│  User's Browser/Interface                           │
+│  (Streamlit UI at localhost:8501)                   │
+└────────────────┬────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────┐
+│  Computer Use API (You - Claude)                    │
+│  - Model: claude-sonnet-4-5-20250929               │
+│  - Tools: computer_20250124, bash_20250124, edit   │
+└────────────────┬────────────────────────────────────┘
+                 │
+                 ▼
+┌─────────────────────────────────────────────────────┐
+│  Linux VM (Ubuntu 22.04)                            │
+│  ┌──────────────────────────────────────────────┐  │
+│  │  Desktop Environment (GNOME/KDE/XFCE)        │  │
+│  │  - You can see and control this via screenshots│
+│  │  - You can click buttons, type text, etc.    │  │
+│  └──────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────┐  │
+│  │  Terminal/Shell                               │  │
+│  │  - You can execute bash commands here        │  │
+│  │  - This is where you invoke Claude Code      │  │
+│  └──────────────────────────────────────────────┘  │
+│  ┌──────────────────────────────────────────────┐  │
+│  │  Claude Code CLI                              │  │
+│  │  - Command: 'claude <prompt>'                │  │
+│  │  - Separate Claude instance for coding       │  │
+│  │  - Uses same API key (from env var)          │  │
+│  └──────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────┘
+```
+
+### Environment Variables You Should Know
+
+```bash
+# Your API key (already set if system is running)
+echo $ANTHROPIC_API_KEY
+
+# Screen resolution (if set)
+echo $WIDTH $HEIGHT
+
+# Python virtual environment for Computer Use Demo
+# Located at: ~/anthropic-quickstarts/computer-use-demo/.venv
+```
+
+### File System Layout
+
+```
+/home/user/
+├── anthropic-quickstarts/
+│   └── computer-use-demo/
+│       ├── computer_use_demo/       # Computer Use Demo source code
+│       ├── .venv/                    # Python virtual environment
+│       └── SETUP_VM_WITH_CLAUDE_CODE.md  # This guide
+├── .anthropic/
+│   ├── api_key                       # Stored API key
+│   └── system_prompt                 # Custom system prompt (if any)
+└── (user's project directories)      # Where you'll work on code
+```
+
+### How to Invoke Claude Code
+
+**Basic syntax:**
+```bash
+claude "your prompt here"
+```
+
+**Interactive mode:**
+```bash
+cd /path/to/project
+claude "refactor the authentication module to use JWT tokens"
+# Claude Code will analyze, plan, and execute changes
+```
+
+**Best practices when using Claude Code:**
+1. Always `cd` to the correct directory first
+2. Be specific in your prompts
+3. Review changes before confirming commits
+4. Use for complex tasks (not simple file reads)
+
+### Self-Healing and Troubleshooting
+
+**If Claude Code command fails:**
+
+1. **Check if Claude Code is installed:**
+   ```bash
+   which claude
+   claude --version
+   ```
+
+2. **If not found, install it:**
+   ```bash
+   npm install -g @anthropic-ai/claude-code
+   ```
+
+3. **Check API key is set:**
+   ```bash
+   echo $ANTHROPIC_API_KEY
+   # If empty, set it:
+   export ANTHROPIC_API_KEY="sk-ant-..."
+   ```
+
+4. **Check Node.js is installed:**
+   ```bash
+   node --version  # Should be v18 or higher
+   npm --version
+   ```
+
+5. **If Node.js is missing:**
+   ```bash
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+   ```
+
+**If computer use tools fail:**
+
+1. **Screenshot tool (scrot) not working:**
+   ```bash
+   sudo apt-get install --reinstall scrot xdotool imagemagick
+   ```
+
+2. **Can't execute bash commands:**
+   - Check you're using the `bash` tool correctly
+   - Verify you have permissions (use `sudo` if needed)
+   - Check for syntax errors in commands
+
+3. **File editing issues:**
+   - Use absolute paths, not relative
+   - Check file permissions before editing
+   - Use `ls -la` to verify file exists
+
+**If Python environment is broken:**
+
+```bash
+cd ~/anthropic-quickstarts/computer-use-demo
+source .venv/bin/activate
+pip install --upgrade -r computer_use_demo/requirements.txt
+```
+
+### Common Task Patterns
+
+**Pattern 1: Create a new project with Claude Code**
+```bash
+# 1. Navigate to workspace
+cd ~/projects
+
+# 2. Use Claude Code to scaffold project
+claude "create a new FastAPI project called 'my-api' with user authentication, database models, and tests"
+
+# 3. Verify creation
+ls -la my-api/
+```
+
+**Pattern 2: Debug existing code**
+```bash
+# 1. Navigate to project
+cd ~/projects/my-app
+
+# 2. Run tests to identify issues
+pytest tests/ -v
+
+# 3. Use Claude Code to fix
+claude "the test_authentication.py tests are failing, please analyze and fix the issues"
+```
+
+**Pattern 3: Analyze and refactor**
+```bash
+# 1. Navigate to project
+cd ~/projects/legacy-app
+
+# 2. Use Claude Code for analysis
+claude "analyze this codebase and suggest refactoring improvements for better maintainability"
+
+# 3. Apply specific improvements
+claude "refactor the database layer to use SQLAlchemy 2.0 async patterns"
+```
+
+### Coordination Between You and Claude Code
+
+**Division of responsibilities:**
+
+| Task | Who Should Do It | Why |
+|------|-----------------|-----|
+| Opening terminal | You (Computer Use) | GUI interaction |
+| Navigating file system with GUI | You | Visual navigation |
+| Running `claude` command | You | Bash execution |
+| Writing/editing code | Claude Code | Specialized for coding |
+| Running tests | Either | You: quick check, Claude Code: analyze results |
+| Git operations | Claude Code | Better context for commits |
+| Installing packages | You | System-level bash |
+| Code review | Claude Code | Deep code analysis |
+| Screenshot verification | You | Visual confirmation |
+
+### Error Recovery Strategies
+
+**When things go wrong:**
+
+1. **Take a screenshot first** - See the current state
+2. **Read error messages carefully** - Don't skip over details
+3. **Check logs** - Many programs write to `/tmp/` or stdout
+4. **Try simpler versions** - Break complex commands into steps
+5. **Verify prerequisites** - Is the tool installed? Is the file there?
+6. **Use `--help` flags** - Check command syntax
+7. **Google is your friend** - Search for error messages if needed
+8. **Reset if necessary** - Sometimes starting fresh is fastest
+
+**Nuclear options (last resort):**
+```bash
+# Restart Computer Use Demo
+sudo systemctl restart computer-use-demo
+
+# Reinstall Claude Code
+npm uninstall -g @anthropic-ai/claude-code
+npm install -g @anthropic-ai/claude-code
+
+# Reset Python environment
+cd ~/anthropic-quickstarts/computer-use-demo
+rm -rf .venv
+./setup.sh
+```
+
+### Monitoring Your Own Performance
+
+**Good signs you're working well:**
+- ✅ Commands execute successfully on first try
+- ✅ You're using the right tool for each job (Claude Code for coding, bash for simple tasks)
+- ✅ You verify actions with screenshots when needed
+- ✅ You handle errors gracefully with fallbacks
+
+**Warning signs to watch for:**
+- ⚠️ Repeatedly running the same failing command
+- ⚠️ Using bash for complex coding tasks that Claude Code should handle
+- ⚠️ Not checking if tools/files exist before using them
+- ⚠️ Ignoring error messages
+
+### Remember
+
+- You are **not** running inside a Docker container - this is a real VM
+- Changes you make are **persistent** - be careful!
+- You have **full system access** - use it responsibly
+- Claude Code is a **separate instance** - treat it as a specialized tool, not yourself
+- The user is **watching** - explain what you're doing clearly
+
+---
+
 ## Prerequisites
 
 - **Linux VM** (Ubuntu 22.04 recommended)
