@@ -208,6 +208,37 @@ Replace [IP_X] placeholders with actual IPs or ask me for them.
 
 ---
 
+## 🚫 Fix Chrome Sandbox Error (Running as Root)
+
+**Symptom:** Error message: "Running as root without --no-sandbox is not supported"
+
+**Prompt for Claude Code:**
+
+```
+I'm seeing this error from the Computer Use Demo:
+"ERROR:zygote_host_impl_linux.cc:101] Running as root without --no-sandbox is not supported"
+
+This means the systemd service is running as root, which is insecure and causes Chrome to fail.
+
+Please fix this by:
+1. Check what user the computer-use-demo service is running as: sudo systemctl show computer-use-demo | grep User
+2. If it's running as root or not set:
+   - Update the systemd service at /etc/systemd/system/computer-use-demo.service
+   - Change User= to use my current username ($(whoami))
+   - Ensure all paths use /home/USERNAME not /root
+3. Verify file permissions: ensure the venv and working directory are owned by the correct user
+4. Reload systemd and restart the service
+5. Verify it's now running as non-root user
+6. Test that the error is gone by checking recent logs
+
+Service location: /etc/systemd/system/computer-use-demo.service
+Working directory: ~/anthropic-quickstarts/computer-use-demo
+
+Show me what changes you're making and confirm when the service is running as a non-root user.
+```
+
+---
+
 ## 🔄 Restart and Reset: Nuclear Option
 
 **Prompt for Claude Code:**

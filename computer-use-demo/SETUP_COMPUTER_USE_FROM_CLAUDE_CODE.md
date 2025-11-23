@@ -629,7 +629,45 @@ curl https://api.anthropic.com/v1/messages \
   -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}'
 ```
 
-**7. Headless Operation / D-Bus Errors**
+**7. Chrome Sandbox Error (Running as Root)**
+
+If you see this error:
+```
+ERROR:zygote_host_impl_linux.cc:101] Running as root without --no-sandbox is not supported
+```
+
+**This means the service is running as root, which is insecure and causes Chrome to fail.**
+
+Solutions:
+
+```bash
+# Option 1: Run as regular user (RECOMMENDED)
+# Check current user in service
+sudo systemctl show computer-use-demo | grep User
+
+# If it shows User=root, update the service:
+sudo systemctl edit --full computer-use-demo
+
+# Change User=root to User=yourusername
+# Save and restart
+sudo systemctl daemon-reload
+sudo systemctl restart computer-use-demo
+
+# Option 2: Add --no-sandbox flag (INSECURE - not recommended)
+# Only if you absolutely must run as root
+export CHROME_DEVEL_SANDBOX=/dev/null
+# Add this to the systemd service Environment section
+```
+
+**Verify you're not running as root:**
+```bash
+# Check service user
+sudo systemctl show computer-use-demo | grep User
+
+# Should show your username, NOT root
+```
+
+**8. Headless Operation / D-Bus Errors**
 
 If accessing via SSH (no local desktop), you'll see D-Bus errors:
 ```
