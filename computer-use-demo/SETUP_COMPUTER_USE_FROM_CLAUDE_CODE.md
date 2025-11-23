@@ -577,13 +577,19 @@ source ~/anthropic-quickstarts/computer-use-demo/.venv/bin/activate
 pip install --upgrade -r computer_use_demo/requirements.txt
 ```
 
-**3. Screenshot tool fails**
+**3. Screenshot tool fails or shows cursor errors**
 ```bash
 # Test scrot manually
 scrot /tmp/test.png
 ls -lh /tmp/test.png
 
-# If fails, reinstall
+# If you see "Failed to get mouse cursor image" - this is just a warning
+# Screenshots still work, just without cursor overlay. Safe to ignore.
+
+# To suppress cursor warning, you can modify scrot calls to skip cursor capture
+# (requires modifying Computer Use Demo code)
+
+# If fails completely, reinstall
 sudo apt-get install --reinstall scrot xdotool imagemagick
 ```
 
@@ -621,6 +627,64 @@ curl https://api.anthropic.com/v1/messages \
   -H "anthropic-version: 2023-06-01" \
   -H "content-type: application/json" \
   -d '{"model":"claude-3-5-sonnet-20241022","max_tokens":10,"messages":[{"role":"user","content":"Hi"}]}'
+```
+
+**7. Headless Operation / D-Bus Errors**
+
+If accessing via SSH (no local desktop), you'll see D-Bus errors:
+```
+ERROR:dbus/bus.cc:408] Failed to connect to the bus: Could not parse server address
+```
+
+**These errors are cosmetic** - screenshots still work. To suppress them:
+
+```bash
+# Option 1: Set environment variable to disable D-Bus
+export DBUS_SESSION_BUS_ADDRESS=/dev/null
+
+# Option 2: Start with D-Bus session (recommended)
+dbus-run-session -- bash -c 'cd ~/anthropic-quickstarts/computer-use-demo && source .venv/bin/activate && streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 127.0.0.1'
+
+# Option 3: Update systemd service for headless
+sudo tee /etc/systemd/system/computer-use-demo.service > /dev/null <<'EOF'
+[Unit]
+Description=Anthropic Computer Use Demo
+After=network.target
+
+[Service]
+Type=simple
+User=YOURUSER
+WorkingDirectory=/home/YOURUSER/anthropic-quickstarts/computer-use-demo
+Environment="ANTHROPIC_API_KEY=YOUR_API_KEY"
+Environment="PATH=/home/YOURUSER/anthropic-quickstarts/computer-use-demo/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="DISPLAY=:99"
+Environment="DBUS_SESSION_BUS_ADDRESS=/dev/null"
+# Start virtual X server
+ExecStartPre=/usr/bin/Xvfb :99 -screen 0 1366x768x24 -nolisten tcp
+ExecStartPre=/bin/sleep 2
+# Start Streamlit
+ExecStart=/home/YOURUSER/anthropic-quickstarts/computer-use-demo/.venv/bin/streamlit run computer_use_demo/streamlit.py --server.port 8502 --server.address 127.0.0.1
+Restart=always
+RestartSec=10
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl restart computer-use-demo
+```
+
+**Install Xvfb for headless operation:**
+```bash
+sudo apt-get install -y xvfb
+
+# Test manually
+Xvfb :99 -screen 0 1366x768x24 &
+export DISPLAY=:99
+export DBUS_SESSION_BUS_ADDRESS=/dev/null
+scrot /tmp/test.png && echo "Success!"
 ```
 
 ---
