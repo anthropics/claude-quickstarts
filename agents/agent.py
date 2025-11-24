@@ -18,6 +18,12 @@ from .utils.tool_util import execute_tools
 class ModelConfig:
     """Configuration settings for Claude model parameters."""
 
+    # Available models include:
+    # - claude-sonnet-4-20250514 (default)
+    # - claude-opus-4-20250514
+    # - claude-haiku-4-5-20251001
+    # - claude-3-5-sonnet-20240620
+    # - claude-3-haiku-20240307
     model: str = "claude-sonnet-4-20250514"
     max_tokens: int = 4096
     temperature: float = 1.0

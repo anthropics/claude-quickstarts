@@ -4,7 +4,7 @@ from typing import Literal
 from .base import BaseAnthropicTool
 from .bash import BashTool20241022, BashTool20250124
 from .computer import ComputerTool20241022, ComputerTool20250124, ComputerTool20251124
-from .edit import EditTool20241022, EditTool20250728
+from .edit import EditTool20241022, EditTool20250429, EditTool20250728
 
 ToolVersion = Literal[
     "computer_use_20250124",
