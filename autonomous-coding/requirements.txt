@@ -1,1 +1,1 @@
-claude-code-sdk
+claude-code-sdk>=0.0.25

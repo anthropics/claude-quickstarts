@@ -15,7 +15,7 @@ pwd
 ls -la
 
 # 3. Read the project specification to understand what you're building
-cat app_spec.md
+cat app_spec.txt
 
 # 4. Read the feature list to see all work
 cat feature_list.json | head -50
@@ -30,7 +30,7 @@ git log --oneline -20
 cat feature_list.json | grep '"passes": false' | wc -l
 ```
 
-Understanding the `app_spec.md` is critical - it contains the full requirements
+Understanding the `app_spec.txt` is critical - it contains the full requirements
 for the application you're building.
 
 ### STEP 2: START SERVERS (IF NOT RUNNING)
@@ -185,7 +185,7 @@ Don't use the puppeteer "active tab" tool.
 
 **Quality Bar:**
 - Zero console errors
-- Polished UI matching the design specified in app_spec.md
+- Polished UI matching the design specified in app_spec.txt
 - All features work end-to-end through the UI
 - Fast, responsive, professional
 
