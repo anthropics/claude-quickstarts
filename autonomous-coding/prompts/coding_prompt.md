@@ -189,7 +189,8 @@ Don't use the puppeteer "active tab" tool.
 - All features work end-to-end through the UI
 - Fast, responsive, professional
 
-**You have unlimited time.** Take as long as needed to get it right.
+**You have unlimited time.** Take as long as needed to get it right. The most important thing is that you
+leave the code base in a clean state before terminating the session (Step 10).
 
 ---
 

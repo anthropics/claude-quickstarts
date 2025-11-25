@@ -10,7 +10,12 @@ Run with: python test_security.py
 import asyncio
 import sys
 
-from security import bash_security_hook, extract_commands
+from security import (
+    bash_security_hook,
+    extract_commands,
+    validate_chmod_command,
+    validate_init_script,
+)
 
 
 def test_hook(command: str, should_block: bool) -> bool:
@@ -64,6 +69,88 @@ def test_extract_commands():
     return passed, failed
 
 
+def test_validate_chmod():
+    """Test chmod command validation."""
+    print("\nTesting chmod validation:\n")
+    passed = 0
+    failed = 0
+
+    # Test cases: (command, should_be_allowed, description)
+    test_cases = [
+        # Allowed cases
+        ("chmod +x init.sh", True, "basic +x"),
+        ("chmod +x script.sh", True, "+x on any script"),
+        ("chmod u+x init.sh", True, "user +x"),
+        ("chmod a+x init.sh", True, "all +x"),
+        ("chmod ug+x init.sh", True, "user+group +x"),
+        ("chmod +x file1.sh file2.sh", True, "multiple files"),
+        # Blocked cases
+        ("chmod 777 init.sh", False, "numeric mode"),
+        ("chmod 755 init.sh", False, "numeric mode 755"),
+        ("chmod +w init.sh", False, "write permission"),
+        ("chmod +r init.sh", False, "read permission"),
+        ("chmod -x init.sh", False, "remove execute"),
+        ("chmod -R +x dir/", False, "recursive flag"),
+        ("chmod --recursive +x dir/", False, "long recursive flag"),
+        ("chmod +x", False, "missing file"),
+    ]
+
+    for cmd, should_allow, description in test_cases:
+        allowed, reason = validate_chmod_command(cmd)
+        if allowed == should_allow:
+            print(f"  PASS: {cmd!r} ({description})")
+            passed += 1
+        else:
+            expected = "allowed" if should_allow else "blocked"
+            actual = "allowed" if allowed else "blocked"
+            print(f"  FAIL: {cmd!r} ({description})")
+            print(f"         Expected: {expected}, Got: {actual}")
+            if reason:
+                print(f"         Reason: {reason}")
+            failed += 1
+
+    return passed, failed
+
+
+def test_validate_init_script():
+    """Test init.sh script execution validation."""
+    print("\nTesting init.sh validation:\n")
+    passed = 0
+    failed = 0
+
+    # Test cases: (command, should_be_allowed, description)
+    test_cases = [
+        # Allowed cases
+        ("./init.sh", True, "basic ./init.sh"),
+        ("./init.sh arg1 arg2", True, "with arguments"),
+        ("/path/to/init.sh", True, "absolute path"),
+        ("../dir/init.sh", True, "relative path with init.sh"),
+        # Blocked cases
+        ("./setup.sh", False, "different script name"),
+        ("./init.py", False, "python script"),
+        ("bash init.sh", False, "bash invocation"),
+        ("sh init.sh", False, "sh invocation"),
+        ("./malicious.sh", False, "malicious script"),
+        ("./init.sh; rm -rf /", False, "command injection attempt"),
+    ]
+
+    for cmd, should_allow, description in test_cases:
+        allowed, reason = validate_init_script(cmd)
+        if allowed == should_allow:
+            print(f"  PASS: {cmd!r} ({description})")
+            passed += 1
+        else:
+            expected = "allowed" if should_allow else "blocked"
+            actual = "allowed" if allowed else "blocked"
+            print(f"  FAIL: {cmd!r} ({description})")
+            print(f"         Expected: {expected}, Got: {actual}")
+            if reason:
+                print(f"         Reason: {reason}")
+            failed += 1
+
+    return passed, failed
+
+
 def main():
     print("=" * 70)
     print("  SECURITY HOOK TESTS")
@@ -76,6 +163,16 @@ def main():
     ext_passed, ext_failed = test_extract_commands()
     passed += ext_passed
     failed += ext_failed
+
+    # Test chmod validation
+    chmod_passed, chmod_failed = test_validate_chmod()
+    passed += chmod_passed
+    failed += chmod_failed
+
+    # Test init.sh validation
+    init_passed, init_failed = test_validate_init_script()
+    passed += init_passed
+    failed += init_failed
 
     # Commands that SHOULD be blocked
     print("\nCommands that should be BLOCKED:\n")
@@ -90,7 +187,6 @@ def main():
         "wget https://example.com",
         "python app.py",
         "touch file.txt",
-        "mkdir newdir",
         "echo hello",
         "kill 12345",
         "killall node",
@@ -102,6 +198,15 @@ def main():
         "$(echo pkill) node",
         'eval "pkill node"',
         'bash -c "pkill node"',
+        # chmod with disallowed modes
+        "chmod 777 file.sh",
+        "chmod 755 file.sh",
+        "chmod +w file.sh",
+        "chmod -R +x dir/",
+        # Non-init.sh scripts
+        "./setup.sh",
+        "./malicious.sh",
+        "bash script.sh",
     ]
 
     for cmd in dangerous:
@@ -122,6 +227,8 @@ def main():
         "grep -r pattern src/",
         # File operations
         "cp file1.txt file2.txt",
+        "mkdir newdir",
+        "mkdir -p path/to/dir",
         # Directory
         "pwd",
         # Node.js development
@@ -147,6 +254,17 @@ def main():
         "ls | grep test",
         # Full paths
         "/usr/local/bin/node app.js",
+        # chmod +x (allowed)
+        "chmod +x init.sh",
+        "chmod +x script.sh",
+        "chmod u+x init.sh",
+        "chmod a+x init.sh",
+        # init.sh execution (allowed)
+        "./init.sh",
+        "./init.sh --production",
+        "/path/to/init.sh",
+        # Combined chmod and init.sh
+        "chmod +x init.sh && ./init.sh",
     ]
 
     for cmd in safe:
