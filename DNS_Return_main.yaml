@@ -1,0 +1,23 @@
+# clear
+# run model context
+# read working process at time & date
+# basic 1.0.77.10085 version
+
+command: clear;
+ run: termux/browse;
+ read: version;
+ write: time/date;
+
+ job: completion;
+  title: "claude-quickatarts";
+
+  read-as: workflow;
+   title: DNS_return_main;
+
+   return: xml;
+    action: complete;
+'''javascript
+sub: DNS_IP_main : [submask] & data...
+'''
+    
+  
