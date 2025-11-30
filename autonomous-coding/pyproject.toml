@@ -40,7 +40,7 @@ dev = [
 [project.scripts]
 # Main CLI entry points
 autonomous-agent = "autonomous_agent.cli:main"
-aa = "autonomous_agent.cli:main"  # Short alias
+junior = "autonomous_agent.cli:main"  # Short alias
 
 [project.urls]
 Homepage = "https://github.com/anthropics/claude-quickstarts"
