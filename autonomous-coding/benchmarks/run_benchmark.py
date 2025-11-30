@@ -26,30 +26,30 @@ from typing import Literal
 BENCHMARK_DIR = Path(__file__).parent
 RESULTS_DIR = BENCHMARK_DIR / "results"
 
-TIERS = ["t1_email_validator", "t2_todo_cli", "t3_rest_api", "t4_url_shortener"]
+TIERS = ["t0_validation", "t1_email_validator", "t2_todo_cli", "t3_rest_api", "t4_url_shortener"]
 TOOLS = ["junior", "claudiomiro", "codemachine", "roma"]
 
 # Tool configurations
 TOOL_CONFIGS = {
     "junior": {
         "command": "junior build --spec {spec} -o {output} --max-iterations {max_iter}",
-        "max_iterations": {"t1": 3, "t2": 5, "t3": 10, "t4": 15},
+        "max_iterations": {"t0": 1, "t1": 3, "t2": 5, "t3": 10, "t4": 15},
         "requires": ["junior"],
     },
     "claudiomiro": {
         "command": "cd {output} && claudiomiro --prompt=\"$(cat {spec})\" --limit={max_iter}",
-        "max_iterations": {"t1": 5, "t2": 10, "t3": 20, "t4": 30},
+        "max_iterations": {"t0": 2, "t1": 5, "t2": 10, "t3": 20, "t4": 30},
         "requires": ["claudiomiro"],
     },
     "codemachine": {
         "setup": "mkdir -p {output}/.codemachine/inputs && cp {spec} {output}/.codemachine/inputs/specifications.md",
         "command": "cd {output} && codemachine --dir . --max-iterations {max_iter}",
-        "max_iterations": {"t1": 3, "t2": 5, "t3": 10, "t4": 15},
+        "max_iterations": {"t0": 1, "t1": 3, "t2": 5, "t3": 10, "t4": 15},
         "requires": ["codemachine"],
     },
     "roma": {
         "command": "roma-dspy solve \"$(cat {spec})\" --max-depth {max_iter} --output json > {output}/result.json",
-        "max_iterations": {"t1": 2, "t2": 3, "t3": 4, "t4": 5},
+        "max_iterations": {"t0": 1, "t1": 2, "t2": 3, "t3": 4, "t4": 5},
         "requires": ["roma-dspy"],
     },
 }
@@ -268,7 +268,7 @@ def main():
     parser = argparse.ArgumentParser(description="Run autonomous coding benchmarks")
     parser.add_argument(
         "--tier", "-t",
-        choices=["t1", "t2", "t3", "t4", "all"],
+        choices=["t0", "t1", "t2", "t3", "t4", "all"],
         default="t2",
         help="Benchmark tier to run (default: t2)"
     )
@@ -303,6 +303,7 @@ def main():
         tiers = TIERS
     else:
         tier_map = {
+            "t0": "t0_validation",
             "t1": "t1_email_validator",
             "t2": "t2_todo_cli",
             "t3": "t3_rest_api",
