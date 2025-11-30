@@ -42,10 +42,10 @@ def main():
     help="Project specification file",
 )
 @click.option(
-    "--project-dir",
+    "--output", "-o",
     type=click.Path(path_type=Path),
     default=None,
-    help="Output directory (default: generations/<spec-name>)",
+    help="Output directory (default: ./<spec-name> in current dir)",
 )
 @click.option(
     "--max-iterations",
@@ -59,28 +59,29 @@ def main():
     default=None,
     help="Claude model (default: from config)",
 )
-def build(spec: Path, project_dir: Path | None, max_iterations: int | None, model: str | None):
+def build(spec: Path, output: Path | None, max_iterations: int | None, model: str | None):
     """Build a new project from a specification file.
 
     This is for GREENFIELD projects - building from scratch.
 
     Example:
-        autonomous-agent build --spec my_app_spec.txt
-        autonomous-agent build --spec spec.txt --max-iterations 5
+        aa build --spec my_app_spec.txt
+        aa build --spec spec.txt -o ./my-project
+        aa build --spec spec.txt --max-iterations 5
     """
     config = load_config()
 
-    # Use spec filename as project name if no dir specified
-    if project_dir is None:
+    # Default to current directory with project name derived from spec
+    if output is None:
         project_name = spec.stem.replace("_spec", "").replace("_", "-")
-        project_dir = Path("generations") / project_name
+        output = Path.cwd() / project_name
 
     model = model or config.get("model", DEFAULT_CONFIG["model"])
 
     console.print(Panel.fit(
         f"[bold blue]Building new project[/bold blue]\n"
         f"Spec: {spec}\n"
-        f"Output: {project_dir}\n"
+        f"Output: {output}\n"
         f"Model: {model}",
         title="🚀 Autonomous Agent"
     ))
@@ -88,7 +89,7 @@ def build(spec: Path, project_dir: Path | None, max_iterations: int | None, mode
     try:
         asyncio.run(run_build_agent(
             spec_file=spec,
-            project_dir=project_dir,
+            project_dir=output,
             model=model,
             max_iterations=max_iterations,
         ))
