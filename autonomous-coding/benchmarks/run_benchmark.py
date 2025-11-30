@@ -43,12 +43,12 @@ TOOL_CONFIGS = {
     },
     "codemachine": {
         "setup": "mkdir -p {output}/.codemachine/inputs && cp {spec} {output}/.codemachine/inputs/specifications.md",
-        "command": "cd {output} && codemachine --dir . --max-iterations {max_iter}",
+        "command": "cd {output} && codemachine --dir . --spec .codemachine/inputs/specifications.md",
         "max_iterations": {"t0": 1, "t1": 3, "t2": 5, "t3": 10, "t4": 15},
         "requires": ["codemachine"],
     },
     "roma": {
-        "command": "roma-dspy solve \"$(cat {spec})\" --max-depth {max_iter} --output json > {output}/result.json",
+        "command": "cd /Users/administrator/projects/ROMA && roma-dspy solve \"$(cat {spec})\" --max-depth {max_iter} --output json > {output}/result.json",
         "max_iterations": {"t0": 1, "t1": 2, "t2": 3, "t3": 4, "t4": 5},
         "requires": ["roma-dspy"],
     },
