@@ -1,0 +1,14 @@
+{
+  "firstRun": "2025-11-30T22:03:12.530Z",
+  "lastRun": "2025-11-30T22:03:12.530Z",
+  "attempts": 1,
+  "lastError": null,
+  "reResearched": false,
+  "history": [
+    {
+      "timestamp": "2025-11-30T22:03:12.530Z",
+      "attempt": 1,
+      "reResearched": false
+    }
+  ]
+}
