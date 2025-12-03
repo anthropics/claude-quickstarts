@@ -24,12 +24,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/YOUR_USERNAME/claude-quickstarts.git"
+    "url": "git+https://github.com/slittyjuice-source/claude-quickstarts.git"
   },
   "bugs": {
-    "url": "https://github.com/YOUR_USERNAME/claude-quickstarts/issues"
+    "url": "https://github.com/slittyjuice-source/claude-quickstarts/issues"
   },
-  "homepage": "https://github.com/YOUR_USERNAME/claude-quickstarts/tree/watson-glaser-tis-standalone/watson-glaser-trainer#readme",
+  "homepage": "https://github.com/slittyjuice-source/claude-quickstarts/tree/watson-glaser-tis-standalone/watson-glaser-trainer#readme",
   "devDependencies": {
     "puppeteer": "^21.0.0",
     "http-server": "^14.1.1",
