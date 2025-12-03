@@ -105,7 +105,7 @@ async def demo_agent_with_extended_thinking():
     # Create agent with extended thinking tool
     agent = Agent(
         name="Critical Thinker",
-        description="An agent that uses extended chain-of-thought reasoning",
+        system="An agent that uses extended chain-of-thought reasoning",
         tools=[et_tool.get_schema()]
     )
     
