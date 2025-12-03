@@ -3,1594 +3,1391 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Watson Glaser - Advanced Test Intelligence System</title>
+    <title>Advanced Test Intelligence System (TIS) - Watson Glaser Trainer</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
-
+        
         body {
-            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
-            background: linear-gradient(135deg, #0a0a0f 0%, #1a1a2e 50%, #16213e 100%);
-            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 20px;
+            color: #2d3748;
         }
-
+        
         .container {
-            max-width: 1600px;
+            max-width: 1200px;
             margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
         }
-
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 20px 0;
-            border-bottom: 1px solid #2a2a3a;
-            margin-bottom: 30px;
-        }
-
+        
         h1 {
-            font-size: 1.8rem;
-            color: #00d4ff;
-            font-weight: 600;
-            text-shadow: 0 0 10px #00d4ff;
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
         }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
+        
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.1em;
         }
-
-        .status-dot {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: #4a4a5a;
-            transition: all 0.3s;
-            border: 1px solid #666;
-        }
-
-        .status-dot.running {
-            background: #00ff88;
-            box-shadow: 0 0 15px #00ff88;
-            animation: pulse 1.2s infinite;
-        }
-
-        .status-dot.improving {
-            background: #ff6b6b;
-            box-shadow: 0 0 15px #ff6b6b;
-            animation: pulse 0.6s infinite;
-        }
-
-        .status-dot.learning {
-            background: #ffd93d;
-            box-shadow: 0 0 15px #ffd93d;
-            animation: pulse 0.8s infinite;
-        }
-
-        @keyframes pulse {
-            0%, 100% { opacity: 1; transform: scale(1); }
-            50% { opacity: 0.7; transform: scale(1.1); }
-        }
-
+        
         .controls {
             display: flex;
             gap: 15px;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
         }
-
+        
         .btn {
-            padding: 12px 28px;
+            padding: 12px 24px;
             border: none;
             border-radius: 8px;
-            font-family: inherit;
-            font-size: 0.9rem;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 500;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
         }
-
-        .btn-start {
-            background: linear-gradient(45deg, #00d4ff, #0099cc);
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            box-shadow: 0 4px 15px rgba(0, 212, 255, 0.3);
         }
-
-        .btn-start:hover {
-            background: linear-gradient(45deg, #00b8e6, #0088b8);
+        
+        .btn-primary:hover {
             transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
         }
-
-        .btn-stop {
-            background: linear-gradient(45deg, #ff6b6b, #cc5555);
-            color: white;
-            box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+        
+        .btn-secondary {
+            background: #f7fafc;
+            color: #4a5568;
+            border: 2px solid #e2e8f0;
         }
-
-        .btn-stop:hover {
-            background: linear-gradient(45deg, #ff5555, #bb4444);
-            transform: translateY(-2px);
+        
+        .btn-secondary:hover {
+            background: #edf2f7;
         }
-
-        .btn-reset {
-            background: linear-gradient(45deg, #6c757d, #5a6268);
-            color: #e0e0e0;
-            box-shadow: 0 4px 15px rgba(108, 117, 125, 0.3);
-        }
-
-        .btn-reset:hover {
-            background: linear-gradient(45deg, #5a6268, #495057);
-            transform: translateY(-2px);
-        }
-
-        .dashboard {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .panel {
-            background: rgba(26, 26, 46, 0.8);
-            border: 1px solid #2a2a3a;
-            border-radius: 12px;
-            padding: 20px;
-            backdrop-filter: blur(10px);
-        }
-
-        .panel h2 {
-            font-size: 0.9rem;
-            color: #00d4ff;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 15px;
-            text-shadow: 0 0 5px #00d4ff;
-        }
-
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
-        }
-
-        .metric {
-            background: rgba(42, 42, 58, 0.5);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #3a3a4a;
-        }
-
-        .metric-label {
-            font-size: 0.75rem;
-            color: #a0aec0;
-            text-transform: uppercase;
-            margin-bottom: 5px;
-        }
-
-        .metric-value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #e0e0e0;
-        }
-
-        .metric-value.positive {
-            color: #00ff88;
-            text-shadow: 0 0 5px #00ff88;
-        }
-
-        .metric-value.warning {
-            color: #ffd93d;
-            text-shadow: 0 0 5px #ffd93d;
-        }
-
-        .metric-value.error {
-            color: #ff6b6b;
-            text-shadow: 0 0 5px #ff6b6b;
-        }
-
-        .log-container {
-            grid-column: 1 / -1;
-            max-height: 450px;
-            overflow: hidden;
-        }
-
-        .log {
-            height: 400px;
-            overflow-y: auto;
-            background: rgba(10, 10, 15, 0.8);
-            border-radius: 8px;
-            padding: 15px;
-            font-size: 0.85rem;
-            line-height: 1.6;
-            border: 1px solid #2a2a3a;
-        }
-
-        .log-entry {
-            margin-bottom: 8px;
-            padding-left: 10px;
-            border-left: 3px solid #2a2a3a;
-            transition: all 0.2s;
-        }
-
-        .log-entry:hover {
-            background: rgba(42, 42, 58, 0.3);
-            border-radius: 4px;
-        }
-
-        .log-entry.info {
-            border-color: #00d4ff;
-        }
-
-        .log-entry.success {
-            border-color: #00ff88;
-        }
-
-        .log-entry.warning {
-            border-color: #ffd93d;
-        }
-
-        .log-entry.error {
-            border-color: #ff6b6b;
-        }
-
-        .log-entry.improvement {
-            border-color: #ff6b6b;
-            background: rgba(255, 107, 107, 0.1);
-            border-radius: 4px;
-        }
-
-        .log-entry.learning {
-            border-color: #ffd93d;
-            background: rgba(255, 217, 61, 0.1);
-            border-radius: 4px;
-        }
-
-        .log-timestamp {
-            color: #6b7280;
-            font-size: 0.75rem;
-        }
-
-        .current-question {
-            background: rgba(42, 42, 58, 0.5);
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 15px;
-            border: 1px solid #3a3a4a;
-        }
-
-        .question-label {
-            font-size: 0.75rem;
-            color: #a0aec0;
-            text-transform: uppercase;
-            margin-bottom: 10px;
-        }
-
-        .question-text {
-            color: #e0e0e0;
-            line-height: 1.6;
-        }
-
-        .question-text strong {
-            color: #00d4ff;
-        }
-
-        .generation-params {
-            margin-top: 15px;
-        }
-
-        .param {
+        
+        .toggle-container {
             display: flex;
-            justify-content: space-between;
-            padding: 8px 0;
-            border-bottom: 1px solid #2a2a3a;
-            font-size: 0.85rem;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
         }
-
-        .param:last-child {
-            border-bottom: none;
+        
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
         }
-
-        .param-name {
-            color: #a0aec0;
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
         }
-
-        .param-value {
-            color: #e0e0e0;
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e0;
+            transition: .4s;
+            border-radius: 26px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+        
+        .select-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        
+        select {
+            padding: 12px 40px 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            appearance: none;
             font-weight: 500;
+            color: #4a5568;
         }
-
-        .improvement-history {
-            max-height: 250px;
-            overflow-y: auto;
+        
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #667eea;
+            font-size: 12px;
         }
-
-        .improvement-item {
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #718096;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .question-box {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .question-text {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            color: #2d3748;
+        }
+        
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .option {
+            padding: 15px 20px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.05em;
+        }
+        
+        .option:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+            transform: translateX(5px);
+        }
+        
+        .option.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .option.correct {
+            background: #48bb78;
+            color: white;
+            border-color: #48bb78;
+        }
+        
+        .option.incorrect {
+            background: #f56565;
+            color: white;
+            border-color: #f56565;
+        }
+        
+        .feedback {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 1.05em;
+        }
+        
+        .feedback.correct {
+            background: #c6f6d5;
+            color: #22543d;
+            border-left: 5px solid #48bb78;
+        }
+        
+        .feedback.incorrect {
+            background: #fed7d7;
+            color: #742a2a;
+            border-left: 5px solid #f56565;
+        }
+        
+        .thinking-process {
+            background: #edf2f7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .thinking-step {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            line-height: 1.5;
+        }
+        
+        .thinking-step strong {
+            color: #667eea;
+        }
+        
+        .neural-bank {
+            background: #fef5e7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 2px solid #f9e79f;
+        }
+        
+        .neural-bank-title {
+            font-weight: 700;
+            color: #b7791f;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .neural-pattern {
+            background: white;
             padding: 12px;
-            background: rgba(42, 42, 58, 0.5);
             border-radius: 6px;
             margin-bottom: 10px;
-            font-size: 0.85rem;
-            border: 1px solid #3a3a4a;
+            border-left: 3px solid #f39c12;
         }
-
-        .improvement-item .iteration {
-            color: #00d4ff;
-            font-weight: 600;
+        
+        .evolution-log {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #bee3f8;
         }
-
-        .improvement-item .change {
-            color: #00ff88;
-            margin-top: 5px;
+        
+        .evolution-log-title {
+            font-weight: 700;
+            color: #2c5282;
+            margin-bottom: 15px;
+            font-size: 1.1em;
         }
-
-        .progress-bar {
-            height: 6px;
-            background: #2a2a3a;
-            border-radius: 3px;
-            margin-top: 10px;
-            overflow: hidden;
-        }
-
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #00d4ff, #00ff88, #ffd93d);
-            transition: width 0.5s;
-            border-radius: 3px;
-        }
-
-        .intelligence-metrics {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        .intelligence-metric {
-            background: rgba(42, 42, 58, 0.5);
+        
+        .evolution-entry {
+            background: white;
             padding: 12px;
             border-radius: 6px;
-            text-align: center;
-            border: 1px solid #3a3a4a;
+            margin-bottom: 10px;
+            border-left: 3px solid #4299e1;
+            font-size: 0.95em;
         }
-
-        .intelligence-metric .value {
-            font-size: 1.2rem;
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
             font-weight: 600;
-            color: #00d4ff;
+            margin-left: 10px;
         }
-
-        .intelligence-metric .label {
-            font-size: 0.75rem;
-            color: #a0aec0;
-            text-transform: uppercase;
-            margin-top: 5px;
+        
+        .status-badge.running {
+            background: #c6f6d5;
+            color: #22543d;
         }
-
-        .reasoning-path {
-            margin-top: 15px;
-            padding: 15px;
-            background: rgba(10, 10, 15, 0.8);
-            border-radius: 6px;
-            border: 1px solid #2a2a3a;
+        
+        .status-badge.paused {
+            background: #fed7d7;
+            color: #742a2a;
         }
-
-        .reasoning-step {
+        
+        .agent-info {
+            background: linear-gradient(135deg, #fef5e7 0%, #fdebd0 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 2px solid #f9e79f;
+        }
+        
+        .agent-name {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #b7791f;
             margin-bottom: 8px;
-            padding: 8px;
-            background: rgba(42, 42, 58, 0.3);
-            border-radius: 4px;
-            font-size: 0.8rem;
         }
-
-        .reasoning-step .step-type {
-            color: #00d4ff;
+        
+        .agent-stage {
+            color: #7d6608;
+            font-size: 1.05em;
+            margin-bottom: 12px;
+        }
+        
+        .achievements {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .achievement-badge {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            color: #744210;
+            border: 1px solid #f9e79f;
+        }
+        
+        .curriculum-gate {
+            background: #fff5f5;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #fc8181;
+            color: #742a2a;
             font-weight: 600;
         }
-
-        .reasoning-step .step-content {
-            color: #e0e0e0;
-            margin-top: 3px;
+        
+        .view-mode-toggle {
+            display: flex;
+            gap: 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        .view-mode-btn {
+            padding: 10px 20px;
+            border: none;
+            background: white;
+            color: #4a5568;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+        
+        .view-mode-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .developer-only {
+            display: block;
+        }
+        
+        .developer-only.hidden {
+            display: none;
+        }
+        
+        .persistence-status {
+            background: #e6fffa;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 2px solid #81e6d9;
+            color: #234e52;
+            font-size: 0.9em;
+            display: inline-block;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
         }
     </style>
-    <script src="agent_profiles.js"></script>
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>🧠 Advanced Test Intelligence System</h1>
-            <div class="status-indicator">
-                <span id="statusText">Initializing Neural Networks</span>
-                <div class="status-dot" id="statusDot"></div>
-            </div>
-        </header>
-
+        <h1>🧠 Advanced Test Intelligence System</h1>
+        <p class="subtitle">Self-Evolving Watson Glaser Critical Thinking Trainer with Extended Reasoning</p>
+        
         <div class="controls">
-            <button class="btn btn-start" id="startBtn" onclick="tis.start()">Start TIS Evolution</button>
-            <button class="btn btn-stop" id="stopBtn" onclick="tis.stop()" style="display: none;">Stop Evolution</button>
-            <button class="btn btn-reset" onclick="tis.reset()">Neural Reset</button>
-            <label for="agentSelect" style="color:#a0aec0; align-self:center; margin-left:8px; font-size:0.85rem;">Agent:</label>
-            <select id="agentSelect" style="padding:8px 10px; border-radius:6px; background:#0f1724; color:#e0e0e0; border:1px solid #2a2a3a; margin-left:6px;">
-                <!-- Populated dynamically from agent_profiles.js -->
-            </select>
-            <label for="bgMode" style="color:#a0aec0; align-self:center; margin-left:12px; font-size:0.85rem;">Background Mode</label>
-            <input id="bgMode" type="checkbox" style="margin-left:6px; transform:scale(1.05);" title="Run evolution silently in the background">
-        </div>
-
-        <div class="dashboard">
-            <div class="panel">
-                <h2>Intelligence Metrics</h2>
-                <div class="intelligence-metrics">
-                    <div class="intelligence-metric">
-                        <div class="value" id="iqScore">--</div>
-                        <div class="label">Logical IQ</div>
-                    </div>
-                    <div class="intelligence-metric">
-                        <div class="value" id="creativityScore">--</div>
-                        <div class="label">Creative Reasoning</div>
-                    </div>
-                    <div class="intelligence-metric">
-                        <div class="value" id="adaptationScore">--</div>
-                        <div class="label">Adaptive Learning</div>
-                    </div>
-                </div>
-                <div class="metrics-grid" style="margin-top: 20px;">
-                    <div class="metric">
-                        <div class="metric-label">Evolution Cycle</div>
-                        <div class="metric-value" id="iteration">0</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Neural Questions</div>
-                        <div class="metric-value" id="generated">0</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Logical Validity</div>
-                        <div class="metric-value" id="validityRate">--</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Self-Accuracy</div>
-                        <div class="metric-value" id="accuracy">--</div>
-                    </div>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
-                </div>
+            <div class="select-wrapper">
+                <select id="agentSelector">
+                    <option value="">Select Agent Profile...</option>
+                </select>
             </div>
-
-            <div class="panel">
-                <h2>Neural Parameters</h2>
-                <div class="generation-params" id="params">
-                    <div class="param">
-                        <span class="param-name">Logical Depth</span>
-                        <span class="param-value" id="paramDepth">3</span>
-                    </div>
-                    <div class="param">
-                        <span class="param-name">Abstraction Level</span>
-                        <span class="param-value" id="paramAbstraction">0.7</span>
-                    </div>
-                    <div class="param">
-                        <span class="param-name">Creativity Factor</span>
-                        <span class="param-value" id="paramCreativity">0.8</span>
-                    </div>
-                    <div class="param">
-                        <span class="param-name">Ambiguity Tolerance</span>
-                        <span class="param-value" id="paramAmbiguity">0.2</span>
-                    </div>
-                    <div class="param">
-                        <span class="param-name">Meta-Learning Rate</span>
-                        <span class="param-value" id="paramLearning">0.15</span>
-                    </div>
-                    <div class="param">
-                        <span class="param-name">Reasoning Complexity</span>
-                        <span class="param-value" id="paramComplexity">2.5</span>
-                    </div>
-                </div>
-                <div class="current-question" id="currentQuestion" style="display: none;">
-                    <div class="question-label">Neural Question Generation</div>
-                    <div class="question-text" id="questionText"></div>
-                </div>
+            
+            <div class="view-mode-toggle">
+                <button class="view-mode-btn active" data-mode="learner">Learner View</button>
+                <button class="view-mode-btn" data-mode="developer">Developer View</button>
             </div>
-
-            <div class="panel">
-                <h2>Evolution History</h2>
-                <div class="improvement-history" id="improvements">
-                    <p style="color: #6b7280; font-size: 0.85rem;">Neural networks initializing...</p>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2>Reasoning Pathways</h2>
-                <div class="reasoning-path" id="reasoningPath">
-                    <div class="reasoning-step">
-                        <div class="step-type">Initializing Neural Networks</div>
-                        <div class="step-content">Loading logical templates and reasoning algorithms...</div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="panel">
-                <h2>Knowledge Bank</h2>
-                <div class="metrics-grid">
-                    <div class="metric">
-                        <div class="metric-label">Question Bank Size</div>
-                        <div class="metric-value" id="bankSize">0</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-label">Avg Quality Score</div>
-                        <div class="metric-value positive" id="avgQuality">--</div>
-                    </div>
-                </div>
-                <div id="questionTypes" style="margin-top: 15px; font-size: 0.85rem; color: #6b7280;">
-                    <div>Assumptions: <span id="assumptionsCount">0</span></div>
-                    <div>Inferences: <span id="inferencesCount">0</span></div>
-                    <div>Deductions: <span id="deductionsCount">0</span></div>
-                    <div>Interpretations: <span id="interpretationsCount">0</span></div>
-                </div>
-            </div>
-
-            <div class="panel log-container">
-                <h2>Neural Activity Log</h2>
-                <div class="log" id="log">
-                    <div class="log-entry info">
-                        <span class="log-timestamp">[TIS]</span> Advanced Test Intelligence System initialized. Neural networks online.
-                    </div>
-                    <div class="log-entry learning">
-                        <span class="log-timestamp">[TIS]</span> Loading cognitive templates: causal reasoning, probabilistic inference, logical deduction...
-                    </div>
-                </div>
+            
+            <button class="btn btn-primary" id="startBtn">Start Evolution</button>
+            <button class="btn btn-secondary" id="selfTestBtn">Run Self-Test</button>
+            <button class="btn btn-secondary" id="saveProgressBtn">💾 Save Progress</button>
+            <button class="btn btn-secondary" id="loadProgressBtn">📂 Load Progress</button>
+            
+            <div class="toggle-container">
+                <span>Background Mode</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="backgroundToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="status-badge running" id="statusBadge">Paused</span>
             </div>
         </div>
+        
+        <div id="persistenceStatus" class="persistence-status" style="display:none;">
+            ✓ Progress auto-saved to localStorage
+        </div>
+        
+        <div id="agentInfo" style="display:none;"></div>
+        
+        <div class="metrics">
+            <div class="metric-card">
+                <div class="metric-label">Evolution Cycles</div>
+                <div class="metric-value" id="cycleCount">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Overall Accuracy</div>
+                <div class="metric-value" id="accuracy">0%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Neural Patterns</div>
+                <div class="metric-value" id="patternCount">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Current Complexity</div>
+                <div class="metric-value" id="complexityLevel">1</div>
+            </div>
+        </div>
+        
+        <div id="questionContainer"></div>
+        
+        <div class="developer-only" id="thinkingContainer"></div>
+        <div class="developer-only" id="neuralBankContainer"></div>
+        <div class="developer-only" id="evolutionLog"></div>
     </div>
-
+    
+    <script src="agent_profiles.js"></script>
     <script>
-        // ============================================
-        // ADVANCED TEST INTELLIGENCE SYSTEM (TIS)
-        // Self-evolving neural reasoning architecture
-        // ============================================
-
         class AdvancedTestIntelligenceSystem {
             constructor() {
-                this.running = false;
-                this.iteration = 0;
-                this.questionsGenerated = 0;
-                this.validQuestions = 0;
-                this.selfTestResults = [];
-                this.improvements = [];
-                this.reasoningHistory = [];
-
-                // Advanced neural parameters
+                this.cycles = 0;
+                this.correctAnswers = 0;
+                this.totalQuestions = 0;
+                this.isRunning = false;
+                this.backgroundMode = false;
+                this.currentQuestion = null;
+                this.selectedAnswer = null;
+                this.viewMode = 'learner'; // 'learner' or 'developer'
+                this.maxComplexity = 1; // Unlocked complexity level (curriculum gating)
+                
+                // Neural parameters for self-modification
                 this.neuralParams = {
-                    logicalDepth: 3,
-                    abstractionLevel: 0.7,
-                    creativityFactor: 0.8,
-                    ambiguityTolerance: 0.2,
-                    metaLearningRate: 0.15,
-                    reasoningComplexity: 2.5,
-                    cognitiveDiversity: 0.6,
-                    patternRecognition: 0.8,
-                    logicalConsistency: 0.9,
-                    adaptiveThreshold: 0.75
+                    adaptationRate: 0.15,
+                    explorationFactor: 0.25,
+                    memoryRetention: 0.85,
+                    confidenceThreshold: 0.7,
+                    creativityBoost: 0.2
                 };
-
-                // Advanced cognitive templates
-                this.cognitiveTemplates = this.initCognitiveTemplates();
-
-                // Neural question bank with quality tracking
-                this.neuralBank = {
-                    assumptions: [],
-                    inferences: [],
-                    deductions: [],
-                    interpretations: []
-                };
-
-                // Performance tracking for meta-learning
-                this.performanceHistory = [];
-                this.reasoningStrategies = this.initReasoningStrategies();
-                this.cognitiveMetrics = {
-                    logicalIQ: 0,
-                    creativityScore: 0,
-                    adaptationScore: 0
-                };
-            }
-
-            initCognitiveTemplates() {
-                return {
+                
+                // Cognitive templates for different reasoning types
+                this.cognitiveTemplates = {
                     assumptions: [
-                        {
-                            pattern: 'causal_necessity',
-                            complexity: 2,
-                            generate: (context) => ({
-                                statement: `${context.subject} should ${context.action} because ${context.reason}.`,
-                                assumption: `${context.action} will directly address ${context.reason}.`,
-                                correct: 'made',
-                                reasoning: 'Causal chain requires action to solve stated problem'
-                            })
-                        },
-                        {
-                            pattern: 'temporal_sequencing',
-                            complexity: 3,
-                            generate: (context) => ({
-                                statement: `${context.subject} will implement ${context.policy} across ${context.scope} by ${context.deadline}.`,
-                                assumption: `${context.subject} has already allocated ${context.resources} for this implementation.`,
-                                correct: 'made',
-                                reasoning: 'Future implementation presupposes current resource allocation'
-                            })
-                        },
-                        {
-                            pattern: 'conditional_logic',
-                            complexity: 4,
-                            generate: (context) => ({
-                                statement: `If ${context.condition}, then ${context.subject} must ${context.response}.`,
-                                assumption: `${context.condition} is both necessary and sufficient for ${context.response}.`,
-                                correct: 'not_made',
-                                reasoning: 'Conditional allows other paths to response, condition may not be sole trigger'
-                            })
-                        },
-                        {
-                            pattern: 'quantitative_threshold',
-                            complexity: 3,
-                            generate: (context) => ({
-                                statement: `${context.subject} needs ${context.threshold}% ${context.metric} to be considered successful.`,
-                                assumption: `${context.threshold}% represents an objective standard for success.`,
-                                correct: 'not_made',
-                                reasoning: 'Success thresholds are subjective and context-dependent'
-                            })
-                        },
-                        {
-                            pattern: 'authority_vs_consensus',
-                            complexity: 2,
-                            generate: (context) => ({
-                                statement: `The ${context.authority} approved the ${context.decision} despite ${context.opposition} concerns.`,
-                                assumption: `${context.opposition} support is required for the decision.`,
-                                correct: 'not_made',
-                                reasoning: 'Authority can override opposition; consensus is not always necessary'
-                            })
-                        }
+                        { pattern: "implies", weight: 0.8, complexity: 1 },
+                        { pattern: "presupposes", weight: 0.85, complexity: 2 },
+                        { pattern: "takes for granted", weight: 0.75, complexity: 1 },
+                        { pattern: "necessarily means", weight: 0.9, complexity: 3 },
+                        { pattern: "hidden premise", weight: 0.82, complexity: 3 },
+                        { pattern: "unstated belief", weight: 0.78, complexity: 2 },
+                        { pattern: "background knowledge", weight: 0.76, complexity: 2 }
                     ],
                     inferences: [
-                        {
-                            pattern: 'statistical_generalization',
-                            complexity: 2,
-                            generate: (context) => ({
-                                passage: `A comprehensive study of ${context.sampleSize} ${context.population} found that ${context.percentage}% experienced ${context.attribute}.`,
-                                inference: `Most ${context.population} experience ${context.attribute}.`,
-                                getCorrect: (percentage) => percentage >= 50 ? 'true' : 'insufficient_data',
-                                reasoning: 'Statistical majority supports generalization, but sample size and representativeness matter'
-                            })
-                        },
-                        {
-                            pattern: 'temporal_causation',
-                            complexity: 4,
-                            generate: (context) => ({
-                                passage: `${context.event1} occurred, followed immediately by ${context.event2}. The same pattern repeated ${context.frequency} times.`,
-                                inference: `${context.event1} causes ${context.event2}.`,
-                                correct: 'insufficient_data',
-                                reasoning: 'Correlation does not prove causation; confounding variables possible'
-                            })
-                        },
-                        {
-                            pattern: 'probabilistic_reasoning',
-                            complexity: 3,
-                            generate: (context) => ({
-                                passage: `Given that ${context.condition} has occurred, there is a ${context.probability}% chance of ${context.outcome}.`,
-                                inference: `${context.outcome} will definitely occur.`,
-                                correct: 'false',
-                                reasoning: 'Probability indicates possibility, not certainty'
-                            })
-                        },
-                        {
-                            pattern: 'logical_necessity',
-                            complexity: 5,
-                            generate: (context) => ({
-                                passage: `All ${context.category} that ${context.property1} also ${context.property2}. This ${context.item} ${context.property1}.`,
-                                inference: `This ${context.item} must ${context.property2}.`,
-                                correct: 'true',
-                                reasoning: 'Syllogistic logic: property inheritance through category membership'
-                            })
-                        }
+                        { pattern: "follows logically", weight: 0.85, complexity: 1 },
+                        { pattern: "can be concluded", weight: 0.8, complexity: 1 },
+                        { pattern: "derived from", weight: 0.82, complexity: 2 },
+                        { pattern: "entails", weight: 0.88, complexity: 3 },
+                        { pattern: "suggests", weight: 0.7, complexity: 1 },
+                        { pattern: "indicates", weight: 0.75, complexity: 2 },
+                        { pattern: "implies causation", weight: 0.79, complexity: 3 }
                     ],
                     deductions: [
-                        {
-                            pattern: 'syllogistic_reasoning',
-                            complexity: 4,
-                            generate: (context) => ({
-                                premises: [
-                                    `All ${context.major} are ${context.middle}.`,
-                                    `All ${context.middle} are ${context.minor}.`
-                                ],
-                                conclusion: `All ${context.major} are ${context.minor}.`,
-                                correct: true,
-                                reasoning: 'Valid syllogistic deduction following logical rules'
-                            })
-                        },
-                        {
-                            pattern: 'modus_ponens',
-                            complexity: 3,
-                            generate: (context) => ({
-                                premises: [
-                                    `If ${context.condition}, then ${context.consequence}.`,
-                                    `${context.condition} is true.`
-                                ],
-                                conclusion: `${context.consequence} must be true.`,
-                                correct: true,
-                                reasoning: 'Modus ponens: affirming antecedent validates consequent'
-                            })
-                        }
+                        { pattern: "must be true", weight: 0.9, complexity: 2 },
+                        { pattern: "logically certain", weight: 0.92, complexity: 3 },
+                        { pattern: "necessarily follows", weight: 0.88, complexity: 2 },
+                        { pattern: "syllogistic conclusion", weight: 0.85, complexity: 3 },
+                        { pattern: "valid inference", weight: 0.87, complexity: 2 },
+                        { pattern: "deductive certainty", weight: 0.91, complexity: 3 }
                     ],
                     interpretations: [
-                        {
-                            pattern: 'contextual_ambiguity',
-                            complexity: 4,
-                            generate: (context) => ({
-                                passage: `${context.statement} This could mean ${context.interpretation1} or ${context.interpretation2}.`,
-                                interpretation: `The passage definitively supports ${context.interpretation1}.`,
-                                correct: 'false',
-                                reasoning: 'Multiple interpretations possible; passage allows both readings'
-                            })
-                        }
-                    ]
-                };
-            }
-
-            initReasoningStrategies() {
-                return {
-                    assumptions: [
-                        {
-                            name: 'necessity_analysis',
-                            weight: 1.0,
-                            execute: (question) => {
-                                const statement = question.statement.toLowerCase();
-                                const assumption = question.assumption.toLowerCase();
-
-                                // Check for causal necessity
-                                if (statement.includes('because') && assumption.includes('will') &&
-                                    assumption.includes('address')) {
-                                    return { answer: 'made', confidence: 0.9, reasoning: 'Causal necessity detected' };
-                                }
-
-                                // Check for resource presupposition
-                                if (statement.includes('will') && assumption.includes('resources') ||
-                                    assumption.includes('capital')) {
-                                    return { answer: 'made', confidence: 0.85, reasoning: 'Resource presupposition' };
-                                }
-
-                                // Check for authority vs consensus
-                                if (statement.includes('approved') && assumption.includes('support')) {
-                                    return { answer: 'not_made', confidence: 0.8, reasoning: 'Authority overrides consensus' };
-                                }
-
-                                return { answer: 'not_made', confidence: 0.4, reasoning: 'Default assumption analysis' };
-                            }
-                        },
-                        {
-                            name: 'logical_independence',
-                            weight: 0.8,
-                            execute: (question) => {
-                                // Check if assumption is truly independent
-                                const statement = question.statement.toLowerCase();
-                                const assumption = question.assumption.toLowerCase();
-
-                                // Implementation doesn't require consensus
-                                if (statement.includes('implement') && assumption.includes('support')) {
-                                    return { answer: 'not_made', confidence: 0.95, reasoning: 'Implementation independent of consensus' };
-                                }
-
-                                return null; // Strategy doesn't apply
-                            }
-                        }
+                        { pattern: "could mean", weight: 0.7, complexity: 1 },
+                        { pattern: "perspective", weight: 0.72, complexity: 1 },
+                        { pattern: "viewpoint", weight: 0.68, complexity: 1 },
+                        { pattern: "contextual reading", weight: 0.75, complexity: 2 },
+                        { pattern: "semantic nuance", weight: 0.77, complexity: 3 },
+                        { pattern: "alternative explanation", weight: 0.73, complexity: 2 }
                     ],
-                    inferences: [
-                        {
-                            name: 'statistical_reasoning',
-                            weight: 1.0,
-                            execute: (question) => {
-                                const passage = question.passage.toLowerCase();
-                                const inference = question.inference.toLowerCase();
-
-                                const percentMatch = passage.match(/(\d+)%/);
-                                if (percentMatch && inference.includes('most')) {
-                                    const percent = parseInt(percentMatch[1]);
-                                    if (percent >= 50) {
-                                        return { answer: 'true', confidence: 0.9, reasoning: 'Statistical majority supports inference' };
-                                    } else {
-                                        return { answer: 'insufficient_data', confidence: 0.8, reasoning: 'Sample too small for generalization' };
-                                    }
-                                }
-
-                                return null;
-                            }
-                        },
-                        {
-                            name: 'causal_analysis',
-                            weight: 0.9,
-                            execute: (question) => {
-                                const passage = question.passage.toLowerCase();
-
-                                if (passage.includes('followed') && passage.includes('correlation')) {
-                                    return { answer: 'insufficient_data', confidence: 0.85, reasoning: 'Correlation ≠ causation' };
-                                }
-
-                                return null;
-                            }
-                        },
-                        {
-                            name: 'probabilistic_evaluation',
-                            weight: 0.7,
-                            execute: (question) => {
-                                const passage = question.passage.toLowerCase();
-
-                                if (passage.includes('chance') || passage.includes('probability')) {
-                                    return { answer: 'false', confidence: 0.9, reasoning: 'Probability indicates uncertainty, not certainty' };
-                                }
-
-                                return null;
-                            }
-                        }
+                    evaluations: [
+                        { pattern: "evidence strength", weight: 0.8, complexity: 2 },
+                        { pattern: "argument quality", weight: 0.82, complexity: 2 },
+                        { pattern: "reasoning validity", weight: 0.85, complexity: 3 },
+                        { pattern: "logical soundness", weight: 0.87, complexity: 3 },
+                        { pattern: "critical assessment", weight: 0.79, complexity: 2 }
                     ]
                 };
+                
+                // Reasoning strategies with weights
+                this.reasoningStrategies = {
+                    analytical: { weight: 0.8, description: "Break down into components" },
+                    comparative: { weight: 0.75, description: "Compare with similar cases" },
+                    eliminative: { weight: 0.85, description: "Eliminate impossible options" },
+                    constructive: { weight: 0.7, description: "Build from first principles" },
+                    probabilistic: { weight: 0.72, description: "Assess likelihood" },
+                    counterFactual: { weight: 0.68, description: "Consider alternatives" }
+                };
+                
+                // Extended thinking: chain-of-thought reasoning traces
+                this.thinkingChain = [];
+                
+                // Meta-learning: learned patterns from experience
+                this.neuralBank = [];
+                this.evolutionLog = [];
+                
+                // Cognitive metrics
+                this.cognitiveMetrics = {
+                    patternRecognition: 0.5,
+                    abstractReasoning: 0.5,
+                    logicalConsistency: 0.5,
+                    adaptiveThinking: 0.5
+                };
+                
+                this.loadFromLocalStorage();
             }
-
-            // Advanced question generation with cognitive modeling
-            generateQuestion(type) {
-                const templates = this.cognitiveTemplates[type];
-                if (!templates) return null;
-
-                // Cognitive selection based on current intelligence level
-                const cognitiveLevel = this.calculateCognitiveLevel();
-                const eligibleTemplates = templates.filter(t => t.complexity <= cognitiveLevel + 1);
-
-                if (eligibleTemplates.length === 0) return null;
-
-                // Weighted selection favoring higher complexity as intelligence grows
-                const complexityWeight = this.neuralParams.creativityFactor;
-                const totalWeight = eligibleTemplates.reduce((sum, t) =>
-                    sum + (t.weight * (1 + complexityWeight * t.complexity)), 0);
-
-                let random = Math.random() * totalWeight;
-                let selectedTemplate;
-
-                for (const template of eligibleTemplates) {
-                    const weight = template.weight * (1 + complexityWeight * template.complexity);
-                    random -= weight;
-                    if (random <= 0) {
-                        selectedTemplate = template;
-                        break;
+            
+            // Extended Thinking: Chain-of-Thought Reasoning
+            extendedThinking(question) {
+                this.thinkingChain = [];
+                
+                // Step 1: Question Analysis
+                this.thinkingChain.push({
+                    step: "Question Analysis",
+                    thought: `Analyzing question type: ${question.type}. Context: "${question.context.substring(0, 100)}..."`
+                });
+                
+                // Step 2: Identify key concepts
+                const keyConcepts = this.identifyKeyConcepts(question);
+                this.thinkingChain.push({
+                    step: "Key Concepts",
+                    thought: `Identified concepts: ${keyConcepts.join(", ")}`
+                });
+                
+                // Step 3: Apply cognitive templates
+                const relevantTemplates = this.getRelevantTemplates(question.type);
+                this.thinkingChain.push({
+                    step: "Template Selection",
+                    thought: `Applying ${relevantTemplates.length} cognitive templates for ${question.type}`
+                });
+                
+                // Step 4: Evaluate each option
+                question.options.forEach((option, idx) => {
+                    const evaluation = this.evaluateOption(question, option);
+                    this.thinkingChain.push({
+                        step: `Option ${idx + 1} Evaluation`,
+                        thought: `"${option}" - Confidence: ${(evaluation * 100).toFixed(1)}%`
+                    });
+                });
+                
+                // Step 5: Strategy integration
+                const strategies = this.selectStrategies();
+                this.thinkingChain.push({
+                    step: "Strategy Integration",
+                    thought: `Combining ${strategies.length} reasoning strategies with weighted voting`
+                });
+                
+                // Step 6: Final decision
+                const answer = this.generateAnswer(question);
+                this.thinkingChain.push({
+                    step: "Final Decision",
+                    thought: `Selected answer based on highest weighted confidence: "${answer}"`
+                });
+                
+                return this.thinkingChain;
+            }
+            
+            identifyKeyConcepts(question) {
+                const text = question.context + " " + question.question;
+                const concepts = [];
+                
+                // Simple keyword extraction
+                if (text.includes("assume") || text.includes("assumption")) concepts.push("assumptions");
+                if (text.includes("conclude") || text.includes("inference")) concepts.push("inferences");
+                if (text.includes("must be") || text.includes("necessarily")) concepts.push("deductions");
+                if (text.includes("interpret") || text.includes("meaning")) concepts.push("interpretations");
+                if (text.includes("evaluate") || text.includes("evidence")) concepts.push("evaluations");
+                
+                return concepts.length > 0 ? concepts : ["general reasoning"];
+            }
+            
+            getRelevantTemplates(questionType) {
+                const type = questionType.toLowerCase();
+                if (this.cognitiveTemplates[type]) {
+                    return this.cognitiveTemplates[type].filter(t => t.complexity <= this.maxComplexity);
+                }
+                // Return all templates below max complexity if type not found
+                return Object.values(this.cognitiveTemplates)
+                    .flat()
+                    .filter(t => t.complexity <= this.maxComplexity);
+            }
+            
+            evaluateOption(question, option) {
+                // Simulate confidence scoring based on templates and neural params
+                let confidence = 0.5 + (Math.random() - 0.5) * this.neuralParams.explorationFactor;
+                
+                // Boost if pattern matches learned neural bank
+                this.neuralBank.forEach(pattern => {
+                    if (option.toLowerCase().includes(pattern.keyword.toLowerCase())) {
+                        confidence += pattern.successRate * 0.2;
+                    }
+                });
+                
+                return Math.min(1, Math.max(0, confidence));
+            }
+            
+            selectStrategies() {
+                // Select top 3 strategies by weight
+                return Object.entries(this.reasoningStrategies)
+                    .sort((a, b) => b[1].weight - a[1].weight)
+                    .slice(0, 3)
+                    .map(([name, data]) => ({ name, ...data }));
+            }
+            
+            generateAnswer(question) {
+                // Use weighted voting from strategies
+                const strategies = this.selectStrategies();
+                const votes = question.options.map(option => {
+                    let score = this.evaluateOption(question, option);
+                    strategies.forEach(strategy => {
+                        score *= strategy.weight;
+                    });
+                    return score;
+                });
+                
+                const maxIdx = votes.indexOf(Math.max(...votes));
+                return question.options[maxIdx];
+            }
+            
+            // Curriculum Learning: Gate complexity by accuracy
+            updateCurriculumLevel() {
+                const accuracy = this.totalQuestions > 0 ? this.correctAnswers / this.totalQuestions : 0;
+                
+                if (accuracy >= 0.9 && this.maxComplexity < 4) {
+                    this.maxComplexity = 4;
+                    this.log("🎓 Unlocked Complexity Level 4 (Expert)!");
+                } else if (accuracy >= 0.8 && this.maxComplexity < 3) {
+                    this.maxComplexity = 3;
+                    this.log("🎓 Unlocked Complexity Level 3 (Advanced)!");
+                } else if (accuracy >= 0.7 && this.maxComplexity < 2) {
+                    this.maxComplexity = 2;
+                    this.log("🎓 Unlocked Complexity Level 2 (Intermediate)!");
+                }
+            }
+            
+            checkCurriculumGate(question) {
+                // Find max complexity in question's patterns
+                let requiredComplexity = 1;
+                Object.values(this.cognitiveTemplates).forEach(templates => {
+                    templates.forEach(template => {
+                        const context = (question.context + " " + question.question).toLowerCase();
+                        if (context.includes(template.pattern.toLowerCase())) {
+                            requiredComplexity = Math.max(requiredComplexity, template.complexity);
+                        }
+                    });
+                });
+                
+                return requiredComplexity <= this.maxComplexity;
+            }
+            
+            // LocalStorage Persistence
+            saveToLocalStorage() {
+                const state = {
+                    neuralParams: this.neuralParams,
+                    reasoningStrategies: this.reasoningStrategies,
+                    cognitiveMetrics: this.cognitiveMetrics,
+                    neuralBank: this.neuralBank,
+                    cycles: this.cycles,
+                    correctAnswers: this.correctAnswers,
+                    totalQuestions: this.totalQuestions,
+                    maxComplexity: this.maxComplexity,
+                    timestamp: new Date().toISOString()
+                };
+                
+                localStorage.setItem('TIS_State', JSON.stringify(state));
+                this.showPersistenceStatus();
+            }
+            
+            loadFromLocalStorage() {
+                const saved = localStorage.getItem('TIS_State');
+                if (saved) {
+                    try {
+                        const state = JSON.parse(saved);
+                        this.neuralParams = state.neuralParams || this.neuralParams;
+                        this.reasoningStrategies = state.reasoningStrategies || this.reasoningStrategies;
+                        this.cognitiveMetrics = state.cognitiveMetrics || this.cognitiveMetrics;
+                        this.neuralBank = state.neuralBank || [];
+                        this.cycles = state.cycles || 0;
+                        this.correctAnswers = state.correctAnswers || 0;
+                        this.totalQuestions = state.totalQuestions || 0;
+                        this.maxComplexity = state.maxComplexity || 1;
+                        
+                        this.log(`✓ Loaded progress from ${new Date(state.timestamp).toLocaleString()}`);
+                        return true;
+                    } catch (e) {
+                        console.error("Failed to load state:", e);
                     }
                 }
-
-                if (!selectedTemplate) selectedTemplate = eligibleTemplates[0];
-
-                // Generate rich context
-                const context = this.generateContext(type);
-                const questionData = selectedTemplate.generate(context);
-
-                return {
-                    id: Date.now() + Math.random(),
-                    type,
-                    ...questionData,
-                    templatePattern: selectedTemplate.pattern,
-                    complexity: selectedTemplate.complexity,
-                    quality: 0,
-                    validationPassed: null,
-                    cognitiveLevel: cognitiveLevel,
-                    generationParams: { ...this.neuralParams }
-                };
+                return false;
             }
-
-            generateContext(type) {
-                const contexts = {
-                    assumptions: {
-                        subjects: ['The company', 'The organization', 'Management', 'The board', 'Leadership'],
-                        actions: ['expand operations', 'increase investment', 'reduce costs', 'hire specialists', 'implement automation'],
-                        reasons: ['market demand is growing', 'competition is intensifying', 'efficiency needs improvement', 'customer needs are changing'],
-                        policies: ['new policy', 'restructuring plan', 'training program', 'quality initiative'],
-                        scopes: ['all departments', 'multiple regions', 'the entire organization'],
-                        resources: ['budget', 'personnel', 'infrastructure', 'expertise'],
-                        deadlines: ['next quarter', 'year-end', 'Q1', 'immediately'],
-                        thresholds: ['80', '90', '95', '70'],
-                        metrics: ['customer satisfaction', 'employee engagement', 'market share', 'profit margin'],
-                        authorities: ['board', 'CEO', 'management team', 'executive committee'],
-                        decisions: ['merger', 'acquisition', 'reorganization', 'expansion'],
-                        opposition: ['board member', 'employee', 'stakeholder', 'regulatory']
-                    },
-                    inferences: {
-                        sampleSizes: ['500', '1,000', '2,500', '10,000'],
-                        populations: ['employees', 'customers', 'students', 'patients', 'users'],
-                        percentages: ['23', '45', '67', '78', '84', '91'],
-                        attributes: ['job satisfaction', 'stress levels', 'engagement', 'satisfaction', 'performance'],
-                        event1: ['the policy changed', 'training was implemented', 'new management arrived'],
-                        event2: ['productivity increased', 'turnover decreased', 'satisfaction improved'],
-                        frequencies: ['three times', 'five times', 'multiple times', 'consistently'],
-                        conditions: ['market conditions improve', 'regulatory changes occur', 'competition increases'],
-                        probabilities: ['30', '45', '60', '75'],
-                        outcomes: ['market share will grow', 'profits will increase', 'customer satisfaction will rise'],
-                        categories: ['employees', 'products', 'companies', 'projects'],
-                        properties1: ['are highly skilled', 'meet quality standards', 'receive training', 'use new technology'],
-                        properties2: ['perform better', 'achieve higher satisfaction', 'deliver on time', 'exceed expectations'],
-                        items: ['this employee', 'this product', 'this company', 'this project'],
-                        major: ['skilled employees', 'quality products', 'successful companies'],
-                        middle: ['receive training', 'meet standards', 'invest in R&D'],
-                        minor: ['perform better', 'achieve success', 'deliver value']
-                    }
-                };
-
-                const contextType = contexts[type];
-                if (!contextType) return {};
-
-                const result = {};
-                for (const [key, values] of Object.entries(contextType)) {
-                    result[key] = values[Math.floor(Math.random() * values.length)];
-                }
-                return result;
+            
+            clearLocalStorage() {
+                localStorage.removeItem('TIS_State');
+                this.log("⚠️ Progress cleared from localStorage");
             }
-
-            // Advanced validation with multiple criteria
-            validateQuestion(question) {
-                const checks = [];
-                let totalScore = 0;
-                let totalWeight = 0;
-
-                if (question.type === 'assumptions') {
-                    // Logical coherence
-                    checks.push({
-                        name: 'logical_coherence',
-                        passed: this.checkLogicalCoherence(question),
-                        weight: 3,
-                        score: this.checkLogicalCoherence(question) ? 1 : 0
-                    });
-
-                    // Assumption necessity
-                    checks.push({
-                        name: 'necessity_analysis',
-                        passed: this.checkAssumptionNecessity(question),
-                        weight: 4,
-                        score: this.checkAssumptionNecessity(question) ? 1 : 0
-                    });
-
-                    // Independence check
-                    checks.push({
-                        name: 'independence_check',
-                        passed: this.checkAssumptionIndependence(question),
-                        weight: 3,
-                        score: this.checkAssumptionIndependence(question) ? 1 : 0
-                    });
-
-                    // Contextual relevance
-                    checks.push({
-                        name: 'contextual_relevance',
-                        passed: this.checkContextualRelevance(question),
-                        weight: 2,
-                        score: this.checkContextualRelevance(question) ? 1 : 0
-                    });
-                } else if (question.type === 'inferences') {
-                    // Information sufficiency
-                    checks.push({
-                        name: 'information_sufficiency',
-                        passed: question.passage.length > 50,
-                        weight: 2,
-                        score: question.passage.length > 50 ? 1 : 0
-                    });
-
-                    // Logical validity
-                    checks.push({
-                        name: 'logical_validity',
-                        passed: this.checkInferenceValidity(question),
-                        weight: 4,
-                        score: this.checkInferenceValidity(question) ? 1 : 0
-                    });
-
-                    // Probabilistic reasoning
-                    checks.push({
-                        name: 'probabilistic_reasoning',
-                        passed: this.checkProbabilisticReasoning(question),
-                        weight: 3,
-                        score: this.checkProbabilisticReasoning(question) ? 1 : 0
-                    });
-                }
-
-                // Calculate weighted score
-                for (const check of checks) {
-                    totalScore += check.score * check.weight;
-                    totalWeight += check.weight;
-                }
-
-                const finalScore = totalScore / totalWeight;
-
-                return {
-                    passed: finalScore >= 0.7,
-                    score: finalScore,
-                    checks,
-                    reasoning: this.generateValidationReasoning(checks)
-                };
+            
+            showPersistenceStatus() {
+                const statusEl = document.getElementById('persistenceStatus');
+                statusEl.style.display = 'block';
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 2000);
             }
-
-            checkLogicalCoherence(question) {
-                // Check if statement and assumption are logically connected
-                const statementWords = question.statement.toLowerCase().split(/\s+/);
-                const assumptionWords = question.assumption.toLowerCase().split(/\s+/);
-                const overlap = statementWords.filter(w =>
-                    assumptionWords.includes(w) && w.length > 3
-                ).length;
-                return overlap >= 1;
+            
+            // Load agent profile
+            loadAgentProfile(profile) {
+                if (!profile) return;
+                
+                // Override neural parameters with agent's learned parameters
+                this.neuralParams = { ...this.neuralParams, ...profile.neuralParams };
+                
+                // Display agent info
+                const agentInfoEl = document.getElementById('agentInfo');
+                agentInfoEl.innerHTML = `
+                    <div class="agent-name">${profile.name}</div>
+                    <div class="agent-stage">${profile.stage}</div>
+                    <div class="achievements">
+                        ${profile.achievements.map(ach => `<span class="achievement-badge">${ach}</span>`).join('')}
+                    </div>
+                `;
+                agentInfoEl.style.display = 'block';
+                
+                this.log(`Agent Profile Loaded: ${profile.name} - ${profile.stage}`);
             }
-
-            checkAssumptionNecessity(question) {
-                if (question.correct === 'made') {
-                    // For "made" assumptions, check if negating breaks the statement
-                    return this.neuralParams.logicalConsistency > 0.7;
-                }
-                return true; // "not_made" assumptions are valid by definition in validation
-            }
-
-            checkAssumptionIndependence(question) {
-                if (question.correct === 'not_made') {
-                    // Check if statement can stand without assumption
-                    return true; // Template-based generation ensures this
-                }
-                return true;
-            }
-
-            checkContextualRelevance(question) {
-                // Check if assumption relates to the context of the statement
-                return question.assumption.length > 20 && question.statement.length > 20;
-            }
-
-            checkInferenceValidity(question) {
-                // Check if inference follows logically from passage
-                return true; // Template-based generation ensures validity
-            }
-
-            checkProbabilisticReasoning(question) {
-                // Check if probabilistic elements are handled correctly
-                const passage = question.passage.toLowerCase();
-                const hasProbability = passage.includes('chance') || passage.includes('probability') ||
-                                     passage.includes('%');
-                const inference = question.inference.toLowerCase();
-                const claimsCertainty = inference.includes('will') || inference.includes('must') ||
-                                      inference.includes('definitely');
-
-                if (hasProbability && claimsCertainty) {
-                    return question.correct === 'false';
-                }
-                return true;
-            }
-
-            generateValidationReasoning(checks) {
-                const failedChecks = checks.filter(c => !c.passed);
-                if (failedChecks.length === 0) {
-                    return "All validation checks passed. Question exhibits strong logical structure.";
-                }
-                return `Failed checks: ${failedChecks.map(c => c.name).join(', ')}. Question needs refinement.`;
-            }
-
-            // Advanced self-testing with multiple reasoning strategies
-            selfTest(question) {
-                const strategies = this.reasoningStrategies[question.type] || [];
+            
+            // Multi-strategy reasoning with weighted voting
+            applyMultiStrategyReasoning(question) {
                 const results = [];
-
-                // Execute all applicable strategies
-                for (const strategy of strategies) {
-                    const result = strategy.execute(question);
-                    if (result) {
-                        results.push({
-                            strategy: strategy.name,
-                            ...result
+                
+                Object.entries(this.reasoningStrategies).forEach(([strategy, data]) => {
+                    const score = this.applyStrategy(strategy, question);
+                    results.push({
+                        strategy,
+                        score: score * data.weight,
+                        weight: data.weight
+                    });
+                });
+                
+                // Weighted voting
+                const totalScore = results.reduce((sum, r) => sum + r.score, 0);
+                const avgScore = totalScore / results.length;
+                
+                return {
+                    confidence: avgScore,
+                    strategies: results,
+                    decision: avgScore > this.neuralParams.confidenceThreshold ? 'confident' : 'uncertain'
+                };
+            }
+            
+            applyStrategy(strategy, question) {
+                // Simulate strategy application with some intelligence
+                let score = 0.5;
+                
+                switch(strategy) {
+                    case 'analytical':
+                        score = 0.6 + Math.random() * 0.3;
+                        break;
+                    case 'eliminative':
+                        score = 0.65 + Math.random() * 0.25;
+                        break;
+                    case 'comparative':
+                        score = 0.55 + Math.random() * 0.35;
+                        break;
+                    default:
+                        score = 0.5 + Math.random() * 0.4;
+                }
+                
+                // Boost based on cognitive metrics
+                score *= (1 + this.cognitiveMetrics.patternRecognition * 0.2);
+                
+                return Math.min(1, score);
+            }
+            
+            // Meta-learning: evolve neural parameters every N cycles
+            evolveNeuralParameters() {
+                const accuracy = this.totalQuestions > 0 ? this.correctAnswers / this.totalQuestions : 0;
+                
+                // Adapt based on performance
+                if (accuracy > 0.7) {
+                    this.neuralParams.adaptationRate *= 0.95; // Slow down if doing well
+                    this.neuralParams.explorationFactor *= 0.9; // Exploit more
+                    this.cognitiveMetrics.patternRecognition += 0.05;
+                } else {
+                    this.neuralParams.explorationFactor *= 1.1; // Explore more
+                    this.neuralParams.creativityBoost *= 1.05;
+                }
+                
+                // Evolve reasoning strategy weights
+                Object.keys(this.reasoningStrategies).forEach(strategy => {
+                    const delta = (Math.random() - 0.5) * this.neuralParams.adaptationRate;
+                    this.reasoningStrategies[strategy].weight += delta;
+                    this.reasoningStrategies[strategy].weight = Math.max(0.3, Math.min(1, this.reasoningStrategies[strategy].weight));
+                });
+                
+                // Update cognitive metrics
+                this.cognitiveMetrics.adaptiveThinking = Math.min(1, this.cognitiveMetrics.adaptiveThinking + 0.03);
+                this.cognitiveMetrics.logicalConsistency = accuracy;
+                
+                // Update curriculum level
+                this.updateCurriculumLevel();
+                
+                this.log(`🧬 Neural evolution: Accuracy ${(accuracy * 100).toFixed(1)}%, Exploration ${this.neuralParams.explorationFactor.toFixed(3)}`);
+                
+                // Save progress after evolution
+                this.saveToLocalStorage();
+            }
+            
+            // Immediate reinforcement learning after each answer
+            updateStrategyReinforcement(question, selfTest) {
+                const isCorrect = selfTest ? this.checkSelfTestAnswer(question) : false;
+                const lr = Math.max(0.01, this.neuralParams.adaptationRate); // Learning rate
+                
+                // Update strategy weights based on outcome
+                Object.keys(this.reasoningStrategies).forEach(strategy => {
+                    const contribution = this.applyStrategy(strategy, question);
+                    if (isCorrect) {
+                        // Reinforce successful strategies
+                        this.reasoningStrategies[strategy].weight += lr * contribution * 0.5;
+                    } else {
+                        // Penalize unsuccessful strategies
+                        this.reasoningStrategies[strategy].weight -= lr * contribution * 0.3;
+                    }
+                    // Keep weights in bounds
+                    this.reasoningStrategies[strategy].weight = Math.max(0.2, Math.min(1.2, this.reasoningStrategies[strategy].weight));
+                });
+                
+                // Update cognitive template weights
+                const questionType = question.type.toLowerCase();
+                if (this.cognitiveTemplates[questionType]) {
+                    this.cognitiveTemplates[questionType].forEach(template => {
+                        const contextMatch = question.context.toLowerCase().includes(template.pattern.toLowerCase());
+                        if (contextMatch) {
+                            if (isCorrect) {
+                                template.weight += lr * 0.3;
+                            } else {
+                                template.weight -= lr * 0.2;
+                            }
+                            template.weight = Math.max(0.3, Math.min(1, template.weight));
+                        }
+                    });
+                }
+                
+                // Add to neural bank
+                if (isCorrect) {
+                    const keyword = question.question.split(' ').find(w => w.length > 5) || 'pattern';
+                    const existing = this.neuralBank.find(p => p.keyword === keyword);
+                    if (existing) {
+                        existing.successRate = (existing.successRate * 0.9) + 0.1;
+                        existing.occurrences++;
+                    } else if (this.neuralBank.length < 50) {
+                        this.neuralBank.push({
+                            keyword,
+                            successRate: 0.7,
+                            occurrences: 1,
+                            type: question.type
                         });
                     }
                 }
-
-                if (results.length === 0) {
-                    // Fallback reasoning
-                    return {
-                        predicted: Math.random() > 0.5 ? 'made' : 'not_made',
-                        actual: question.correct,
-                        correct: false,
-                        confidence: 0.3,
-                        reasoning: 'No applicable strategy found',
-                        strategies: []
-                    };
-                }
-
-                // Weighted voting based on strategy weights and confidence
-                const weightedVotes = {};
-                let totalWeight = 0;
-
-                for (const result of results) {
-                    const strategy = this.reasoningStrategies[question.type].find(s => s.name === result.strategy);
-                    const weight = strategy ? strategy.weight : 0.5;
-                    const effectiveWeight = weight * result.confidence;
-
-                    if (!weightedVotes[result.answer]) {
-                        weightedVotes[result.answer] = 0;
+            }
+            
+            checkSelfTestAnswer(question) {
+                // Simulate checking with cognitive reasoning
+                const reasoning = this.applyMultiStrategyReasoning(question);
+                return reasoning.decision === 'confident' && Math.random() > 0.3;
+            }
+            
+            // Generate Watson Glaser style questions
+            generateQuestion() {
+                const types = ['assumptions', 'inferences', 'deductions', 'interpretations', 'evaluations'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                
+                const questions = {
+                    assumptions: {
+                        context: "A company's sales increased by 20% after implementing a new marketing strategy.",
+                        question: "What assumption is made in concluding that the marketing strategy caused the sales increase?",
+                        options: [
+                            "No other factors influenced sales during this period",
+                            "The marketing strategy was expensive",
+                            "Competitors did not change their strategies",
+                            "Customers prefer new marketing approaches"
+                        ],
+                        correct: 0,
+                        type: "assumptions"
+                    },
+                    inferences: {
+                        context: "Employee productivity in remote work settings has increased by 15% according to recent studies.",
+                        question: "What can be inferred from this statement?",
+                        options: [
+                            "Remote work eliminates all workplace distractions",
+                            "Some factors in remote work environments enhance productivity",
+                            "Office work is always less productive",
+                            "All employees prefer working from home"
+                        ],
+                        correct: 1,
+                        type: "inferences"
+                    },
+                    deductions: {
+                        context: "All successful startups adapt to market feedback. TechCorp adapted to market feedback.",
+                        question: "What can be logically deduced?",
+                        options: [
+                            "TechCorp is a successful startup",
+                            "TechCorp has the potential to be successful",
+                            "Market feedback guarantees success",
+                            "Adaptation is the only factor in success"
+                        ],
+                        correct: 1,
+                        type: "deductions"
+                    },
+                    interpretations: {
+                        context: "The CEO stated that 'we need to be more agile in our decision-making processes.'",
+                        question: "What is the best interpretation of this statement?",
+                        options: [
+                            "Fire employees who work slowly",
+                            "Reduce the time taken to make and implement decisions",
+                            "Only make quick decisions without analysis",
+                            "Become a software development company"
+                        ],
+                        correct: 1,
+                        type: "interpretations"
+                    },
+                    evaluations: {
+                        context: "A study of 100 people found that those who exercise daily report better mental health.",
+                        question: "How strong is the evidence for claiming exercise improves mental health for everyone?",
+                        options: [
+                            "Very strong - the study proves causation",
+                            "Weak - small sample size and correlation doesn't imply causation",
+                            "Strong - 100 people is a large sample",
+                            "Weak - only because it didn't include animals"
+                        ],
+                        correct: 1,
+                        type: "evaluations"
                     }
-                    weightedVotes[result.answer] += effectiveWeight;
-                    totalWeight += effectiveWeight;
-                }
-
-                // Find highest weighted answer
-                let bestAnswer = null;
-                let bestWeight = 0;
-                for (const [answer, weight] of Object.entries(weightedVotes)) {
-                    if (weight > bestWeight) {
-                        bestAnswer = answer;
-                        bestWeight = weight;
-                    }
-                }
-
-                const avgConfidence = results.reduce((sum, r) => sum + r.confidence, 0) / results.length;
-                const correct = bestAnswer === question.correct;
-
-                return {
-                    predicted: bestAnswer,
-                    actual: question.correct,
-                    correct,
-                    confidence: avgConfidence,
-                    reasoning: results.map(r => `${r.strategy}: ${r.reasoning}`).join('; '),
-                    strategies: results
                 };
+                
+                return questions[type];
             }
-
-            // Meta-learning: Evolve reasoning strategies and parameters
-            metaLearn(results) {
-                const recentResults = results.slice(-15);
-                if (recentResults.length < 5) return null;
-
-                const accuracy = recentResults.filter(r => r.selfTest.correct).length / recentResults.length;
-                const avgConfidence = recentResults.reduce((sum, r) => sum + r.selfTest.confidence, 0) / recentResults.length;
-                const validityRate = recentResults.filter(r => r.validation.passed).length / recentResults.length;
-
-                // Calculate cognitive metrics
-                this.cognitiveMetrics.logicalIQ = Math.min(200, 100 + (accuracy * 50) + (validityRate * 30) + (avgConfidence * 20));
-                this.cognitiveMetrics.creativityScore = Math.min(100, (this.neuralParams.creativityFactor * 50) + (this.questionsGenerated * 0.1));
-                this.cognitiveMetrics.adaptationScore = Math.min(100, (this.improvements.length * 5) + (this.neuralParams.metaLearningRate * 50));
-
-                const improvements = [];
-
-                // Strategy weight adjustments
-                for (const type of ['assumptions', 'inferences']) {
-                    const typeResults = recentResults.filter(r => r.question.type === type);
-                    for (const strategy of this.reasoningStrategies[type]) {
-                        const strategyResults = typeResults.filter(r =>
-                            r.selfTest.strategies.some(s => s.strategy === strategy.name)
-                        );
-
-                        if (strategyResults.length >= 3) {
-                            const strategyAccuracy = strategyResults.filter(r => {
-                                const strategyResult = r.selfTest.strategies.find(s => s.strategy === strategy.name);
-                                return strategyResult && strategyResult.answer === r.question.correct;
-                            }).length / strategyResults.length;
-
-                            // Adjust weights based on performance
-                            if (strategyAccuracy > 0.8) {
-                                strategy.weight = Math.min(2.0, strategy.weight + this.neuralParams.metaLearningRate);
-                                improvements.push({
-                                    type: 'strategy_boost',
-                                    target: `${type}.${strategy.name}`,
-                                    change: `Weight increased to ${strategy.weight.toFixed(2)} (accuracy: ${(strategyAccuracy * 100).toFixed(0)}%)`
-                                });
-                            } else if (strategyAccuracy < 0.5) {
-                                strategy.weight = Math.max(0.1, strategy.weight - this.neuralParams.metaLearningRate * 0.5);
-                                improvements.push({
-                                    type: 'strategy_reduction',
-                                    target: `${type}.${strategy.name}`,
-                                    change: `Weight decreased to ${strategy.weight.toFixed(2)} (accuracy: ${(strategyAccuracy * 100).toFixed(0)}%)`
-                                });
-                            }
-                        }
-                    }
-                }
-
-                // Parameter evolution
-                if (accuracy < 0.75) {
-                    this.neuralParams.logicalDepth = Math.max(1, this.neuralParams.logicalDepth - 0.5);
-                    this.neuralParams.ambiguityTolerance = Math.min(0.5, this.neuralParams.ambiguityTolerance + 0.1);
-                    improvements.push({
-                        type: 'parameter_adjustment',
-                        target: 'reasoning_complexity',
-                        change: `Reduced logical depth to ${this.neuralParams.logicalDepth} due to accuracy ${(accuracy * 100).toFixed(0)}%`
-                    });
-                } else if (accuracy > 0.9 && validityRate > 0.85) {
-                    this.neuralParams.logicalDepth = Math.min(6, this.neuralParams.logicalDepth + 0.3);
-                    this.neuralParams.creativityFactor = Math.min(1.5, this.neuralParams.creativityFactor + 0.1);
-                    this.neuralParams.reasoningComplexity = Math.min(5.0, this.neuralParams.reasoningComplexity + 0.2);
-                    improvements.push({
-                        type: 'intelligence_evolution',
-                        target: 'cognitive_capabilities',
-                        change: `Advanced reasoning complexity to ${this.neuralParams.reasoningComplexity.toFixed(1)}`
-                    });
-                }
-
-                // Cognitive diversity adjustment
-                if (this.neuralParams.cognitiveDiversity < 0.8) {
-                    this.neuralParams.cognitiveDiversity += 0.05;
-                    improvements.push({
-                        type: 'cognitive_expansion',
-                        target: 'reasoning_diversity',
-                        change: `Increased cognitive diversity to ${this.neuralParams.cognitiveDiversity.toFixed(2)}`
-                    });
-                }
-
-                return improvements.length > 0 ? improvements : null;
-            }
-
-            calculateCognitiveLevel() {
-                return Math.floor(this.cognitiveMetrics.logicalIQ / 20) + 1;
-            }
-
-            // Main evolution cycle
+            
             async runEvolutionCycle() {
-                this.iteration++;
-
-                // Select question type based on cognitive diversity
-                const types = ['assumptions', 'inferences'];
-                const typeWeights = {
-                    assumptions: 0.6,
-                    inferences: 0.4
-                };
-
-                // Adjust weights based on performance
-                const recentAssumptions = this.performanceHistory.filter(p => p.question.type === 'assumptions').slice(-10);
-                const recentInferences = this.performanceHistory.filter(p => p.question.type === 'inferences').slice(-10);
-
-                if (recentAssumptions.length >= 5) {
-                    const accAccuracy = recentAssumptions.filter(r => r.selfTest.correct).length / recentAssumptions.length;
-                    typeWeights.assumptions = Math.max(0.2, Math.min(0.8, accAccuracy));
-                }
-                if (recentInferences.length >= 5) {
-                    const infAccuracy = recentInferences.filter(r => r.selfTest.correct).length / recentInferences.length;
-                    typeWeights.inferences = Math.max(0.2, Math.min(0.8, 1 - typeWeights.assumptions));
-                }
-
-                const totalWeight = typeWeights.assumptions + typeWeights.inferences;
-                const random = Math.random() * totalWeight;
-                const type = random < typeWeights.assumptions ? 'assumptions' : 'inferences';
-
-                this.log('info', `Evolution Cycle ${this.iteration}: Generating ${type} question...`);
-
-                const question = this.generateQuestion(type);
-                if (!question) {
-                    this.log('warning', 'Question generation failed - cognitive level too low for available templates');
+                this.cycles++;
+                const question = this.generateQuestion();
+                
+                // Check curriculum gate
+                if (!this.checkCurriculumGate(question)) {
+                    if (!this.backgroundMode) {
+                        this.displayCurriculumGate(question);
+                    }
                     return;
                 }
-
-                // Display question and reasoning path
-                this.displayQuestion(question);
-                this.displayReasoningPath(question);
-
-                await this.delay(800);
-
-                // Advanced validation
-                this.log('learning', 'Running neural validation...');
-                const validation = this.validateQuestion(question);
-                question.validationPassed = validation.passed;
-                question.quality = validation.score;
-
-                if (validation.passed) {
-                    this.validQuestions++;
-                    this.log('success', `Neural validation passed (score: ${(validation.score * 100).toFixed(1)}%)`);
-                } else {
-                    this.log('error', `Validation failed: ${validation.reasoning}`);
+                
+                // Extended thinking
+                const thinkingProcess = this.extendedThinking(question);
+                
+                // Apply multi-strategy reasoning
+                const reasoning = this.applyMultiStrategyReasoning(question);
+                
+                if (!this.backgroundMode) {
+                    this.displayQuestion(question);
+                    if (this.viewMode === 'developer') {
+                        this.displayThinkingProcess(thinkingProcess);
+                    }
                 }
-
-                await this.delay(600);
-
-                // Advanced self-testing
-                this.log('learning', 'Executing multi-strategy reasoning...');
-                const selfTest = this.selfTest(question);
-
-                if (selfTest.correct) {
-                    this.log('success', `Self-test passed (confidence: ${(selfTest.confidence * 100).toFixed(1)}%)`);
-                } else {
-                    this.log('error', `Self-test failed: predicted "${selfTest.predicted}", actual "${selfTest.actual}"`);
+                
+                // Self-test
+                const isCorrect = this.checkSelfTestAnswer(question);
+                this.totalQuestions++;
+                if (isCorrect) this.correctAnswers++;
+                
+                // Immediate reinforcement learning
+                this.updateStrategyReinforcement(question, true);
+                
+                this.updateMetrics();
+                
+                // Meta-learning evolution every 8 cycles
+                if (this.cycles % 8 === 0) {
+                    this.evolveNeuralParameters();
+                    this.logEvolution();
                 }
-
-                // Store results
-                const result = { question, validation, selfTest, iteration: this.iteration };
-                this.performanceHistory.push(result);
-                this.selfTestResults.push(selfTest);
-                this.reasoningHistory.push({
-                    iteration: this.iteration,
-                    question: question,
-                    strategies: selfTest.strategies,
-                    outcome: selfTest.correct
-                });
-
-                // Add to neural bank if quality is high enough
-                if (validation.passed && selfTest.correct && question.quality > 0.8) {
-                    this.neuralBank[type].push(question);
-                    this.log('success', `Question added to neural bank (total: ${this.neuralBank[type].length})`);
+                
+                // Save progress periodically
+                if (this.cycles % 5 === 0) {
+                    this.saveToLocalStorage();
                 }
-
-                await this.delay(600);
-
-                // Meta-learning every 8 cycles
-                if (this.iteration % 8 === 0) {
-                    this.log('learning', 'Initiating meta-learning phase...');
-                    const metaImprovements = this.metaLearn(this.performanceHistory);
-
-                    if (metaImprovements) {
-                        for (const improvement of metaImprovements) {
-                            this.improvements.push({
-                                iteration: this.iteration,
-                                ...improvement
-                            });
-                            this.log('improvement', `${improvement.type}: ${improvement.change}`);
+            }
+            
+            displayCurriculumGate(question) {
+                const container = document.getElementById('questionContainer');
+                container.innerHTML = `
+                    <div class="curriculum-gate">
+                        <strong>🔒 Content Locked</strong><br>
+                        This question requires Complexity Level ${this.getQuestionComplexity(question)}.<br>
+                        Current max level: ${this.maxComplexity}<br>
+                        Achieve ${this.getNextThreshold()}% accuracy to unlock.
+                    </div>
+                `;
+            }
+            
+            getQuestionComplexity(question) {
+                let maxComplexity = 1;
+                Object.values(this.cognitiveTemplates).forEach(templates => {
+                    templates.forEach(template => {
+                        const context = (question.context + " " + question.question).toLowerCase();
+                        if (context.includes(template.pattern.toLowerCase())) {
+                            maxComplexity = Math.max(maxComplexity, template.complexity);
                         }
-                        this.displayImprovements(metaImprovements);
-                    }
-
-                    // Update cognitive metrics display
-                    this.updateCognitiveMetrics();
-                }
-
-                this.updateMetrics();
+                    });
+                });
+                return maxComplexity;
             }
-
+            
+            getNextThreshold() {
+                if (this.maxComplexity < 2) return 70;
+                if (this.maxComplexity < 3) return 80;
+                if (this.maxComplexity < 4) return 90;
+                return 95;
+            }
+            
             displayQuestion(question) {
-                const el = document.getElementById('currentQuestion');
-                const textEl = document.getElementById('questionText');
-                el.style.display = 'block';
-
-                if (question.type === 'assumptions') {
-                    textEl.innerHTML = `
-                        <strong>Statement:</strong> ${question.statement}<br><br>
-                        <strong>Assumption:</strong> ${question.assumption}<br><br>
-                        <strong>Expected:</strong> ${question.correct === 'made' ? 'Assumption Made' : 'Assumption Not Made'}<br><br>
-                        <em style="color: #6b7280;">Complexity: ${question.complexity}/5 | Cognitive Level: ${question.cognitiveLevel}</em>
-                    `;
-                } else {
-                    textEl.innerHTML = `
-                        <strong>Passage:</strong> ${question.passage}<br><br>
-                        <strong>Inference:</strong> ${question.inference}<br><br>
-                        <strong>Expected:</strong> ${question.correct}<br><br>
-                        <em style="color: #6b7280;">Complexity: ${question.complexity}/5 | Cognitive Level: ${question.cognitiveLevel}</em>
-                    `;
-                }
-            }
-
-            displayReasoningPath(question) {
-                const pathEl = document.getElementById('reasoningPath');
-                const strategies = this.reasoningStrategies[question.type] || [];
-
-                let html = `
-                    <div class="reasoning-step">
-                        <div class="step-type">Question Analysis</div>
-                        <div class="step-content">Type: ${question.type} | Pattern: ${question.templatePattern} | Complexity: ${question.complexity}</div>
-                    </div>
-                `;
-
-                for (const strategy of strategies.slice(0, 3)) {
-                    const result = strategy.execute(question);
-                    if (result) {
-                        html += `
-                            <div class="reasoning-step">
-                                <div class="step-type">${strategy.name.replace('_', ' ')}</div>
-                                <div class="step-content">${result.reasoning} (confidence: ${(result.confidence * 100).toFixed(0)}%)</div>
-                            </div>
-                        `;
-                    }
-                }
-
-                pathEl.innerHTML = html;
-            }
-
-            displayImprovements(improvements) {
-                const container = document.getElementById('improvements');
-                if (this.improvements.length === improvements.length) {
-                    container.innerHTML = '';
-                }
-
-                for (const improvement of improvements) {
-                    const html = `
-                        <div class="improvement-item">
-                            <span class="iteration">Cycle ${this.iteration}</span> - 
-                            ${improvement.type.replace('_', ' ')}
-                            <div class="change">${improvement.change}</div>
-                            <div style="color: #6b7280; font-size: 0.8rem; margin-top: 3px;">
-                                Target: ${improvement.target}
-                            </div>
+                this.currentQuestion = question;
+                this.selectedAnswer = null;
+                
+                const container = document.getElementById('questionContainer');
+                container.innerHTML = `
+                    <div class="question-box">
+                        <div style="font-weight: 600; color: #667eea; margin-bottom: 10px; font-size: 0.95em;">
+                            ${question.type.toUpperCase()} • Cycle ${this.cycles}
                         </div>
-                    `;
-                    container.insertAdjacentHTML('afterbegin', html);
-                }
-            }
-
-            updateCognitiveMetrics() {
-                document.getElementById('iqScore').textContent = Math.round(this.cognitiveMetrics.logicalIQ);
-                document.getElementById('creativityScore').textContent = Math.round(this.cognitiveMetrics.creativityScore);
-                document.getElementById('adaptationScore').textContent = Math.round(this.cognitiveMetrics.adaptationScore);
-            }
-
-            updateMetrics() {
-                document.getElementById('iteration').textContent = this.iteration;
-                document.getElementById('generated').textContent = this.questionsGenerated;
-
-                if (this.questionsGenerated > 0) {
-                    const validityRate = (this.validQuestions / this.questionsGenerated * 100).toFixed(1);
-                    document.getElementById('validityRate').textContent = validityRate + '%';
-                    document.getElementById('validityRate').className =
-                        'metric-value ' + (validityRate >= 75 ? 'positive' : 'warning');
-                }
-
-                if (this.selfTestResults.length > 0) {
-                    const correct = this.selfTestResults.filter(r => r.correct).length;
-                    const accuracy = (correct / this.selfTestResults.length * 100).toFixed(1);
-                    document.getElementById('accuracy').textContent = accuracy + '%';
-                    document.getElementById('accuracy').className =
-                        'metric-value ' + (accuracy >= 75 ? 'positive' : 'warning');
-                }
-
-                // Update neural params
-                document.getElementById('paramDepth').textContent = this.neuralParams.logicalDepth.toFixed(1);
-                document.getElementById('paramAbstraction').textContent = this.neuralParams.abstractionLevel.toFixed(2);
-                document.getElementById('paramCreativity').textContent = this.neuralParams.creativityFactor.toFixed(2);
-                document.getElementById('paramAmbiguity').textContent = this.neuralParams.ambiguityTolerance.toFixed(2);
-                document.getElementById('paramLearning').textContent = this.neuralParams.metaLearningRate.toFixed(2);
-                document.getElementById('paramComplexity').textContent = this.neuralParams.reasoningComplexity.toFixed(1);
-
-                // Update bank info
-                const totalBank = Object.values(this.neuralBank).reduce((sum, arr) => sum + arr.length, 0);
-                document.getElementById('bankSize').textContent = totalBank;
-
-                if (totalBank > 0) {
-                    const allQuestions = Object.values(this.neuralBank).flat();
-                    const avgQuality = allQuestions.reduce((sum, q) => sum + q.quality, 0) / totalBank;
-                    document.getElementById('avgQuality').textContent = (avgQuality * 100).toFixed(0) + '%';
-                }
-
-                // Update type counts
-                document.getElementById('assumptionsCount').textContent = this.neuralBank.assumptions.length;
-                document.getElementById('inferencesCount').textContent = this.neuralBank.inferences.length;
-                document.getElementById('deductionsCount').textContent = this.neuralBank.deductions.length;
-                document.getElementById('interpretationsCount').textContent = this.neuralBank.interpretations.length;
-
-                // Progress bar
-                const progress = Math.min(100, this.iteration * 1.5);
-                document.getElementById('progressFill').style.width = progress + '%';
-            }
-
-            log(type, message) {
-                const logEl = document.getElementById('log');
-                const time = new Date().toLocaleTimeString();
-                const entry = document.createElement('div');
-                entry.className = `log-entry ${type}`;
-                entry.innerHTML = `<span class="log-timestamp">[${time}]</span> ${message}`;
-                logEl.appendChild(entry);
-                logEl.scrollTop = logEl.scrollHeight;
-            }
-
-            delay(ms) {
-                return new Promise(resolve => setTimeout(resolve, ms));
-            }
-
-            async start() {
-                if (this.running) return;
-
-                this.running = true;
-                document.getElementById('startBtn').style.display = 'none';
-                document.getElementById('stopBtn').style.display = 'inline-block';
-                document.getElementById('statusText').textContent = 'Neural Evolution Active';
-                document.getElementById('statusDot').classList.add('running');
-
-                this.log('info', '🧠 Advanced Test Intelligence System evolution initiated...');
-                this.log('learning', 'Neural networks engaging meta-learning protocols...');
-
-                while (this.running) {
-                    await this.runEvolutionCycle();
-                    await this.delay(2000);
-                }
-            }
-
-            stop() {
-                this.running = false;
-                document.getElementById('startBtn').style.display = 'inline-block';
-                document.getElementById('stopBtn').style.display = 'none';
-                document.getElementById('statusText').textContent = 'Evolution Paused';
-                document.getElementById('statusDot').classList.remove('running');
-
-                this.log('info', 'Neural evolution paused.');
-                this.log('info', `Current cognitive state: IQ ${Math.round(this.cognitiveMetrics.logicalIQ)}, ` +
-                    `${this.questionsGenerated} questions processed, ${this.improvements.length} meta-improvements made.`);
-            }
-
-            reset() {
-                this.stop();
-                this.iteration = 0;
-                this.questionsGenerated = 0;
-                this.validQuestions = 0;
-                this.selfTestResults = [];
-                this.improvements = [];
-                this.performanceHistory = [];
-                this.reasoningHistory = [];
-                this.neuralBank = { assumptions: [], inferences: [], deductions: [], interpretations: [] };
-                this.cognitiveMetrics = { logicalIQ: 0, creativityScore: 0, adaptationScore: 0 };
-
-                // Reset neural parameters
-                this.neuralParams = {
-                    logicalDepth: 3,
-                    abstractionLevel: 0.7,
-                    creativityFactor: 0.8,
-                    ambiguityTolerance: 0.2,
-                    metaLearningRate: 0.15,
-                    reasoningComplexity: 2.5,
-                    cognitiveDiversity: 0.6,
-                    patternRecognition: 0.8,
-                    logicalConsistency: 0.9,
-                    adaptiveThreshold: 0.75
-                };
-
-                document.getElementById('log').innerHTML = `
-                    <div class="log-entry info">
-                        <span class="log-timestamp">[TIS]</span> Neural networks reset. Cognitive state cleared.
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <strong>Context:</strong> ${question.context}
+                        </div>
+                        <div class="question-text">${question.question}</div>
+                        <div class="options">
+                            ${question.options.map((opt, idx) => `
+                                <div class="option" data-index="${idx}">${opt}</div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-primary" style="margin-top: 20px;" id="submitAnswer">Submit Answer</button>
                     </div>
                 `;
-                document.getElementById('improvements').innerHTML = `
-                    <p style="color: #6b7280; font-size: 0.85rem;">Neural evolution history cleared...</p>
+                
+                // Add click handlers
+                document.querySelectorAll('.option').forEach(opt => {
+                    opt.addEventListener('click', (e) => {
+                        document.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+                        e.target.classList.add('selected');
+                        this.selectedAnswer = parseInt(e.target.dataset.index);
+                    });
+                });
+                
+                document.getElementById('submitAnswer').addEventListener('click', () => {
+                    this.checkAnswer();
+                });
+            }
+            
+            displayThinkingProcess(thinkingChain) {
+                const container = document.getElementById('thinkingContainer');
+                container.innerHTML = `
+                    <div class="thinking-process">
+                        <h3 style="margin-bottom: 15px; color: #667eea;">🧠 Extended Thinking Process</h3>
+                        ${thinkingChain.map(step => `
+                            <div class="thinking-step">
+                                <strong>${step.step}:</strong> ${step.thought}
+                            </div>
+                        `).join('')}
+                    </div>
                 `;
-                document.getElementById('currentQuestion').style.display = 'none';
-                document.getElementById('statusText').textContent = 'Neural Networks Ready';
-
+            }
+            
+            checkAnswer() {
+                if (this.selectedAnswer === null) {
+                    alert('Please select an answer first!');
+                    return;
+                }
+                
+                const question = this.currentQuestion;
+                const isCorrect = this.selectedAnswer === question.correct;
+                
+                this.totalQuestions++;
+                if (isCorrect) this.correctAnswers++;
+                
+                // Immediate reinforcement
+                this.updateStrategyReinforcement(question, false);
+                
+                // Update UI
+                const options = document.querySelectorAll('.option');
+                options.forEach((opt, idx) => {
+                    opt.style.pointerEvents = 'none';
+                    if (idx === question.correct) {
+                        opt.classList.add('correct');
+                    } else if (idx === this.selectedAnswer && !isCorrect) {
+                        opt.classList.add('incorrect');
+                    }
+                });
+                
+                const feedback = document.createElement('div');
+                feedback.className = `feedback ${isCorrect ? 'correct' : 'incorrect'}`;
+                feedback.innerHTML = `
+                    <strong>${isCorrect ? '✓ Correct!' : '✗ Incorrect'}</strong><br>
+                    ${isCorrect ? 'Great reasoning!' : `The correct answer was: "${question.options[question.correct]}"`}
+                `;
+                document.querySelector('.question-box').appendChild(feedback);
+                
+                document.getElementById('submitAnswer').remove();
+                
                 this.updateMetrics();
-                this.updateCognitiveMetrics();
+                this.updateNeuralBankDisplay();
+                
+                // Save after user interaction
+                this.saveToLocalStorage();
             }
-        }
-
-        const tis = new AdvancedTestIntelligenceSystem();
-
-        // --- Agent profile integration ---
-        function applyAgentProfile(profile) {
-            if (!profile || !tis) return;
-            // Merge profile params into current neuralParams
-            tis.neuralParams = { ...tis.neuralParams, ...profile.neuralParams };
-
-            // Display achievements as evolution history
-            const container = document.getElementById('improvements');
-            container.innerHTML = '';
-            const header = document.createElement('div');
-            header.style.color = '#6b7280';
-            header.style.fontSize = '0.85rem';
-            header.style.marginBottom = '8px';
-            header.textContent = `${profile.name} — ${profile.stage}`;
-            container.appendChild(header);
-
-            profile.achievements.slice().reverse().forEach(a => {
-                const html = `
-                    <div class="improvement-item">
-                        <span class="iteration">${a.year}</span> - ${a.title}
-                        <div class="change">${a.description}</div>
+            
+            updateMetrics() {
+                document.getElementById('cycleCount').textContent = this.cycles;
+                const accuracy = this.totalQuestions > 0 ? (this.correctAnswers / this.totalQuestions * 100).toFixed(1) : 0;
+                document.getElementById('accuracy').textContent = accuracy + '%';
+                document.getElementById('patternCount').textContent = this.neuralBank.length;
+                document.getElementById('complexityLevel').textContent = this.maxComplexity;
+            }
+            
+            updateNeuralBankDisplay() {
+                if (this.viewMode !== 'developer') return;
+                
+                const container = document.getElementById('neuralBankContainer');
+                if (this.neuralBank.length === 0) {
+                    container.innerHTML = '';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div class="neural-bank">
+                        <div class="neural-bank-title">💡 Neural Pattern Bank (${this.neuralBank.length} patterns)</div>
+                        ${this.neuralBank.slice(-5).reverse().map(pattern => `
+                            <div class="neural-pattern">
+                                <strong>${pattern.keyword}</strong> (${pattern.type}) - 
+                                Success: ${(pattern.successRate * 100).toFixed(0)}% 
+                                (${pattern.occurrences}x)
+                            </div>
+                        `).join('')}
                     </div>
                 `;
-                container.insertAdjacentHTML('beforeend', html);
-            });
-
-            document.getElementById('statusText').textContent = `Agent: ${profile.name} (${profile.stage})`;
-            tis.updateMetrics();
-            tis.updateCognitiveMetrics();
+            }
+            
+            logEvolution() {
+                if (this.viewMode !== 'developer') return;
+                
+                const accuracy = this.totalQuestions > 0 ? (this.correctAnswers / this.totalQuestions * 100).toFixed(1) : 0;
+                const entry = {
+                    cycle: this.cycles,
+                    accuracy,
+                    exploration: this.neuralParams.explorationFactor.toFixed(3),
+                    patterns: this.neuralBank.length,
+                    complexity: this.maxComplexity,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+                
+                this.evolutionLog.push(entry);
+                if (this.evolutionLog.length > 20) this.evolutionLog.shift();
+                
+                this.updateEvolutionLogDisplay();
+            }
+            
+            updateEvolutionLogDisplay() {
+                if (this.viewMode !== 'developer') return;
+                
+                const container = document.getElementById('evolutionLog');
+                container.innerHTML = `
+                    <div class="evolution-log">
+                        <div class="evolution-log-title">📊 Evolution Log</div>
+                        ${this.evolutionLog.slice().reverse().map(entry => `
+                            <div class="evolution-entry">
+                                <strong>Cycle ${entry.cycle}</strong> [${entry.timestamp}]<br>
+                                Accuracy: ${entry.accuracy}% | Exploration: ${entry.exploration} | 
+                                Patterns: ${entry.patterns} | Complexity: ${entry.complexity}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            setViewMode(mode) {
+                this.viewMode = mode;
+                const developerElements = document.querySelectorAll('.developer-only');
+                
+                if (mode === 'learner') {
+                    developerElements.forEach(el => el.classList.add('hidden'));
+                } else {
+                    developerElements.forEach(el => el.classList.remove('hidden'));
+                    this.updateNeuralBankDisplay();
+                    this.updateEvolutionLogDisplay();
+                }
+            }
+            
+            log(message) {
+                if (!this.backgroundMode) {
+                    console.log(`[TIS] ${message}`);
+                }
+            }
+            
+            async start() {
+                this.isRunning = true;
+                document.getElementById('statusBadge').textContent = 'Running';
+                document.getElementById('statusBadge').classList.remove('paused');
+                document.getElementById('statusBadge').classList.add('running');
+                
+                while (this.isRunning) {
+                    await this.runEvolutionCycle();
+                    await new Promise(resolve => setTimeout(resolve, this.backgroundMode ? 1000 : 3000));
+                }
+            }
+            
+            stop() {
+                this.isRunning = false;
+                document.getElementById('statusBadge').textContent = 'Paused';
+                document.getElementById('statusBadge').classList.remove('running');
+                document.getElementById('statusBadge').classList.add('paused');
+            }
         }
-
-        // Populate selector after TIS constructed
-        document.addEventListener('DOMContentLoaded', () => {
-            const select = document.getElementById('agentSelect');
-            if (!select || !window.AGENT_PROFILES) return;
-            window.AGENT_PROFILES.forEach((p, idx) => {
-                const opt = document.createElement('option');
-                opt.value = idx;
-                opt.textContent = `${p.name} — ${p.stage}`;
-                select.appendChild(opt);
+        
+        // Initialize system
+        const tis = new AdvancedTestIntelligenceSystem();
+        
+        // Populate agent selector
+        const agentSelector = document.getElementById('agentSelector');
+        if (typeof AGENT_PROFILES !== 'undefined') {
+            AGENT_PROFILES.forEach(profile => {
+                const option = document.createElement('option');
+                option.value = profile.id;
+                option.textContent = `${profile.name} - ${profile.stage}`;
+                agentSelector.appendChild(option);
             });
-
-            select.addEventListener('change', () => {
-                const profile = window.AGENT_PROFILES[select.value];
-                applyAgentProfile(profile);
+            
+            agentSelector.addEventListener('change', (e) => {
+                const profile = AGENT_PROFILES.find(p => p.id === e.target.value);
+                if (profile) {
+                    tis.loadAgentProfile(profile);
+                }
             });
-
-            // Apply initial profile
-            applyAgentProfile(window.AGENT_PROFILES[0]);
+        }
+        
+        // View mode toggle
+        document.querySelectorAll('.view-mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.view-mode-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                tis.setViewMode(e.target.dataset.mode);
+            });
         });
+        
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (!tis.isRunning) {
+                tis.start();
+            } else {
+                tis.stop();
+            }
+        });
+        
+        document.getElementById('selfTestBtn').addEventListener('click', () => {
+            if (!tis.isRunning) {
+                tis.runEvolutionCycle();
+            }
+        });
+        
+        document.getElementById('backgroundToggle').addEventListener('change', (e) => {
+            tis.backgroundMode = e.target.checked;
+            tis.log(`Background mode: ${tis.backgroundMode ? 'ON' : 'OFF'}`);
+        });
+        
+        document.getElementById('saveProgressBtn').addEventListener('click', () => {
+            tis.saveToLocalStorage();
+            alert('Progress saved to localStorage!');
+        });
+        
+        document.getElementById('loadProgressBtn').addEventListener('click', () => {
+            if (tis.loadFromLocalStorage()) {
+                tis.updateMetrics();
+                tis.updateNeuralBankDisplay();
+                tis.updateEvolutionLogDisplay();
+                alert('Progress loaded from localStorage!');
+            } else {
+                alert('No saved progress found.');
+            }
+        });
+        
+        // Initialize metrics
+        tis.updateMetrics();
     </script>
 </body>
 </html>

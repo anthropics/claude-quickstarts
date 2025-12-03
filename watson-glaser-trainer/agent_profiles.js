@@ -3,6 +3,7 @@
 
 window.AGENT_PROFILES = [
   {
+    id: 'novice-student',
     name: 'Novice Student',
     stage: 'Year 1 - Curious Learner',
     neuralParams: {
@@ -23,6 +24,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'apprentice-analyst',
     name: 'Apprentice Analyst',
     stage: 'Year 2-3 - Structured Thinker',
     neuralParams: {
@@ -43,6 +45,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'intermediate-researcher',
     name: 'Intermediate Researcher',
     stage: 'Year 4-5 - Analytical Practitioner',
     neuralParams: {
@@ -63,6 +66,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'advanced-practitioner',
     name: 'Advanced Practitioner',
     stage: 'Year 6-7 - Skilled Reasoner',
     neuralParams: {
@@ -83,6 +87,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'emerging-expert',
     name: 'Emerging Expert',
     stage: 'Year 8 - Domain Specialist',
     neuralParams: {
@@ -103,6 +108,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'senior-researcher',
     name: 'Senior Researcher',
     stage: 'Year 9 - Thought Leader',
     neuralParams: {
@@ -123,6 +129,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'principal-investigator',
     name: 'Principal Investigator',
     stage: 'Year 10 - Visionary',
     neuralParams: {
@@ -143,6 +150,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'cognitive-architect',
     name: 'Cognitive Architect',
     stage: 'Career - Systems Builder',
     neuralParams: {
@@ -163,6 +171,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'ethics-policy-lead',
     name: 'Ethics & Policy Lead',
     stage: 'Career - Societal Steward',
     neuralParams: {
@@ -183,6 +192,7 @@ window.AGENT_PROFILES = [
     ]
   },
   {
+    id: 'professor-emeritus',
     name: 'Professor Emeritus',
     stage: 'Lifetime - Legacy',
     neuralParams: {
