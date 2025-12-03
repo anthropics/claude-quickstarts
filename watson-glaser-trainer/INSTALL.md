@@ -38,7 +38,7 @@ Complete guide for installing, running, testing, and deploying the Watson Glaser
 1. **Download the ZIP**
    ```bash
    # Download from GitHub
-   curl -L https://github.com/YOUR_USERNAME/claude-quickstarts/archive/refs/heads/watson-glaser-tis-standalone.zip -o watson-glaser-tis.zip
+   curl -L https://github.com/slittyjuice-source/claude-quickstarts/archive/refs/heads/watson-glaser-tis-standalone.zip -o watson-glaser-tis.zip
    
    # Extract
    unzip watson-glaser-tis.zip
@@ -61,7 +61,7 @@ Complete guide for installing, running, testing, and deploying the Watson Glaser
 
 1. **Clone Repository**
    ```bash
-   git clone https://github.com/YOUR_USERNAME/claude-quickstarts.git
+   git clone https://github.com/slittyjuice-source/claude-quickstarts.git
    cd claude-quickstarts
    git checkout watson-glaser-tis-standalone
    cd watson-glaser-trainer
@@ -215,7 +215,7 @@ open -a Safari advanced.html
 
 2. **Access Your Site**
    ```
-   https://YOUR_USERNAME.github.io/claude-quickstarts/watson-glaser-trainer/advanced.html
+   https://slittyjuice-source.github.io/claude-quickstarts/watson-glaser-trainer/advanced.html
    ```
 
 3. **Custom Domain (Optional)**
@@ -381,7 +381,7 @@ const tis = new AdvancedTestIntelligenceSystem();
 **Problem**: Can't clone repository
 ```bash
 # Solution: Use HTTPS instead of SSH
-git clone https://github.com/YOUR_USERNAME/claude-quickstarts.git
+git clone https://github.com/slittyjuice-source/claude-quickstarts.git
 ```
 
 **Problem**: npm install fails
@@ -462,7 +462,7 @@ For installation help:
 
 1. Check this guide
 2. Review [Troubleshooting](#troubleshooting)
-3. Check [GitHub Issues](https://github.com/YOUR_USERNAME/claude-quickstarts/issues)
+3. Check [GitHub Issues](https://github.com/slittyjuice-source/claude-quickstarts/issues)
 4. Open a new issue with:
    - OS and browser version
    - Installation method used
