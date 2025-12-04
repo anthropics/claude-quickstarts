@@ -16,7 +16,6 @@ from .knowledge_base import (
     InferenceRule,
     Fact,
     LogicalStatement,
-    ValidationResult
 )
 
 
@@ -463,17 +462,23 @@ class ReasoningAgent:
             if "all" in fact.statement.lower():
                 parts = fact.statement.lower().split("are")
                 if len(parts) == 2:
-                    property = parts[1].strip()
+                    predicate = parts[1].strip()
                     # Extract subject from problem
                     words = problem.split()
                     if words:
                         subject = words[0]
-                        return f"{subject} {property}"
+                        return f"{subject} {predicate}"
 
         if rule == InferenceRule.MODUS_PONENS:
             # Pattern: P, P→Q ⊢ Q
-            if "→" in fact.logical_form or "if" in fact.statement.lower():
-                parts = fact.statement.lower().split("then" if "then" in fact.statement.lower() else "are")
+            if fact.logical_form and "→" in fact.logical_form:
+                parts = fact.logical_form.split("→")
+                if len(parts) == 2:
+                    return parts[1].strip()
+
+            statement_lower = fact.statement.lower()
+            if "if" in statement_lower or "then" in statement_lower or "are" in statement_lower:
+                parts = statement_lower.split("then" if "then" in statement_lower else "are")
                 if len(parts) == 2:
                     return parts[1].strip()
 

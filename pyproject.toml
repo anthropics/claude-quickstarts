@@ -1,17 +1,20 @@
 [tool.pyright]
-venvPath = "computer-use-demo"
-venv = ".venv"
+venvPath = "."
+venv = ".venv-1"
 useLibraryCodeForTypes = false
+
 [tool.pytest.ini_options]
 pythonpath = "."
 addopts = "-ra -q"
 asyncio_default_fixture_loop_scope = "function"
 testpaths = [
-    "autonomous-coding",
-    "agents"
+    "agents",
+    "autonomous-coding"
 ]
 norecursedirs = [
     ".venv",
+    ".venv-1",
+    ".venv2",
     "computer-use-demo",
     "watson-glaser-trainer",
     "node_modules",

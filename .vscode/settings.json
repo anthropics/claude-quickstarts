@@ -1,10 +1,12 @@
 {
     "python.testing.pytestArgs": [
+        "agents",
         "autonomous-coding"
     ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv-1/bin/python",
     "deno.enable": true,
-    "python-envs.defaultEnvManager": "ms-python.python:system",
+    "python-envs.defaultEnvManager": "ms-python.python:venv",
     "python-envs.pythonProjects": []
 }
