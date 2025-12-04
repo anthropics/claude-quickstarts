@@ -3,5 +3,6 @@
         "autonomous-coding"
     ],
     "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+    "python.testing.pytestEnabled": true,
+    "deno.enable": true
 }
