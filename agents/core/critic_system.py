@@ -366,9 +366,9 @@ class CriticSystem:
         # Extract conclusions (last sentence of each response)
         conclusions = []
         for resp in responses:
-            sentences = resp.strip().split(".")
+            sentences = [s.strip().lower() for s in resp.strip().split(".") if s.strip()]
             if sentences:
-                conclusions.append(sentences[-1].strip().lower())
+                conclusions.append(sentences[-1])
         
         # Calculate pairwise similarity
         total_pairs = 0

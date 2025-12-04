@@ -248,7 +248,7 @@ class TestFactoryFunctions:
         manager = create_sqlite_memory(db_path)
         
         assert manager is not None
-        manager.save({"id": "sql_test", "data": "value"})
+        manager.save({"id": "sql_test", "content": "test value"})
         assert manager.load("sql_test") is not None
 
     @pytest.mark.unit
@@ -260,7 +260,7 @@ class TestFactoryFunctions:
         manager = create_json_memory(json_path)
         
         assert manager is not None
-        manager.save({"id": "json_test", "data": "value"})
+        manager.save({"id": "json_test", "content": "test value"})
         # JSON may need a flush to persist
 
 

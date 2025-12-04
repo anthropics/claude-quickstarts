@@ -288,7 +288,7 @@ class SQLiteBackend(PersistenceBackend):
             "timestamp": row["timestamp"],
             "access_count": row["access_count"],
             "last_accessed": row["last_accessed"],
-            "importance": row.get("importance", 0.5)
+            "importance": row["importance"] if row["importance"] is not None else 0.5
         }
     
     def delete_entry(self, entry_id: str) -> bool:
@@ -425,8 +425,14 @@ class JSONFileBackend(PersistenceBackend):
     def _load(self) -> None:
         """Load data from file."""
         if self.file_path.exists():
-            with self.file_path.open('r') as f:
-                self._data = json.load(f)
+            try:
+                with self.file_path.open('r') as f:
+                    content = f.read().strip()
+                    if content:
+                        self._data = json.loads(content)
+            except json.JSONDecodeError:
+                # If file is empty or invalid, use default structure
+                pass
     
     def _save(self) -> None:
         """Save data to file."""
