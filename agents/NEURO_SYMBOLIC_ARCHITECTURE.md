@@ -3,6 +3,7 @@
 ## Executive Summary
 
 This architecture implements a hybrid AI system that combines:
+
 - **Backend**: Machine learning (LLM agents with extended thinking)
 - **Frontend**: Formal logic (symbolic reasoning with knowledge base)
 
@@ -15,6 +16,7 @@ The key innovation is **rigorous integration** that addresses fundamental challe
 **Problem**: How does natural language map to logical forms while preserving meaning?
 
 **Our Solution**:
+
 ```python
 # Context-dependent semantic interpretation
 ml_context = SemanticContext(
@@ -36,6 +38,7 @@ result = parser.parse("All ML models trained on biased data produce biased outpu
 ```
 
 **Key Features**:
+
 - ✅ Context determines meaning (biased_ML ≠ biased_cognitive)
 - ✅ Explicit grounding rules
 - ✅ Tracks what can't be formalized
@@ -44,10 +47,12 @@ result = parser.parse("All ML models trained on biased data produce biased outpu
 ### 2. Epistemic Status vs. Logical Validity
 
 **Problem**: A single "confidence" score conflates:
+
 - Structural validity (is the argument form correct?)
 - Soundness (are the premises actually true?)
 
 **Our Solution**:
+
 ```python
 status = ValidityChecker.check_modus_ponens(
     "If Socrates is a fish, then Socrates can swim",
@@ -63,6 +68,7 @@ status = ValidityChecker.check_modus_ponens(
 ```
 
 **Key Features**:
+
 - ✅ Separate validity and soundness tracking
 - ✅ Valid ≠ believable (Socrates is a fish)
 - ✅ Invalid ≠ unbelievable (affirming consequent)
@@ -73,6 +79,7 @@ status = ValidityChecker.check_modus_ponens(
 **Problem**: LLMs pattern-match on training data, they don't actually perform modus ponens. Labeling their outputs with logic terms is post-hoc rationalization unless validated.
 
 **Our Solution**:
+
 ```python
 # Independent validation (doesn't trust LLM self-labeling)
 fallacy = ConfidenceCalculator.detect_fallacy(
@@ -86,6 +93,7 @@ fallacy = ConfidenceCalculator.detect_fallacy(
 ```
 
 **Key Features**:
+
 - ✅ Fallacy detection independent of LLM
 - ✅ Checks for missing quantifiers
 - ✅ Validates argument structure formally
@@ -96,6 +104,7 @@ fallacy = ConfidenceCalculator.detect_fallacy(
 **Problem**: If I chain 10 steps each at 0.9 confidence, what's the final confidence?
 
 **Our Solution**:
+
 ```python
 breakdown = ConfidenceCalculator.multi_step_chain(
     premise_confidences=[0.7, 0.6],
@@ -113,6 +122,7 @@ breakdown = ConfidenceCalculator.multi_step_chain(
 ```
 
 **Key Features**:
+
 - ✅ Explicit propagation rules (product, complement)
 - ✅ Separates logical, empirical, source confidence
 - ✅ Chain length effects are visible
@@ -123,6 +133,7 @@ breakdown = ConfidenceCalculator.multi_step_chain(
 **Problem**: "All", "most", "some", and generic plurals have different logical structures, and some can't be expressed in first-order logic.
 
 **Our Solution**:
+
 ```python
 cases = [
     "All birds can fly",   # ∀x(Bird(x) → Fly(x))
@@ -137,6 +148,7 @@ for statement in cases:
 ```
 
 **Key Features**:
+
 - ✅ Distinguishes ∀, ∃, generic, most
 - ✅ Reports what can't be formalized
 - ✅ Suggests required logic system
@@ -147,6 +159,7 @@ for statement in cases:
 **Problem**: Beliefs, obligations, causation require specialized logics beyond first-order.
 
 **Our Solution**:
+
 ```python
 modality_cases = [
     ("John believes Mary is happy", ModalityType.EPISTEMIC),
@@ -159,6 +172,7 @@ modality_cases = [
 ```
 
 **Key Features**:
+
 - ✅ Detects epistemic (believes, knows)
 - ✅ Detects deontic (should, must, permitted)
 - ✅ Detects causal (because, causes)
@@ -168,7 +182,7 @@ modality_cases = [
 
 ### Layer 1: Symbol Grounding (`logic/grounding.py`)
 
-```
+```text
 Natural Language → Semantic Parser → Logical Form
                          ↓
                  Grounding Context
@@ -177,13 +191,14 @@ Natural Language → Semantic Parser → Logical Form
 ```
 
 **Components**:
+
 - `SemanticContext`: Domain-specific predicate definitions
 - `SemanticParser`: Robust parsing with assumption tracking
 - `ParseResult`: Success/failure with unparseable fragments
 
 ### Layer 2: Epistemic Tracking (`logic/epistemic.py`)
 
-```
+```text
 Argument → Validity Checker → Epistemic Status
                                 (validity + soundness)
            ↓
@@ -192,13 +207,14 @@ Argument → Validity Checker → Epistemic Status
 ```
 
 **Components**:
+
 - `EpistemicStatus`: Separates validity from soundness
 - `ConfidenceCalculator`: Explicit propagation rules
 - `ValidityChecker`: Formal validation independent of LLM
 
 ### Layer 3: Knowledge Base (`logic/knowledge_base.py`)
 
-```
+```text
 Facts + Rules → Inference Engine → Validated Claims
                        ↓
                  Forward Chaining
@@ -206,13 +222,14 @@ Facts + Rules → Inference Engine → Validated Claims
 ```
 
 **Components**:
+
 - `KnowledgeBase`: Stores facts with provenance
 - `InferenceRule`: Modus ponens, universal instantiation, etc.
 - `ValidationResult`: Evidence chain for claims
 
 ### Layer 4: Reasoning Agent (`logic/reasoning_agent.py`)
 
-```
+```text
 Query → Decomposition → Reasoning Steps → Formal Argument
                              ↓
                     Knowledge Validation
@@ -222,6 +239,7 @@ Query → Decomposition → Reasoning Steps → Formal Argument
 ```
 
 **Components**:
+
 - `ReasoningAgent`: Orchestrates neuro-symbolic reasoning
 - `ArgumentBuilder`: Constructs formal arguments from ML
 - `FormalArgument`: Complete logical proof
@@ -430,6 +448,7 @@ jupyter notebook rigorous_logic_integration.ipynb
 ## References
 
 This implementation draws from:
+
 - **Symbol Grounding**: Harnad (1990), Steels (2008)
 - **Neuro-Symbolic AI**: Garcez et al. (2019), Lamb et al. (2020)
 - **Epistemic Logic**: Hintikka (1962), Fagin et al. (1995)
@@ -440,6 +459,7 @@ This implementation draws from:
 ## Conclusion
 
 This architecture demonstrates that neuro-symbolic AI can be rigorous, not just aspirational. By explicitly addressing:
+
 - Symbol grounding
 - Epistemic status vs. validity
 - Inference validation

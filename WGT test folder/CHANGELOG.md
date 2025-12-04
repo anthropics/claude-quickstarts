@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 #### Core Features
+
 - Extended Thinking architecture with 4x, 8x, 16x, and 32x layer configurations
 - Logic prioritization system (75% weight to reasoning layers)
 - Neural evolution with self-modifying parameters
@@ -18,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - LocalStorage persistence for auto-saving progress
 
 #### Question Types
+
 - Assumptions: Identifying unstated premises
 - Inferences: Evaluating conclusions from information
 - Deductions: Logical certainty from premises
@@ -25,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evaluations: Assessing evidence and argument quality
 
 #### Agent Profiles
+
 - Novice Learner (starting point)
 - Intermediate Researcher (balanced)
 - Early Achiever (pattern recognition)
@@ -35,6 +38,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Accomplished Expert (maximum capability)
 
 #### User Interface
+
 - Learner View (clean, focused interface)
 - Developer View (diagnostic tools)
 - View mode toggle
@@ -44,6 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Status badges
 
 #### Developer Tools
+
 - Extended thinking process visualization
 - Neural pattern bank inspector
 - Evolution log (20 most recent cycles)
@@ -51,6 +56,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Cognitive metrics dashboard
 
 #### Testing
+
 - Automated Puppeteer tests
 - Integration test suite
 - Manual testing guide
@@ -58,6 +64,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Browser compatibility testing
 
 #### Documentation
+
 - Comprehensive README
 - Contributing guidelines
 - Security policy
@@ -69,6 +76,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Technical Details
 
 #### Architecture
+
 - 8x layer default configuration
 - Logic layers: Deductive + Inductive reasoning
 - Perception layers: Initial perception + pattern recognition
@@ -77,6 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Synthesis layer: Consensus synthesis
 
 #### Neural Parameters
+
 - Adaptation rate: 0.15
 - Exploration factor: 0.25
 - Memory retention: 0.85
@@ -84,6 +93,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Creativity boost: 0.2
 
 #### Performance
+
 - Startup time: < 500ms
 - Question generation: ~50ms
 - Extended thinking: ~200ms
@@ -92,6 +102,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - LocalStorage: ~50KB per session
 
 #### Security
+
 - Client-side only operation
 - No server communication
 - No data transmission
@@ -102,18 +113,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Design Decisions
 
 #### Logic Prioritization
+
 - Chose 75% logic weight as optimal balance
 - Prevents other layers from outvoting reasoning
 - Ensures logical consistency dominates
 - Allows for some influence from other perspectives
 
 #### 8x Architecture
+
 - Best cost/benefit ratio
 - 2 logic layers for thorough reasoning
 - Sufficient diversity without overhead
 - ~450ms execution time (production-ready)
 
 #### Curriculum Learning
+
 - 70% accuracy → Complexity Level 2
 - 80% accuracy → Complexity Level 3
 - 90% accuracy → Complexity Level 4
@@ -121,6 +135,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ensures mastery before progression
 
 #### LocalStorage
+
 - Auto-save every 5 cycles
 - Manual save/load buttons
 - ~50KB storage per session

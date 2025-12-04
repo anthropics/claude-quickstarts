@@ -1,4 +1,5 @@
 # Implementation Gap Analysis
+
 ## Current State vs. Watson-Glaser Logic Intelligence System Roadmap
 
 **Date**: December 4, 2025  
@@ -32,7 +33,8 @@ The implementation plan specifies a **deterministic core** as the foundation, bu
 #### 1.1 Project Structure Gap
 
 **Roadmap Expects:**
-```
+
+```text
 watson-glaser-reasoning/
 ├── main.py                     # CLI entry point
 ├── core/
@@ -51,7 +53,8 @@ watson-glaser-reasoning/
 ```
 
 **Current Structure:**
-```
+
+```text
 watson-glaser-trainer/          # Web-based only, no CLI
 ├── advanced.html               # ✅ Exists but lacks formal logic
 ├── agent_profiles.js           # ✅ Exists (good)
@@ -71,6 +74,7 @@ agents/logic/                   # ✅ Partial foundation exists!
 #### 1.2 Logic Engine Gap
 
 **Roadmap Specifies:**
+
 - **Propositional Forms**: MP, MT, HS, DS, CD, SIMP, CONJ, ADD
 - **Invalid Forms**: AC (Affirming Consequent), DA (Denying Antecedent)
 - **Truth-table evaluation**: Bitset-based, ≤5 variables
@@ -78,6 +82,7 @@ agents/logic/                   # ✅ Partial foundation exists!
 **Current Implementation:**
 
 ✅ **Partial in `agents/logic/epistemic.py`:**
+
 ```python
 # Fallacy detection exists but limited
 def detect_fallacy(premises, conclusion, claimed_rule):
@@ -86,6 +91,7 @@ def detect_fallacy(premises, conclusion, claimed_rule):
 ```
 
 ❌ **Missing:**
+
 - No `LogicEngine` class with formal rule definitions
 - No truth-table evaluation system
 - No systematic propositional logic validation
@@ -98,6 +104,7 @@ def detect_fallacy(premises, conclusion, claimed_rule):
 #### 1.3 Categorical Engine Gap
 
 **Roadmap Specifies:**
+
 - Barbara (AAA-1): All M are P, All S are M → All S are P
 - Celarent (EAE-1): No M are P, All S are M → No S are P
 - Darii (AII-1): All M are P, Some S are M → Some S are P
@@ -106,6 +113,7 @@ def detect_fallacy(premises, conclusion, claimed_rule):
 **Current Implementation:**
 
 ⚠️ **Partial in `agents/logic/grounding.py`:**
+
 ```python
 # Has quantifier detection (∀, ∃, generic) but no syllogistic validation
 class SemanticParser:
@@ -114,6 +122,7 @@ class SemanticParser:
 ```
 
 ❌ **Missing:**
+
 - No `CategoricalEngine` class
 - No syllogistic form validation
 - No middle term distribution checking
@@ -132,6 +141,7 @@ class SemanticParser:
 | **Formal** | Affirming Consequent, Denying Antecedent, Undistributed Middle | ⚠️ AC only |
 
 **Current State:**
+
 ```python
 # agents/logic/epistemic.py - Limited fallacy detection
 def detect_fallacy(premises, conclusion, claimed_rule):
@@ -144,6 +154,7 @@ def detect_fallacy(premises, conclusion, claimed_rule):
 ```
 
 ❌ **Missing:**
+
 - `data/fallacies.json` with structured patterns
 - Severity classification (major/moderate/minor)
 - Example database with explanations
@@ -154,7 +165,8 @@ def detect_fallacy(premises, conclusion, claimed_rule):
 #### 1.5 CLI Interface Gap
 
 **Roadmap Specifies:**
-```
+
+```text
 ┌─────────────────────────────────────────┐
 │   LOGIC & REASONING TOOLKIT v0.1        │
 ├─────────────────────────────────────────┤
@@ -167,6 +179,7 @@ def detect_fallacy(premises, conclusion, claimed_rule):
 ```
 
 **Current Implementation:**
+
 - ✅ Web UI in `watson-glaser-trainer/advanced.html`
 - ❌ No CLI equivalent (`ui/cli.py` missing)
 - ❌ No flags: `--fuzzy`, `--deep`, `--save`, `--no-color`
@@ -180,6 +193,7 @@ def detect_fallacy(premises, conclusion, claimed_rule):
 #### 2.1 Extended Thinking Architecture ✅
 
 **Current Implementation:**
+
 ```python
 # agents/tools/extended_thinking.py
 class ExtendedThinkingTool:
@@ -189,6 +203,7 @@ class ExtendedThinkingTool:
 ```
 
 **Alignment**: ✅ Matches roadmap perfectly
+
 - ✅ Multi-layer reasoning (4x/8x/16x/32x)
 - ✅ Logic prioritization (75% weight)
 - ✅ Layer specializations
@@ -198,11 +213,13 @@ class ExtendedThinkingTool:
 #### 2.2 Claude Model Integration ⚠️
 
 **Roadmap Specifies:**
+
 - **Sonnet**: Fast analysis, natural language preprocessing
 - **Opus**: Deep reasoning, 8-layer analysis
 - **Aurora (Opus 4)**: Self-evolution, 32-layer, meta-learning
 
 **Current Implementation:**
+
 ```python
 # agents/tools/extended_thinking.py
 # Generic implementation, not model-specific
@@ -211,11 +228,13 @@ class ExtendedThinkingTool:
 ```
 
 **Gap**:
+
 - ❌ No separate Sonnet/Opus/Aurora prompt engineering
 - ❌ No structured output codecs per roadmap
 - ❌ Missing model-specific temperature/token configs
 
 **Recommendation**: Add model profiles:
+
 ```python
 SONNET_CONFIG = {
     "temperature": 0.3,
@@ -242,18 +261,21 @@ AURORA_CONFIG = {
 #### 2.3 Hybrid Architecture ⚠️
 
 **Roadmap Diagram:**
-```
+
+```text
 User Input → Deterministic Core (Always) → AI Layer (Opt-In) → Merged Analysis
 ```
 
 **Current Flow:**
-```
+
+```text
 User Input → Extended Thinking (AI-first) → Optional Logic Validation
 ```
 
 **Incongruity**: AI is primary, logic is secondary. Roadmap requires inverse.
 
 **Fix Needed:**
+
 ```python
 def analyze_argument(text: str, use_ai: bool = False):
     # Step 1: ALWAYS run deterministic logic
@@ -275,6 +297,7 @@ def analyze_argument(text: str, use_ai: bool = False):
 #### 3.1 Neural Pattern Bank ✅
 
 **Current Implementation:**
+
 ```python
 # watson-glaser-trainer/advanced.html (lines 800-850)
 class AdvancedTestIntelligenceSystem {
@@ -294,6 +317,7 @@ class AdvancedTestIntelligenceSystem {
 #### 3.2 Curriculum Adaptation ✅
 
 **Current Implementation:**
+
 ```python
 # agents/tools/extended_thinking.py
 class WatsonGlaserThinkingTool:
@@ -310,6 +334,7 @@ class WatsonGlaserThinkingTool:
 #### 3.3 Meta-Learning System ⚠️
 
 **Roadmap Specifies:**
+
 - Strategy Weights ✅ (exists)
 - Cognitive Templates ✅ (exists)
 - Error Pattern Tracker ❌ (missing)
@@ -324,11 +349,13 @@ class WatsonGlaserThinkingTool:
 #### 4.1 Watson-Glaser Assessment Mode ⚠️
 
 **Roadmap Specifies:**
+
 - 5 sections × 16 items = 80 total
 - Timed assessment (45 minutes total)
 - Detailed score report with cognitive profile
 
 **Current Implementation:**
+
 ```javascript
 // watson-glaser-trainer/advanced.html
 // Has 5 question types ✅
@@ -344,8 +371,9 @@ class WatsonGlaserThinkingTool:
 #### 4.2 Analytics Dashboard ❌
 
 **Roadmap Specifies:**
-```
-┌─────────────────────────────────────────────────────────┐
+
+```text
+┌───────────────────────────────────────────────────────┐
 │  COGNITIVE DEVELOPMENT DASHBOARD                        │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
 │  │ Inference    │  │ Deduction    │  │ Fallacy Det. │  │
@@ -365,6 +393,7 @@ class WatsonGlaserThinkingTool:
 > "Logic is the skeleton, AI is the muscles, User agency is the soul."
 
 **Current Reality:**
+
 - AI/Extended Thinking is the skeleton ❌
 - Logic validation is optional muscles ❌
 - User has limited agency (web-only) ❌
@@ -379,6 +408,7 @@ class WatsonGlaserThinkingTool:
 > "Fully local, zero network calls, user owns all data"
 
 **Current Implementation:**
+
 ```python
 # agents/agent.py requires Anthropic API
 client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
@@ -387,6 +417,7 @@ client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 **Incongruity**: Requires external API calls. Not truly local.
 
 **Fix Options**:
+
 1. Make AI optional with local fallback
 2. Support local LLM inference (Ollama/LM Studio)
 3. Separate "practice" (local) vs "AI-enhanced" modes
@@ -396,7 +427,8 @@ client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
 ### 3. **Data File Structure** 🚨 CRITICAL
 
 **Roadmap Specifies:**
-```
+
+```text
 data/
 ├── argument_forms.json      # 10+ propositional + 4 categorical
 ├── fallacies.json           # 25+ fallacy patterns
@@ -405,7 +437,8 @@ data/
 ```
 
 **Current State:**
-```
+
+```text
 watson-glaser-trainer/
 ├── agent_profiles.js        # ✅ Neural profiles (good!)
 ├── design/design_tokens.json  # ✅ UI tokens (good!)
@@ -422,6 +455,7 @@ watson-glaser-trainer/
 **Current Reality**: Web-first with no CLI
 
 **Impact**:
+
 - ✅ Pro: Beautiful, accessible web interface
 - ❌ Con: Not scriptable, no batch processing
 - ❌ Con: Harder to integrate with other tools
@@ -433,6 +467,7 @@ watson-glaser-trainer/
 ### 5. **Testing Philosophy** 🚨 CRITICAL
 
 **Roadmap Specifies:**
+
 ```python
 # Unit tests for deterministic logic
 pytest tests/test_logic_engine.py
@@ -442,6 +477,7 @@ pytest tests/golden/
 ```
 
 **Current Tests:**
+
 ```javascript
 // watson-glaser-trainer/tests/puppeteer_test.js
 // Browser automation tests ✅

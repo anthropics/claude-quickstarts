@@ -55,7 +55,7 @@ npm run test-puppeteer
 
 ## 📁 Project Structure
 
-```
+```text
 watson-glaser-trainer/
 ├── README.md                    # This file
 ├── LICENSE                      # MIT License
@@ -111,7 +111,7 @@ open tests/validation.html
 
 ### Extended Thinking Layers (8x Default)
 
-```
+```text
 Layer 1: Initial Perception      (perception)
 Layer 2: Deductive Reasoning     (logic) ⚡ 75% weight
 Layer 3: Pattern Recognition     (perception)

@@ -1,8 +1,10 @@
 """Tools that interface with MCP servers."""
 
-from typing import Any
+from typing import Any, TYPE_CHECKING
 from .base import Tool
-from ..utils.connections import MCPConnection
+
+if TYPE_CHECKING:
+    from ..utils.connections import MCPConnection
 
 
 class MCPTool(Tool):

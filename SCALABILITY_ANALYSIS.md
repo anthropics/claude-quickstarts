@@ -20,12 +20,14 @@
 ### 1. 4x Architecture (Current - Baseline)
 
 **Layers:**
+
 1. Perception (Pattern Recognition)
 2. Reasoning (Logical Inference)
 3. Evaluation (Critical Assessment)
 4. Meta-Learning (Strategy Optimization)
 
 **Metrics:**
+
 - Processing time: ~250ms
 - Memory: ~50KB per query
 - Accuracy: Baseline (100%)
@@ -44,6 +46,7 @@
 ❌ Simple consensus
 
 **Use Cases:**
+
 - Quick decisions
 - Real-time applications
 - Resource-constrained environments
@@ -53,6 +56,7 @@
 ### 2. 8x Architecture (RECOMMENDED)
 
 **Layers:**
+
 1. **Pattern Perception** (Visual/structural patterns)
 2. **Semantic Analysis** (Meaning extraction)
 3. **Deductive Reasoning** (Logical deduction)
@@ -63,6 +67,7 @@
 8. **Meta-Cognition** (Self-monitoring)
 
 **Metrics:**
+
 - Processing time: ~450ms (1.8x slower)
 - Memory: ~85KB per query (1.7x more)
 - Accuracy: +12% improvement
@@ -70,6 +75,7 @@
 - Parallel efficiency: 95%
 
 **Logic Prioritization:**
+
 - Layers 3-4 (Reasoning): 2x weight in consensus
 - Logic contradiction detection: Active
 - Fallacy detection: Enabled
@@ -88,6 +94,7 @@
 ⚠️ Slightly more memory
 
 **Use Cases:**
+
 - **Critical thinking applications** ✅
 - **Watson Glaser style reasoning** ✅
 - Complex problem-solving
@@ -101,6 +108,7 @@
 ### 3. 16x Architecture (Advanced)
 
 **Layers:**
+
 1. Visual Pattern Recognition
 2. Linguistic Pattern Recognition
 3. Semantic Extraction
@@ -119,6 +127,7 @@
 16. Epistemic Validation
 
 **Metrics:**
+
 - Processing time: ~850ms (3.4x slower)
 - Memory: ~145KB per query (2.9x more)
 - Accuracy: +18% improvement
@@ -126,6 +135,7 @@
 - Parallel efficiency: 85%
 
 **Logic Prioritization:**
+
 - Layers 5-8 (Reasoning): 3x weight
 - Logic layers form super-majority (50% of voting power)
 - Contradiction veto power
@@ -146,6 +156,7 @@
 ❌ Parallelization overhead
 
 **Use Cases:**
+
 - Research environments
 - Offline analysis
 - High-stakes decisions
@@ -160,6 +171,7 @@
 **Layers:** (Grouped into 8 super-categories)
 
 **A. Perception (4 layers):**
+
 1. Visual, 2. Auditory, 3. Linguistic, 4. Structural
 
 **B. Comprehension (4 layers):**
@@ -184,6 +196,7 @@
 29. Monitoring, 30. Regulation, 31. Epistemic, 32. Validation
 
 **Metrics:**
+
 - Processing time: ~1,600ms (6.4x slower)
 - Memory: ~260KB per query (5.2x more)
 - Accuracy: +22% improvement
@@ -191,6 +204,7 @@
 - Parallel efficiency: 70%
 
 **Logic Prioritization:**
+
 - Layers 9-16 (Reasoning): 4x weight
 - 8 reasoning layers = super-super-majority
 - Automatic formal proof generation
@@ -213,6 +227,7 @@
 ❌ Overkill for almost all use cases
 
 **Use Cases:**
+
 - Academic research
 - AI reasoning research
 - Benchmark testing
@@ -263,7 +278,7 @@ final_score = (logic_score * logic_weight) + (other_score * (1 - logic_weight))
 
 ### Single Query Performance
 
-```
+```text
 4x:  ████ 250ms
 8x:  ████████ 450ms         ← RECOMMENDED
 16x: ████████████████ 850ms
@@ -272,7 +287,7 @@ final_score = (logic_score * logic_weight) + (other_score * (1 - logic_weight))
 
 ### Throughput (queries/second)
 
-```
+```text
 4x:  40 q/s  ████████████████████
 8x:  22 q/s  ███████████          ← RECOMMENDED
 16x: 12 q/s  ██████
@@ -281,7 +296,7 @@ final_score = (logic_score * logic_weight) + (other_score * (1 - logic_weight))
 
 ### Accuracy vs Time Trade-off
 
-```
+```text
 Accuracy Gain per 100ms:
 4x → 8x:  +12% / 200ms = 6.0% per 100ms ⭐⭐⭐⭐⭐
 8x → 16x: +6% / 400ms  = 1.5% per 100ms ⭐⭐
@@ -294,7 +309,7 @@ Accuracy Gain per 100ms:
 
 ## Memory Scaling
 
-```
+```text
 Per Query Memory Usage:
 
 4x:  ██ 50KB
@@ -313,7 +328,7 @@ History (1000 queries):
 
 ## Parallelization Efficiency
 
-```
+```text
 Parallel Efficiency (% of theoretical maximum):
 
 4x:  ████████████████████ 100%
@@ -332,7 +347,8 @@ Why degradation?
 
 ## Real-World Use Case Recommendations
 
-### ✅ Use 4x when:
+### ✅ Use 4x when
+
 - Real-time applications (chatbots, live analysis)
 - Mobile/edge devices
 - High throughput needed (>30 q/s)
@@ -340,6 +356,7 @@ Why degradation?
 - Budget constraints
 
 ### ✅ Use 8x when: (RECOMMENDED)
+
 - **Watson Glaser critical thinking** ✅
 - **Complex reasoning tasks** ✅
 - **Educational applications** ✅
@@ -348,14 +365,16 @@ Why degradation?
 - Desktop/server environments
 - **Best cost/benefit ratio**
 
-### ⚠️ Use 16x when:
+### ⚠️ Use 16x when
+
 - Research environments
 - Offline batch analysis
 - High-stakes decisions (medical, legal)
 - Maximum accuracy required
 - Resources not constrained
 
-### ❌ Use 32x when:
+### ❌ Use 32x when
+
 - Academic research only
 - Benchmarking AI reasoning
 - Publishing papers
@@ -423,7 +442,7 @@ else:
 
 ### Compute Cost per 1M Queries
 
-```
+```text
 4x:  $2.50  ████
 8x:  $4.50  ████████        ← RECOMMENDED
 16x: $8.50  ████████████████
@@ -432,7 +451,7 @@ else:
 
 ### Cost per Accuracy Point
 
-```
+```text
 4x:  $2.50 / 78% = $0.032/point
 8x:  $4.50 / 90% = $0.050/point  ← Best value
 16x: $8.50 / 96% = $0.089/point
@@ -448,6 +467,7 @@ else:
 ### 🏆 Winner: 8x Architecture
 
 **Why:**
+
 1. ✅ **Best cost/benefit ratio** (5/5 stars)
 2. ✅ **Strong logic priority** (75% vs 60% for 4x)
 3. ✅ **+12% accuracy** for only 1.8x cost
@@ -489,12 +509,14 @@ TIMEOUT = 1000
 ## Conclusion
 
 **8x architecture with 75% logic weight** is the optimal choice for:
+
 - Watson Glaser critical thinking
 - Complex reasoning applications
 - Educational systems
 - Production environments
 
 It provides the best balance of:
+
 - Reasoning quality
 - Logic prioritization
 - Performance
@@ -502,6 +524,7 @@ It provides the best balance of:
 - Maintainability
 
 **Next Steps:**
+
 1. Implement 8x layer architecture
 2. Add logic-weighted consensus
 3. Enable contradiction detection

@@ -2,7 +2,7 @@
 
 ## Files Created
 
-```
+```text
 agents/
 ├── tools/
 │   └── extended_thinking.py          # Core tool (412 lines)

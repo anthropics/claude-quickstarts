@@ -36,6 +36,7 @@ Complete guide for installing, running, testing, and deploying the Watson Glaser
 ### Option 1: Direct Download
 
 1. **Download the ZIP**
+
    ```bash
    # Download from GitHub
    curl -L https://github.com/slittyjuice-source/claude-quickstarts/archive/refs/heads/watson-glaser-tis-standalone.zip -o watson-glaser-tis.zip
@@ -46,6 +47,7 @@ Complete guide for installing, running, testing, and deploying the Watson Glaser
    ```
 
 2. **Open in Browser**
+
    ```bash
    # macOS
    open advanced.html
@@ -60,6 +62,7 @@ Complete guide for installing, running, testing, and deploying the Watson Glaser
 ### Option 2: Git Clone
 
 1. **Clone Repository**
+
    ```bash
    git clone https://github.com/slittyjuice-source/claude-quickstarts.git
    cd claude-quickstarts
@@ -68,6 +71,7 @@ Complete guide for installing, running, testing, and deploying the Watson Glaser
    ```
 
 2. **Verify Files**
+
    ```bash
    ls -la
    # Should see:
@@ -155,11 +159,13 @@ open tests/validation.html
 ### Automated Tests
 
 1. **Install Test Dependencies**
+
    ```bash
    npm install
    ```
 
 2. **Run Tests**
+
    ```bash
    # Puppeteer tests (automated browser testing)
    npm run test-puppeteer
@@ -172,6 +178,7 @@ open tests/validation.html
    ```
 
 3. **View Test Results**
+
    ```bash
    # Check screenshots (if tests ran)
    ls -la tests/screenshots/
@@ -209,11 +216,13 @@ open -a Safari advanced.html
 ### Option 1: GitHub Pages (Free, Easy)
 
 1. **Enable GitHub Pages**
+
    ```bash
    # Settings > Pages > Source > main branch > /watson-glaser-trainer
    ```
 
 2. **Access Your Site**
+
    ```
    https://slittyjuice-source.github.io/claude-quickstarts/watson-glaser-trainer/advanced.html
    ```
@@ -225,6 +234,7 @@ open -a Safari advanced.html
 ### Option 2: Netlify (Free, Easy, CDN)
 
 1. **Deploy via Git**
+
    ```bash
    # Connect GitHub repo to Netlify
    # Build command: (leave empty)
@@ -240,17 +250,20 @@ open -a Safari advanced.html
 ### Option 3: Vercel (Free, Fast)
 
 1. **Install Vercel CLI**
+
    ```bash
    npm install -g vercel
    ```
 
 2. **Deploy**
+
    ```bash
    cd watson-glaser-trainer
    vercel
    ```
 
 3. **Production**
+
    ```bash
    vercel --prod
    ```
@@ -271,6 +284,7 @@ open -a Safari advanced.html
 ### Option 5: Static Hosting (AWS S3, Google Cloud Storage)
 
 **AWS S3:**
+
 ```bash
 # Install AWS CLI
 aws s3 sync watson-glaser-trainer/ s3://your-bucket-name/ --acl public-read
@@ -279,6 +293,7 @@ aws s3 sync watson-glaser-trainer/ s3://your-bucket-name/ --acl public-read
 ```
 
 **Google Cloud Storage:**
+
 ```bash
 # Install gcloud CLI
 gsutil -m cp -r watson-glaser-trainer/* gs://your-bucket-name/
@@ -290,6 +305,7 @@ gsutil iam ch allUsers:objectViewer gs://your-bucket-name
 ### Option 6: Self-Hosted Server
 
 **Nginx Configuration:**
+
 ```nginx
 server {
     listen 80;
@@ -309,6 +325,7 @@ server {
 ```
 
 **Apache Configuration:**
+
 ```apache
 <VirtualHost *:80>
     ServerName your-domain.com
@@ -379,12 +396,14 @@ const tis = new AdvancedTestIntelligenceSystem();
 ### Installation Issues
 
 **Problem**: Can't clone repository
+
 ```bash
 # Solution: Use HTTPS instead of SSH
 git clone https://github.com/slittyjuice-source/claude-quickstarts.git
 ```
 
 **Problem**: npm install fails
+
 ```bash
 # Solution: Clear cache and retry
 npm cache clean --force
@@ -395,18 +414,21 @@ npm install
 ### Runtime Issues
 
 **Problem**: Blank white screen
+
 - Check browser console for errors (F12)
 - Ensure JavaScript is enabled
 - Try incognito/private mode
 - Clear browser cache
 
 **Problem**: LocalStorage quota exceeded
+
 ```javascript
 // Clear in browser console
 localStorage.clear();
 ```
 
 **Problem**: Slow performance
+
 - Reduce to 4x layers in background mode
 - Clear neural bank (> 50 patterns)
 - Close other browser tabs
@@ -415,6 +437,7 @@ localStorage.clear();
 ### Testing Issues
 
 **Problem**: Puppeteer tests fail
+
 ```bash
 # Install Chrome/Chromium
 npm install puppeteer --save-dev
@@ -424,6 +447,7 @@ export PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ```
 
 **Problem**: Tests timeout
+
 ```bash
 # Increase timeout in test file
 page.waitForSelector('#element', { timeout: 30000 });
@@ -432,11 +456,13 @@ page.waitForSelector('#element', { timeout: 30000 });
 ### Deployment Issues
 
 **Problem**: 404 on GitHub Pages
+
 - Check Pages settings: Source branch and folder
 - Wait 5-10 minutes for propagation
 - Ensure `advanced.html` is in published directory
 
 **Problem**: CORS errors
+
 - Use proper HTTP server, not file:// protocol
 - Check server CORS headers
 - Enable CORS in deployment config

@@ -65,6 +65,7 @@ When suggesting a feature:
 ## 🔧 Development Setup
 
 1. **Fork the Repository**
+
    ```bash
    # Click "Fork" on GitHub
    git clone https://github.com/YOUR_USERNAME/claude-quickstarts.git
@@ -72,6 +73,7 @@ When suggesting a feature:
    ```
 
 2. **Create a Branch**
+
    ```bash
    git checkout -b feature/your-feature-name
    # or
@@ -84,6 +86,7 @@ When suggesting a feature:
    - Test your changes thoroughly
 
 4. **Test Your Changes**
+
    ```bash
    # Run automated tests
    npm install
@@ -95,6 +98,7 @@ When suggesting a feature:
    ```
 
 5. **Commit Your Changes**
+
    ```bash
    git add .
    git commit -m "feat: add your feature description"
@@ -103,6 +107,7 @@ When suggesting a feature:
    ```
 
 6. **Push to Your Fork**
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -190,6 +195,7 @@ Use conventional commits:
 - `chore:` Maintenance tasks
 
 Examples:
+
 - `feat: add export functionality for neural banks`
 - `fix: resolve localStorage quota exceeded error`
 - `docs: update installation instructions`
@@ -255,6 +261,7 @@ function applyMultiStrategyReasoning(question) {
 ### README Updates
 
 When adding features:
+
 - Update Features section
 - Add usage examples
 - Update screenshots if UI changed
@@ -283,6 +290,7 @@ if (accuracy > 0.7) {
 ### Color Palette
 
 Follow `design/design_tokens.json`:
+
 - Primary: #667eea (purple)
 - Success: #48bb78 (green)
 - Error: #f56565 (red)
@@ -302,7 +310,7 @@ Follow `design/design_tokens.json`:
 
 - **Issues**: Use GitHub Issues for bugs/features
 - **Discussions**: Use GitHub Discussions for questions
-- **Security**: Email security@example.com for security issues
+- **Security**: Email <security@example.com> for security issues
 
 ## 📖 Resources
 
@@ -314,6 +322,7 @@ Follow `design/design_tokens.json`:
 ## 🙏 Recognition
 
 Contributors will be:
+
 - Listed in CONTRIBUTORS.md
 - Mentioned in release notes
 - Credited in documentation
@@ -321,6 +330,7 @@ Contributors will be:
 ## ❓ Questions
 
 If you have questions:
+
 1. Check existing documentation
 2. Search closed issues
 3. Open a new discussion

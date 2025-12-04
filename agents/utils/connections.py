@@ -2,13 +2,14 @@
 
 from abc import ABC, abstractmethod
 from contextlib import AsyncExitStack
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
 
-from ..tools.mcp_tool import MCPTool
+if TYPE_CHECKING:
+    from ..tools.mcp_tool import MCPTool
 
 
 class MCPConnection(ABC):

@@ -5,10 +5,11 @@
   "main": "advanced.html",
   "scripts": {
     "test": "npm run test-puppeteer && npm run test-integration",
+    "test-all": "npm run test-puppeteer && npm run test-integration",
     "test-puppeteer": "node tests/puppeteer_test.js",
     "test-integration": "node tests/integration_test.js",
     "start": "npx http-server . -p 8080",
-    "dev": "npx live-server --port=8080",
+    "dev": "npx http-server . -p 8080",
     "validate": "open tests/validation.html"
   },
   "keywords": [
@@ -31,12 +32,12 @@
   },
   "homepage": "https://github.com/slittyjuice-source/claude-quickstarts/tree/watson-glaser-tis-standalone/watson-glaser-trainer#readme",
   "devDependencies": {
-    "puppeteer": "^21.0.0",
     "http-server": "^14.1.1",
-    "live-server": "^1.2.2"
+    "playwright": "^1.57.0",
+    "puppeteer": "^24.32.0"
   },
   "engines": {
-    "node": ">=16.0.0",
+    "node": ">=18.0.0",
     "npm": ">=8.0.0"
   }
 }

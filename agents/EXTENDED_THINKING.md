@@ -1,6 +1,6 @@
 # 🧠 Extended Thinking Integration
 
-**Multi-layer chain-of-thought reasoning for Watson Glaser TIS and Agent systems**
+## Multi-layer chain-of-thought reasoning for Watson Glaser TIS and Agent systems
 
 This integration brings Watson Glaser Test of Inference and Suggestions (TIS) extended thinking capabilities to the agent framework, enabling deep, systematic reasoning with confidence assessment and consensus synthesis.
 
@@ -17,7 +17,7 @@ Extended Thinking provides:
 
 ## 🏗️ Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                Extended Thinking Tool                    │
 ├─────────────────────────────────────────────────────────┤

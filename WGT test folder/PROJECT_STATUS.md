@@ -3,12 +3,15 @@
 ## ✅ Fixed Issues
 
 ### 1. Agent Profiles Missing IDs
+
 **Problem**: `agent_profiles.js` had no `id` properties on profiles, causing:
+
 - Advanced.html couldn't populate dropdown correctly
 - Puppeteer tests couldn't select agents by ID
 - Agent selection would fail silently
 
 **Solution**: Added unique kebab-case IDs to all 10 profiles:
+
 - `novice-student`
 - `apprentice-analyst`
 - `intermediate-researcher`
@@ -21,7 +24,9 @@
 - `professor-emeritus`
 
 ### 2. Puppeteer Test Selectors
+
 **Problem**: Test file used wrong element IDs from old HTML version:
+
 - `#agentSelect` → should be `#agentSelector`
 - `#iteration` → should be `#cycleCount`
 - `#stopBtn` → should be `#startBtn` (toggle button)
@@ -30,11 +35,13 @@
 **Solution**: Updated all selectors and logic in `tests/puppeteer_test.js`
 
 ### 3. Deprecated Puppeteer Methods
+
 **Problem**: Using `page.waitForTimeout()` which is deprecated
 
 **Solution**: Replaced with custom `delay()` helper function
 
 ### 4. Frame Variable Reassignment
+
 **Problem**: `const frame` couldn't be reassigned in fallback loop
 
 **Solution**: Changed to `let frame`
@@ -61,6 +68,7 @@ watson-glaser-trainer/
 ## 🎯 Features Implemented in advanced.html
 
 ### Core TIS Engine
+
 - ✅ Self-evolving neural parameters
 - ✅ Cognitive templates (assumptions, inferences, deductions, interpretations, evaluations)
 - ✅ Multi-strategy reasoning with weighted voting
@@ -69,6 +77,7 @@ watson-glaser-trainer/
 - ✅ Neural pattern bank (learned patterns)
 
 ### Extended Thinking (Chain-of-Thought)
+
 - ✅ 6-step reasoning process:
   1. Question Analysis
   2. Key Concepts Identification
@@ -79,6 +88,7 @@ watson-glaser-trainer/
 - ✅ Visible in Developer View only
 
 ### Curriculum Learning
+
 - ✅ Complexity levels 1-4 with gating
 - ✅ Unlocks at accuracy thresholds:
   - Level 2: 70% accuracy
@@ -87,6 +97,7 @@ watson-glaser-trainer/
 - ✅ Blocks advanced questions until unlocked
 
 ### localStorage Persistence
+
 - ✅ Auto-saves every 5 cycles
 - ✅ Saves: neuralParams, strategies, metrics, neuralBank, progress
 - ✅ Manual save/load buttons
@@ -94,6 +105,7 @@ watson-glaser-trainer/
 - ✅ Timestamp tracking
 
 ### View Modes
+
 - ✅ Learner View: Minimal UI, question/answer only
 - ✅ Developer View: Full verbose with:
   - Extended thinking process
@@ -102,6 +114,7 @@ watson-glaser-trainer/
 - ✅ Toggle button in header
 
 ### Agent Profiles
+
 - ✅ 10 profiles from Year 1 Student → Lifetime Career
 - ✅ Unique neural parameters per profile
 - ✅ Achievement badges displayed
@@ -109,6 +122,7 @@ watson-glaser-trainer/
 - ✅ Profile info card display
 
 ### Background Mode
+
 - ✅ Silent evolution (no UI updates)
 - ✅ Metrics still update
 - ✅ Toggle switch with status badge
@@ -117,11 +131,13 @@ watson-glaser-trainer/
 ## 🧪 Testing
 
 ### Automated Tests (Puppeteer)
+
 **Status**: Code fixed, but Chromium won't launch on this macOS system
 **Issue**: Rosetta/arm64 compatibility warnings
 **Workaround**: Use manual testing
 
 **Test Coverage**:
+
 - ✅ Browser 1: Direct load of advanced.html
 - ✅ Browser 2: Iframe wrapper test
 - ✅ Agent selection and evolution
@@ -129,10 +145,12 @@ watson-glaser-trainer/
 - ✅ Cycle tracking
 
 ### Validation Tests
+
 **File**: `tests/validation.html`
 **Status**: ✅ Ready to run
 
 **Test Coverage** (13 tests):
+
 1. AGENT_PROFILES loaded
 2. 10 profiles exist
 3. All have IDs
@@ -148,12 +166,14 @@ watson-glaser-trainer/
 13. Profile progression validated
 
 ### Manual Tests
+
 **File**: `tests/manual_test.md`
 **Checklist Items**: 8 feature areas with sub-tests
 
 ## 🚀 How to Use
 
 ### Quick Start
+
 ```bash
 # Open main TIS application
 open watson-glaser-trainer/advanced.html
@@ -163,6 +183,7 @@ open watson-glaser-trainer/tests/validation.html
 ```
 
 ### Browser Testing
+
 1. Open `advanced.html` in browser
 2. Select an agent profile (e.g., "Intermediate Researcher")
 3. Toggle Developer View to see internals
@@ -173,6 +194,7 @@ open watson-glaser-trainer/tests/validation.html
 8. Refresh page and load with 📂 button
 
 ### Expected Behavior
+
 - ✅ Agent dropdown populates with 10 profiles
 - ✅ View mode toggle shows/hides developer sections
 - ✅ Extended thinking shows 6 reasoning steps
@@ -185,17 +207,20 @@ open watson-glaser-trainer/tests/validation.html
 ## 🐛 Known Issues
 
 ### 1. Puppeteer Chromium Launch Failure
+
 **Status**: Unfixable in code (system-level)
 **Cause**: macOS Rosetta/arm64 compatibility
 **Workaround**: Manual testing or use system Chrome
 
 **Error Signature**:
+
 ```
 [WARNING:mach_o_image_annotations_reader.cc(92)] unexpected crash info version 7
 Error: Failed to launch the browser process!
 ```
 
 **Possible Solutions** (for user to try):
+
 ```bash
 # Option 1: Use installed Chrome
 export CHROME_PATH="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
@@ -210,6 +235,7 @@ npm update puppeteer
 ## ✨ Design Tokens
 
 Located in `design/design_tokens.json`:
+
 - Brand colors (primary: #CC785C)
 - Dark theme backgrounds
 - Typography (Inter, JetBrains Mono)
@@ -243,16 +269,19 @@ Located in `design/design_tokens.json`:
 ## 🔧 Development Notes
 
 ### Key Dependencies
+
 - `puppeteer`: Automated testing (optional, has launch issues)
 - No other runtime dependencies (vanilla JS)
 
 ### Browser Compatibility
+
 - ✅ Modern Chrome/Edge/Safari/Firefox
 - ✅ ES6+ JavaScript features used
 - ✅ localStorage API required
 - ✅ CSS Grid and Flexbox layouts
 
 ### Code Quality
+
 - Single-file design for portability
 - Embedded CSS and JavaScript
 - No build process required
@@ -291,6 +320,7 @@ Run through this before deployment:
 ## 📞 Support
 
 For issues:
+
 1. Open `tests/validation.html` - should pass 13/13 tests
 2. Check browser console for errors (F12)
 3. Verify `agent_profiles.js` loads (check Network tab)

@@ -12,6 +12,7 @@ Quick guide to deploy Watson Glaser TIS to GitHub Pages.
 ### 1. Enable GitHub Pages
 
 1. **Navigate to Repository Settings**
+
    ```
    https://github.com/slittyjuice-source/claude-quickstarts/settings
    ```
@@ -33,11 +34,13 @@ Quick guide to deploy Watson Glaser TIS to GitHub Pages.
 ### 2. Access Your Site
 
 Your site will be available at:
+
 ```
 https://slittyjuice-source.github.io/claude-quickstarts/watson-glaser-trainer/advanced.html
 ```
 
 Or if you deployed from root:
+
 ```
 https://slittyjuice-source.github.io/claude-quickstarts/advanced.html
 ```
@@ -47,6 +50,7 @@ https://slittyjuice-source.github.io/claude-quickstarts/advanced.html
 If you want a custom domain like `watson-glaser.example.com`:
 
 1. **Add CNAME Record in DNS**
+
    ```
    Type: CNAME
    Name: watson-glaser (or @)
@@ -82,6 +86,7 @@ If your deployment URL differs from the docs:
 **Problem**: Page not found
 
 **Solutions**:
+
 - Wait 5-10 minutes for GitHub to propagate
 - Check branch name is correct
 - Verify folder path in settings
@@ -92,6 +97,7 @@ If your deployment URL differs from the docs:
 **Problem**: Page loads but is blank
 
 **Solutions**:
+
 - Open browser console (F12) to check errors
 - Verify `agent_profiles.js` loads correctly
 - Check CORS/mixed content warnings
@@ -102,6 +108,7 @@ If your deployment URL differs from the docs:
 **Problem**: JavaScript/CSS not loading
 
 **Solutions**:
+
 - Check paths are relative (not absolute)
 - Verify file names match exactly (case-sensitive)
 - Check GitHub Pages build log for errors
@@ -111,6 +118,7 @@ If your deployment URL differs from the docs:
 **Problem**: Custom domain shows certificate error
 
 **Solutions**:
+
 - Wait 24-48 hours for DNS propagation
 - Verify CNAME record is correct
 - Try "Remove custom domain" then re-add
@@ -136,13 +144,14 @@ If GitHub Pages doesn't work:
 ### Quick Deploy
 
 1. **Drag & Drop**
-   - Go to https://app.netlify.com/drop
+   - Go to <https://app.netlify.com/drop>
    - Drag `watson-glaser-trainer/` folder
    - Get instant live URL
 
 ### Git Deploy
 
 1. **Connect Repository**
+
    ```bash
    # Install Netlify CLI
    npm install -g netlify-cli

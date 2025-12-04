@@ -276,7 +276,7 @@ class ExtendedThinkingTool:
         """Extract key concepts from the query."""
         text = f"{context or ''} {query}".lower()
         concepts = []
-        
+
         # Domain-specific concepts
         concept_keywords = {
             "logic": ["premise", "conclusion", "argument", "reasoning"],
@@ -286,12 +286,54 @@ class ExtendedThinkingTool:
             "probability": ["likely", "probable", "chance", "risk"],
             "comparison": ["more", "less", "better", "worse", "compare"]
         }
-        
+
         for concept, keywords in concept_keywords.items():
             if any(kw in text for kw in keywords):
                 concepts.append(concept)
-        
+
         return concepts if concepts else ["general_reasoning"]
+
+    def _analyze_query_confidence(self, query: str, context: Optional[str]) -> float:
+        """
+        Analyze query characteristics to determine confidence modulation factor.
+        Returns a multiplier between 0.7 and 1.3.
+        """
+        text = f"{context or ''} {query}".lower()
+        confidence_factor = 1.0
+
+        # Clear logical structure increases confidence
+        logic_indicators = ["all", "if", "then", "therefore", "because", "since"]
+        logic_count = sum(1 for ind in logic_indicators if ind in text.split())
+        if logic_count >= 2:
+            confidence_factor += 0.15
+        elif logic_count == 1:
+            confidence_factor += 0.05
+
+        # Specific domain terminology increases confidence
+        specific_terms = ["engineer", "software", "data", "analysis", "research",
+                         "study", "experiment", "test", "measure", "calculate"]
+        if any(term in text for term in specific_terms):
+            confidence_factor += 0.05
+
+        # Vague or ambiguous language decreases confidence
+        vague_terms = ["maybe", "might", "could", "possibly", "perhaps", "unclear"]
+        if any(term in text for term in vague_terms):
+            confidence_factor -= 0.1
+
+        # Very short queries are less confident
+        if len(query.split()) < 5:
+            confidence_factor -= 0.1
+
+        # Complex multi-part questions decrease confidence slightly
+        if query.count("?") > 1 or len(query.split()) > 50:
+            confidence_factor -= 0.05
+
+        # Context availability increases confidence
+        if context and len(context) > 20:
+            confidence_factor += 0.1
+
+        # Clip to reasonable range
+        return max(0.7, min(1.3, confidence_factor))
     
     def _multi_layer_analysis(
         self,
@@ -301,19 +343,31 @@ class ExtendedThinkingTool:
     ) -> List[Dict[str, Any]]:
         """Analyze from multiple specialized perspectives."""
         analyses = []
-        
+
+        # Analyze query characteristics for confidence modulation
+        query_confidence_factor = self._analyze_query_confidence(query, context)
+
         for layer_id in range(1, min(self.layers + 1, depth + 1)):
             spec = self.layer_specs.get(layer_id, {"name": f"Layer {layer_id}", "focus": "general"})
-            
+
+            # Base confidence increases with layer depth
+            base_confidence = 0.6 + (layer_id * 0.05)
+
+            # Modulate based on query characteristics
+            layer_confidence = base_confidence * query_confidence_factor
+
+            # Clip to valid range
+            layer_confidence = max(0.3, min(0.95, layer_confidence))
+
             analysis = {
                 "layer": layer_id,
                 "name": spec["name"],
                 "focus": spec["focus"],
                 "perspective": self._layer_perspective(layer_id, query, context),
-                "confidence": 0.6 + (layer_id * 0.05)  # Higher layers more confident
+                "confidence": layer_confidence
             }
             analyses.append(analysis)
-        
+
         return analyses
     
     def _layer_perspective(self, layer_id: int, query: str, context: Optional[str]) -> str:
@@ -354,26 +408,59 @@ class ExtendedThinkingTool:
     ) -> List[Dict[str, Any]]:
         """Evaluate each option using selected strategies."""
         evaluations = []
-        
+        query_lower = query.lower()
+
         for idx, option in enumerate(options):
-            # Base confidence
+            option_lower = option.lower()
+
+            # Base confidence varies by option characteristics
             confidence = 0.5
-            
+
+            # Option-specific confidence modulation
+            # Longer, more specific options tend to be more confident
+            if len(option.split()) > 8:
+                confidence += 0.1
+            elif len(option.split()) < 3:
+                confidence -= 0.05
+
+            # Check if option contains key terms from query
+            query_words = set(query_lower.split())
+            option_words = set(option_lower.split())
+            overlap = len(query_words & option_words)
+            if overlap > 3:
+                confidence += 0.15
+            elif overlap > 1:
+                confidence += 0.05
+
+            # Absolute/definitive language
+            definitive_terms = ["always", "never", "all", "none", "must", "impossible"]
+            if any(term in option_lower for term in definitive_terms):
+                confidence -= 0.1  # Usually too strong
+
+            # Hedging language (often more accurate)
+            hedge_terms = ["likely", "probably", "may", "might", "suggests"]
+            if any(term in option_lower for term in hedge_terms):
+                confidence += 0.05
+
+            # Add some variance based on position (first option slight advantage)
+            if idx == 0:
+                confidence += 0.02
+
             # Apply strategies
             strategy_scores = []
             for strategy in strategies:
                 score = confidence * strategy["score"]
                 strategy_scores.append(score)
-            
+
             avg_score = sum(strategy_scores) / len(strategy_scores)
-            
+
             evaluations.append({
                 "option_index": idx,
                 "option": option,
-                "confidence": min(0.95, avg_score),
+                "confidence": min(0.95, max(0.2, avg_score)),
                 "strategy_scores": {s["name"]: sc for s, sc in zip(strategies, strategy_scores)}
             })
-        
+
         # Sort by confidence
         evaluations.sort(key=lambda x: x["confidence"], reverse=True)
         return evaluations
@@ -386,40 +473,51 @@ class ExtendedThinkingTool:
     ) -> Dict[str, Any]:
         """
         Synthesize consensus from all analyses with LOGIC PRIORITY.
-        
+
         Logic layers are weighted higher than other layers to ensure
         reasoning quality over simple consensus.
         """
         # Separate logic layers from other layers
         logic_confidences = [
-            l["confidence"] for l in layer_analyses 
+            l["confidence"] for l in layer_analyses
             if l["layer"] in self.logic_layer_indices
         ]
         other_confidences = [
-            l["confidence"] for l in layer_analyses 
+            l["confidence"] for l in layer_analyses
             if l["layer"] not in self.logic_layer_indices
         ]
-        
+
+        # Depth bonus: More layers = more thorough analysis = higher confidence
+        # Each additional layer beyond the first adds a small confidence boost
+        depth_bonus = min(0.1, (len(layer_analyses) - 1) * 0.025)
+
         # Calculate weighted consensus (LOGIC PRIORITIZED)
         if logic_confidences:
             logic_avg = sum(logic_confidences) / len(logic_confidences)
             other_avg = sum(other_confidences) / len(other_confidences) if other_confidences else 0.5
-            
+
             # Apply logic weight (default 0.75 = 75% logic, 25% other)
             avg_confidence = (logic_avg * self.logic_weight) + (other_avg * (1 - self.logic_weight))
         else:
             # Fallback if no logic layers
             avg_confidence = sum(l["confidence"] for l in layer_analyses) / len(layer_analyses)
-        
+
+        # Add depth bonus to base confidence
+        avg_confidence = min(0.95, avg_confidence + depth_bonus)
+
         # Weight by strategy scores
         strategy_weight = sum(s["score"] for s in strategies) / len(strategies)
-        
+
         # Overall consensus (still favor confidence over strategy)
         consensus_score = (avg_confidence * 0.7 + strategy_weight * 0.3)
-        
+
         # Detect logical contradictions
         logic_agreement = self._check_logic_agreement(logic_confidences) if logic_confidences else 1.0
-        
+
+        # Reduce confidence if logic layers disagree
+        if logic_agreement < 0.7:
+            consensus_score *= 0.9  # 10% penalty for disagreement
+
         result = {
             "summary": f"Logic-weighted consensus: {consensus_score:.1%} (logic: {self.logic_weight:.0%})",
             "confidence": consensus_score,
@@ -428,12 +526,13 @@ class ExtendedThinkingTool:
             "logic_weight_applied": self.logic_weight,
             "num_logic_layers": len(logic_confidences),
             "num_other_layers": len(other_confidences),
-            "strategy_strength": strategy_weight
+            "strategy_strength": strategy_weight,
+            "depth_bonus": depth_bonus
         }
-        
+
         if options:
             result["recommendation"] = options[0]  # Simplified - would use evaluation scores
-        
+
         return result
     
     def _check_logic_agreement(self, logic_confidences: List[float]) -> float:

@@ -1,10 +1,10 @@
-## Neuro-Symbolic Reasoning System
+# Neuro-Symbolic Reasoning System
 
 A rigorous hybrid architecture combining ML-powered reasoning with formal logic validation.
 
-### Architecture Overview
+## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────┐
 │                    USER INTERFACE                        │
 │              (Natural Language Queries)                  │
@@ -32,6 +32,7 @@ A rigorous hybrid architecture combining ML-powered reasoning with formal logic 
 ### Components
 
 #### 1. **Knowledge Base** (`knowledge_base.py`)
+
 - Stores facts with provenance and confidence
 - Performs logical inference (forward chaining)
 - Validates claims against known facts
@@ -39,6 +40,7 @@ A rigorous hybrid architecture combining ML-powered reasoning with formal logic 
 - **Addresses**: Knowledge consistency, fact provenance, validation circularity
 
 #### 2. **Symbol Grounding** (`grounding.py`)
+
 - Maps natural language to formal logic
 - Context-dependent semantic interpretation
 - Tracks unparseable fragments
@@ -47,6 +49,7 @@ A rigorous hybrid architecture combining ML-powered reasoning with formal logic 
 - **Addresses**: Symbol grounding problem, ontological commitment gap
 
 #### 3. **Epistemic Status** (`epistemic.py`)
+
 - Separates logical validity from empirical soundness
 - Explicit confidence propagation rules
 - Fallacy detection (independent of LLM)
@@ -54,6 +57,7 @@ A rigorous hybrid architecture combining ML-powered reasoning with formal logic 
 - **Addresses**: Epistemic vs. validity, confidence calculus, inference validation
 
 #### 4. **Reasoning Agent** (`reasoning_agent.py`)
+
 - Orchestrates neuro-symbolic reasoning
 - Builds formal arguments from ML outputs
 - Integrates knowledge base validation
@@ -65,6 +69,7 @@ A rigorous hybrid architecture combining ML-powered reasoning with formal logic 
 #### Rigorous Semantic Parsing
 
 Unlike naive pattern matching, our parser:
+
 - ✅ Tracks what can and cannot be formalized
 - ✅ Makes parsing assumptions explicit
 - ✅ Handles universal, existential, generic quantification differently
@@ -84,6 +89,7 @@ result = parser.parse("Most birds can fly")
 #### Separated Epistemic Status
 
 We distinguish:
+
 - **Validity**: Is the argument structure correct?
 - **Soundness**: Are the premises actually true?
 
@@ -213,20 +219,25 @@ response = agent.run("Does GPT-4 produce biased outputs?")
 ### Design Principles
 
 #### 1. **Transparency Over Black-Box**
+
 Every reasoning step is traceable and auditable. No "magic" confidence scores.
 
 #### 2. **Separation of Concerns**
+
 - ML layer: Handles ambiguity, learning, generalization
 - Logic layer: Ensures validity, soundness, formal guarantees
 - Integration layer: Bridges the two
 
 #### 3. **Explicit Assumptions**
+
 When parsing makes assumptions, they're recorded and returned to the user.
 
 #### 4. **Graceful Degradation**
+
 If formal logic can't express something (e.g., "most"), we acknowledge it rather than pretend.
 
 #### 5. **Independent Validation**
+
 Logic validation doesn't depend on the LLM (avoids circular validation).
 
 ### Limitations & Future Work
@@ -234,16 +245,19 @@ Logic validation doesn't depend on the LLM (avoids circular validation).
 #### Current Limitations
 
 **Semantic Parsing**:
+
 - Pattern-based parsing (not full NLP)
 - Limited to common sentence structures
 - No dependency tree analysis
 
 **Logic Systems**:
+
 - First-order logic only (no higher-order)
 - No probabilistic logic (Markov Logic Networks)
 - Limited modal logic support
 
 **Validation**:
+
 - Simple fallacy detection (not exhaustive)
 - No automated theorem proving
 - Manual ground truth needed
@@ -294,6 +308,7 @@ python rigorous_logic_demo.py
 ### References
 
 This implementation addresses challenges identified in:
+
 - Symbol Grounding Problem (Harnad, 1990)
 - Neuro-Symbolic AI (Garcez et al., 2019)
 - Epistemic Logic (Hintikka, 1962)
@@ -303,6 +318,7 @@ This implementation addresses challenges identified in:
 ### Contributing
 
 When extending this system:
+
 1. ✅ Add tests for new logic patterns
 2. ✅ Document assumptions explicitly
 3. ✅ Separate validity from soundness

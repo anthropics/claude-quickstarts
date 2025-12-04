@@ -10,17 +10,20 @@ Since Puppeteer has Chromium launch issues on this macOS system, use this manual
 ## Test Checklist
 
 ### ✅ Agent Profile Selection
+
 - [ ] Select "Intermediate Researcher" from agent dropdown
 - [ ] Verify agent info card displays with name, stage, and achievements
 - [ ] Check that neural parameters are loaded (visible in DevTools console)
 
 ### ✅ View Mode Toggle
+
 - [ ] Click "Developer View" button
 - [ ] Verify extended thinking, neural bank, and evolution log sections appear
 - [ ] Click "Learner View" button
 - [ ] Verify those sections hide
 
 ### ✅ Extended Thinking (Developer View)
+
 - [ ] Enable Developer View
 - [ ] Click "Run Self-Test" button
 - [ ] Verify "🧠 Extended Thinking Process" section shows 6 steps:
@@ -32,12 +35,14 @@ Since Puppeteer has Chromium launch issues on this macOS system, use this manual
   - Final Decision
 
 ### ✅ Curriculum Learning
+
 - [ ] Note current "Current Complexity" metric (starts at 1)
 - [ ] Answer questions correctly to increase accuracy
 - [ ] Watch for unlock messages: "🎓 Unlocked Complexity Level 2!"
 - [ ] Verify complexity gates appear when accuracy is too low
 
 ### ✅ localStorage Persistence
+
 - [ ] Answer several questions
 - [ ] Note current cycle count and accuracy
 - [ ] Click "💾 Save Progress" button
@@ -47,6 +52,7 @@ Since Puppeteer has Chromium launch issues on this macOS system, use this manual
 - [ ] Verify metrics restore to previous values
 
 ### ✅ Background Mode
+
 - [ ] Toggle "Background Mode" switch ON
 - [ ] Click "Start Evolution"
 - [ ] Verify questions don't display (silent operation)
@@ -55,12 +61,14 @@ Since Puppeteer has Chromium launch issues on this macOS system, use this manual
 - [ ] Verify questions now display normally
 
 ### ✅ Immediate Reinforcement Learning
+
 - [ ] In Developer View, note strategy weights in Evolution Log
 - [ ] Answer a question correctly
 - [ ] Check console for weight updates
 - [ ] Note neural pattern bank grows with successful patterns
 
 ### ✅ Meta-Learning Evolution
+
 - [ ] Let system run for 8+ cycles
 - [ ] Check Evolution Log for "🧬 Neural evolution" entries
 - [ ] Verify exploration factor and weights change over time

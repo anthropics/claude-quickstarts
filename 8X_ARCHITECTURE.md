@@ -4,7 +4,7 @@
 
 ### Architecture: 8-Layer with Logic Priority
 
-```
+```text
 Layer 1: Pattern Perception      (Perception)
 Layer 2: Semantic Analysis        (Perception)
 Layer 3: Deductive Reasoning  ✅  (LOGIC)
@@ -64,6 +64,7 @@ final_confidence = (logic_confidence * 0.75) + (other_confidence * 0.25)
 ### When to Use 8x
 
 ✅ **Use 8x for:**
+
 - Watson Glaser critical thinking
 - Complex reasoning tasks
 - Educational applications
@@ -72,6 +73,7 @@ final_confidence = (logic_confidence * 0.75) + (other_confidence * 0.25)
 - When quality > speed
 
 ❌ **Don't use 8x for:**
+
 - Real-time chatbots (use 4x)
 - Mobile devices (use 4x)
 - When speed is critical
@@ -79,7 +81,7 @@ final_confidence = (logic_confidence * 0.75) + (other_confidence * 0.25)
 
 ### Comparison Chart
 
-```
+```text
 SPEED:    4x ████████████ 
           8x ███████
          16x ████
@@ -104,6 +106,7 @@ python scalability_demo.py
 ```
 
 This will:
+
 1. Compare 4x, 8x, 16x, 32x architectures
 2. Demonstrate logic prioritization
 3. Show contradiction detection
@@ -123,6 +126,7 @@ This will:
 ### Cost Analysis
 
 **Per 1M queries:**
+
 - 4x: $2.50 (32¢/point accuracy)
 - **8x: $4.50 (50¢/point accuracy)** ← Best value
 - 16x: $8.50 (89¢/point accuracy)

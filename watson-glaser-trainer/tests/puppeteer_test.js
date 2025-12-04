@@ -3,6 +3,41 @@ const fs = require('fs');
 const path = require('path');
 const puppeteer = require('puppeteer');
 
+// Configuration constants
+const PORT = 8080;
+const NAVIGATION_TIMEOUT = 20000;
+const SELECTOR_TIMEOUT = 10000;
+const SHORT_DELAY = 500;
+const MEDIUM_DELAY = 1000;
+const LONG_DELAY = 2000;
+
+const SELECTORS = {
+  AGENT_SELECTOR: '#agentSelector',
+  START_BTN: '#startBtn',
+  CYCLE_COUNT: '#cycleCount',
+  IFRAME: 'iframe#tisFrame'
+};
+
+const AGENT_TYPES = {
+  INTERMEDIATE_RESEARCHER: 'intermediate-researcher',
+  EMERGING_EXPERT: 'emerging-expert'
+};
+
+const BROWSER_CONFIG = {
+  headless: 'new',
+  args: [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-accelerated-2d-canvas',
+    '--no-first-run',
+    '--no-zygote',
+    '--single-process',
+    '--disable-gpu'
+  ],
+  executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+};
+
 // Simple static server for the watson-glaser-trainer directory
 function createServer(rootDir, port = 8080) {
   return http.createServer((req, res) => {
@@ -45,6 +80,7 @@ function createServer(rootDir, port = 8080) {
         rs.pipe(res);
       });
     } catch (e) {
+      console.error('Server error:', e);
       res.statusCode = 500;
       res.end('Server error');
     }
@@ -53,9 +89,8 @@ function createServer(rootDir, port = 8080) {
 
 (async () => {
   const root = path.resolve(__dirname, '..'); // watson-glaser-trainer
-  const port = 8080;
-  console.log('Starting static server for', root, 'on port', port);
-  const server = createServer(root, port);
+  console.log('Starting static server for', root, 'on port', PORT);
+  const server = createServer(root, PORT);
 
   // Helper to replace deprecated waitForTimeout
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
@@ -68,20 +103,7 @@ function createServer(rootDir, port = 8080) {
   const advUrl = `${baseUrl}/advanced.html`;
   const wrapperUrl = `${baseUrl}/iframe_wrapper.html`;
 
-  const browser1 = await puppeteer.launch({ 
-    headless: 'new', 
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--single-process',
-      '--disable-gpu'
-    ],
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
-  });
+  const browser1 = await puppeteer.launch(BROWSER_CONFIG);
   const page1 = await browser1.newPage();
   page1.on('pageerror', err => console.error('Browser1 pageerror:', err));
   page1.on('error', err => console.error('Browser1 error:', err));
@@ -121,20 +143,7 @@ function createServer(rootDir, port = 8080) {
   }
 
   // Browser within a browser: load wrapper page containing an iframe
-  const browser2 = await puppeteer.launch({ 
-    headless: 'new', 
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--no-first-run',
-      '--no-zygote',
-      '--single-process',
-      '--disable-gpu'
-    ],
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
-  });
+  const browser2 = await puppeteer.launch(BROWSER_CONFIG);
   const page2 = await browser2.newPage();
   page2.on('pageerror', err => console.error('Browser2 pageerror:', err));
   page2.on('error', err => console.error('Browser2 error:', err));

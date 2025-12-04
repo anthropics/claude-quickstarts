@@ -45,6 +45,7 @@ npm run test-integration
 ## Current Status
 
 The enhanced Puppeteer configuration includes:
+
 - Multiple compatibility flags (`--no-sandbox`, `--disable-setuid-sandbox`, etc.)
 - Support for custom Chrome path via `PUPPETEER_EXECUTABLE_PATH`
 - Single-process mode for better compatibility
@@ -62,6 +63,7 @@ open http://localhost:8080/advanced.html
 ```
 
 Then manually verify:
+
 1. Agent selector loads
 2. Questions render
 3. Answers can be selected

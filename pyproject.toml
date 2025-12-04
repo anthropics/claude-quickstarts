@@ -2,3 +2,18 @@
 venvPath = "computer-use-demo"
 venv = ".venv"
 useLibraryCodeForTypes = false
+[tool.pytest.ini_options]
+pythonpath = "."
+addopts = "-ra -q"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = [
+    "autonomous-coding",
+    "agents"
+]
+norecursedirs = [
+    ".venv",
+    "computer-use-demo",
+    "watson-glaser-trainer",
+    "node_modules",
+    ".git"
+]

@@ -63,12 +63,12 @@ Instead, please report them via:
 
 1. **Acknowledgment**: Within 48 hours
 2. **Assessment**: Within 7 days
-3. **Fix Timeline**: 
+3. **Fix Timeline**:
    - Critical: 24-48 hours
    - High: 7 days
    - Medium: 30 days
    - Low: Next release cycle
-4. **Disclosure**: 
+4. **Disclosure**:
    - Coordinated disclosure after fix
    - Credit to reporter (if desired)
    - Security advisory published
@@ -144,12 +144,14 @@ Instead, please report them via:
 ### Scope
 
 **In Scope:**
+
 - Cross-Site Scripting (XSS)
 - Code injection vulnerabilities
 - LocalStorage security issues
 - Browser-specific security flaws
 
 **Out of Scope:**
+
 - Social engineering
 - Physical access attacks
 - Browser/OS vulnerabilities
@@ -184,7 +186,8 @@ Subscribe to releases to be notified of security updates.
 ## Contact
 
 For security concerns:
-- **Email**: security@example.com
+
+- **Email**: <security@example.com>
 - **PGP Key**: [Public key URL]
 - **Response Time**: Within 48 hours
 

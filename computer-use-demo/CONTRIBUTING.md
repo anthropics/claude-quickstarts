@@ -37,6 +37,7 @@ Please open a github issue if you are need clarification on this policy or you w
    ```
 
 3. Install pre-commit hooks:
+
    ```bash
    pre-commit install
    ```
@@ -77,9 +78,11 @@ We use several tools to maintain code quality:
 - Follow existing test patterns (see `tests/tools/` for examples)
 - Use pytest fixtures where appropriate
 - Run tests with:
+
   ```bash
   pytest
   ```
+
 - Tests must pass in async mode (configured in pyproject.toml)
 
 ## Commit Guidelines

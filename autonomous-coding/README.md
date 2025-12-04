@@ -15,12 +15,14 @@ pip install -r requirements.txt
 ```
 
 Verify your installations:
+
 ```bash
 claude --version  # Should be latest version
 pip show claude-code-sdk  # Check SDK is installed
 ```
 
 **API Key:** Set your Anthropic API key:
+
 ```bash
 export ANTHROPIC_API_KEY='your-api-key-here'
 ```
@@ -32,6 +34,7 @@ python autonomous_agent_demo.py --project-dir ./my_project
 ```
 
 For testing with limited iterations:
+
 ```bash
 python autonomous_agent_demo.py --project-dir ./my_project --max-iterations 3
 ```
@@ -79,7 +82,7 @@ Commands not in the allowlist are blocked by the security hook.
 
 ## Project Structure
 
-```
+```text
 autonomous-coding/
 ├── autonomous_agent_demo.py  # Main entry point
 ├── agent.py                  # Agent session logic
@@ -98,7 +101,7 @@ autonomous-coding/
 
 After running, your project directory will contain:
 
-```
+```text
 my_project/
 ├── feature_list.json         # Test cases (source of truth)
 ├── app_spec.txt              # Copied specification
