@@ -337,6 +337,11 @@ class ReasoningAgent:
         validation = self.knowledge_base.validate_with_contradiction_check(
             formal_argument.conclusion.natural_language
         )
+        if (not validation.valid or not validation.sources) and query:
+            # Fallback: validate the original query if conclusion parsing drifted
+            fallback = self.knowledge_base.validate_with_contradiction_check(query)
+            if fallback.valid or fallback.sources:
+                validation = fallback
 
         # Step 5: Build result
         result = {
@@ -356,7 +361,8 @@ class ReasoningAgent:
             "knowledge_validation": {
                 "valid": validation.valid,
                 "confidence": validation.confidence,
-                "sources": validation.sources
+                "sources": validation.sources,
+                "reasoning_chain": validation.reasoning_chain
             },
             "knowledge_used": formal_argument.cited_facts,
             "ml_reasoning_trace": self._get_ml_trace()
@@ -368,14 +374,26 @@ class ReasoningAgent:
         result["hallucination_guard"] = guard
         result["warnings"] = guard["warnings"]
 
-        # Require citations for conclusions when possible
-        if not result["knowledge_used"]:
-            result["warnings"].append("Conclusion has no cited facts; treat as ungrounded.")
-            result["confidence"] *= 0.8
+        # Evidence enforcement: fail-closed on missing validation/sources
+        if not validation.valid or not validation.sources:
+            result["conclusion"] = "No answer: insufficient evidence"
+            result["warnings"].append(
+                "Insufficient evidence to support conclusion (no sources or validation failed)."
+            )
+            result["confidence"] = min(result["confidence"], 0.1)
+            result["verified"] = False
         else:
             # Boost slightly when well-cited and validated
             result["confidence"] = min(
                 1.0, result["confidence"] * (1.05 if validation.valid else 1.0)
+            )
+            result["verified"] = True
+
+        # Downstream consumers: propagate verification/warnings into formal argument
+        result["formal_argument"].overall_confidence = result["confidence"]
+        if result["warnings"]:
+            result["formal_argument"].argument_structure += (
+                f"\nWarnings: {'; '.join(result['warnings'])}"
             )
 
         if self.verbose:

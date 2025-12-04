@@ -587,6 +587,18 @@ class PlanExecutor:
         self.warnings = []
         # initialize state from plan context if provided
         self.state = set(plan.context.get("state", set()))
+
+        # Evidence gate: if plan requires verification and context is unverified, block
+        if plan.context.get("require_verified") and not plan.context.get("verified", True):
+            plan.status = PlanStatus.BLOCKED
+            msg = "Plan blocked: upstream reasoning unverified."
+            self.warnings.append(msg)
+            return {
+                "success": False,
+                "error": msg,
+                "completed": 0.0,
+                "warnings": self.warnings
+            }
         
         while not plan.is_complete:
             ready_steps = plan.get_next_steps()

@@ -45,6 +45,18 @@ class Chunk:
     metadata: Dict[str, Any] = field(default_factory=dict)
     embedding: Optional[List[float]] = None
     token_count: int = 0
+    source: Optional[str] = None
+    start_idx: Optional[int] = None
+    end_idx: Optional[int] = None
+
+    def __post_init__(self):
+        # Alias handling for tests/compat
+        if self.source and not self.source_id:
+            self.source_id = self.source
+        if self.start_idx is not None:
+            self.start_offset = self.start_idx
+        if self.end_idx is not None:
+            self.end_offset = self.end_idx
 
 
 @dataclass
@@ -67,6 +79,13 @@ class QueryExpansion:
     synonyms: Dict[str, List[str]]
     reformulations: List[str]
     hypothetical_answer: Optional[str] = None  # For HyDE
+    expanded_queries: List[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        # Provide a consolidated list of expansions
+        if not self.expanded_queries:
+            combined = list(self.expanded_terms) + list(self.reformulations)
+            self.expanded_queries = combined
 
 
 @dataclass

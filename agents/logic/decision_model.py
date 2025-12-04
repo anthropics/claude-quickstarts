@@ -24,6 +24,7 @@ class DecisionOption:
     validated_confidence: float = 0.0
     contradiction_flag: bool = False
     tags: List[str] = field(default_factory=list)
+    verified: bool = True  # evidence-backed
 
 
 @dataclass
@@ -53,6 +54,7 @@ class DecisionResult:
     ranked: List[Dict[str, Any]]
     warnings: List[str]
     blocked: bool
+    unverified_penalized: bool = False
 
 
 class DecisionModel:
@@ -80,13 +82,17 @@ class DecisionModel:
         if not filtered:
             return DecisionResult(ranked=[], warnings=warnings, blocked=True)
 
+        unverified_penalized = False
+
         for opt in filtered:
             score, detail_warnings = self._score(opt, constraints)
+            if not opt.verified:
+                unverified_penalized = True
             warnings.extend(detail_warnings)
             scored.append({"id": opt.id, "description": opt.description, "score": score})
 
         scored.sort(key=lambda x: x["score"], reverse=True)
-        return DecisionResult(ranked=scored, warnings=warnings, blocked=False)
+        return DecisionResult(ranked=scored, warnings=warnings, blocked=False, unverified_penalized=unverified_penalized)
 
     def _hard_constraints_ok(self, option: DecisionOption, constraints: Constraints) -> bool:
         tags = set(option.tags)
@@ -119,6 +125,10 @@ class DecisionModel:
         if option.contradiction_flag:
             score *= (1 - c.contradiction_penalty)
             warnings.append(f"Option {option.id} has contradictions; penalized.")
+
+        if not option.verified:
+            score *= (1 - c.citation_penalty)
+            warnings.append(f"Option {option.id} is unverified; penalized.")
 
         if option.risk >= c.risk_gate:
             warnings.append(f"Option {option.id} high risk ({option.risk}); consider extra validation.")

@@ -83,6 +83,14 @@ Initial high-impact subset to implement first (from the list above):
 4) Support hard/soft constraints and constraint relaxation paths; detect “no options left” and escalate or request info.
 5) Risk bands that trigger extra evidence or critic/debate for high-risk choices; add a safe fallback option.
 
+### Next Batch (Industry-Practice Tasks)
+
+- Cite-before-answer prompting: enforce retrieval + citation inline before final answers, fail-closed when no evidence is available.
+- Multi-sample self-consistency: generate multiple reasoning chains, vote/rerank to reduce hallucinations (with latency controls).
+- Reranker in retrieval: apply cross-encoder/LLM reranking on top of BM25+embeddings to improve evidence selection.
+- Chain-of-Verification: after drafting, run a verifier pass that checks claims against retrieved evidence; proof-or-flag workflow.
+- Fuzzy/probabilistic inference: use soft/weighted rules (fuzzy membership/Bayesian-style updates) instead of pure booleans for constraints and risk.
+
 ### Visuals
 
 - See `agents/ARCHITECTURE_VIEWS.md` for diagrams of the reasoning flow, decision model, planner/state loop, validation/critic/guard, and WG alignment intent.

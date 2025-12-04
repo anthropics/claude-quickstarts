@@ -97,14 +97,15 @@ class ConstraintCheckResult:
     escalation_request: Optional[EscalationRequest] = None
 
 
-class Constraint(ABC):
-    """Abstract base class for constraints."""
+class Constraint:
+    """Base constraint with simple condition evaluation."""
     
     def __init__(
         self,
         constraint_id: str,
         name: str,
         constraint_type: ConstraintType,
+        condition: str = "",
         description: str = "",
         priority: ConstraintPriority = ConstraintPriority.MEDIUM,
         relaxation_strategy: RelaxationStrategy = RelaxationStrategy.NONE
@@ -112,20 +113,36 @@ class Constraint(ABC):
         self.constraint_id = constraint_id
         self.name = name
         self.constraint_type = constraint_type
-        self.description = description
+        self.condition = condition
+        self.description = description or condition
         self.priority = priority
         self.relaxation_strategy = relaxation_strategy
         self.enabled = True
     
-    @abstractmethod
     def check(self, context: Dict[str, Any]) -> Tuple[bool, Optional[ConstraintViolation]]:
         """Check if constraint is satisfied. Returns (satisfied, violation)."""
-        pass
+        try:
+            satisfied = bool(eval(self.condition, {}, context)) if self.condition else True
+        except Exception:
+            satisfied = False
+        
+        if satisfied:
+            return True, None
+        
+        violation = ConstraintViolation(
+            constraint_id=self.constraint_id,
+            constraint_name=self.name,
+            constraint_type=self.constraint_type,
+            actual_value=None,
+            expected_value=self.condition,
+            violation_severity=1.0,
+            message=f"Condition failed: {self.condition}"
+        )
+        return False, violation
     
-    @abstractmethod
     def get_relaxation_path(self, context: Dict[str, Any]) -> Optional[RelaxationPath]:
-        """Get a path to relax this constraint if possible."""
-        pass
+        """Default: no relaxation path."""
+        return None
 
 
 class ValueConstraint(Constraint):
