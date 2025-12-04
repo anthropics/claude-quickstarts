@@ -15,6 +15,8 @@ from enum import Enum
 from abc import ABC, abstractmethod
 import math
 import random
+import time
+import hashlib
 
 
 class SelectionStrategy(Enum):
@@ -317,17 +319,23 @@ class ContextualScorer(ToolScorer):
 
 
 class ToolArbitrator:
-    """Main tool arbitration system."""
+    """
+    Main tool arbitration system.
+    
+    Token optimization: Caches selection results for similar contexts.
+    """
     
     def __init__(
         self,
         strategy: SelectionStrategy = SelectionStrategy.UCB,
         epsilon: float = 0.1,
-        ucb_c: float = 2.0
+        ucb_c: float = 2.0,
+        cache_ttl_seconds: float = 60.0
     ):
         self.strategy = strategy
         self.epsilon = epsilon
         self.ucb_c = ucb_c
+        self.cache_ttl = cache_ttl_seconds
         
         self.tools: Dict[str, ToolProfile] = {}
         self.invocation_log: List[ToolInvocation] = []
@@ -335,6 +343,11 @@ class ToolArbitrator:
         
         self.composite_scorer = CompositeScorer()
         self.contextual_scorer = ContextualScorer(self.composite_scorer)
+        
+        # Selection cache for repeated contexts
+        self._selection_cache: Dict[str, Tuple[ToolRecommendation, float]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
     
     def register_tool(self, tool: ToolProfile):
         """Register a tool for arbitration."""
@@ -348,9 +361,24 @@ class ToolArbitrator:
         self,
         context: Dict[str, Any],
         candidates: Optional[List[str]] = None,
-        required_capabilities: Optional[Set[str]] = None
+        required_capabilities: Optional[Set[str]] = None,
+        use_cache: bool = True
     ) -> ToolRecommendation:
-        """Select the best tool for the given context."""
+        """
+        Select the best tool for the given context.
+        
+        Token optimization: Caches deterministic selections.
+        """
+        # Check cache for deterministic strategies
+        cache_key = None
+        if use_cache and self.strategy in (SelectionStrategy.GREEDY, SelectionStrategy.UCB):
+            cache_key = self._compute_cache_key(context, candidates, required_capabilities)
+            cached = self._get_cached(cache_key)
+            if cached is not None:
+                self._cache_hits += 1
+                return cached
+            self._cache_misses += 1
+        
         self.total_selections += 1
         
         # Filter candidates
@@ -390,7 +418,7 @@ class ToolArbitrator:
             if t.tool_id != selected.tool_id
         ][:3]
         
-        return ToolRecommendation(
+        recommendation = ToolRecommendation(
             tool_id=selected.tool_id,
             score=score,
             confidence=min(0.5 + selected.total_calls * 0.02, 0.95),
@@ -399,6 +427,54 @@ class ToolArbitrator:
             expected_cost=selected.avg_cost,
             alternative_tools=alternatives
         )
+        
+        # Cache the result for deterministic strategies
+        if cache_key is not None:
+            self._set_cached(cache_key, recommendation)
+        
+        return recommendation
+    
+    def _compute_cache_key(
+        self,
+        context: Dict[str, Any],
+        candidates: Optional[List[str]],
+        required_capabilities: Optional[Set[str]]
+    ) -> str:
+        """Compute cache key from selection parameters."""
+        parts = [
+            str(sorted(context.items())),
+            str(sorted(candidates) if candidates else "all"),
+            str(sorted(required_capabilities) if required_capabilities else "none")
+        ]
+        return hashlib.md5(":".join(parts).encode()).hexdigest()
+    
+    def _get_cached(self, key: str) -> Optional[ToolRecommendation]:
+        """Get cached result if not expired."""
+        if key not in self._selection_cache:
+            return None
+        result, timestamp = self._selection_cache[key]
+        if time.time() - timestamp > self.cache_ttl:
+            del self._selection_cache[key]
+            return None
+        return result
+    
+    def _set_cached(self, key: str, result: ToolRecommendation) -> None:
+        """Cache a result with timestamp."""
+        self._selection_cache[key] = (result, time.time())
+    
+    def clear_cache(self) -> None:
+        """Clear selection cache."""
+        self._selection_cache.clear()
+    
+    def cache_stats(self) -> Dict[str, Any]:
+        """Return cache statistics for monitoring."""
+        total = self._cache_hits + self._cache_misses
+        return {
+            "cache_hits": self._cache_hits,
+            "cache_misses": self._cache_misses,
+            "hit_rate": self._cache_hits / max(1, total),
+            "cache_size": len(self._selection_cache)
+        }
     
     def _greedy_select(
         self,

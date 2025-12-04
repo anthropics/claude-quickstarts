@@ -10,12 +10,14 @@ Provides multi-sample self-consistency:
 
 from typing import List, Dict, Any, Optional, Tuple, Callable, Union
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from enum import Enum
 from abc import ABC, abstractmethod
+from functools import lru_cache
 import math
 import hashlib
 import statistics
+import time
 
 
 class VotingMethod(Enum):
@@ -136,23 +138,35 @@ class SelfConsistencyVoter:
     Aggregates multiple reasoning chains through voting.
     
     Implements various voting schemes for self-consistency.
+    Token optimization: Caches results for identical chain sets.
     """
     
     def __init__(
         self,
         method: VotingMethod = VotingMethod.WEIGHTED,
         consensus_threshold: float = 0.6,
-        normalizer: Optional[AnswerNormalizer] = None
+        normalizer: Optional[AnswerNormalizer] = None,
+        cache_ttl_seconds: float = 300.0,
+        early_termination_threshold: float = 0.95
     ):
         self.method = method
         self.consensus_threshold = consensus_threshold
         self.normalizer = normalizer or AnswerNormalizer()
+        self.cache_ttl = cache_ttl_seconds
+        self.early_termination_threshold = early_termination_threshold
+        self._cache: Dict[str, Tuple[ConsistencyResult, float]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
     
     def aggregate(
         self,
         chains: List[ReasoningChain]
     ) -> ConsistencyResult:
-        """Aggregate reasoning chains through voting."""
+        """
+        Aggregate reasoning chains through voting.
+        
+        Token optimization: Uses caching and early termination.
+        """
         if not chains:
             return ConsistencyResult(
                 winner="",
@@ -164,6 +178,14 @@ class SelfConsistencyVoter:
                 alternative_answers=[],
                 voting_method=self.method
             )
+        
+        # Check cache for identical chain fingerprints
+        cache_key = self._compute_cache_key(chains)
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            self._cache_hits += 1
+            return cached
+        self._cache_misses += 1
         
         # Convert chains to votes
         votes = [
@@ -187,17 +209,53 @@ class SelfConsistencyVoter:
         
         # Apply voting method
         if self.method == VotingMethod.MAJORITY:
-            return self._majority_vote(answer_votes, len(votes))
+            result = self._majority_vote(answer_votes, len(votes))
         elif self.method == VotingMethod.WEIGHTED:
-            return self._weighted_vote(answer_votes, len(votes))
+            result = self._weighted_vote(answer_votes, len(votes))
         elif self.method == VotingMethod.LOGIT:
-            return self._logit_vote(answer_votes, len(votes))
+            result = self._logit_vote(answer_votes, len(votes))
         elif self.method == VotingMethod.BORDA:
-            return self._borda_count(chains)
+            result = self._borda_count(chains)
         elif self.method == VotingMethod.CONSENSUS:
-            return self._consensus_vote(answer_votes, len(votes))
+            result = self._consensus_vote(answer_votes, len(votes))
         else:
-            return self._majority_vote(answer_votes, len(votes))
+            result = self._majority_vote(answer_votes, len(votes))
+        
+        # Cache the result
+        self._set_cached(cache_key, result)
+        return result
+    
+    def _compute_cache_key(self, chains: List[ReasoningChain]) -> str:
+        """Compute cache key from chain fingerprints."""
+        fps = sorted(c.fingerprint() for c in chains)
+        return hashlib.md5(":".join(fps).encode()).hexdigest()
+    
+    def _get_cached(self, key: str) -> Optional[ConsistencyResult]:
+        """Get cached result if not expired."""
+        if key not in self._cache:
+            return None
+        result, timestamp = self._cache[key]
+        if time.time() - timestamp > self.cache_ttl:
+            del self._cache[key]
+            return None
+        return result
+    
+    def _set_cached(self, key: str, result: ConsistencyResult) -> None:
+        """Cache a result with timestamp."""
+        self._cache[key] = (result, time.time())
+    
+    def clear_cache(self) -> None:
+        """Clear the result cache."""
+        self._cache.clear()
+    
+    def cache_stats(self) -> Dict[str, Any]:
+        """Return cache statistics for monitoring token usage."""
+        return {
+            "cache_hits": self._cache_hits,
+            "cache_misses": self._cache_misses,
+            "cache_size": len(self._cache),
+            "hit_rate": self._cache_hits / max(1, self._cache_hits + self._cache_misses)
+        }
     
     def _majority_vote(
         self,

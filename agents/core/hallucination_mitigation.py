@@ -15,6 +15,7 @@ from enum import Enum
 from abc import ABC, abstractmethod
 import re
 import hashlib
+import time
 
 
 class ClaimStatus(Enum):
@@ -305,34 +306,77 @@ class SelfConsistencyChecker:
 
 
 class ClaimVerifier:
-    """Verifies claims using multiple evidence sources."""
+    """
+    Verifies claims using multiple evidence sources.
+    
+    Token optimization: Caches verification results and uses early termination.
+    """
     
     def __init__(
         self,
         gatherers: Optional[List[EvidenceGatherer]] = None,
         verification_threshold: float = 0.7,
-        flag_threshold: float = 0.3
+        flag_threshold: float = 0.3,
+        cache_ttl_seconds: float = 300.0,
+        early_termination_threshold: float = 0.95
     ):
         self.gatherers = gatherers or []
         self.verification_threshold = verification_threshold
         self.flag_threshold = flag_threshold
+        self.cache_ttl = cache_ttl_seconds
+        self.early_termination_threshold = early_termination_threshold
+        
+        # Verification cache
+        self._cache: Dict[str, Tuple[VerificationResult, float]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
     
     def add_gatherer(self, gatherer: EvidenceGatherer):
         """Add an evidence gatherer."""
         self.gatherers.append(gatherer)
     
     def verify(self, claim: Claim) -> VerificationResult:
-        """Verify a claim."""
-        all_evidence: List[Evidence] = []
+        """
+        Verify a claim.
         
-        # Gather evidence from all sources
+        Token optimization: Uses caching and early termination.
+        """
+        # Check cache
+        cache_key = hashlib.md5(claim.text.encode()).hexdigest()
+        cached = self._get_cached(cache_key)
+        if cached is not None:
+            self._cache_hits += 1
+            return cached
+        self._cache_misses += 1
+        
+        all_evidence: List[Evidence] = []
+        cumulative_support = 0.0
+        cumulative_contradict = 0.0
+        
+        # Gather evidence from sources with early termination
         for gatherer in self.gatherers:
             evidence = gatherer.gather(claim)
             all_evidence.extend(evidence)
+            
+            # Update cumulative scores for early termination
+            for e in evidence:
+                if e.supports:
+                    cumulative_support += e.confidence * e.relevance
+                else:
+                    cumulative_contradict += e.confidence * e.relevance
+            
+            # Early termination if highly confident
+            total = cumulative_support + cumulative_contradict
+            if total > 0:
+                confidence = cumulative_support / total
+                if confidence >= self.early_termination_threshold:
+                    break  # Strong support, stop gathering
+                if (1 - confidence) >= self.early_termination_threshold:
+                    break  # Strong contradiction, stop gathering
         
         # Aggregate evidence
         if not all_evidence:
-            return VerificationResult(
+            no_evidence_result = VerificationResult(
                 claim=claim,
                 status=ClaimStatus.UNCERTAIN,
                 confidence=0.5,
@@ -340,6 +384,8 @@ class ClaimVerifier:
                 explanation="No evidence found",
                 flagged=True
             )
+            self._set_cached(cache_key, no_evidence_result)
+            return no_evidence_result
         
         # Compute support score
         supporting = [e for e in all_evidence if e.supports]
@@ -371,7 +417,7 @@ class ClaimVerifier:
             claim, supporting, contradicting, normalized, status
         )
         
-        return VerificationResult(
+        result = VerificationResult(
             claim=claim,
             status=status,
             confidence=normalized,
@@ -380,6 +426,38 @@ class ClaimVerifier:
             flagged=flagged,
             suggested_revision=self._suggest_revision(claim, status, all_evidence) if flagged else None
         )
+        
+        # Cache the result
+        self._set_cached(cache_key, result)
+        return result
+    
+    def _get_cached(self, key: str) -> Optional[VerificationResult]:
+        """Get cached result if not expired."""
+        if key not in self._cache:
+            return None
+        result, timestamp = self._cache[key]
+        if time.time() - timestamp > self.cache_ttl:
+            del self._cache[key]
+            return None
+        return result
+    
+    def _set_cached(self, key: str, result: VerificationResult) -> None:
+        """Cache a result with timestamp."""
+        self._cache[key] = (result, time.time())
+    
+    def clear_cache(self) -> None:
+        """Clear verification cache."""
+        self._cache.clear()
+    
+    def cache_stats(self) -> Dict[str, Any]:
+        """Return cache statistics for monitoring."""
+        total = self._cache_hits + self._cache_misses
+        return {
+            "cache_hits": self._cache_hits,
+            "cache_misses": self._cache_misses,
+            "hit_rate": self._cache_hits / max(1, total),
+            "cache_size": len(self._cache)
+        }
     
     def _generate_explanation(
         self,

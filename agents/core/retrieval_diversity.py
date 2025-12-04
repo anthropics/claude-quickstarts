@@ -13,8 +13,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from abc import ABC, abstractmethod
+from functools import lru_cache
 import math
 import re
+import time
+import hashlib
 from collections import Counter
 
 
@@ -104,23 +107,34 @@ class Tokenizer:
 
 
 class BM25Retriever:
-    """BM25 keyword-based retrieval."""
+    """
+    BM25 keyword-based retrieval.
+    
+    Token optimization: Caches query results to avoid recomputation.
+    """
     
     def __init__(
         self,
         k1: float = 1.5,
         b: float = 0.75,
-        tokenizer: Optional[Tokenizer] = None
+        tokenizer: Optional[Tokenizer] = None,
+        cache_size: int = 128
     ):
         self.k1 = k1
         self.b = b
         self.tokenizer = tokenizer or Tokenizer()
+        self.cache_size = cache_size
         
         self.documents: List[Document] = []
         self.doc_lengths: List[int] = []
         self.avg_doc_length: float = 0.0
         self.term_doc_freqs: Dict[str, int] = {}
         self.doc_term_freqs: List[Dict[str, int]] = []
+        
+        # Cache for query results
+        self._query_cache: Dict[str, Tuple[List[RetrievalResult], float]] = {}
+        self._cache_hits = 0
+        self._cache_misses = 0
     
     def index(self, documents: List[Document]):
         """Index documents for BM25 retrieval."""
@@ -143,9 +157,22 @@ class BM25Retriever:
         total_length = sum(self.doc_lengths)
         if self.documents:
             self.avg_doc_length = total_length / len(self.documents)
+        # Clear cache when index changes
+        self._query_cache.clear()
     
     def search(self, query: str, top_k: int = 10) -> List[RetrievalResult]:
-        """Search for documents matching query."""
+        """
+        Search for documents matching query.
+        
+        Token optimization: Caches results for repeated queries.
+        """
+        # Check cache
+        cache_key = f"{query}:{top_k}"
+        if cache_key in self._query_cache:
+            self._cache_hits += 1
+            return self._query_cache[cache_key][0]
+        self._cache_misses += 1
+        
         query_terms = self.tokenizer.tokenize(query)
         scores: List[Tuple[int, float]] = []
         
@@ -191,7 +218,23 @@ class BM25Retriever:
                 relevance_explanation=f"BM25 keyword match: {score:.3f}"
             ))
         
+        # Cache results (with LRU eviction)
+        if len(self._query_cache) >= self.cache_size:
+            oldest_key = min(self._query_cache, key=lambda k: self._query_cache[k][1])
+            del self._query_cache[oldest_key]
+        self._query_cache[cache_key] = (results, time.time())
+        
         return results
+    
+    def cache_stats(self) -> Dict[str, Any]:
+        """Return cache statistics for monitoring."""
+        total = self._cache_hits + self._cache_misses
+        return {
+            "cache_hits": self._cache_hits,
+            "cache_misses": self._cache_misses,
+            "hit_rate": self._cache_hits / max(1, total),
+            "cache_size": len(self._query_cache)
+        }
 
 
 class VectorRetriever:

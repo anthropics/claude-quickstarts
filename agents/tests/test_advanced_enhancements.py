@@ -823,5 +823,136 @@ class TestAdvancedIntegration:
                 assert 0 <= prob <= 1
 
 
+class TestTokenOptimization:
+    """Tests for token optimization features (caching, early termination)."""
+    
+    def test_self_consistency_caching(self):
+        """Test SelfConsistencyVoter caching."""
+        from agents.core.self_consistency import (
+            SelfConsistencyVoter,
+            ReasoningChain,
+            VotingMethod
+        )
+        
+        voter = SelfConsistencyVoter(
+            method=VotingMethod.MAJORITY,
+            cache_ttl_seconds=60.0
+        )
+        
+        chains = [
+            ReasoningChain(
+                chain_id="c1",
+                steps=["step1"],
+                conclusion="answer A",
+                confidence=0.8
+            ),
+            ReasoningChain(
+                chain_id="c2",
+                steps=["step2"],
+                conclusion="answer A",
+                confidence=0.7
+            ),
+        ]
+        
+        # First call - cache miss
+        result1 = voter.aggregate(chains)
+        stats1 = voter.cache_stats()
+        assert stats1["cache_misses"] == 1
+        assert stats1["cache_hits"] == 0
+        
+        # Second call - cache hit
+        result2 = voter.aggregate(chains)
+        stats2 = voter.cache_stats()
+        assert stats2["cache_hits"] == 1
+        assert result1.winner == result2.winner
+    
+    def test_bm25_retriever_caching(self):
+        """Test BM25Retriever caching."""
+        from agents.core.retrieval_diversity import BM25Retriever, Document
+        
+        retriever = BM25Retriever(cache_size=10)
+        
+        docs = [
+            Document(doc_id="d1", content="hello world python programming"),
+            Document(doc_id="d2", content="machine learning artificial intelligence"),
+        ]
+        retriever.index(docs)
+        
+        # First search - cache miss
+        results1 = retriever.search("python programming")
+        stats1 = retriever.cache_stats()
+        assert stats1["cache_misses"] == 1
+        
+        # Second search - cache hit
+        results2 = retriever.search("python programming")
+        stats2 = retriever.cache_stats()
+        assert stats2["cache_hits"] == 1
+    
+    def test_tool_arbitrator_caching(self):
+        """Test ToolArbitrator caching."""
+        from agents.core.tool_arbitration import (
+            ToolArbitrator,
+            ToolProfile,
+            ToolCategory,
+            SelectionStrategy
+        )
+        
+        arbitrator = ToolArbitrator(
+            strategy=SelectionStrategy.GREEDY,
+            cache_ttl_seconds=60.0
+        )
+        
+        tool = ToolProfile(
+            tool_id="tool1",
+            name="Test Tool",
+            category=ToolCategory.COMPUTATION
+        )
+        arbitrator.register_tool(tool)
+        
+        context = {"task": "compute"}
+        
+        # First call - cache miss
+        rec1 = arbitrator.select_tool(context)
+        stats1 = arbitrator.cache_stats()
+        assert stats1["cache_misses"] == 1
+        
+        # Second call - cache hit
+        rec2 = arbitrator.select_tool(context)
+        stats2 = arbitrator.cache_stats()
+        assert stats2["cache_hits"] == 1
+        assert rec1.tool_id == rec2.tool_id
+    
+    def test_claim_verifier_caching(self):
+        """Test ClaimVerifier caching."""
+        from agents.core.hallucination_mitigation import (
+            ClaimVerifier,
+            Claim
+        )
+        
+        verifier = ClaimVerifier(cache_ttl_seconds=60.0)
+        
+        # Same claim text will hit cache
+        claim1 = Claim(
+            claim_id="claim1",
+            text="The sky is blue",
+            source="test"
+        )
+        claim2 = Claim(
+            claim_id="claim2",  # Different ID but same text
+            text="The sky is blue",
+            source="test"
+        )
+        
+        # First call - cache miss
+        result1 = verifier.verify(claim1)
+        stats1 = verifier.cache_stats()
+        assert stats1["cache_misses"] == 1
+        
+        # Second call with same text - cache hit
+        result2 = verifier.verify(claim2)
+        stats2 = verifier.cache_stats()
+        assert stats2["cache_hits"] == 1
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
