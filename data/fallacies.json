@@ -1,0 +1,149 @@
+{
+  "ad_hominem": {
+    "id": "ad_hominem",
+    "name": "Ad Hominem",
+    "category": "relevance",
+    "severity": "major",
+    "description": "Attacking the person instead of their argument",
+    "pattern_indicators": [
+      "you're wrong because",
+      "coming from you",
+      "can't trust"
+    ],
+    "example": "You can't trust his economic policy because he's wealthy"
+  },
+  "appeal_to_authority": {
+    "id": "appeal_to_authority",
+    "name": "Appeal to Authority",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Citing irrelevant or unqualified authority",
+    "pattern_indicators": [
+      "expert says",
+      "authority claims",
+      "famous person believes"
+    ],
+    "example": "This diet works because a celebrity uses it"
+  },
+  "appeal_to_emotion": {
+    "id": "appeal_to_emotion",
+    "name": "Appeal to Emotion",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Using emotion instead of logic",
+    "pattern_indicators": [
+      "think of the children",
+      "how would you feel",
+      "imagine if"
+    ],
+    "example": "We must ban this because it's scary"
+  },
+  "red_herring": {
+    "id": "red_herring",
+    "name": "Red Herring",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Introducing irrelevant information to distract",
+    "pattern_indicators": [
+      "but what about",
+      "the real issue is",
+      "speaking of"
+    ],
+    "example": "Climate change? What about immigration!"
+  },
+  "false_dilemma": {
+    "id": "false_dilemma",
+    "name": "False Dilemma",
+    "category": "presumption",
+    "severity": "major",
+    "description": "Presenting only two options when more exist",
+    "pattern_indicators": [
+      "either",
+      "or",
+      "only two choices",
+      "must choose"
+    ],
+    "example": "Either support the war or hate your country"
+  },
+  "begging_question": {
+    "id": "begging_question",
+    "name": "Begging the Question",
+    "category": "presumption",
+    "severity": "major",
+    "description": "Circular reasoning - conclusion assumed in premise",
+    "pattern_indicators": [
+      "obviously",
+      "clearly",
+      "of course"
+    ],
+    "example": "God exists because the Bible says so, and the Bible is true because God wrote it"
+  },
+  "hasty_generalization": {
+    "id": "hasty_generalization",
+    "name": "Hasty Generalization",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Drawing broad conclusion from insufficient evidence",
+    "pattern_indicators": [
+      "all",
+      "every",
+      "always",
+      "never"
+    ],
+    "example": "I met two rude people from that city, so everyone there is rude"
+  },
+  "slippery_slope": {
+    "id": "slippery_slope",
+    "name": "Slippery Slope",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Claiming small step leads to extreme outcome without justification",
+    "pattern_indicators": [
+      "will lead to",
+      "next thing",
+      "inevitable",
+      "cascade"
+    ],
+    "example": "If we allow same-sex marriage, people will marry animals"
+  },
+  "equivocation": {
+    "id": "equivocation",
+    "name": "Equivocation",
+    "category": "ambiguity",
+    "severity": "major",
+    "description": "Using same word with different meanings",
+    "pattern_indicators": [
+      "depends on",
+      "meaning",
+      "definition"
+    ],
+    "example": "A feather is light; light travels fast; therefore a feather travels fast"
+  },
+  "affirming_consequent": {
+    "id": "affirming_consequent",
+    "name": "Affirming the Consequent",
+    "category": "formal",
+    "severity": "major",
+    "description": "If P then Q; Q; therefore P (invalid)",
+    "pattern_indicators": [
+      "if",
+      "then",
+      "therefore"
+    ],
+    "example": "If it rains, the ground is wet; the ground is wet; therefore it rained"
+  },
+  "denying_antecedent": {
+    "id": "denying_antecedent",
+    "name": "Denying the Antecedent",
+    "category": "formal",
+    "severity": "major",
+    "description": "If P then Q; not P; therefore not Q (invalid)",
+    "pattern_indicators": [
+      "if",
+      "then",
+      "not",
+      "therefore"
+    ],
+    "example": "If it rains, the ground is wet; it's not raining; therefore the ground is dry"
+  }
+}
