@@ -1,4 +1,8 @@
 node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
 
 
 #Ignore vscode AI rules

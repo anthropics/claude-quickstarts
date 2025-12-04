@@ -44,8 +44,6 @@ def check_hook(command: str, should_block: bool) -> bool:
 def test_extract_commands():
     """Test the command extraction logic."""
     print("\nTesting command extraction:\n")
-    passed = 0
-    failed = 0
 
     test_cases = [
         ("ls -la", ["ls"]),
@@ -58,22 +56,13 @@ def test_extract_commands():
 
     for cmd, expected in test_cases:
         result = extract_commands(cmd)
-        if result == expected:
-            print(f"  PASS: {cmd!r} -> {result}")
-            passed += 1
-        else:
-            print(f"  FAIL: {cmd!r}")
-            print(f"         Expected: {expected}, Got: {result}")
-            failed += 1
-
-    return passed, failed
+        assert result == expected, f"Command extraction failed for {cmd!r}: expected {expected}, got {result}"
+        print(f"  PASS: {cmd!r} -> {result}")
 
 
 def test_validate_chmod():
     """Test chmod command validation."""
     print("\nTesting chmod validation:\n")
-    passed = 0
-    failed = 0
 
     # Test cases: (command, should_be_allowed, description)
     test_cases = [
@@ -97,26 +86,13 @@ def test_validate_chmod():
 
     for cmd, should_allow, description in test_cases:
         allowed, reason = validate_chmod_command(cmd)
-        if allowed == should_allow:
-            print(f"  PASS: {cmd!r} ({description})")
-            passed += 1
-        else:
-            expected = "allowed" if should_allow else "blocked"
-            actual = "allowed" if allowed else "blocked"
-            print(f"  FAIL: {cmd!r} ({description})")
-            print(f"         Expected: {expected}, Got: {actual}")
-            if reason:
-                print(f"         Reason: {reason}")
-            failed += 1
-
-    return passed, failed
+        assert allowed == should_allow, f"chmod validation failed for {cmd!r} ({description}): expected {'allowed' if should_allow else 'blocked'}, got {'allowed' if allowed else 'blocked'}. Reason: {reason}"
+        print(f"  PASS: {cmd!r} ({description})")
 
 
 def test_validate_init_script():
     """Test init.sh script execution validation."""
     print("\nTesting init.sh validation:\n")
-    passed = 0
-    failed = 0
 
     # Test cases: (command, should_be_allowed, description)
     test_cases = [
@@ -137,19 +113,8 @@ def test_validate_init_script():
 
     for cmd, should_allow, description in test_cases:
         allowed, reason = validate_init_script(cmd)
-        if allowed == should_allow:
-            print(f"  PASS: {cmd!r} ({description})")
-            passed += 1
-        else:
-            expected = "allowed" if should_allow else "blocked"
-            actual = "allowed" if allowed else "blocked"
-            print(f"  FAIL: {cmd!r} ({description})")
-            print(f"         Expected: {expected}, Got: {actual}")
-            if reason:
-                print(f"         Reason: {reason}")
-            failed += 1
-
-    return passed, failed
+        assert allowed == should_allow, f"init.sh validation failed for {cmd!r} ({description}): expected {'allowed' if should_allow else 'blocked'}, got {'allowed' if allowed else 'blocked'}. Reason: {reason}"
+        print(f"  PASS: {cmd!r} ({description})")
 
 
 def main():
@@ -160,20 +125,27 @@ def main():
     passed = 0
     failed = 0
 
-    # Test command extraction
-    ext_passed, ext_failed = test_extract_commands()
-    passed += ext_passed
-    failed += ext_failed
+    # Run the test functions - they will assert on failures
+    try:
+        test_extract_commands()
+        print("✓ Command extraction tests passed\n")
+    except AssertionError as e:
+        print(f"✗ Command extraction tests failed: {e}\n")
+        failed += 1
 
-    # Test chmod validation
-    chmod_passed, chmod_failed = test_validate_chmod()
-    passed += chmod_passed
-    failed += chmod_failed
+    try:
+        test_validate_chmod()
+        print("✓ chmod validation tests passed\n")
+    except AssertionError as e:
+        print(f"✗ chmod validation tests failed: {e}\n")
+        failed += 1
 
-    # Test init.sh validation
-    init_passed, init_failed = test_validate_init_script()
-    passed += init_passed
-    failed += init_failed
+    try:
+        test_validate_init_script()
+        print("✓ init.sh validation tests passed\n")
+    except AssertionError as e:
+        print(f"✗ init.sh validation tests failed: {e}\n")
+        failed += 1
 
     # Commands that SHOULD be blocked
     print("\nCommands that should be BLOCKED:\n")
