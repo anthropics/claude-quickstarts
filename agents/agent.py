@@ -1,7 +1,6 @@
 """Agent implementation with Claude API and tools."""
 
 import asyncio
-import inspect
 import os
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
@@ -9,7 +8,6 @@ from typing import Any
 
 from anthropic import Anthropic
 
-from .tools.base import Tool
 from .utils.connections import setup_mcp_connections
 from .utils.history_util import MessageHistory
 from .utils.tool_util import execute_tools

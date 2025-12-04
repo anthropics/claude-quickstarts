@@ -99,7 +99,7 @@ function createServer(rootDir, port = 8080) {
   const outDir = path.join(__dirname, 'screenshots');
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-  const baseUrl = `http://localhost:${port}`;
+  const baseUrl = `http://localhost:${PORT}`;
   const advUrl = `${baseUrl}/advanced.html`;
   const wrapperUrl = `${baseUrl}/iframe_wrapper.html`;
 
@@ -110,24 +110,24 @@ function createServer(rootDir, port = 8080) {
   page1.on('console', msg => console.log('Browser1 console:', msg.text()));
   try {
     console.log('Browser1: navigating to', advUrl);
-    await page1.goto(advUrl, { waitUntil: 'networkidle2', timeout: 20000 });
-    await page1.waitForSelector('#agentSelector', { timeout: 10000 });
+    await page1.goto(advUrl, { waitUntil: 'networkidle2', timeout: NAVIGATION_TIMEOUT });
+    await page1.waitForSelector('#agentSelector', { timeout: SELECTOR_TIMEOUT });
 
     // choose an agent and start evolution
-    await page1.select('#agentSelector', 'intermediate-researcher'); // Intermediate Researcher
-    await delay(1000);
+    await page1.select('#agentSelector', AGENT_TYPES.INTERMEDIATE_RESEARCHER);
+    await delay(MEDIUM_DELAY);
     
     // Click start button to begin evolution
     await page1.click('#startBtn');
     console.log('Browser1: Evolution started');
     
     // wait for cycles to increase
-    await page1.waitForFunction(() => parseInt(document.getElementById('cycleCount').textContent, 10) > 0, { timeout: 20000 });
-    await delay(2000);
+    await page1.waitForFunction(() => parseInt(document.getElementById('cycleCount').textContent, 10) > 0, { timeout: NAVIGATION_TIMEOUT });
+    await delay(LONG_DELAY);
     
     // wait for more cycles
-    await page1.waitForFunction(() => parseInt(document.getElementById('cycleCount').textContent, 10) > 1, { timeout: 20000 });
-    await delay(2000);
+    await page1.waitForFunction(() => parseInt(document.getElementById('cycleCount').textContent, 10) > 1, { timeout: NAVIGATION_TIMEOUT });
+    await delay(LONG_DELAY);
 
     const shot1 = path.join(outDir, 'browser1.png');
     await page1.screenshot({ path: shot1, fullPage: true });
@@ -135,7 +135,7 @@ function createServer(rootDir, port = 8080) {
     
     // stop evolution
     await page1.click('#startBtn'); // Toggle button stops when running
-    await delay(500);
+    await delay(SHORT_DELAY);
   } catch (err) {
     console.error('Browser1 error:', err.message);
   } finally {
@@ -150,11 +150,11 @@ function createServer(rootDir, port = 8080) {
   page2.on('console', msg => console.log('Browser2 console:', msg.text()));
   try {
     console.log('Browser2: navigating to wrapper', wrapperUrl);
-    await page2.goto(wrapperUrl, { waitUntil: 'networkidle2', timeout: 20000 });
+    await page2.goto(wrapperUrl, { waitUntil: 'networkidle2', timeout: NAVIGATION_TIMEOUT });
 
     // wait for the iframe to load the advanced.html
-    await page2.waitForSelector('iframe#tisFrame', { timeout: 10000 });
-    await delay(1000); // Give iframe time to fully load
+    await page2.waitForSelector(SELECTORS.IFRAME, { timeout: SELECTOR_TIMEOUT });
+    await delay(MEDIUM_DELAY); // Give iframe time to fully load
     
     // get the frame
     let frame = page2.frames().find(f => f.url().endsWith('/advanced.html'));
@@ -174,29 +174,29 @@ function createServer(rootDir, port = 8080) {
     }
 
     // Interact inside the frame
-    await frame.waitForSelector('#agentSelector', { timeout: 10000 });
-    await frame.select('#agentSelector', 'emerging-expert'); // Emerging Expert
-    await delay(1000);
+    await frame.waitForSelector(SELECTORS.AGENT_SELECTOR, { timeout: SELECTOR_TIMEOUT });
+    await frame.select(SELECTORS.AGENT_SELECTOR, AGENT_TYPES.EMERGING_EXPERT);
+    await delay(MEDIUM_DELAY);
     
     // Start evolution in iframe
-    await frame.click('#startBtn');
+    await frame.click(SELECTORS.START_BTN);
     console.log('Browser2: Evolution started in iframe');
     
     // wait for cycles to increase
-    await frame.waitForFunction(() => parseInt(document.getElementById('cycleCount').textContent, 10) > 0, { timeout: 20000 });
-    await delay(2000);
+    await frame.waitForFunction(() => parseInt(document.getElementById('cycleCount').textContent, 10) > 0, { timeout: NAVIGATION_TIMEOUT });
+    await delay(LONG_DELAY);
 
     // wait for more cycles
-    await frame.waitForFunction(() => parseInt(document.getElementById('cycleCount').textContent, 10) > 1, { timeout: 20000 });
-    await delay(2000);
+    await frame.waitForFunction(() => parseInt(document.getElementById('cycleCount').textContent, 10) > 1, { timeout: NAVIGATION_TIMEOUT });
+    await delay(LONG_DELAY);
 
     const shot2 = path.join(outDir, 'browser2_iframe.png');
     await page2.screenshot({ path: shot2, fullPage: true });
     console.log('Browser2: Screenshot saved to', shot2);
     
     // stop evolution in iframe
-    await frame.click('#startBtn'); // Toggle button
-    await delay(500);
+    await frame.click(SELECTORS.START_BTN); // Toggle button
+    await delay(SHORT_DELAY);
   } catch (err) {
     console.error('Browser2 error:', err.message);
   } finally {

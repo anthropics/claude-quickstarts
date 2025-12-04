@@ -5,7 +5,6 @@ Integrates Watson Glaser TIS extended thinking capabilities into the agent frame
 Provides chain-of-thought reasoning, multi-layer analysis, and consensus synthesis.
 """
 
-import json
 from typing import Dict, List, Any, Optional
 
 
