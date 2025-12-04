@@ -177,6 +177,13 @@ For security concerns, see [SECURITY.md](SECURITY.md)
 - Try manual save button
 - Check browser privacy settings
 
+## 🔭 Future Agent Alignment (Intent)
+
+- Single source of truth: Long term, agent logic/config will be shared with the broader Claude quickstarts agents (phased development), without duplicating code. WG will load common settings from a centralized config when agents are packaged/stable.
+- Self-contained WG backend: WG is expected to gain a minimal backend that runs the shared agent package locally (no external service dependency), so front-end flows and tests use the same core logic as the quickstarts agents.
+- Front-end adapter: WG front-end will talk to that local backend via a stable API surface, keeping UI logic decoupled while reusing the shared agent “cortex.”
+- Phased adoption: No relocation now—development continues in phases; packaging and consolidation happen once agents stabilize. This note records the intent so the integration path is not lost.
+
 ## 📞 Support
 
 For questions or issues, open a GitHub issue or check the documentation.
