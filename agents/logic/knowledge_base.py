@@ -137,6 +137,24 @@ class KnowledgeBase:
 
         return results
 
+    def detect_contradictions(self) -> List[str]:
+        """
+        Detect explicit contradictions among stored facts.
+
+        This is a lightweight check that looks for direct negations
+        (e.g., "X is Y" vs "X is not Y") and conflicting implications.
+        """
+        contradictions = []
+
+        facts_list = list(self.facts.values())
+        for i, fact_a in enumerate(facts_list):
+            for fact_b in facts_list[i + 1:]:
+                if self._are_contradictory(fact_a.statement, fact_b.statement):
+                    contradictions.append(
+                        f"Contradiction between '{fact_a.statement}' and '{fact_b.statement}'"
+                    )
+        return contradictions
+
     def validate(self, claim: str, use_ml: bool = True) -> ValidationResult:
         """
         Validate a claim against the knowledge base.
@@ -189,6 +207,17 @@ class KnowledgeBase:
             sources=[],
             reasoning_chain=["No evidence found"]
         )
+
+    def validate_with_contradiction_check(self, claim: str, use_ml: bool = True) -> ValidationResult:
+        """
+        Validate a claim and surface contradictions in the KB.
+        """
+        base = self.validate(claim, use_ml=use_ml)
+        contradictions = self.detect_contradictions()
+        if contradictions:
+            base.reasoning_chain.extend(contradictions)
+            base.confidence *= 0.7
+        return base
 
     def add_inference_rule(
         self,
@@ -257,6 +286,44 @@ class KnowledgeBase:
         """Check if two statements are semantically equivalent."""
         # Simplified: exact match after normalization
         return s1.lower().strip() == s2.lower().strip()
+
+    def _are_contradictory(self, s1: str, s2: str) -> bool:
+        """
+        Naive contradiction check: detect simple negations and opposite claims.
+
+        Examples:
+        - "X is Y" vs "X is not Y"
+        - "All X are Y" vs "Some X are not Y"
+        """
+        a = s1.lower().strip()
+        b = s2.lower().strip()
+
+        if a == b:
+            return False
+
+        neg_markers = [" not ", " no ", "never ", "cannot ", "can't "]
+
+        def normalize(sentence: str) -> str:
+            return sentence.replace("all ", "").replace("some ", "").strip()
+
+        normalized_a = normalize(a)
+        normalized_b = normalize(b)
+
+        # Direct negation pattern
+        for marker in neg_markers:
+            if marker in normalized_a and normalized_a.replace(marker, " ") == normalized_b:
+                return True
+            if marker in normalized_b and normalized_b.replace(marker, " ") == normalized_a:
+                return True
+
+        # Simple contradictory forms
+        if " are " in normalized_a and " are " in normalized_b:
+            left = normalized_a.split(" are ")
+            right = normalized_b.split(" are ")
+            if len(left) == 2 and len(right) == 2 and left[0] == right[0] and left[1] != right[1]:
+                return True
+
+        return False
 
     def _forward_chain(self, query: str) -> List[Fact]:
         """

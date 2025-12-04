@@ -334,7 +334,7 @@ class ReasoningAgent:
         formal_argument = self.argument_builder.build_argument(self.reasoning_chain)
 
         # Step 4: Validate against knowledge base
-        validation = self.knowledge_base.validate(
+        validation = self.knowledge_base.validate_with_contradiction_check(
             formal_argument.conclusion.natural_language
         )
 
@@ -361,6 +361,22 @@ class ReasoningAgent:
             "knowledge_used": formal_argument.cited_facts,
             "ml_reasoning_trace": self._get_ml_trace()
         }
+
+        # Step 6: Apply hallucination guard (confidence adjustment + warnings)
+        guard = self._hallucination_guard(result)
+        result["confidence"] = guard["adjusted_confidence"]
+        result["hallucination_guard"] = guard
+        result["warnings"] = guard["warnings"]
+
+        # Require citations for conclusions when possible
+        if not result["knowledge_used"]:
+            result["warnings"].append("Conclusion has no cited facts; treat as ungrounded.")
+            result["confidence"] *= 0.8
+        else:
+            # Boost slightly when well-cited and validated
+            result["confidence"] = min(
+                1.0, result["confidence"] * (1.05 if validation.valid else 1.0)
+            )
 
         if self.verbose:
             self._print_result(result)
@@ -488,6 +504,59 @@ class ReasoningAgent:
         """Get trace of ML reasoning process."""
         return f"Extended thinking with {len(self.reasoning_chain)} steps at depth {self.reasoning_depth}"
 
+    def _hallucination_guard(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Mitigate hallucinations by down-weighting unvalidated outputs and flagging risks.
+
+        Heuristics inspired by common guidance:
+        - Prefer grounded, cited facts
+        - Penalize low validation confidence
+        - Flag missing sources
+        - Highlight long/uncertain chains
+        """
+        warnings: List[str] = []
+        adjustment = 1.0
+        risk_level = "low"
+
+        validation = result.get("knowledge_validation", {}) or {}
+        knowledge_used = result.get("knowledge_used", []) or []
+        chain = result.get("reasoning_chain", []) or []
+
+        avg_chain_conf = (
+            sum(step.get("confidence", 0.0) for step in chain) / len(chain)
+            if chain else 0.0
+        )
+
+        if not validation.get("valid") or validation.get("confidence", 0.0) < 0.5:
+            risk_level = "high"
+            adjustment *= 0.7
+            warnings.append("Knowledge validation failed or is low-confidence.")
+
+        if not knowledge_used:
+            if risk_level == "low":
+                risk_level = "medium"
+            adjustment *= 0.85
+            warnings.append("No cited facts; consider verifying against trusted sources.")
+
+        if avg_chain_conf < 0.65:
+            if risk_level == "low":
+                risk_level = "medium"
+            adjustment *= 0.9
+            warnings.append("Reasoning chain has low average confidence.")
+
+        if len(chain) > 6:
+            warnings.append("Long reasoning chain—higher chance of compounding errors.")
+
+        adjusted_confidence = max(0.0, min(1.0, result.get("confidence", 0.0) * adjustment))
+
+        return {
+            "risk_level": risk_level,
+            "warnings": warnings,
+            "adjusted_confidence": adjusted_confidence,
+            "validation_confidence": validation.get("confidence", 0.0),
+            "knowledge_used": knowledge_used,
+        }
+
     def _print_result(self, result: Dict[str, Any]):
         """Print reasoning result."""
         print("=" * 70)
@@ -496,6 +565,13 @@ class ReasoningAgent:
         print(f"\nConclusion: {result['conclusion']}")
         print(f"Formal: {result['formal_conclusion']}")
         print(f"Confidence: {result['confidence']:.1%}")
+        if result.get("hallucination_guard"):
+            guard = result["hallucination_guard"]
+            print(f"Hallucination Risk: {guard['risk_level']}")
+            if guard["warnings"]:
+                print("Warnings:")
+                for w in guard["warnings"]:
+                    print(f"  - {w}")
         print(f"\nReasoning Chain:")
         for i, step in enumerate(result['reasoning_chain'], 1):
             print(f"  {i}. {step['premise']}")

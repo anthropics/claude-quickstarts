@@ -135,14 +135,30 @@ class SemanticParser:
         assumptions = []
         unparseable = []
 
-        # Detect quantifier
         quantifier = self._detect_quantifier(statement_lower)
-
-        # Detect modality
         modality = self._detect_modality(statement_lower)
 
-        # If modality detected, check if we can handle it
+        # If modality detected but unsupported, attempt a simplified parse
         if modality and modality not in [ModalityType.ALETHIC]:
+            stripped_statement = self._strip_modality(statement_lower, modality)
+            if stripped_statement != statement_lower:
+                assumptions.append(
+                    f"Removed modality '{modality.value}' to approximate parse"
+                )
+                result = self._parse_core(
+                    stripped_statement,
+                    assumptions=assumptions,
+                    quantifier=None,
+                    modality=None,
+                    unparseable=unparseable
+                )
+                result.modality = modality
+                if not result.success:
+                    result.unparseable_fragments.append(
+                        f"Modality '{modality.value}' requires specialized logic"
+                    )
+                return result
+
             unparseable.append(f"Modality '{modality.value}' requires specialized logic")
             return ParseResult(
                 success=False,
@@ -156,26 +172,46 @@ class SemanticParser:
                 confidence=0.0
             )
 
+        return self._parse_core(
+            statement_lower,
+            assumptions=assumptions,
+            quantifier=quantifier,
+            modality=modality,
+            unparseable=unparseable
+        )
+
+    def _parse_core(
+        self,
+        statement: str,
+        assumptions: List[str],
+        quantifier: Optional[QuantifierType],
+        modality: Optional[ModalityType],
+        unparseable: List[str]
+    ) -> ParseResult:
+        """Core parse dispatcher that assumes modality is already handled."""
+        if quantifier is None:
+            quantifier = self._detect_quantifier(statement)
+
         # Parse based on quantifier type
         if quantifier == QuantifierType.UNIVERSAL:
-            return self._parse_universal(statement_lower, assumptions)
+            result = self._parse_universal(statement, assumptions)
 
         elif quantifier == QuantifierType.EXISTENTIAL:
-            return self._parse_existential(statement_lower, assumptions)
+            result = self._parse_existential(statement, assumptions)
 
         elif quantifier == QuantifierType.GENERIC:
             # Generic statements are tricky - not truly universal
             assumptions.append(
                 "Generic statement treated as universal (may have exceptions)"
             )
-            return self._parse_generic(statement_lower, assumptions)
+            result = self._parse_generic(statement, assumptions)
 
         elif quantifier in [QuantifierType.MOST, QuantifierType.FEW]:
             # Can't represent "most" in first-order logic
             unparseable.append(
                 f"Quantifier '{quantifier.value}' requires higher-order or probabilistic logic"
             )
-            return ParseResult(
+            result = ParseResult(
                 success=False,
                 logical_form=None,
                 quantifier=quantifier,
@@ -187,8 +223,30 @@ class SemanticParser:
                 confidence=0.0
             )
 
-        # No quantifier detected
-        return self._parse_atomic(statement_lower, assumptions)
+        else:
+            # No quantifier detected
+            result = self._parse_atomic(statement, assumptions)
+
+        # Preserve modality context for downstream consumers
+        result.modality = modality
+        return result
+
+    def _strip_modality(self, statement: str, modality: ModalityType) -> str:
+        """Remove modality tokens to allow best-effort parsing."""
+        tokens = {
+            ModalityType.EPISTEMIC: ["believes", "knows"],
+            ModalityType.DEONTIC: ["should", "ought"],
+            ModalityType.TEMPORAL: ["always", "eventually"],
+            ModalityType.CAUSAL: ["because", "causes"],
+            ModalityType.ALETHIC: ["must", "necessarily", "possibly", "might"],
+        }.get(modality, [])
+
+        for token in tokens:
+            if token in statement:
+                # Return text after the modality token; this strips leading subjects like "Alice believes ..."
+                return statement.split(token, 1)[1].strip()
+
+        return statement
 
     def _detect_quantifier(self, statement: str) -> QuantifierType:
         """Detect quantifier in statement."""
