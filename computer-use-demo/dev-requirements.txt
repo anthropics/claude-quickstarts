@@ -3,3 +3,6 @@ ruff==0.6.7
 pre-commit==3.8.0
 pytest==8.3.3
 pytest-asyncio==0.23.6
+pytest-cov==4.1.0
+coverage[toml]==7.4.0
+hypothesis==6.92.0

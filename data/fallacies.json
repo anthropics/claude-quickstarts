@@ -145,5 +145,329 @@
       "therefore"
     ],
     "example": "If it rains, the ground is wet; it's not raining; therefore the ground is dry"
+  },
+  "straw_man": {
+    "id": "straw_man",
+    "name": "Straw Man",
+    "category": "relevance",
+    "severity": "major",
+    "description": "Misrepresenting an argument to make it easier to attack",
+    "pattern_indicators": [
+      "so you're saying",
+      "you think",
+      "your position is"
+    ],
+    "example": "You support welfare? So you think everyone should just sit around and collect checks!"
+  },
+  "appeal_to_ignorance": {
+    "id": "appeal_to_ignorance",
+    "name": "Appeal to Ignorance",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Arguing something is true because it hasn't been proven false (or vice versa)",
+    "pattern_indicators": [
+      "no one has proven",
+      "can't prove it isn't",
+      "absence of evidence"
+    ],
+    "example": "No one has proven ghosts don't exist, so they must be real"
+  },
+  "appeal_to_tradition": {
+    "id": "appeal_to_tradition",
+    "name": "Appeal to Tradition",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Arguing something is right because it's traditional or always been done that way",
+    "pattern_indicators": [
+      "always done",
+      "tradition",
+      "for centuries",
+      "time-honored"
+    ],
+    "example": "We've always done it this way, so we shouldn't change"
+  },
+  "appeal_to_novelty": {
+    "id": "appeal_to_novelty",
+    "name": "Appeal to Novelty",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Arguing something is better because it's new or modern",
+    "pattern_indicators": [
+      "latest",
+      "cutting-edge",
+      "modern",
+      "innovative"
+    ],
+    "example": "This new diet must be effective because it's the latest trend"
+  },
+  "bandwagon": {
+    "id": "bandwagon",
+    "name": "Bandwagon (Appeal to Popularity)",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Arguing something is true or good because it's popular",
+    "pattern_indicators": [
+      "everyone knows",
+      "most people",
+      "popular",
+      "widely accepted"
+    ],
+    "example": "Millions of people believe it, so it must be true"
+  },
+  "tu_quoque": {
+    "id": "tu_quoque",
+    "name": "Tu Quoque (You Too)",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Dismissing criticism by pointing out hypocrisy instead of addressing the argument",
+    "pattern_indicators": [
+      "you do it too",
+      "hypocrite",
+      "what about you"
+    ],
+    "example": "You say I shouldn't smoke? But you used to smoke!"
+  },
+  "loaded_question": {
+    "id": "loaded_question",
+    "name": "Loaded Question",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Asking a question that contains an unproven assumption",
+    "pattern_indicators": [
+      "have you stopped",
+      "when did you",
+      "why do you always"
+    ],
+    "example": "Have you stopped cheating on tests?"
+  },
+  "false_cause": {
+    "id": "false_cause",
+    "name": "False Cause (Post Hoc)",
+    "category": "presumption",
+    "severity": "major",
+    "description": "Assuming that because B follows A, A caused B",
+    "pattern_indicators": [
+      "after that",
+      "caused by",
+      "because of",
+      "led to"
+    ],
+    "example": "I wore my lucky socks and we won the game, so my socks caused the win"
+  },
+  "composition": {
+    "id": "composition",
+    "name": "Fallacy of Composition",
+    "category": "ambiguity",
+    "severity": "major",
+    "description": "Assuming what's true of parts is true of the whole",
+    "pattern_indicators": [
+      "each part",
+      "therefore the whole",
+      "all components"
+    ],
+    "example": "Each atom in this chair is invisible, therefore the chair is invisible"
+  },
+  "division": {
+    "id": "division",
+    "name": "Fallacy of Division",
+    "category": "ambiguity",
+    "severity": "major",
+    "description": "Assuming what's true of the whole is true of the parts",
+    "pattern_indicators": [
+      "the whole",
+      "therefore each part",
+      "since it's"
+    ],
+    "example": "This car is heavy, therefore each part of it is heavy"
+  },
+  "amphiboly": {
+    "id": "amphiboly",
+    "name": "Amphiboly",
+    "category": "ambiguity",
+    "severity": "moderate",
+    "description": "Ambiguous grammar leads to misleading conclusion",
+    "pattern_indicators": [
+      "grammatical ambiguity detected"
+    ],
+    "example": "Save soap and waste paper (unclear if 'waste' modifies 'paper' or is a verb)"
+  },
+  "accent": {
+    "id": "accent",
+    "name": "Fallacy of Accent",
+    "category": "ambiguity",
+    "severity": "moderate",
+    "description": "Changing meaning by emphasizing different words",
+    "pattern_indicators": [
+      "emphasis on",
+      "stressed word"
+    ],
+    "example": "You shouldn't KILL (implying other harm is okay)"
+  },
+  "no_true_scotsman": {
+    "id": "no_true_scotsman",
+    "name": "No True Scotsman",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Dismissing counterexamples by redefining terms",
+    "pattern_indicators": [
+      "no true",
+      "real",
+      "genuine"
+    ],
+    "example": "No Scotsman puts sugar on porridge. - 'But my uncle is Scottish and does.' - Well, no TRUE Scotsman does"
+  },
+  "texas_sharpshooter": {
+    "id": "texas_sharpshooter",
+    "name": "Texas Sharpshooter",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Cherry-picking data to fit a pattern",
+    "pattern_indicators": [
+      "if you look at",
+      "focusing on",
+      "pattern shows"
+    ],
+    "example": "Looking at only profitable quarters to claim a company is always successful"
+  },
+  "genetic_fallacy": {
+    "id": "genetic_fallacy",
+    "name": "Genetic Fallacy",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Judging something by its origin rather than its current merit",
+    "pattern_indicators": [
+      "came from",
+      "originated",
+      "source was"
+    ],
+    "example": "This philosophy is wrong because it was developed by ancient people"
+  },
+  "appeal_to_pity": {
+    "id": "appeal_to_pity",
+    "name": "Appeal to Pity",
+    "category": "relevance",
+    "severity": "moderate",
+    "description": "Using sympathy instead of logic to support a conclusion",
+    "pattern_indicators": [
+      "feel sorry",
+      "pity",
+      "unfortunate situation"
+    ],
+    "example": "You should pass me because I've had a hard life"
+  },
+  "appeal_to_force": {
+    "id": "appeal_to_force",
+    "name": "Appeal to Force",
+    "category": "relevance",
+    "severity": "major",
+    "description": "Using threat of force instead of logic",
+    "pattern_indicators": [
+      "or else",
+      "you'll regret",
+      "force you"
+    ],
+    "example": "Agree with me or you'll face consequences"
+  },
+  "special_pleading": {
+    "id": "special_pleading",
+    "name": "Special Pleading",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Applying standards selectively to favor one's position",
+    "pattern_indicators": [
+      "except for",
+      "but in this case",
+      "special circumstances"
+    ],
+    "example": "Murder is wrong, except when our country does it"
+  },
+  "moving_goalposts": {
+    "id": "moving_goalposts",
+    "name": "Moving the Goalposts",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Changing requirements after they're met",
+    "pattern_indicators": [
+      "but also",
+      "now you need",
+      "that's not enough"
+    ],
+    "example": "Show me evidence. [Evidence provided] That evidence isn't good enough, show me more"
+  },
+  "middle_ground": {
+    "id": "middle_ground",
+    "name": "Middle Ground Fallacy",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Assuming the compromise between two positions must be correct",
+    "pattern_indicators": [
+      "compromise",
+      "middle ground",
+      "both sides",
+      "meet halfway"
+    ],
+    "example": "Some say vaccines are safe, others say dangerous, so the truth must be somewhere in between"
+  },
+  "anecdotal": {
+    "id": "anecdotal",
+    "name": "Anecdotal Fallacy",
+    "category": "presumption",
+    "severity": "moderate",
+    "description": "Using personal experience instead of sound evidence",
+    "pattern_indicators": [
+      "in my experience",
+      "I know someone",
+      "happened to me"
+    ],
+    "example": "My grandfather smoked his whole life and lived to 90, so smoking isn't harmful"
+  },
+  "burden_of_proof": {
+    "id": "burden_of_proof",
+    "name": "Burden of Proof",
+    "category": "presumption",
+    "severity": "major",
+    "description": "Claiming something is true and demanding others disprove it",
+    "pattern_indicators": [
+      "prove me wrong",
+      "show that it isn't",
+      "disprove it"
+    ],
+    "example": "I claim unicorns exist; prove they don't!"
+  },
+  "undistributed_middle": {
+    "id": "undistributed_middle",
+    "name": "Undistributed Middle",
+    "category": "formal",
+    "severity": "major",
+    "description": "Categorical syllogism where middle term isn't distributed",
+    "pattern_indicators": [
+      "all.*are",
+      "categorical terms"
+    ],
+    "example": "All dogs are mammals; all cats are mammals; therefore all dogs are cats"
+  },
+  "illicit_major": {
+    "id": "illicit_major",
+    "name": "Illicit Major",
+    "category": "formal",
+    "severity": "major",
+    "description": "Major term distributed in conclusion but not in premise",
+    "pattern_indicators": [
+      "categorical syllogism",
+      "distribution error"
+    ],
+    "example": "All dogs are animals; no cats are dogs; therefore no cats are animals"
+  },
+  "illicit_minor": {
+    "id": "illicit_minor",
+    "name": "Illicit Minor",
+    "category": "formal",
+    "severity": "major",
+    "description": "Minor term distributed in conclusion but not in premise",
+    "pattern_indicators": [
+      "categorical syllogism",
+      "distribution error"
+    ],
+    "example": "All mammals are animals; all mammals are warm-blooded; therefore all warm-blooded are animals"
   }
 }

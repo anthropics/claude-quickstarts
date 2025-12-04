@@ -9,13 +9,15 @@ Implements:
 """
 
 from typing import (
-    List, Dict, Any, Optional, Callable, TypeVar
+    List, Dict, Any, Optional, Callable, TypeVar, Set
 )
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from abc import ABC, abstractmethod
 import asyncio
+import ast
+import operator
 
 
 T = TypeVar('T')
@@ -71,8 +73,8 @@ class PlanStep:
     max_retries: int = 3
     timeout_seconds: float = 30.0
     priority: float = 0.5
-    
-    def is_ready(self, completed_steps: set) -> bool:
+
+    def is_ready(self, completed_steps: Set[str]) -> bool:
         """Check if all dependencies are satisfied."""
         return all(dep in completed_steps for dep in self.dependencies)
 
@@ -87,7 +89,7 @@ class Plan:
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     completed_at: Optional[str] = None
     context: Dict[str, Any] = field(default_factory=dict)
-    
+
     @property
     def progress(self) -> float:
         """Calculate plan completion progress."""
@@ -95,7 +97,7 @@ class Plan:
             return 0.0
         completed = sum(1 for s in self.steps if s.status == PlanStatus.COMPLETED)
         return completed / len(self.steps)
-    
+
     @property
     def is_complete(self) -> bool:
         """Check if plan is complete."""
@@ -103,7 +105,7 @@ class Plan:
             s.status in (PlanStatus.COMPLETED, PlanStatus.SKIPPED)
             for s in self.steps
         )
-    
+
     def get_next_steps(self) -> List[PlanStep]:
         """Get steps that are ready to execute."""
         completed = {s.id for s in self.steps if s.status == PlanStatus.COMPLETED}
@@ -116,29 +118,29 @@ class Plan:
 
 class Tool(ABC):
     """Abstract base class for tools."""
-    
+
     @property
     @abstractmethod
     def name(self) -> str:
         """Tool name for identification."""
         ...
-    
+
     @property
     @abstractmethod
     def description(self) -> str:
         """Human-readable description."""
         ...
-    
+
     @property
     def parameters(self) -> Dict[str, Any]:
         """JSON schema for parameters."""
         return {}
-    
+
     @abstractmethod
     async def execute(self, **kwargs) -> ToolResult:
         """Execute the tool with given arguments."""
         ...
-    
+
     def validate_args(self, args: Dict[str, Any]) -> Optional[str]:
         """Validate arguments. Returns error message if invalid."""
         # Basic validation - override for specific tools
@@ -147,12 +149,12 @@ class Tool(ABC):
 
 class ToolRegistry:
     """Registry for available tools."""
-    
+
     def __init__(self):
         self.tools: Dict[str, Tool] = {}
         self.aliases: Dict[str, str] = {}  # alias -> tool name
         self.usage_stats: Dict[str, Dict[str, Any]] = {}
-    
+
     def register(self, tool: Tool, aliases: Optional[List[str]] = None) -> None:
         """Register a tool."""
         self.tools[tool.name] = tool
@@ -162,11 +164,11 @@ class ToolRegistry:
             "failures": 0,
             "total_time_ms": 0.0
         }
-        
+
         if aliases:
             for alias in aliases:
                 self.aliases[alias] = tool.name
-    
+
     def get(self, name: str) -> Optional[Tool]:
         """Get a tool by name or alias."""
         if name in self.tools:
@@ -174,7 +176,7 @@ class ToolRegistry:
         if name in self.aliases:
             return self.tools[self.aliases[name]]
         return None
-    
+
     def list_tools(self) -> List[Dict[str, Any]]:
         """List all available tools."""
         return [
@@ -185,11 +187,11 @@ class ToolRegistry:
             }
             for tool in self.tools.values()
         ]
-    
+
     def record_usage(
-        self, 
-        tool_name: str, 
-        success: bool, 
+        self,
+        tool_name: str,
+        success: bool,
         execution_time_ms: float
     ) -> None:
         """Record tool usage for statistics."""
@@ -202,20 +204,68 @@ class ToolRegistry:
             else:
                 stats["failures"] += 1
 
+    def score_tool(self, name: str) -> float:
+        """
+        Score a tool by historical success rate and latency.
+
+        Args:
+            name: Tool name to score
+
+        Returns:
+            Float score between 0.0 and 1.0, where higher is better.
+            Returns 0.5 for tools with no usage history.
+        """
+        stats = self.usage_stats.get(name, {})
+        calls = stats.get("calls", 0)
+        successes = stats.get("successes", 0)
+        total_time = stats.get("total_time_ms", 0.0)
+        if calls == 0:
+            return 0.5
+        success_rate = successes / calls
+        avg_latency = total_time / max(calls, 1)
+        latency_penalty = min(0.3, avg_latency / 10000.0)  # simple penalty
+        return max(0.0, min(1.0, success_rate - latency_penalty))
+
+    def best_tool(self, candidates: Optional[List[str]] = None) -> Optional[str]:
+        """
+        Select the best tool by empirical success rate.
+
+        Args:
+            candidates: Optional list of tool names to choose from.
+                       If None, considers all registered tools.
+
+        Returns:
+            Name of the best tool, or None if no tool has usage history.
+            Ties are broken by fewer failures.
+        """
+        names = candidates or list(self.tools.keys())
+        best = None
+        best_score = -1.0
+        for name in names:
+            stats = self.usage_stats.get(name)
+            if not stats or stats["calls"] == 0:
+                continue
+            success_rate = stats["successes"] / stats["calls"]
+            score = success_rate - (stats["failures"] * 0.01)
+            if score > best_score:
+                best = name
+                best_score = score
+        return best
+
 
 # Built-in Tools
 
 class LogicValidationTool(Tool):
     """Tool for validating logical arguments."""
-    
+
     @property
     def name(self) -> str:
         return "validate_logic"
-    
+
     @property
     def description(self) -> str:
         return "Validate the logical structure of an argument"
-    
+
     @property
     def parameters(self) -> Dict[str, Any]:
         return {
@@ -233,14 +283,14 @@ class LogicValidationTool(Tool):
             },
             "required": ["premises", "conclusion"]
         }
-    
+
     async def execute(self, **kwargs) -> ToolResult:
         premises = kwargs.get("premises", [])
         conclusion = kwargs.get("conclusion", "")
-        
+
         # Simple validation logic
         is_valid = len(premises) >= 1 and len(conclusion) > 0
-        
+
         return ToolResult(
             success=True,
             data={
@@ -253,18 +303,18 @@ class LogicValidationTool(Tool):
 
 class FactCheckTool(Tool):
     """Tool for checking facts against knowledge base."""
-    
+
     def __init__(self, knowledge_base: Optional[Dict[str, Any]] = None):
         self.kb = knowledge_base or {}
-    
+
     @property
     def name(self) -> str:
         return "check_fact"
-    
+
     @property
     def description(self) -> str:
         return "Check a factual claim against the knowledge base"
-    
+
     @property
     def parameters(self) -> Dict[str, Any]:
         return {
@@ -281,11 +331,11 @@ class FactCheckTool(Tool):
             },
             "required": ["claim"]
         }
-    
+
     async def execute(self, **kwargs) -> ToolResult:
         claim = kwargs.get("claim", "")
         domain = kwargs.get("domain")
-        
+
         # Placeholder - would search actual KB
         return ToolResult(
             success=True,
@@ -302,15 +352,15 @@ class FactCheckTool(Tool):
 
 class CalculationTool(Tool):
     """Tool for safe mathematical calculations."""
-    
+
     @property
     def name(self) -> str:
         return "calculate"
-    
+
     @property
     def description(self) -> str:
         return "Perform safe mathematical calculations"
-    
+
     @property
     def parameters(self) -> Dict[str, Any]:
         return {
@@ -323,30 +373,68 @@ class CalculationTool(Tool):
             },
             "required": ["expression"]
         }
-    
+
     async def execute(self, **kwargs) -> ToolResult:
         expression = kwargs.get("expression", "")
-        
-        # Safe evaluation with limited operations
-        allowed_chars = set("0123456789+-*/.() ")
-        if not all(c in allowed_chars for c in expression):
-            return ToolResult(
-                success=False,
-                data=None,
-                error="Expression contains disallowed characters"
-            )
-        
+
+        # Safe evaluation using AST parsing
         try:
-            result = eval(expression, {"__builtins__": {}}, {})
+            # Parse the expression into an AST
+            node = ast.parse(expression, mode='eval')
+
+            # Define safe operations
+            safe_operators = {
+                ast.Add: operator.add,
+                ast.Sub: operator.sub,
+                ast.Mult: operator.mul,
+                ast.Div: operator.truediv,
+                ast.FloorDiv: operator.floordiv,
+                ast.Mod: operator.mod,
+                ast.Pow: operator.pow,
+                ast.USub: operator.neg,
+                ast.UAdd: operator.pos,
+            }
+
+            def eval_node(node):
+                """Recursively evaluate an AST node with restricted operations."""
+                if isinstance(node, ast.Expression):
+                    return eval_node(node.body)
+                elif isinstance(node, ast.Num):  # Numbers
+                    return node.n
+                elif isinstance(node, ast.Constant):  # Python 3.8+ constant
+                    if isinstance(node.value, (int, float)):
+                        return node.value
+                    raise ValueError("Only numeric constants allowed")
+                elif isinstance(node, ast.BinOp):  # Binary operations
+                    if type(node.op) not in safe_operators:
+                        raise ValueError(f"Operator {type(node.op).__name__} not allowed")
+                    left = eval_node(node.left)
+                    right = eval_node(node.right)
+                    return safe_operators[type(node.op)](left, right)
+                elif isinstance(node, ast.UnaryOp):  # Unary operations
+                    if type(node.op) not in safe_operators:
+                        raise ValueError(f"Operator {type(node.op).__name__} not allowed")
+                    operand = eval_node(node.operand)
+                    return safe_operators[type(node.op)](operand)
+                else:
+                    raise ValueError(f"Node type {type(node).__name__} not allowed")
+
+            result = eval_node(node)
             return ToolResult(
                 success=True,
                 data={"result": result, "expression": expression}
+            )
+        except (SyntaxError, ValueError, ZeroDivisionError) as e:
+            return ToolResult(
+                success=False,
+                data=None,
+                error=f"Calculation error: {str(e)}"
             )
         except Exception as e:
             return ToolResult(
                 success=False,
                 data=None,
-                error=f"Calculation error: {str(e)}"
+                error=f"Unexpected error: {str(e)}"
             )
 
 
@@ -354,14 +442,14 @@ class Planner:
     """
     Task decomposition and planning system.
     """
-    
+
     def __init__(self):
         self.plans: Dict[str, Plan] = {}
         self.decomposition_strategies: Dict[str, Callable] = {}
-        
+
         # Register default strategies
         self._register_default_strategies()
-    
+
     def _register_default_strategies(self):
         """Register default decomposition strategies."""
         self.decomposition_strategies["linear"] = self._linear_decomposition
@@ -372,8 +460,17 @@ class Planner:
         """
         Score a step for prioritization.
 
-        Heuristic: earlier dependencies score higher; reasoning before tools;
-        honor any provided context priorities.
+        Args:
+            step: The plan step to score
+            context: Planning context that may contain custom priorities
+
+        Returns:
+            Float priority score between 0.0 and 1.0, where higher means
+            the step should execute earlier.
+
+        Heuristic: Reasoning steps score higher than tools; steps with
+        preconditions score lower (gated); custom priorities from context
+        override the default scoring.
         """
         base = 0.5
         if step.step_type == StepType.REASONING:
@@ -389,7 +486,7 @@ class Planner:
             base = float(hint)
 
         return max(0.0, min(1.0, base))
-    
+
     def create_plan(
         self,
         goal: str,
@@ -401,7 +498,7 @@ class Planner:
         plan_id = hashlib.sha256(
             f"{goal}{datetime.now().isoformat()}".encode()
         ).hexdigest()[:12]
-        
+
         # Use decomposition strategy
         decomposer = self.decomposition_strategies.get(strategy, self._linear_decomposition)
         steps = decomposer(goal, context or {})
@@ -416,13 +513,13 @@ class Planner:
             steps=steps,
             context=context or {}
         )
-        
+
         self.plans[plan_id] = plan
         return plan
-    
+
     def _linear_decomposition(
-        self, 
-        goal: str, 
+        self,
+        goal: str,
         context: Dict[str, Any]
     ) -> List[PlanStep]:
         """Decompose goal into linear sequence of steps."""
@@ -462,19 +559,19 @@ class Planner:
                 preconditions=["task_executed"]
             )
         ]
-    
+
     def _hierarchical_decomposition(
-        self, 
-        goal: str, 
+        self,
+        goal: str,
         context: Dict[str, Any]
     ) -> List[PlanStep]:
         """Decompose goal into hierarchical subtasks."""
         # Placeholder for more complex decomposition
         return self._linear_decomposition(goal, context)
-    
+
     def _parallel_decomposition(
-        self, 
-        goal: str, 
+        self,
+        goal: str,
         context: Dict[str, Any]
     ) -> List[PlanStep]:
         """Decompose goal into parallelizable steps."""
@@ -513,7 +610,7 @@ class Planner:
                 preconditions=["branch_a_done", "branch_b_done"]
             )
         ]
-    
+
     def replan(
         self,
         plan: Plan,
@@ -524,7 +621,7 @@ class Planner:
         # Mark failed step
         failed_step.status = PlanStatus.FAILED
         failed_step.error = error
-        
+
         # Create recovery steps
         recovery_step = PlanStep(
             id=f"recovery_{failed_step.id}",
@@ -533,14 +630,14 @@ class Planner:
             step_type=StepType.REASONING,
             dependencies=[s.id for s in plan.steps if s.status == PlanStatus.COMPLETED]
         )
-        
+
         # Create new plan with recovery
         new_steps = [
-            s for s in plan.steps 
+            s for s in plan.steps
             if s.status == PlanStatus.COMPLETED
         ]
         new_steps.append(recovery_step)
-        
+
         # Add remaining steps with updated dependencies
         for step in plan.steps:
             if step.status == PlanStatus.PENDING and step.id != failed_step.id:
@@ -549,7 +646,7 @@ class Planner:
                     for d in step.dependencies
                 ]
                 new_steps.append(step)
-        
+
         return Plan(
             id=f"{plan.id}_recovery",
             goal=plan.goal,
@@ -562,7 +659,7 @@ class PlanExecutor:
     """
     Executes plans using registered tools.
     """
-    
+
     def __init__(
         self,
         tool_registry: ToolRegistry,
@@ -574,8 +671,8 @@ class PlanExecutor:
         self.max_concurrent = max_concurrent
         self.execution_history: List[Dict[str, Any]] = []
         self.warnings: List[str] = []
-        self.state: set[str] = set()
-    
+        self.state: Set[str] = set()
+
     async def execute_plan(
         self,
         plan: Plan,
@@ -599,10 +696,10 @@ class PlanExecutor:
                 "completed": 0.0,
                 "warnings": self.warnings
             }
-        
+
         while not plan.is_complete:
             ready_steps = plan.get_next_steps()
-            
+
             if not ready_steps:
                 # Check for blocked plan
                 pending = [s for s in plan.steps if s.status == PlanStatus.PENDING]
@@ -626,20 +723,20 @@ class PlanExecutor:
                     "completed": plan.progress,
                     "warnings": self.warnings
                 }
-            
+
             # Execute ready steps (up to max_concurrent)
             batch = runnable[:self.max_concurrent]
             results = await asyncio.gather(*[
                 self._execute_step(step) for step in batch
             ], return_exceptions=True)
-            
+
             # Process results
             for step, result in zip(batch, results):
                 if isinstance(result, Exception):
                     step.status = PlanStatus.FAILED
                     step.error = str(result)
                     self.warnings.append(f"{step.name} failed: {step.error}")
-                    
+
                     # Attempt recovery
                     if step.retry_count < step.max_retries:
                         step.retry_count += 1
@@ -653,15 +750,15 @@ class PlanExecutor:
                     # update state with effects
                     for effect in step.effects:
                         self.state.add(effect)
-                    
+
                     if on_step_complete:
                         on_step_complete(step)
-        
+
         plan.status = PlanStatus.COMPLETED
         plan.completed_at = datetime.now().isoformat()
-        
+
         elapsed = (datetime.now() - start_time).total_seconds() * 1000
-        
+
         execution_record = {
             "plan_id": plan.id,
             "goal": plan.goal,
@@ -673,49 +770,49 @@ class PlanExecutor:
             "state": list(self.state)
         }
         self.execution_history.append(execution_record)
-        
+
         return execution_record
-    
+
     async def _execute_step(self, step: PlanStep) -> Any:
         """Execute a single plan step."""
         step.status = PlanStatus.IN_PROGRESS
         start_time = datetime.now()
-        
+
         try:
             if step.step_type == StepType.TOOL:
                 # Execute tool
                 tool = self.tools.get(step.tool_name or "")
                 if not tool:
                     raise ValueError(f"Tool not found: {step.tool_name}")
-                
+
                 validation_error = tool.validate_args(step.tool_args)
                 if validation_error:
                     raise ValueError(f"Invalid arguments for {tool.name}: {validation_error}")
-                
+
                 result = await asyncio.wait_for(
                     tool.execute(**step.tool_args),
                     timeout=step.timeout_seconds
                 )
-                
+
                 elapsed = (datetime.now() - start_time).total_seconds() * 1000
                 self.tools.record_usage(tool.name, result.success, elapsed)
-                
+
                 if not result.success:
                     raise RuntimeError(result.error or "Tool execution failed")
-                
+
                 return result.data
-            
+
             elif step.step_type == StepType.REASONING:
                 # Placeholder for reasoning step
                 return {"reasoning": step.description, "status": "complete"}
-            
+
             elif step.step_type == StepType.DECISION:
                 # Placeholder for decision step
                 return {"decision": "proceed", "confidence": 0.8}
-            
+
             else:
                 return {"step_type": step.step_type.value, "status": "complete"}
-                
+
         except asyncio.TimeoutError:
             raise RuntimeError(f"Step timed out after {step.timeout_seconds}s")
         except Exception as e:
@@ -732,29 +829,29 @@ class PlanningSystem:
     """
     Complete planning and tool use system.
     """
-    
+
     def __init__(self):
         self.tool_registry = ToolRegistry()
         self.planner = Planner()
         self.executor = PlanExecutor(self.tool_registry, self.planner)
-        
+
         # Register built-in tools
         self._register_built_in_tools()
-    
+
     def _register_built_in_tools(self):
         """Register built-in tools."""
         self.tool_registry.register(LogicValidationTool(), ["validate", "check_logic"])
         self.tool_registry.register(FactCheckTool(), ["fact_check", "verify"])
         self.tool_registry.register(CalculationTool(), ["calc", "math"])
-    
+
     def register_tool(
-        self, 
-        tool: Tool, 
+        self,
+        tool: Tool,
         aliases: Optional[List[str]] = None
     ) -> None:
         """Register a custom tool."""
         self.tool_registry.register(tool, aliases)
-    
+
     async def execute_goal(
         self,
         goal: str,
@@ -765,14 +862,14 @@ class PlanningSystem:
         """Plan and execute a goal."""
         # Create plan
         plan = self.planner.create_plan(goal, strategy, context)
-        
+
         # Execute with progress tracking
         def on_step(step: PlanStep):
             if on_progress:
                 on_progress(plan.progress)
-        
+
         result = await self.executor.execute_plan(plan, on_step)
-        
+
         return {
             "plan": {
                 "id": plan.id,
@@ -788,11 +885,11 @@ class PlanningSystem:
             },
             "execution": result
         }
-    
+
     def list_tools(self) -> List[Dict[str, Any]]:
         """List available tools."""
         return self.tool_registry.list_tools()
-    
+
     def get_statistics(self) -> Dict[str, Any]:
         """Get system statistics."""
         return {

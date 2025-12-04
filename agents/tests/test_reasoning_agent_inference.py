@@ -8,7 +8,7 @@ def test_modus_ponens_prefers_logical_form_arrow():
 
     conclusion = agent._generate_conclusion("P", [fact], InferenceRule.MODUS_PONENS)
 
-    assert conclusion == "Q"
+    assert conclusion == ("Q", True)
 
 
 def test_modus_ponens_if_then_still_supported():
@@ -19,7 +19,7 @@ def test_modus_ponens_if_then_still_supported():
         "It rains", [fact], InferenceRule.MODUS_PONENS
     )
 
-    assert conclusion == "streets are wet"
+    assert conclusion == ("streets are wet", True)
 
 
 def test_hallucination_guard_penalizes_unvalidated_outputs():

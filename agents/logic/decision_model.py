@@ -55,6 +55,7 @@ class DecisionResult:
     warnings: List[str]
     blocked: bool
     unverified_penalized: bool = False
+    evidence_blocked: bool = False
 
 
 class DecisionModel:
@@ -80,19 +81,36 @@ class DecisionModel:
             filtered.append(opt)
 
         if not filtered:
-            return DecisionResult(ranked=[], warnings=warnings, blocked=True)
+            return DecisionResult(ranked=[], warnings=warnings, blocked=True, evidence_blocked=True)
 
         unverified_penalized = False
+        evidence_blocked = False
 
         for opt in filtered:
             score, detail_warnings = self._score(opt, constraints)
             if not opt.verified:
                 unverified_penalized = True
+            if self.config.citation_required and (not opt.cited and not opt.verified):
+                evidence_blocked = True
             warnings.extend(detail_warnings)
             scored.append({"id": opt.id, "description": opt.description, "score": score})
 
         scored.sort(key=lambda x: x["score"], reverse=True)
-        return DecisionResult(ranked=scored, warnings=warnings, blocked=False, unverified_penalized=unverified_penalized)
+        if evidence_blocked and all((not o.cited and not o.verified) for o in filtered):
+            return DecisionResult(
+                ranked=scored,
+                warnings=warnings,
+                blocked=True,
+                unverified_penalized=unverified_penalized,
+                evidence_blocked=True
+            )
+        return DecisionResult(
+            ranked=scored,
+            warnings=warnings,
+            blocked=False,
+            unverified_penalized=unverified_penalized,
+            evidence_blocked=evidence_blocked
+        )
 
     def _hard_constraints_ok(self, option: DecisionOption, constraints: Constraints) -> bool:
         tags = set(option.tags)

@@ -99,6 +99,21 @@ class RetrievalResult:
     query_expansion: Optional[QueryExpansion] = None
 
 
+class SimpleReranker:
+    """
+    Lightweight reranker placeholder.
+
+    Reorders documents by a heuristic score (default: length-based)
+    to simulate a cross-encoder/LLM reranker without heavy deps.
+    """
+
+    def __init__(self, scorer: Optional[Callable[[RetrievedDocument], float]] = None):
+        self.scorer = scorer or (lambda doc: len(doc.content))
+
+    def rerank(self, docs: List[RetrievedDocument]) -> List[RetrievedDocument]:
+        return sorted(docs, key=self.scorer, reverse=True)
+
+
 class TextChunker:
     """Handles text chunking with various strategies."""
     

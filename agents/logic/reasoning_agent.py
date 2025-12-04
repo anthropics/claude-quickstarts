@@ -365,7 +365,8 @@ class ReasoningAgent:
                 "reasoning_chain": validation.reasoning_chain
             },
             "knowledge_used": formal_argument.cited_facts,
-            "ml_reasoning_trace": self._get_ml_trace()
+            "ml_reasoning_trace": self._get_ml_trace(),
+            "proved": all(step.confidence >= 0.8 for step in self.reasoning_chain)
         }
 
         # Step 6: Apply hallucination guard (confidence adjustment + warnings)
@@ -395,6 +396,9 @@ class ReasoningAgent:
             result["formal_argument"].argument_structure += (
                 f"\nWarnings: {'; '.join(result['warnings'])}"
             )
+        result["formal_argument"].argument_structure += (
+            "\nProof status: proved" if result["proved"] else "\nProof status: unproven/heuristic"
+        )
 
         if self.verbose:
             self._print_result(result)
@@ -434,7 +438,7 @@ class ReasoningAgent:
         inference_rule = self._select_inference_rule(problem, relevant_facts)
 
         # Generate conclusion
-        conclusion = self._generate_conclusion(problem, relevant_facts, inference_rule)
+        conclusion, proved = self._generate_conclusion(problem, relevant_facts, inference_rule)
 
         # Calculate confidence
         if relevant_facts:
@@ -447,7 +451,7 @@ class ReasoningAgent:
             premise=problem,
             inference_rule=inference_rule,
             conclusion=conclusion,
-            confidence=confidence,
+            confidence=confidence if proved else max(confidence * 0.8, 0.1),
             supporting_evidence=[f.source for f in relevant_facts]
         )
 
@@ -480,13 +484,13 @@ class ReasoningAgent:
         problem: str,
         facts: List[Fact],
         rule: InferenceRule
-    ) -> str:
+    ) -> (str, bool):
         """Generate conclusion from premises using inference rule."""
         # Simplified conclusion generation
         # Production would use LLM or formal theorem prover
 
         if not facts:
-            return f"Cannot conclude from: {problem}"
+            return f"Cannot conclude from: {problem}", False
 
         # Use first relevant fact to construct conclusion
         fact = facts[0]
@@ -501,26 +505,53 @@ class ReasoningAgent:
                     words = problem.split()
                     if words:
                         subject = words[0]
-                        return f"{subject} {predicate}"
+                        return f"{subject} {predicate}", True
 
         if rule == InferenceRule.MODUS_PONENS:
             # Pattern: P, P→Q ⊢ Q
             if fact.logical_form and "→" in fact.logical_form:
                 parts = fact.logical_form.split("→")
                 if len(parts) == 2:
-                    return parts[1].strip()
+                    return parts[1].strip(), True
 
             statement_lower = fact.statement.lower()
             if "if" in statement_lower or "then" in statement_lower or "are" in statement_lower:
                 parts = statement_lower.split("then" if "then" in statement_lower else "are")
                 if len(parts) == 2:
-                    return parts[1].strip()
+                    return parts[1].strip(), True
+
+        if rule == InferenceRule.MODUS_TOLLENS:
+            # Pattern: ¬Q, P→Q ⊢ ¬P
+            if fact.logical_form and "→" in fact.logical_form:
+                parts = fact.logical_form.split("→")
+                if len(parts) == 2:
+                    antecedent = parts[0].strip()
+                    consequent = parts[1].strip()
+                    if "not" in problem.lower() or "¬" in problem:
+                        return f"not {antecedent}", True
+
+        # Default heuristic
+        return f"Inferred from: {fact.statement}", False
 
         return f"Inferred from: {fact.statement}"
 
     def _get_ml_trace(self) -> str:
         """Get trace of ML reasoning process."""
         return f"Extended thinking with {len(self.reasoning_chain)} steps at depth {self.reasoning_depth}"
+
+    def build_trace(self, result: Dict[str, Any]) -> Dict[str, Any]:
+        """Structured trace for observability."""
+        return {
+            "query": result.get("formal_argument", {}).conclusion.natural_language if isinstance(result.get("formal_argument"), LogicalStatement) else result.get("conclusion"),
+            "conclusion": result.get("conclusion"),
+            "formal_conclusion": result.get("formal_conclusion"),
+            "reasoning_chain": result.get("reasoning_chain"),
+            "knowledge_validation": result.get("knowledge_validation"),
+            "warnings": result.get("warnings"),
+            "verified": result.get("verified"),
+            "proved": result.get("proved", False),
+            "ml_trace": result.get("ml_reasoning_trace"),
+        }
 
     def _hallucination_guard(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """
