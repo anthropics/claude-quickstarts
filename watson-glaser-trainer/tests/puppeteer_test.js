@@ -68,7 +68,20 @@ function createServer(rootDir, port = 8080) {
   const advUrl = `${baseUrl}/advanced.html`;
   const wrapperUrl = `${baseUrl}/iframe_wrapper.html`;
 
-  const browser1 = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+  const browser1 = await puppeteer.launch({ 
+    headless: 'new', 
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu'
+    ],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+  });
   const page1 = await browser1.newPage();
   page1.on('pageerror', err => console.error('Browser1 pageerror:', err));
   page1.on('error', err => console.error('Browser1 error:', err));
@@ -108,7 +121,20 @@ function createServer(rootDir, port = 8080) {
   }
 
   // Browser within a browser: load wrapper page containing an iframe
-  const browser2 = await puppeteer.launch({ headless: 'new', args: ['--no-sandbox'] });
+  const browser2 = await puppeteer.launch({ 
+    headless: 'new', 
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-accelerated-2d-canvas',
+      '--no-first-run',
+      '--no-zygote',
+      '--single-process',
+      '--disable-gpu'
+    ],
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined
+  });
   const page2 = await browser2.newPage();
   page2.on('pageerror', err => console.error('Browser2 pageerror:', err));
   page2.on('error', err => console.error('Browser2 error:', err));
