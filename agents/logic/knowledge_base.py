@@ -52,7 +52,7 @@ class Fact:
     @property
     def fact_id(self) -> str:
         """Unique identifier for this fact."""
-        return hashlib.md5(self.statement.encode()).hexdigest()[:12]
+        return hashlib.sha256(self.statement.encode()).hexdigest()[:12]
 
 
 @dataclass
@@ -172,7 +172,7 @@ class KnowledgeBase:
             ValidationResult with confidence and sources
         """
         # Check cache
-        cache_key = hashlib.md5(claim.encode()).hexdigest()
+        cache_key = hashlib.sha256(claim.encode()).hexdigest()
         if cache_key in self.inference_cache:
             return self.inference_cache[cache_key]
 

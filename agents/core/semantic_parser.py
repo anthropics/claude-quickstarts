@@ -9,7 +9,7 @@ Better parsing/grounding with:
 - Fallback strategies when parsing fails
 """
 
-from typing import Dict, List, Optional, Set, Tuple, Any
+from typing import Dict, List, Optional, Set
 from dataclasses import dataclass, field
 from enum import Enum
 import re
