@@ -122,9 +122,7 @@ class Critic(ABC):
         context: Optional[Dict[str, Any]] = None
     ) -> List[Critique]:
         """Generate critiques of reasoning."""
-Here's the corrected version:
-
-They need to be okay that sounds the opposite then they need to be deeper and more less intentionally shallow as it relates to the core development of the agents and to do this refer to the initial intentions and phases of the software.         ...
+        ...
 
 
 class LogicCritic(Critic):

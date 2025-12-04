@@ -86,7 +86,7 @@ class SimpleVectorStore:
         self.vectors: Dict[str, List[float]] = {}
         self.metadata: Dict[str, Dict[str, Any]] = {}
     
-    def add(self, id: str, vector: List[float], metadata: Optional[Dict] = None) -> None:
+    def add(self, entry_id: str, vector: List[float], metadata: Optional[Dict] = None) -> None:
         """Add a vector to the store."""
         if len(vector) != self.dimension:
             # Pad or truncate to match dimension
@@ -95,8 +95,8 @@ class SimpleVectorStore:
             else:
                 vector = vector[:self.dimension]
         
-        self.vectors[id] = vector
-        self.metadata[id] = metadata or {}
+        self.vectors[entry_id] = vector
+        self.metadata[entry_id] = metadata or {}
     
     def search(
         self, 
@@ -112,10 +112,10 @@ class SimpleVectorStore:
                 query_vector = query_vector[:self.dimension]
         
         scores = []
-        for id, vector in self.vectors.items():
+        for entry_id, vector in self.vectors.items():
             score = self._cosine_similarity(query_vector, vector)
             if score >= threshold:
-                scores.append((id, score))
+                scores.append((entry_id, score))
         
         # Sort by score descending
         scores.sort(key=lambda x: x[1], reverse=True)
@@ -132,11 +132,11 @@ class SimpleVectorStore:
         
         return dot_product / (norm_a * norm_b)
     
-    def delete(self, id: str) -> bool:
+    def delete(self, entry_id: str) -> bool:
         """Delete a vector from the store."""
-        if id in self.vectors:
-            del self.vectors[id]
-            del self.metadata[id]
+        if entry_id in self.vectors:
+            del self.vectors[entry_id]
+            del self.metadata[entry_id]
             return True
         return False
     
@@ -152,15 +152,15 @@ class KeywordIndex:
         self.index: Dict[str, Set[str]] = {}  # keyword -> set of doc ids
         self.documents: Dict[str, List[str]] = {}  # doc id -> keywords
     
-    def add(self, id: str, keywords: List[str]) -> None:
+    def add(self, entry_id: str, keywords: List[str]) -> None:
         """Add document keywords to index."""
         keywords = [k.lower() for k in keywords]
-        self.documents[id] = keywords
+        self.documents[entry_id] = keywords
         
         for keyword in keywords:
             if keyword not in self.index:
                 self.index[keyword] = set()
-            self.index[keyword].add(id)
+            self.index[keyword].add(entry_id)
     
     def search(self, query_keywords: List[str], top_k: int = 10) -> List[Tuple[str, float]]:
         """Search for documents matching keywords."""
@@ -185,17 +185,17 @@ class KeywordIndex:
         results.sort(key=lambda x: x[1], reverse=True)
         return results[:top_k]
     
-    def delete(self, id: str) -> bool:
+    def delete(self, entry_id: str) -> bool:
         """Delete document from index."""
-        if id not in self.documents:
+        if entry_id not in self.documents:
             return False
         
-        keywords = self.documents[id]
+        keywords = self.documents[entry_id]
         for keyword in keywords:
             if keyword in self.index:
-                self.index[keyword].discard(id)
+                self.index[keyword].discard(entry_id)
         
-        del self.documents[id]
+        del self.documents[entry_id]
         return True
 
 
@@ -335,9 +335,9 @@ class MemorySystem:
         
         entries = []
         scores = []
-        for id, score in results:
-            if id in self.memories:
-                entry = self.memories[id]
+        for entry_id, score in results:
+            if entry_id in self.memories:
+                entry = self.memories[entry_id]
                 entry.access_count += 1
                 entry.last_accessed = datetime.now().isoformat()
                 entries.append(entry)
@@ -481,11 +481,11 @@ class MemorySystem:
         scores: Dict[str, float] = {}
         k = 60  # RRF constant
         
-        for rank, (id, _) in enumerate(keyword_results):
-            scores[id] = scores.get(id, 0) + 1 / (k + rank + 1)
+        for rank, (entry_id, _) in enumerate(keyword_results):
+            scores[entry_id] = scores.get(entry_id, 0) + 1 / (k + rank + 1)
         
-        for rank, (id, _) in enumerate(vector_results):
-            scores[id] = scores.get(id, 0) + 1 / (k + rank + 1)
+        for rank, (entry_id, _) in enumerate(vector_results):
+            scores[entry_id] = scores.get(entry_id, 0) + 1 / (k + rank + 1)
         
         # Sort by combined score
         combined = sorted(scores.items(), key=lambda x: x[1], reverse=True)
@@ -533,14 +533,14 @@ class MemorySystem:
             memory = sorted_memories[i]
             self.forget(memory.id)
     
-    def forget(self, id: str) -> bool:
+    def forget(self, entry_id: str) -> bool:
         """Remove a memory entry."""
-        if id not in self.memories:
+        if entry_id not in self.memories:
             return False
         
-        del self.memories[id]
-        self.keyword_index.delete(id)
-        self.vector_store.delete(id)
+        del self.memories[entry_id]
+        self.keyword_index.delete(entry_id)
+        self.vector_store.delete(entry_id)
         return True
     
     def get_stats(self) -> Dict[str, Any]:
