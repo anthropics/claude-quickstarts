@@ -1,0 +1,98 @@
+name: tests
+on:
+  pull_request:
+    paths:
+      - .github/**
+      - computer-use-demo/**
+      - agents/**
+  push:
+    branches:
+      - main
+    paths:
+      - .github/**
+      - computer-use-demo/**
+      - agents/**
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: computer-use-demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/ruff-action@v1
+        with:
+          src: "computer-use-demo"
+  pyright:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: computer-use-demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          cache: "pip"
+          python-version: "3.11.6"
+      - run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r dev-requirements.txt
+      - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - uses: jakebailey/pyright-action@v1
+        with:
+          working-directory: computer-use-demo
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: computer-use-demo
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          cache: "pip"
+          python-version: "3.11.6"
+      - run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r dev-requirements.txt
+      - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - run: pytest tests --junitxml=junit/test-results.xml --cov=computer_use_demo --cov-report=xml --cov-report=term-missing
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./computer-use-demo/coverage.xml
+          flags: computer-use-demo
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-computer-use-demo
+          path: computer-use-demo/junit/test-results.xml
+
+  pytest-agents:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          cache: "pip"
+          python-version: "3.11.6"
+      - run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r computer-use-demo/dev-requirements.txt
+      - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      - run: pytest agents/tests --cov=agents.core --cov-report=xml --cov-report=term-missing --cov-fail-under=70 --junitxml=junit/agents-test-results.xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          files: ./coverage.xml
+          flags: agents
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: test-results-agents
+          path: junit/agents-test-results.xml

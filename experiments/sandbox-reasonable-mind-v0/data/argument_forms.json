@@ -1,0 +1,54 @@
+{
+  "valid_forms": {
+    "modus_ponens": {
+      "pattern": [
+        "P \u2192 Q",
+        "P"
+      ],
+      "conclusion": "Q",
+      "description": "If P then Q; P; therefore Q"
+    },
+    "modus_tollens": {
+      "pattern": [
+        "P \u2192 Q",
+        "\u00acQ"
+      ],
+      "conclusion": "\u00acP",
+      "description": "If P then Q; not Q; therefore not P"
+    },
+    "hypothetical_syllogism": {
+      "pattern": [
+        "P \u2192 Q",
+        "Q \u2192 R"
+      ],
+      "conclusion": "P \u2192 R",
+      "description": "If P then Q; if Q then R; therefore if P then R"
+    },
+    "disjunctive_syllogism": {
+      "pattern": [
+        "P \u2228 Q",
+        "\u00acP"
+      ],
+      "conclusion": "Q",
+      "description": "P or Q; not P; therefore Q"
+    }
+  },
+  "invalid_forms": {
+    "affirming_consequent": {
+      "pattern": [
+        "P \u2192 Q",
+        "Q"
+      ],
+      "fallacy": "Cannot conclude P (consequent is affirmed)",
+      "example": "If it rains, the ground is wet; the ground is wet; therefore it rained (INVALID)"
+    },
+    "denying_antecedent": {
+      "pattern": [
+        "P \u2192 Q",
+        "\u00acP"
+      ],
+      "fallacy": "Cannot conclude \u00acQ (antecedent is denied)",
+      "example": "If it rains, the ground is wet; it didn't rain; therefore the ground is not wet (INVALID)"
+    }
+  }
+}

@@ -1,0 +1,57 @@
+[tool.pyright]
+venvPath = "."
+venv = ".venv-1"
+useLibraryCodeForTypes = false
+
+[tool.pytest.ini_options]
+pythonpath = "."
+addopts = [
+    "-ra",
+    "-q",
+]
+asyncio_default_fixture_loop_scope = "function"
+testpaths = [
+    "agents",
+    "autonomous-coding",
+    "tests"
+]
+norecursedirs = [
+    ".venv",
+    ".venv-1",
+    ".venv2",
+    "computer-use-demo",
+    "watson-glaser-trainer",
+    "node_modules",
+    ".git"
+]
+markers = [
+    "unit: Unit tests (fast, isolated)",
+    "integration: Integration tests (slower, multiple components)",
+    "slow: Slow tests (performance, benchmarks)",
+    "security: Security-critical tests",
+    "database: Tests requiring database",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["agents/core", "agents/core_logic"]
+omit = [
+    "*/tests/*",
+    "*/__init__.py",
+    "*/.venv/*",
+]
+
+[tool.coverage.report]
+precision = 2
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "if TYPE_CHECKING:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

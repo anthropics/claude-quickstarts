@@ -1,0 +1,43 @@
+{
+  "name": "watson-glaser-tis",
+  "version": "1.0.0",
+  "description": "Watson Glaser Test Intelligence System with Extended Thinking and Neural Evolution",
+  "main": "advanced.html",
+  "scripts": {
+    "test": "npm run test-puppeteer && npm run test-integration",
+    "test-all": "npm run test-puppeteer && npm run test-integration",
+    "test-puppeteer": "node tests/puppeteer_test.js",
+    "test-integration": "node tests/integration_test.js",
+    "start": "npx http-server . -p 8080",
+    "dev": "npx http-server . -p 8080",
+    "validate": "open tests/validation.html"
+  },
+  "keywords": [
+    "watson-glaser",
+    "critical-thinking",
+    "test-intelligence",
+    "extended-thinking",
+    "neural-evolution",
+    "ai",
+    "education"
+  ],
+  "author": "Christian Smith",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slittyjuice-source/claude-quickstarts.git"
+  },
+  "bugs": {
+    "url": "https://github.com/slittyjuice-source/claude-quickstarts/issues"
+  },
+  "homepage": "https://github.com/slittyjuice-source/claude-quickstarts/tree/watson-glaser-tis-standalone/watson-glaser-trainer#readme",
+  "devDependencies": {
+    "http-server": "^14.1.1",
+    "playwright": "^1.57.0",
+    "puppeteer": "^24.32.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
+  }
+}
