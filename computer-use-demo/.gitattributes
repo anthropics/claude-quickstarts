@@ -1,0 +1,8 @@
+# Ensure consistent line endings across platforms
+* text=auto
+
+# Force LF line endings for shell scripts and Docker files
+# This prevents Windows Git from converting to CRLF, which breaks shebangs
+*.sh text eol=lf
+Dockerfile text eol=lf
+entrypoint.sh text eol=lf
