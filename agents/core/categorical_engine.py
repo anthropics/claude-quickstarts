@@ -7,7 +7,8 @@ Implements validation of categorical syllogisms with proper term distribution:
 - Middle term validation
 """
 
-from typing import Optional
+from typing import Optional, Tuple
+from agents.core_logic.categorical_engine import parse_categorical_statement
 from enum import Enum
 from dataclasses import dataclass
 
@@ -108,15 +109,31 @@ class CategoricalEngine:
         Returns:
             SyllogismResult with validity, form, and explanation
         """
-        # Detect form based on quantifiers
-        major_type = self._classify_proposition(major)
-        minor_type = self._classify_proposition(minor)
-        conclusion_type = self._classify_proposition(conclusion)
+        parsed_major = parse_categorical_statement(self._normalize_statement(major))
+        parsed_minor = parse_categorical_statement(self._normalize_statement(minor))
+        parsed_conclusion = parse_categorical_statement(self._normalize_statement(conclusion))
+
+        if not (parsed_major and parsed_minor and parsed_conclusion):
+            return SyllogismResult(
+                valid=False,
+                form=None,
+                explanation="Parse error in premises or conclusion",
+                confidence=0.0
+            )
+
+        major_type = parsed_major.type.value
+        minor_type = parsed_minor.type.value
+        conclusion_type = parsed_conclusion.type.value
         
         form_code = f"{major_type}{minor_type}{conclusion_type}"
+        figure = self._determine_figure(
+            (parsed_major.subject, parsed_major.predicate),
+            (parsed_minor.subject, parsed_minor.predicate),
+            (parsed_conclusion.subject, parsed_conclusion.predicate),
+        )
         
         # Check for Barbara form (AAA-1)
-        if form_code == "AAA" and self._is_first_figure(major, minor, conclusion):
+        if form_code == "AAA" and figure == 1:
             return SyllogismResult(
                 valid=True,
                 form=SyllogismType.BARBARA,
@@ -124,7 +141,7 @@ class CategoricalEngine:
             )
         
         # Check for Celarent form (EAE-1)
-        if form_code == "EAE" and self._is_first_figure(major, minor, conclusion):
+        if form_code == "EAE" and figure == 1:
             return SyllogismResult(
                 valid=True,
                 form=SyllogismType.CELARENT,
@@ -132,7 +149,7 @@ class CategoricalEngine:
             )
         
         # Check for Darii form (AII-1)
-        if form_code == "AII" and self._is_first_figure(major, minor, conclusion):
+        if form_code == "AII" and figure == 1:
             return SyllogismResult(
                 valid=True,
                 form=SyllogismType.DARII,
@@ -140,19 +157,62 @@ class CategoricalEngine:
             )
         
         # Check for Ferio form (EIO-1)
-        if form_code == "EIO" and self._is_first_figure(major, minor, conclusion):
+        if form_code == "EIO" and figure == 1:
             return SyllogismResult(
                 valid=True,
                 form=SyllogismType.FERIO,
                 explanation="Valid: Ferio form (EIO-1) - No M are P; Some S are M; therefore Some S are not P"
             )
+
+        # Figure 2 forms
+        if form_code == "EAE" and figure == 2:
+            return SyllogismResult(
+                valid=True,
+                form=SyllogismType.CESARE,
+                explanation="Valid: Cesare form (EAE-2) - No P are M; All S are M; therefore No S are P"
+            )
+
+        if form_code == "AEE" and figure == 2:
+            return SyllogismResult(
+                valid=True,
+                form=SyllogismType.CAMESTRES,
+                explanation="Valid: Camestres form (AEE-2) - All P are M; No S are M; therefore No S are P"
+            )
+
+        if form_code == "EIO" and figure == 2:
+            return SyllogismResult(
+                valid=True,
+                form=SyllogismType.FESTINO,
+                explanation="Valid: Festino form (EIO-2) - No P are M; Some S are M; therefore Some S are not P"
+            )
+
+        if form_code == "AOO" and figure == 2:
+            return SyllogismResult(
+                valid=True,
+                form=SyllogismType.BAROCO,
+                explanation="Valid: Baroco form (AOO-2) - All P are M; Some S are not M; therefore Some S are not P"
+            )
         
         return SyllogismResult(
             valid=False,
             form=None,
-            explanation=f"Does not match known valid syllogistic forms (detected {form_code})",
+            explanation=f"Does not match known valid syllogistic forms (detected {form_code} in figure {figure or 'unknown'})",
             confidence=0.0
         )
+
+    def _normalize_statement(self, text: str) -> str:
+        """Ensure statement fits 'quantifier subject are [not] predicate' pattern."""
+        lower = text.lower()
+        if " are " in lower or " are not " in lower:
+            return text
+        tokens = text.split()
+        if len(tokens) >= 3 and tokens[0] in ("All", "all", "No", "no", "Some", "some"):
+            quant = tokens[0]
+            subject = tokens[1]
+            predicate = " ".join(tokens[2:])
+            connector = "are not" if "not" in tokens[2:] else "are"
+            return f"{quant} {subject} {connector} {predicate}"
+        return text
     
     def _classify_proposition(self, statement: str) -> str:
         """
@@ -186,8 +246,36 @@ class CategoricalEngine:
         
         This is a simplified check - full implementation would need semantic parsing.
         """
-        # For now, assume first figure
-        return True
+        return self._determine_figure(major, minor, conclusion) == 1
+
+    def _determine_figure(
+        self,
+        major_terms: Tuple[str, str],
+        minor_terms: Tuple[str, str],
+        conclusion_terms: Tuple[str, str],
+    ) -> Optional[int]:
+        """Roughly determine syllogistic figure based on middle-term placement."""
+        maj_subj, maj_pred = major_terms
+        min_subj, min_pred = minor_terms
+        con_subj, con_pred = conclusion_terms
+
+        # Middle term should appear in both premises but not in the conclusion
+        common_premise_terms = ({maj_subj, maj_pred} & {min_subj, min_pred}) - {con_subj, con_pred}
+        if not common_premise_terms:
+            return None
+
+        middle = next(iter(common_premise_terms))
+
+        if maj_subj == middle and min_pred == middle:
+            return 1
+        if maj_pred == middle and min_pred == middle:
+            return 2
+        if maj_subj == middle and min_subj == middle:
+            return 3
+        if maj_pred == middle and min_subj == middle:
+            return 4
+
+        return None
     
     def get_form_description(self, form: SyllogismType) -> str:
         """Get description of a syllogism form."""

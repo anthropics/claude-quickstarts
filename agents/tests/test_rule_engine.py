@@ -6,7 +6,8 @@ predicate parsing, and proof generation.
 """
 
 import pytest
-from agents.core.rule_engine import (
+
+from agents.core.rule_engine import (  # noqa: E402
     RuleEngine,
     Predicate,
     Rule,

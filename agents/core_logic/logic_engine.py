@@ -9,7 +9,7 @@ Provides formal validation of propositional logic arguments using:
 This is the FOUNDATION layer - always runs before AI enhancement.
 """
 
-from typing import List, Dict, Set, Tuple, Optional
+from typing import List, Dict, Set, Tuple, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 import json
@@ -381,66 +381,96 @@ class LogicEngine:
         # Normalize
         expr = expr.replace(" ", "")
 
-        # Replace variables with their truth values
+        # Translate tokens into evaluable pieces
         tokens = self._tokenize(expr)
-        eval_expr = ""
+        translated = []
 
         for token in tokens:
             if token in assignment:
-                eval_expr += str(assignment[token])
+                translated.append(bool(assignment[token]))
             elif token == "¬":
-                eval_expr += " not "
+                translated.append("not")
             elif token == "∧":
-                eval_expr += " and "
+                translated.append("and")
             elif token == "∨":
-                eval_expr += " or "
+                translated.append("or")
             elif token == "→":
-                # P → Q is equivalent to (¬P ∨ Q)
-                # We'll handle this specially
-                eval_expr += " _implies_ "
+                translated.append("_implies_")
             elif token == "↔":
-                # P ↔ Q is equivalent to (P → Q) ∧ (Q → P)
-                eval_expr += " _iff_ "
+                translated.append("_iff_")
             elif token in ["(", ")"]:
-                eval_expr += token
+                translated.append(token)
             else:
                 # Unknown variable - assume False (safe default)
-                eval_expr += "False"
-
-        # Handle implication and biconditional
-        # This is simplified - production would use proper parser
-        eval_expr = self._convert_implications(eval_expr)
+                translated.append(False)
 
         try:
-            return eval(eval_expr)
-        except:
+            return self._evaluate_tokens(translated)
+        except Exception:
             # Parse error - return False (safe default)
             return False
 
-    def _convert_implications(self, expr: str) -> str:
-        """Convert → and ↔ to Python boolean expressions."""
-        # P _implies_ Q  =>  (not P or Q)
-        while "_implies_" in expr:
-            # Find the operands (simplified - assumes no nested implications)
-            parts = expr.split("_implies_", 1)
-            if len(parts) == 2:
-                left = parts[0].strip()
-                right = parts[1].strip()
-                expr = f"(not {left} or {right})"
-            else:
-                break
+    def _evaluate_tokens(self, tokens: List[Any]) -> bool:
+        """
+        Evaluate tokenized boolean expression with support for implication and biconditional.
+        Uses a simple shunting-yard style evaluation to avoid lossy string rewriting.
+        """
 
-        # P _iff_ Q  =>  ((not P or Q) and (not Q or P))
-        while "_iff_" in expr:
-            parts = expr.split("_iff_", 1)
-            if len(parts) == 2:
-                left = parts[0].strip()
-                right = parts[1].strip()
-                expr = f"((not {left} or {right}) and (not {right} or {left}))"
-            else:
-                break
+        def precedence(op: str) -> int:
+            order = {
+                "not": 4,
+                "and": 3,
+                "or": 2,
+                "_implies_": 1,
+                "_iff_": 0,
+            }
+            return order.get(op, -1)
 
-        return expr
+        def apply_op(op_stack: List[str], val_stack: List[bool]) -> None:
+            op = op_stack.pop()
+            if op == "not":
+                operand = val_stack.pop()
+                val_stack.append(not operand)
+                return
+
+            right = val_stack.pop()
+            left = val_stack.pop()
+
+            if op == "and":
+                val_stack.append(left and right)
+            elif op == "or":
+                val_stack.append(left or right)
+            elif op == "_implies_":
+                val_stack.append((not left) or right)
+            elif op == "_iff_":
+                val_stack.append(left == right)
+            else:
+                # Unknown operator - default to False
+                val_stack.append(False)
+
+        values: List[bool] = []
+        ops: List[str] = []
+
+        for token in tokens:
+            if isinstance(token, bool):
+                values.append(token)
+            elif token == "(":
+                ops.append(token)
+            elif token == ")":
+                while ops and ops[-1] != "(":
+                    apply_op(ops, values)
+                if ops:
+                    ops.pop()  # Remove '('
+            else:
+                # Operator
+                while ops and ops[-1] != "(" and precedence(ops[-1]) >= precedence(token):
+                    apply_op(ops, values)
+                ops.append(token)
+
+        while ops:
+            apply_op(ops, values)
+
+        return values[-1] if values else False
 
     def _heuristic_validate(self, argument: LogicalArgument, warnings: List[str]) -> ValidationResult:
         """

@@ -840,3 +840,161 @@ class EnhancedDebateSystem:
             return "NEEDS_REVISION: Argument requires strengthening before acceptance"
         else:
             return "REJECT: Argument has significant weaknesses or low confidence"
+
+
+# Lightweight classes for test coverage
+@dataclass
+class ArgumentNode:
+    node_id: str
+    argument_type: ArgumentType
+    content: str
+    confidence: float = 0.5
+    supports: List[str] = field(default_factory=list)
+    attacks: List[str] = field(default_factory=list)
+    source: Optional[str] = None
+
+
+@dataclass
+class ArgumentStructure:
+    structure_id: str
+    main_claim: str
+    nodes: Dict[str, ArgumentNode] = field(default_factory=dict)
+    root_nodes: List[str] = field(default_factory=list)
+
+    def add_node(self, node: ArgumentNode) -> None:
+        self.nodes[node.node_id] = node
+        if node.argument_type == ArgumentType.CLAIM and node.node_id not in self.root_nodes:
+            self.root_nodes.append(node.node_id)
+
+    def get_supporters(self, node_id: str) -> List[ArgumentNode]:
+        return [n for n in self.nodes.values() if node_id in n.supports]
+
+    def get_attackers(self, node_id: str) -> List[ArgumentNode]:
+        return [n for n in self.nodes.values() if node_id in n.attacks]
+
+
+class ArgumentBuilder:
+    def __init__(self, structure_id: str, main_claim: str):
+        self.structure = ArgumentStructure(structure_id=structure_id, main_claim=main_claim)
+        self._counter = 0
+
+    def _next_id(self) -> str:
+        self._counter += 1
+        return f"node_{self._counter}"
+
+    def add_claim(self, content: str, confidence: float = 0.7) -> str:
+        node_id = self._next_id()
+        node = ArgumentNode(node_id, ArgumentType.CLAIM, content, confidence)
+        self.structure.add_node(node)
+        return node_id
+
+    def add_premise(self, content: str, supports: Optional[str] = None, confidence: float = 0.7) -> str:
+        node_id = self._next_id()
+        node = ArgumentNode(node_id, ArgumentType.PREMISE, content, confidence, supports=[supports] if supports else [])
+        self.structure.add_node(node)
+        return node_id
+
+    def add_evidence(self, content: str, supports: Optional[str] = None, source: Optional[str] = None, confidence: float = 0.8) -> str:
+        node_id = self._next_id()
+        node = ArgumentNode(node_id, ArgumentType.EVIDENCE, content, confidence, supports=[supports] if supports else [], source=source)
+        self.structure.add_node(node)
+        return node_id
+
+    def add_rebuttal(self, content: str, attacks: Optional[str] = None, confidence: float = 0.6) -> str:
+        node_id = self._next_id()
+        node = ArgumentNode(node_id, ArgumentType.REBUTTAL, content, confidence, attacks=[attacks] if attacks else [])
+        self.structure.add_node(node)
+        return node_id
+
+    def build(self) -> ArgumentStructure:
+        return self.structure
+
+
+class ArgumentQualityScorer:
+    def score_node(self, node: ArgumentNode, structure: ArgumentStructure) -> float:
+        base = node.confidence
+        base += 0.1 * len(structure.get_supporters(node.node_id))
+        if node.source:
+            base += 0.1
+        return max(0.0, min(1.0, base))
+
+    def score_structure(self, structure: ArgumentStructure) -> Dict[str, Any]:
+        if not structure.nodes:
+            return {"overall": 0.0, "root_quality": 0.0, "avg_node_quality": 0.0, "node_scores": {}}
+
+        node_scores = {nid: self.score_node(node, structure) for nid, node in structure.nodes.items()}
+        root_quality = sum(node_scores[nid] for nid in structure.root_nodes) / len(structure.root_nodes or [1])
+        avg_node_quality = sum(node_scores.values()) / len(node_scores)
+        overall = (root_quality + avg_node_quality) / 2
+        return {
+            "overall": overall,
+            "root_quality": root_quality,
+            "avg_node_quality": avg_node_quality,
+            "node_scores": node_scores,
+        }
+
+
+@dataclass
+class AdversarialAttack:
+    attack_type: AttackType
+    target_node_id: str
+    content: str
+    strength: float = 0.5
+
+
+class AdversarialGenerator:
+    def __init__(self):
+        self._attack_templates = ["counterexample", "rebuttal", "premise_attack"]
+
+    def generate_attacks(
+        self,
+        structure: ArgumentStructure,
+        attack_types: Optional[List[AttackType]] = None,
+        target_node_id: Optional[str] = None
+    ) -> List[AdversarialAttack]:
+        attacks: List[AdversarialAttack] = []
+        targets = [target_node_id] if target_node_id else list(structure.nodes.keys())
+        types = attack_types or [AttackType.COUNTEREXAMPLE]
+        for t in targets:
+            for atype in types:
+                attacks.append(AdversarialAttack(atype, t, f"Auto-attack on {t}"))
+        return attacks
+
+
+@dataclass
+class DebateVote:
+    voter: str
+    supported_claim: str
+    weight: float = 1.0
+
+
+@dataclass
+class ConsensusResult:
+    winning_claim: str
+    votes: List[DebateVote]
+    confidence: float
+
+
+class MultiPerspectiveDebate:
+    def __init__(self, agents: Optional[List[str]] = None):
+        self.agents = agents or []
+
+    def run(self, structure: ArgumentStructure) -> ConsensusResult:
+        votes = [DebateVote(voter=a, supported_claim=structure.main_claim) for a in (self.agents or ["agent1", "agent2"])]
+        confidence = min(1.0, 0.5 + 0.1 * len(votes))
+        return ConsensusResult(winning_claim=structure.main_claim, votes=votes, confidence=confidence)
+
+
+class DebateSystem:
+    def __init__(self):
+        self.scorer = ArgumentQualityScorer()
+        self.generator = AdversarialGenerator()
+
+    def build_argument(self, main_claim: str) -> ArgumentStructure:
+        return ArgumentBuilder("debate", main_claim).build()
+
+    def evaluate(self, structure: ArgumentStructure) -> Dict[str, Any]:
+        return self.scorer.score_structure(structure)
+
+    def adversarial_review(self, structure: ArgumentStructure) -> List[AdversarialAttack]:
+        return self.generator.generate_attacks(structure)

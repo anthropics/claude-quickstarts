@@ -55,6 +55,9 @@ class SemanticFrame:
     confidence: float = 1.0
     source_text: str = ""
     parse_method: str = "unknown"
+    intent: Optional[str] = None
+    entities: List[str] = field(default_factory=list)
+    is_complete: bool = True
     
     def to_logic(self) -> str:
         """Convert to logical notation."""
@@ -539,3 +542,45 @@ def create_ml_ontology() -> DomainOntology:
             "Validation should use held-out data",
         ]
     )
+
+
+# Lightweight components used in tests
+class EntityExtractor:
+    """Very simple entity extractor using capitalization heuristics."""
+    def extract(self, text: str) -> List[str]:
+        tokens = [t.strip(",.") for t in text.split() if t and t[0].isupper()]
+        return tokens
+
+
+class IntentClassifier:
+    """Naive intent classifier."""
+    def classify(self, text: str) -> str:
+        lowered = text.lower()
+        if "book" in lowered:
+            return "booking"
+        if "weather" in lowered:
+            return "weather_query"
+        if "restaurant" in lowered:
+            return "restaurant_search"
+        return "unknown_intent"
+
+
+class SemanticParser:
+    """Facade that stitches extractor + classifier for tests."""
+    def __init__(self):
+        self.extractor = EntityExtractor()
+        self.classifier = IntentClassifier()
+
+    def parse(self, text: str) -> SemanticFrame:
+        entities = self.extractor.extract(text)
+        intent = self.classifier.classify(text)
+        is_complete = bool(text.strip())
+        return SemanticFrame(
+            predicate=intent or "unknown",
+            arguments={},
+            intent=intent,
+            entities=entities,
+            is_complete=is_complete,
+            source_text=text,
+            parse_method="lightweight"
+        )

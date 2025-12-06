@@ -151,6 +151,25 @@ class TestLogicOrchestrator:
         assert result.engine_used == "propositional"
         assert "InferenceEngine" in str(result.notes)
 
+    def test_inference_state_does_not_leak_between_calls(self, orchestrator):
+        """InferenceEngine facts should be isolated per analysis call."""
+        arg1 = StructuredArgument(
+            premises=["P"],
+            conclusion="P",
+            argument_type=ArgumentType.PROPOSITIONAL
+        )
+        first_result = orchestrator.analyze(arg1)
+        assert first_result.is_valid is True
+
+        arg2 = StructuredArgument(
+            premises=["Q"],
+            conclusion="P",
+            argument_type=ArgumentType.PROPOSITIONAL
+        )
+        second_result = orchestrator.analyze(arg2)
+
+        assert second_result.is_valid is False
+
     def test_analyze_unknown_type_uses_heuristics(self, orchestrator):
         """Test that unknown type attempts classification."""
         arg = StructuredArgument(
@@ -164,6 +183,20 @@ class TestLogicOrchestrator:
         # Should attempt classification
         assert any("classification" in note.lower() or "heuristic" in note.lower() 
                    for note in result.notes)
+
+    def test_mixed_mode_runs_both_paths(self, orchestrator):
+        """Mixed arguments should execute both categorical and propositional routes."""
+        arg = StructuredArgument(
+            premises=["All mammals are animals", "If mammals then warm"],
+            conclusion="All mammals are animals",
+            argument_type=ArgumentType.MIXED
+        )
+
+        result = orchestrator.analyze(arg)
+
+        assert result.engine_used == "mixed"
+        assert "Categorical result" in " ".join(result.notes)
+        assert "Propositional result" in " ".join(result.notes)
 
     def test_analyze_text_returns_not_implemented(self, orchestrator):
         """Test that analyze_text returns proper stub response."""

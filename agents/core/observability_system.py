@@ -58,6 +58,58 @@ class LogLevel(Enum):
 
 
 @dataclass
+class Telemetry:
+    """Lightweight telemetry record used in tests."""
+    event_type: str
+    data: Dict[str, Any]
+    timestamp: str = field(default_factory=lambda: datetime.now().isoformat())
+
+
+class MetricsCollector:
+    """Minimal metrics collector for tests."""
+    def __init__(self):
+        self.metrics: Dict[str, List[float]] = {}
+
+    def record_metric(self, name: str, value: float) -> None:
+        self.metrics.setdefault(name, []).append(value)
+
+    def get_average(self, name: str) -> Optional[float]:
+        if name not in self.metrics or not self.metrics[name]:
+            return None
+        values = self.metrics[name]
+        return sum(values) / len(values)
+
+
+class TraceLogger:
+    """Simple trace logger with start/end semantics for tests."""
+    def __init__(self):
+        self._traces: Dict[str, Dict[str, Any]] = {}
+
+    def start_trace(self, trace_id: str, **metadata: Any) -> None:
+        self._traces[trace_id] = {"events": [], "metadata": metadata, "start": datetime.now().isoformat()}
+
+    def end_trace(self, trace_id: str) -> None:
+        if trace_id in self._traces:
+            self._traces[trace_id]["end"] = datetime.now().isoformat()
+
+    def add_event(self, trace_id: str, name: str, payload: Dict[str, Any]) -> None:
+        if trace_id not in self._traces:
+            self.start_trace(trace_id)
+        self._traces[trace_id]["events"].append({"name": name, "payload": payload, "timestamp": datetime.now().isoformat()})
+
+    def get_trace(self, trace_id: str) -> Optional[Dict[str, Any]]:
+        return self._traces.get(trace_id)
+
+    @contextmanager
+    def trace(self, trace_id: str, **metadata: Any):
+        self.start_trace(trace_id, **metadata)
+        try:
+            yield self
+        finally:
+            self.end_trace(trace_id)
+
+
+@dataclass
 class TraceEvent:
     """A single trace event."""
     event_id: str
@@ -359,6 +411,16 @@ class Tracer:
         self._span_counter = 0
         self._trace_counter = 0
         self._lock = threading.Lock()
+
+    def add_event(
+        self,
+        trace_id: str,
+        event_type: EventType,
+        name: str,
+        payload: Dict[str, Any]
+    ) -> None:
+        """Add event to trace and logger."""
+        self.logger.log(event_type, name, payload, trace_id=trace_id)
     
     def _generate_id(self, prefix: str) -> str:
         with self._lock:
@@ -707,3 +769,28 @@ class ObservabilitySystem:
                     f"[{e.timestamp}] {e.level.name} {e.event_type.value}: {e.name}"
                 )
             return "\n".join(lines)
+
+    # Additional lightweight APIs used in tests
+    def collect(self, telemetry: Telemetry) -> None:
+        """Collect telemetry (minimal placeholder)."""
+        self.logger.log(EventType.CUSTOM, telemetry.event_type, telemetry.data)
+
+    @contextmanager
+    def trace(self, operation: str):
+        """Provide simple trace context compatible with tests."""
+        trace_id = f"trace_{int(time.time()*1000)}"
+
+        class _TraceContext:
+            def __init__(self, tracer: Tracer, tid: str):
+                self.tracer = tracer
+                self.trace_id = tid
+
+            def add_event(self, name: str, payload: Dict[str, Any]):
+                self.tracer.add_event(self.trace_id, EventType.CUSTOM, name, payload)
+
+        self.logger.log(EventType.START, operation, {}, trace_id=trace_id)
+        ctx = _TraceContext(self.tracer, trace_id)
+        try:
+            yield ctx
+        finally:
+            self.logger.log(EventType.END, operation, {}, trace_id=trace_id)

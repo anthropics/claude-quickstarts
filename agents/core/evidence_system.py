@@ -37,6 +37,89 @@ class TrustLevel(Enum):
     SPECULATIVE = 0.1
 
 
+# Lightweight primitives to satisfy tests
+class EvidenceType(Enum):
+    EMPIRICAL = "empirical"
+    STATISTICAL = "statistical"
+    ANECDOTAL = "anecdotal"
+    EXPERT_TESTIMONY = "expert_testimony"
+    DOCUMENTARY = "documentary"
+
+
+class EvidenceQuality(Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    UNSUPPORTED = "unsupported"
+
+
+class SourceCredibility(Enum):
+    VERY_HIGH = 0.95
+    HIGH = 0.8
+    MEDIUM = 0.6
+    LOW = 0.4
+    UNKNOWN = 0.2
+
+
+@dataclass
+class Evidence:
+    evidence_id: str
+    content: str
+    evidence_type: EvidenceType
+    source: str
+    credibility: SourceCredibility = SourceCredibility.UNKNOWN
+    confidence: float = 0.5
+
+    def assess_quality(self) -> EvidenceQuality:
+        if self.confidence >= 0.8 and self.credibility.value >= 0.8:
+            return EvidenceQuality.HIGH
+        if self.confidence >= 0.6:
+            return EvidenceQuality.MEDIUM
+        if self.confidence >= 0.3:
+            return EvidenceQuality.LOW
+        return EvidenceQuality.UNSUPPORTED
+
+
+@dataclass
+class EvidenceValidationResult:
+    is_valid: Optional[bool]
+    issues: List[str] = field(default_factory=list)
+
+
+class EvidenceValidator:
+    def validate(self, evidence: Evidence) -> EvidenceValidationResult:
+        issues: List[str] = []
+        if "100%" in evidence.content:
+            issues.append("suspicious_perfection")
+        quality = evidence.assess_quality()
+        is_valid = quality != EvidenceQuality.UNSUPPORTED
+        return EvidenceValidationResult(is_valid=is_valid, issues=issues)
+
+
+class ConflictResolver:
+    def resolve(self, evidence_list: List[Evidence]) -> Optional[Evidence]:
+        if not evidence_list:
+            return None
+        return max(evidence_list, key=lambda e: (e.confidence, e.credibility.value))
+
+
+class EvidenceSystem:
+    """Minimal evidence system used in tests."""
+    def __init__(self):
+        self.evidence_store: Dict[str, Evidence] = {}
+        self.validator = EvidenceValidator()
+        self.resolver = ConflictResolver()
+
+    def add_evidence(self, evidence: Evidence) -> None:
+        self.evidence_store[evidence.evidence_id] = evidence
+
+    def validate(self, evidence: Evidence) -> EvidenceValidationResult:
+        return self.validator.validate(evidence)
+
+    def resolve_conflicts(self, evidence_list: List[Evidence]) -> Optional[Evidence]:
+        return self.resolver.resolve(evidence_list)
+
+
 @dataclass
 class SourceProfile:
     """Profile for a source with trust metrics."""

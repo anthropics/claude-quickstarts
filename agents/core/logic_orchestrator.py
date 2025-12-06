@@ -205,7 +205,8 @@ class LogicOrchestrator:
     def __init__(self):
         """Initialize the orchestrator with all available engines."""
         self._categorical_engine = CategoricalEngine()
-        self._inference_engine = InferenceEngine()
+        self._base_inference_rules = []
+        self._inference_engine = self._create_inference_engine()
         self._fallacy_detector = FallacyDetector()
         # TODO: self._proof_engine = ProofEngine()
     
@@ -396,6 +397,9 @@ class LogicOrchestrator:
         # Stub: Add facts and attempt inference
         # In full implementation, this would parse premises into logical formulas
         try:
+            # Reset inference engine state per analysis to avoid cross-request contamination
+            self._inference_engine = self._create_inference_engine()
+
             # Add premises as facts
             for i, premise in enumerate(argument.premises):
                 self._inference_engine.add_fact(f"premise_{i}", premise)
@@ -425,6 +429,18 @@ class LogicOrchestrator:
             result.violations.append("INFERENCE_ENGINE_ERROR")
         
         return result
+
+    def _create_inference_engine(self) -> InferenceEngine:
+        """Create an inference engine seeded with any base rules."""
+        engine = InferenceEngine()
+        for rule in self._base_inference_rules:
+            engine.add_rule(**rule)
+        return engine
+
+    def seed_inference_rules(self, rules: List[Dict[str, Any]]) -> None:
+        """Seed default rules reused for every inference run."""
+        self._base_inference_rules = rules
+        self._inference_engine = self._create_inference_engine()
     
     def _analyze_mixed(
         self, 

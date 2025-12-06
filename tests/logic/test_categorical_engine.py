@@ -40,9 +40,9 @@ class TestBarbaraForm:
     def test_barbara_with_different_content(self):
         """Test Barbara with different subject matter."""
         result = validate_barbara(
-            "All planets orbit stars",
+            "All planets are orbiters",
             "All jupiters are planets",
-            "All jupiters orbit stars"
+            "All jupiters are orbiters"
         )
 
         assert result.is_valid is True
@@ -147,7 +147,7 @@ class TestInvalidForms:
         syl = parse_syllogism(
             "All mammals are animals",
             "All mammals are warm-blooded",
-            "All warm-blooded creatures are animals"
+            "All warm-blooded are animals"
         )
 
         engine = CategoricalEngine()
@@ -277,10 +277,33 @@ class TestFigureIdentification:
 
     def test_second_figure(self):
         """Test Figure 2: P-M, S-M"""
-        # Requires specific term arrangement
-        # Example: All animals are living, All dogs are living
-        # Actually this is tricky - need proper second figure example
-        pass  # TODO: Add proper figure 2-4 tests
+        syl = parse_syllogism(
+            "No mammals are reptiles",   # P-M
+            "All dogs are reptiles",     # S-M
+            "No dogs are mammals"
+        )
+
+        assert syl is not None
+        assert syl.figure == Figure.SECOND
+
+
+class TestFigureTwoForms:
+    """Test validation of second figure syllogisms."""
+
+    def test_cesare_form(self):
+        """Test Cesare (EAE-2): No P are M, All S are M ⊢ No S are P"""
+        syl = parse_syllogism(
+            "No mammals are reptiles",
+            "All dogs are reptiles",
+            "No dogs are mammals"
+        )
+
+        engine = CategoricalEngine()
+        result = engine.validate(syl)
+
+        assert result.is_valid is True
+        assert result.form_name == "Cesare"
+        assert result.figure == Figure.SECOND
 
 
 class TestRealWorldSyllogisms:
@@ -301,9 +324,9 @@ class TestRealWorldSyllogisms:
     def test_animal_classification(self):
         """Test biological classification syllogism."""
         result = validate_barbara(
-            "All vertebrates have spines",
+            "All vertebrates are spine_bearers",
             "All mammals are vertebrates",
-            "All mammals have spines"
+            "All mammals are spine_bearers"
         )
 
         assert result.is_valid is True

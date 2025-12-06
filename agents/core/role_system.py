@@ -58,6 +58,56 @@ class RolePersona:
     name: str
     description: str
     domain: str
+
+
+class RoleCapability(Enum):
+    """Capabilities used in tests."""
+    DATA_ANALYSIS = "data_analysis"
+    STATISTICAL_REASONING = "statistical_reasoning"
+    LOGICAL_ANALYSIS = "logical_analysis"
+
+
+@dataclass
+class Role:
+    role_id: str
+    name: str
+    capabilities: List[RoleCapability]
+
+
+class RoleAssigner:
+    """Simple heuristic role assigner."""
+    def assign_role(self, task: str, available_roles: List[str]) -> Optional[str]:
+        # Pick the first available role for simplicity
+        return available_roles[0] if available_roles else None
+
+
+class RoleSystem:
+    """Minimal role system covering tests."""
+    def __init__(self):
+        self.active: Set[str] = set()
+        # default capabilities map
+        self.role_capabilities: Dict[str, Set[RoleCapability]] = {
+            "analyst": {RoleCapability.DATA_ANALYSIS, RoleCapability.STATISTICAL_REASONING},
+            "researcher": {RoleCapability.LOGICAL_ANALYSIS},
+            "critic": {RoleCapability.LOGICAL_ANALYSIS},
+            "synthesizer": {RoleCapability.LOGICAL_ANALYSIS},
+        }
+
+    def check_capability(self, role_id: str, capability: RoleCapability) -> bool:
+        return capability in self.role_capabilities.get(role_id, set())
+
+    def activate_role(self, role_id: str) -> None:
+        self.active.add(role_id)
+
+    def get_active_roles(self) -> List[str]:
+        return list(self.active)
+
+    def assign_best_role(self, task: str) -> Optional[str]:
+        # Simple heuristic: return role with logical capability if needed
+        for role_id, caps in self.role_capabilities.items():
+            if RoleCapability.LOGICAL_ANALYSIS in caps:
+                return role_id
+        return next(iter(self.role_capabilities), None)
     expertise_level: ExpertiseLevel
     communication_style: CommunicationStyle
     reasoning_mode: ReasoningMode

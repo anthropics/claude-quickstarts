@@ -1,0 +1,85 @@
+{
+  "metadata": {
+    "profile_id": "base_profile",
+    "version": "1.0.0",
+    "description": "Base governance profile - restrictive defaults"
+  },
+  "defaults": {
+    "action_policy": "deny",
+    "escalation_policy": "require_approval",
+    "audit_policy": "log_all"
+  },
+  "permissions": {
+    "file_operations": {
+      "allow": {
+        "read": ["*.md", "*.txt"]
+      },
+      "deny": {
+        "read": ["*.env", "*.key", "*.pem", "*.secret", "**/secrets/**"],
+        "write": ["**/*"],
+        "delete": ["**/*"],
+        "execute": ["**/*"]
+      },
+      "escalate": {
+        "write": ["runtime/**"],
+        "create": ["runtime/**", "tests/**"]
+      }
+    },
+    "subprocess": {
+      "allow": {
+        "commands": ["echo", "pwd", "date"],
+        "max_runtime_seconds": 10
+      },
+      "deny": {
+        "commands": ["*"],
+        "network_access": true,
+        "background_processes": true
+      },
+      "escalate": {
+        "commands": ["ls", "cat", "grep"]
+      }
+    },
+    "code_execution": {
+      "allow": {},
+      "deny": {
+        "all": true
+      },
+      "escalate": {}
+    }
+  },
+  "constraints": {
+    "sandbox_root_only": true,
+    "no_parent_directory_access": true,
+    "no_absolute_paths": true,
+    "max_output_bytes": 65536
+  },
+  "trust_levels": {
+    "untrusted": {
+      "inherits": null,
+      "overrides": {
+        "all_actions": "deny"
+      }
+    },
+    "basic": {
+      "inherits": "untrusted",
+      "overrides": {
+        "file_read": "allow",
+        "subprocess_safe": "allow"
+      }
+    },
+    "elevated": {
+      "inherits": "basic",
+      "overrides": {
+        "file_write_sandbox": "escalate",
+        "subprocess_extended": "escalate"
+      }
+    },
+    "trusted": {
+      "inherits": "elevated",
+      "overrides": {
+        "file_write_sandbox": "allow",
+        "subprocess_extended": "allow"
+      }
+    }
+  }
+}

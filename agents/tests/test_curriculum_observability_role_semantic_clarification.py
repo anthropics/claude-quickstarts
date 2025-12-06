@@ -5,31 +5,32 @@ Combined test file for the remaining untested modules.
 """
 
 import pytest
-from agents.core.curriculum_system import (
+
+from agents.core.curriculum_system import (  # noqa: E402
     CurriculumSystem,
     DifficultyLevel,
     LearningPath,
     SkillTree,
 )
-from agents.core.observability_system import (
+from agents.core.observability_system import (  # noqa: E402
     ObservabilitySystem,
     Telemetry,
     MetricsCollector,
     TraceLogger,
 )
-from agents.core.role_system import (
+from agents.core.role_system import (  # noqa: E402
     RoleSystem,
     Role,
     RoleCapability,
     RoleAssigner,
 )
-from agents.core.semantic_parser import (
+from agents.core.semantic_parser import (  # noqa: E402
     SemanticParser,
     SemanticFrame,
     EntityExtractor,
     IntentClassifier,
 )
-from agents.core.clarification_system import (
+from agents.core.clarification_system import (  # noqa: E402
     ClarificationSystem,
     ClarificationRequest,
     AmbiguityDetector,

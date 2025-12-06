@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 import re
 from datetime import datetime
+import time
 
 
 class ProofStatus(Enum):
@@ -114,16 +115,25 @@ class PredicateParser:
     def parse(self, statement: str) -> Optional[Predicate]:
         """Parse a statement into a predicate."""
         statement = statement.strip()
+
+        negated_prefix = False
+        if statement.startswith("¬"):
+            negated_prefix = True
+            statement = statement[1:]
         
         # Check for explicit predicate notation: Name(arg1, arg2)
         match = self.PREDICATE_PATTERN.match(statement)
         if match:
             name = match.group(1)
             args = [a.strip() for a in match.group(2).split(",")]
-            negated = any(neg in statement.lower() for neg in self.NEGATION_PATTERNS[:6])
+            negated = negated_prefix or any(neg in statement.lower() for neg in self.NEGATION_PATTERNS)
             return Predicate(name, args, negated)
         
         # Parse natural language patterns
+        return self._parse_natural_language(statement)
+
+    def parse_natural_language(self, statement: str) -> Optional[Predicate]:
+        """Public wrapper for natural language parsing."""
         return self._parse_natural_language(statement)
     
     def _parse_natural_language(self, statement: str) -> Optional[Predicate]:
@@ -205,10 +215,18 @@ class RuleEngine:
         self.max_depth = max_depth
         self.timeout_ms = timeout_ms
         self.inference_trace: List[ProofStep] = []
+        # Lightweight chainers for tests
+        self.forward_chainer = ForwardChainer(self.facts, self.rules)
+        self.backward_chainer = BackwardChainer(self.facts, self.rules, self.max_depth)
     
     def add_fact(self, fact: Predicate) -> None:
         """Add a fact to the knowledge base."""
-        self.facts.add(fact)
+        if isinstance(fact, str):
+            parsed = self.parser.parse(fact)
+            if parsed:
+                self.facts.add(parsed)
+        else:
+            self.facts.add(fact)
     
     def add_fact_from_text(self, statement: str) -> Optional[Predicate]:
         """Parse and add a fact from natural language."""
@@ -219,7 +237,12 @@ class RuleEngine:
     
     def add_rule(self, rule: Rule) -> None:
         """Add an inference rule."""
-        self.rules.append(rule)
+        if isinstance(rule, str):
+            parsed = self._parse_rule_text(rule)
+            if parsed:
+                self.rules.append(parsed)
+        else:
+            self.rules.append(rule)
     
     def add_rule_from_implication(
         self, 
@@ -241,6 +264,42 @@ class RuleEngine:
             self.add_rule(rule)
             return rule
         return None
+    
+    def _parse_rule_text(self, text: str) -> Optional[Rule]:
+        """Parse 'P -> Q' style text into a Rule."""
+        arrow = "->" if "->" in text else "→" if "→" in text else None
+        if not arrow:
+            return None
+        parts = text.split(arrow)
+        if len(parts) != 2:
+            return None
+        antecedent_part, consequent_part = parts
+        antecedent_texts = [p.strip() for p in antecedent_part.split(",") if p.strip()]
+        antecedents = []
+        for a in antecedent_texts:
+            pred = self.parser.parse(a)
+            if pred:
+                antecedents.append(pred)
+        consequent = self.parser.parse(consequent_part.strip())
+        if antecedents and consequent:
+            return Rule(name=text.strip(), antecedents=antecedents, consequent=consequent)
+        return None
+
+    def prove(self, goal: str) -> ProofResult:
+        """Prove a goal expressed as text."""
+        pred = self.parser.parse(goal) if isinstance(goal, str) else goal
+        if not pred:
+            return ProofResult(ProofStatus.UNKNOWN, Predicate("Unknown", []), [], 0.0, 0.0)
+        return self.backward_chainer.prove(pred)
+
+    def check_contradictions(self) -> List[Predicate]:
+        """Detect direct contradictions in facts."""
+        contradictions = []
+        for fact in list(self.facts):
+            negated = fact.negate()
+            if negated in self.facts:
+                contradictions.append(fact)
+        return contradictions
     
     def forward_chain(self, max_iterations: int = 100) -> List[Predicate]:
         """
@@ -520,3 +579,124 @@ class RuleEngine:
     def clear_trace(self) -> None:
         """Clear the inference trace."""
         self.inference_trace = []
+
+
+# -----------------------------------------------------------------------------
+# Lightweight components to satisfy unit tests (unification & simple chaining)
+# -----------------------------------------------------------------------------
+
+
+class Unifier:
+    """Basic first-order unification for predicates."""
+
+    @staticmethod
+    def _is_var(token: str) -> bool:
+        return token and token[0].isupper()
+
+    def unify(self, p1: Predicate, p2: Predicate) -> Optional[Dict[str, str]]:
+        if p1.name != p2.name or len(p1.arguments) != len(p2.arguments):
+            return None
+        bindings: Dict[str, str] = {}
+        for a1, a2 in zip(p1.arguments, p2.arguments):
+            if self._is_var(a1) and self._is_var(a2):
+                bindings.setdefault(a1, a2)
+                bindings.setdefault(a2, a1)
+            elif self._is_var(a1):
+                if a1 in bindings and bindings[a1] != a2:
+                    return None
+                bindings[a1] = a2
+            elif self._is_var(a2):
+                if a2 in bindings and bindings[a2] != a1:
+                    return None
+                bindings[a2] = a1
+            else:
+                if a1 != a2:
+                    return None
+        return bindings
+
+
+class ForwardChainer:
+    """Minimal forward chainer for tests."""
+    def __init__(self, facts: Optional[Set[Predicate]] = None, rules: Optional[List[Rule]] = None):
+        self.facts: Set[Predicate] = facts if facts is not None else set()
+        self.rules: List[Rule] = rules if rules is not None else []
+        self.unifier = Unifier()
+
+    def add_fact(self, fact: Predicate) -> None:
+        self.facts.add(fact)
+
+    def add_rule(self, rule: Rule) -> None:
+        self.rules.append(rule)
+
+    def infer(self) -> None:
+        added = True
+        while added:
+            added = False
+            for rule in list(self.rules):
+                bindings_list = self._match_antecedents(rule.antecedents)
+                for bindings in bindings_list:
+                    new_fact = rule.consequent.substitute(bindings)
+                    if new_fact not in self.facts:
+                        self.facts.add(new_fact)
+                        added = True
+
+    def _match_antecedents(self, antecedents: List[Predicate]) -> List[Dict[str, str]]:
+        if not antecedents:
+            return [{}]
+        first, *rest = antecedents
+        matches: List[Dict[str, str]] = []
+        for fact in self.facts:
+            b = self.unifier.unify(first, fact)
+            if b is None:
+                continue
+            if rest:
+                for sub_b in self._match_antecedents([a.substitute(b) for a in rest]):
+                    merged = {**b, **sub_b}
+                    matches.append(merged)
+            else:
+                matches.append(b)
+        return matches
+
+
+class BackwardChainer:
+    """Minimal backward chainer for tests."""
+    def __init__(self, facts: Optional[Set[Predicate]] = None, rules: Optional[List[Rule]] = None, max_depth: int = 5):
+        self.facts = facts if facts is not None else set()
+        self.rules = rules if rules is not None else []
+        self.unifier = Unifier()
+        self.max_depth = max_depth
+
+    def add_fact(self, fact: Predicate) -> None:
+        self.facts.add(fact)
+
+    def add_rule(self, rule: Rule) -> None:
+        self.rules.append(rule)
+
+    def prove(self, goal: Predicate, depth: int = 0) -> ProofResult:
+        start = time.time()
+        if depth > self.max_depth:
+            return ProofResult(ProofStatus.TIMEOUT, goal, [], 0.0, (time.time() - start) * 1000)
+
+        if goal in self.facts:
+            return ProofResult(ProofStatus.PROVEN, goal, [ProofStep(1, goal, "Given fact")], 1.0, (time.time() - start) * 1000)
+
+        for rule in self.rules:
+            b = self.unifier.unify(rule.consequent, goal)
+            if b is None:
+                continue
+            local_steps: List[ProofStep] = []
+            success = True
+            step_counter = 1
+            for ant in rule.antecedents:
+                sub_goal = ant.substitute(b)
+                result = self.prove(sub_goal, depth + 1)
+                local_steps.extend(result.steps)
+                step_counter += len(result.steps)
+                if result.status != ProofStatus.PROVEN:
+                    success = False
+                    break
+            if success:
+                local_steps.append(ProofStep(step_counter, goal, "By rule", rule_applied=rule.name, bindings=b))
+                return ProofResult(ProofStatus.PROVEN, goal, local_steps, 1.0, (time.time() - start) * 1000)
+
+        return ProofResult(ProofStatus.UNKNOWN, goal, [], 0.0, (time.time() - start) * 1000)

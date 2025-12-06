@@ -921,3 +921,31 @@ def create_standard_constraints() -> List[Constraint]:
         must("min_safety", "Minimum Safety Score")
             .field("safety_score").greater_than(0.7).build(),
     ]
+
+# -----------------------------------------------------------------------------
+# Minimal constraint system used in tests
+# -----------------------------------------------------------------------------
+
+
+class ConstraintSystem:
+    """Simplified constraint system that aggregates constraints."""
+    def __init__(self):
+        self.constraints: List[Constraint] = []
+
+    def add_constraint(self, constraint: Constraint) -> None:
+        self.constraints.append(constraint)
+
+    def check(self, entry: Dict[str, Any]) -> ConstraintCheckResult:
+        violations: List[ConstraintViolation] = []
+        for constraint in self.constraints:
+            satisfied, violation = constraint.check(entry)
+            if not satisfied and violation:
+                violations.append(violation)
+        satisfied_all = len(violations) == 0
+        return ConstraintCheckResult(
+            satisfied=satisfied_all,
+            violations=violations,
+            relaxation_paths=[],
+            needs_escalation=not satisfied_all,
+            escalation_request=None
+        )

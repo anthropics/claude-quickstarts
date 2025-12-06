@@ -869,3 +869,7 @@ def create_decision_model(
             model.add_constraint(constraint)
     
     return model
+
+
+# Backwards-compatible alias expected by tests
+Decision = DecisionResult
