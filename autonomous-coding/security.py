@@ -89,6 +89,13 @@ def extract_commands(command_string: str) -> list[str]:
     """
     commands = []
 
+    # SECURITY: Detect command substitution patterns before processing
+    # These allow arbitrary command execution and bypass the allowlist
+    import re as re_security
+    if re_security.search(r'\$\(|\`', command_string):
+        # Command substitution detected - fail safe by returning empty
+        return []
+
     # shlex doesn't treat ; as a separator, so we need to pre-process
     import re
 

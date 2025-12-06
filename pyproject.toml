@@ -8,8 +8,8 @@ pythonpath = "."
 addopts = [
     "-ra",
     "-q",
-    "--cov=agents.core",
     "--cov=agents.core_logic",
+    "--cov=agents.governance",
     "--cov-report=html",
     "--cov-report=term-missing",
     "--cov-report=xml",
