@@ -8,7 +8,7 @@ Provides comprehensive benchmarking for the agent system:
 - Comparison across versions
 """
 
-from typing import List, Dict, Any, Optional, Callable, Tuple
+from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -249,7 +249,8 @@ class AccuracyBenchmarks:
     ) -> Dict[str, Any]:
         """Run accuracy tests against all test cases."""
         if comparator is None:
-            comparator = lambda expected, actual: expected == actual
+            def comparator(expected, actual):
+                return expected == actual
         
         results = []
         correct = 0

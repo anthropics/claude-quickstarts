@@ -327,7 +327,7 @@ class RuleEngine:
                         self.inference_trace.append(ProofStep(
                             step_number=len(self.inference_trace) + 1,
                             predicate=new_fact,
-                            justification=f"Derived by forward chaining",
+                            justification="Derived by forward chaining",
                             rule_applied=rule.name,
                             bindings=binding,
                             confidence=rule.confidence

@@ -8,9 +8,9 @@ Implements:
 - Rate limiting and resource management
 """
 
-from typing import List, Dict, Any, Optional, Callable, Set
+from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 import re
 import time
@@ -238,7 +238,7 @@ class OutputGuardrail:
         # Check required disclaimers
         for disclaimer in self.required_disclaimers:
             if disclaimer.lower() not in filtered.lower():
-                violations.append(f"Missing required disclaimer")
+                violations.append("Missing required disclaimer")
                 if filter_violations:
                     filtered = f"{filtered}\n\n*{disclaimer}*"
         

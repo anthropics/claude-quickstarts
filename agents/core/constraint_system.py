@@ -9,11 +9,10 @@ Provides advanced constraint handling:
 - Conflict detection and resolution
 """
 
-from typing import List, Dict, Any, Optional, Callable, Set, Tuple
+from typing import List, Dict, Any, Optional, Callable, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from abc import ABC, abstractmethod
 import re
 
 

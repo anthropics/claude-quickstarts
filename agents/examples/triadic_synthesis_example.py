@@ -382,7 +382,7 @@ def demonstrate_triadic_synthesis():
     print(f"\n   Valid: {logic_result['valid']}")
     print(f"   Form: {logic_result['form']}")
     print(f"   Confidence: {logic_result['confidence']} (logic is certain)")
-    print(f"   Note: Logic says NOTHING about truth, value, or meaning")
+    print("   Note: Logic says NOTHING about truth, value, or meaning")
 
     # ====== LAYER 2: AI (Muscles) ======
     print("\n" + "=" * 70)
@@ -409,7 +409,7 @@ def demonstrate_triadic_synthesis():
         print(f"      Key Concerns: {', '.join(p.concerns[:2])}")
 
     print(f"\n   Note: AI provides {len(ai_perspectives)} perspectives, NOT a verdict")
-    print(f"   Note: AI does NOT select 'best' - user decides")
+    print("   Note: AI does NOT select 'best' - user decides")
 
     # ====== LAYER 3: USER (Heart) ======
     print("\n" + "=" * 70)
@@ -420,20 +420,20 @@ def demonstrate_triadic_synthesis():
     user_prefs = UserContext.get_user_preferences("user_001")
 
     print(f"\n   User ID: {user_prefs.user_id}")
-    print(f"   Profile Weights:")
+    print("   Profile Weights:")
     for profile, weight in user_prefs.profile_weights.items():
         print(f"      {profile.value.capitalize()}: {weight:.0%}")
 
-    print(f"\n   User Values:")
+    print("\n   User Values:")
     for value, importance in user_prefs.values.items():
         print(f"      {value}: {importance:.0%}")
 
-    print(f"\n   User Constraints:")
+    print("\n   User Constraints:")
     for constraint in user_prefs.constraints:
         print(f"      - {constraint}")
 
-    print(f"\n   Note: User weighs perspectives based on personal values")
-    print(f"   Note: User can override any system suggestion")
+    print("\n   Note: User weighs perspectives based on personal values")
+    print("   Note: User can override any system suggestion")
 
     # ====== LAYER 4: REASON (Emergent Synthesis) ======
     print("\n" + "=" * 70)

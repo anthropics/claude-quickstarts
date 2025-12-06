@@ -75,7 +75,7 @@ class BashTool(Tool):
     async def execute(self, command: str, working_directory: Optional[str] = None) -> str:
         # Basic permission checks
         if not self._is_command_allowed(command):
-            return f"Error: Command not permitted by current permissions"
+            return "Error: Command not permitted by current permissions"
         
         if working_directory and not self._is_directory_allowed(working_directory):
             return f"Error: Working directory '{working_directory}' not permitted"

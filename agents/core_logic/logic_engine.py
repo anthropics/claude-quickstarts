@@ -9,11 +9,10 @@ Provides formal validation of propositional logic arguments using:
 This is the FOUNDATION layer - always runs before AI enhancement.
 """
 
-from typing import List, Dict, Set, Tuple, Optional, Any
+from typing import List, Dict, Set, Optional, Any
 from dataclasses import dataclass
 from enum import Enum
 import json
-import re
 from pathlib import Path
 
 
@@ -479,7 +478,6 @@ class LogicEngine:
         This is NOT deterministic - lower confidence.
         """
         # Simple heuristics
-        confidence = 0.5
 
         # Heuristic 1: Check if conclusion mentions terms not in premises
         premise_terms = set()

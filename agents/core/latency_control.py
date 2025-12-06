@@ -10,7 +10,7 @@ Provides latency management and timeout control:
 
 from typing import Dict, Any, Optional, Callable, List, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 import time
 import threading
@@ -443,7 +443,7 @@ class LatencyController:
             
             return result, measurement
             
-        except TimeoutError as e:
+        except TimeoutError:
             duration_ms = (time.perf_counter() - start) * 1000
             
             measurement = LatencyMeasurement(

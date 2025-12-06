@@ -9,11 +9,9 @@ Provides advanced retrieval capabilities:
 - Context compression
 """
 
-from typing import List, Dict, Any, Optional, Callable, Tuple
+from typing import List, Dict, Any, Optional, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
-from abc import ABC, abstractmethod
 import re
 import math
 

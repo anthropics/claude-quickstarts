@@ -9,9 +9,8 @@ Provides fuzzy logic and probabilistic reasoning:
 - Probabilistic inference chains
 """
 
-from typing import List, Dict, Any, Optional, Tuple, Callable, Union
+from typing import List, Dict, Any, Optional, Tuple, Callable
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 from abc import ABC, abstractmethod
 import math

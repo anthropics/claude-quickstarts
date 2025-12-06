@@ -10,7 +10,7 @@ Validates categorical syllogisms using:
 Part of the deterministic foundation layer.
 """
 
-from typing import List, Dict, Optional, Tuple
+from typing import List, Optional
 from dataclasses import dataclass
 from enum import Enum
 

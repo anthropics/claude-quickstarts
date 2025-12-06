@@ -278,7 +278,7 @@ class TestClarificationSystem:
         clear = "What does photosynthesis mean?"
 
         is_ambiguous_1 = detector.detect(ambiguous)
-        is_ambiguous_2 = detector.detect(clear)
+        detector.detect(clear)
 
         # First should be more ambiguous
         assert isinstance(is_ambiguous_1, bool)
@@ -350,7 +350,7 @@ class TestCrossSystemIntegration:
         observability = ObservabilitySystem()
 
         with observability.trace("curriculum_progression"):
-            level = curriculum.get_current_level(user_id="test_user")
+            curriculum.get_current_level(user_id="test_user")
 
         assert True  # Successfully tracked
 
@@ -412,7 +412,7 @@ class TestEdgeCases:
         parser = SemanticParser()
 
         text = "What is @#$%^&*()?"
-        frame = parser.parse(text)
+        parser.parse(text)
 
         # Should handle without crashing
         assert True
@@ -423,7 +423,7 @@ class TestEdgeCases:
         parser = SemanticParser()
 
         text = "日本語で説明してください"
-        frame = parser.parse(text)
+        parser.parse(text)
 
         # Should handle unicode
         assert True

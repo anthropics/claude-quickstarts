@@ -513,7 +513,7 @@ class HallucinationGuard:
         return annotated
 
 
-class EvidenceValidator:
+class FullEvidenceValidator:
     """
     Validates evidence against citation requirements.
     """
@@ -631,7 +631,7 @@ class EvidenceValidator:
         )
 
 
-class ConflictResolver:
+class FullConflictResolver:
     """
     Resolves conflicts between contradictory evidence.
     

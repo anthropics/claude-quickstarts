@@ -11,12 +11,10 @@ These tests validate architectural invariants and separation of concerns.
 """
 
 import pytest
-from typing import List, Dict, Any
 
 pytest.skip("Architectural metaphysics suite skipped pending full implementation", allow_module_level=True)
 
-from agents.core.logic_engine import LogicEngine, ArgumentForm, LogicResult  # noqa: E402
-from agents.core.inference_engine import InferenceEngine, InferenceResult  # noqa: E402
+from agents.core.logic_engine import LogicEngine, ArgumentForm  # noqa: E402
 from agents.core.debate_system import DebateSystem, ArgumentNode  # noqa: E402
 from agents.core.critic_system import CriticSystem, CritiqueResult  # noqa: E402
 from agents.core.decision_model import DecisionModel, Decision  # noqa: E402
@@ -63,8 +61,6 @@ class TestLogicLayerSkeleton:
         }
 
         # Simulate different user contexts
-        user_a_context = {"user_id": "alice", "preferences": {"strict": True}}
-        user_b_context = {"user_id": "bob", "preferences": {"strict": False}}
 
         # Logic should be universal - same result regardless of user
         result_a = logic_engine.validate_argument(
@@ -410,7 +406,7 @@ class TestArchitecturalInvariants:
         """AI modules MAY import Logic modules (allowed dependency)."""
         import agents.core.critic_system as critic_module
         import inspect
-        source = inspect.getsource(critic_module)
+        inspect.getsource(critic_module)
 
         # AI can use logic for validation
         # This is allowed and expected
@@ -420,7 +416,7 @@ class TestArchitecturalInvariants:
         """Synthesis modules may import Logic + AI + User."""
         import agents.core.decision_model as decision_module
         import inspect
-        source = inspect.getsource(decision_module)
+        inspect.getsource(decision_module)
 
         # Decision model (synthesis) can import from all layers
         # This is allowed and expected
@@ -607,7 +603,6 @@ class TestEmergentReason:
 
         # Layer 3: User would select weights/preferences
         # (Simulated here)
-        user_accepts = True  # Heart says: I accept this reasoning
 
         # Synthesis: All layers contribute
         # Reason emerges from their interaction

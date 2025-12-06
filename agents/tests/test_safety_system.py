@@ -18,7 +18,6 @@ from agents.core.safety_system import (
     RecoveryAction,
     PolicyType,
     StructuredError,
-    PolicyViolation,
     SanitizationResult,
 )
 

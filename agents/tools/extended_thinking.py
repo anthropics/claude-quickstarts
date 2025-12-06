@@ -435,10 +435,10 @@ class ExtendedThinkingTool:
     def _layer_perspective(self, layer_id: int, query: str, context: Optional[str]) -> str:
         """Generate perspective from specific layer."""
         perspectives = {
-            1: f"Perceives patterns in the question structure and context",
-            2: f"Applies logical inference and deductive reasoning",
-            3: f"Critically evaluates evidence strength and argument validity",
-            4: f"Coordinates insights and optimizes reasoning strategies"
+            1: "Perceives patterns in the question structure and context",
+            2: "Applies logical inference and deductive reasoning",
+            3: "Critically evaluates evidence strength and argument validity",
+            4: "Coordinates insights and optimizes reasoning strategies"
         }
         return perspectives.get(layer_id, f"Layer {layer_id} analysis")
     
@@ -686,12 +686,12 @@ class ExtendedThinkingTool:
         """
         # Separate logic layers from other layers
         logic_confidences = [
-            l["confidence"] for l in layer_analyses
-            if l["layer"] in self.logic_layer_indices
+            layer_data["confidence"] for layer_data in layer_analyses
+            if layer_data["layer"] in self.logic_layer_indices
         ]
         other_confidences = [
-            l["confidence"] for l in layer_analyses
-            if l["layer"] not in self.logic_layer_indices
+            layer_data["confidence"] for layer_data in layer_analyses
+            if layer_data["layer"] not in self.logic_layer_indices
         ]
 
         # Depth bonus: More layers = more thorough analysis = higher confidence
@@ -707,7 +707,7 @@ class ExtendedThinkingTool:
             avg_confidence = (logic_avg * self.logic_weight) + (other_avg * (1 - self.logic_weight))
         else:
             # Fallback if no logic layers
-            avg_confidence = sum(l["confidence"] for l in layer_analyses) / len(layer_analyses)
+            avg_confidence = sum(layer_data["confidence"] for layer_data in layer_analyses) / len(layer_analyses)
 
         # Add depth bonus to base confidence
         avg_confidence = min(0.95, avg_confidence + depth_bonus)

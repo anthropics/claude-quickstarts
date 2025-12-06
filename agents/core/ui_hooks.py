@@ -8,7 +8,7 @@ Provides event callbacks for UI integration:
 - User interaction callbacks
 """
 
-from typing import Dict, Any, Optional, Callable, List, Union
+from typing import Dict, Any, Optional, Callable, List
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum

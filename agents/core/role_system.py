@@ -620,7 +620,7 @@ class RoleBasedReasoner:
         full_context = {**(context or {}), "role": role_context}
         
         # Get system prompt
-        system_prompt = self.adapter.get_system_prompt()
+        self.adapter.get_system_prompt()
         
         # Perform reasoning
         result = self.reasoning_fn(query, full_context)

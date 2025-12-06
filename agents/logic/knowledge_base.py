@@ -6,7 +6,6 @@ Implements a hybrid knowledge representation that bridges:
 - Frontend: Formal logic system (symbolic reasoning)
 """
 
-import json
 import hashlib
 from typing import Dict, List, Any, Optional, Set
 from dataclasses import dataclass, field
@@ -388,7 +387,7 @@ class KnowledgeBase:
                             if antecedent in f2.statement.lower():
                                 reasoning_chain.append(f"Premise 1: {f2.statement}")
                                 reasoning_chain.append(f"Premise 2: {fact.statement}")
-                                reasoning_chain.append(f"Applied: Modus Ponens")
+                                reasoning_chain.append("Applied: Modus Ponens")
                                 reasoning_chain.append(f"Conclusion: {claim}")
 
                                 return ValidationResult(
@@ -409,10 +408,10 @@ class KnowledgeBase:
                     property = parts[1].strip()
 
                     # Check if claim is about a specific instance
-                    claim_words = claim_lower.split()
+                    claim_lower.split()
                     if category in claim_lower and property in claim_lower:
                         reasoning_chain.append(f"Universal rule: {fact.statement}")
-                        reasoning_chain.append(f"Applied: Universal Instantiation")
+                        reasoning_chain.append("Applied: Universal Instantiation")
                         reasoning_chain.append(f"Conclusion: {claim}")
 
                         return ValidationResult(

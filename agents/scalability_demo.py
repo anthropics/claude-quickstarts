@@ -89,7 +89,7 @@ def demo_scalability_comparison():
     print("-"*70)
     
     for r in results:
-        time_ratio = r['time_ms'] / results[0]['time_ms']
+        r['time_ms'] / results[0]['time_ms']
         cost_benefit = "⭐⭐⭐⭐⭐" if r['layers'] == 8 else "⭐⭐⭐" if r['layers'] == 4 else "⭐⭐"
         print(
             f"{r['layers']}x{' ':<5} "
@@ -187,7 +187,7 @@ def demo_contradiction_detection():
     tool = ExtendedThinkingTool(layers=8, logic_weight=0.85, verbose=False)
     result = tool.execute(query=query, options=options, depth=4)
     
-    print(f"\n🎯 Result:")
+    print("\n🎯 Result:")
     print(f"  Confidence: {result['confidence']:.1%}")
     print(f"  Recommendation: {result.get('recommendation', 'N/A')}")
     print(f"  Logic Agreement: {result.get('meta_analysis', {}).get('logic_agreement', 0):.1%}")

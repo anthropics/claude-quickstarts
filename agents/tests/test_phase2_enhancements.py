@@ -4,9 +4,6 @@ Tests for Phase 2 Enhancement Modules
 Tests that match the actual implementation APIs.
 """
 
-import pytest
-from typing import Dict, Any
-from datetime import datetime
 
 
 # ===========================================================
@@ -278,7 +275,7 @@ class TestUIHooks:
     
     def test_ui_hooks_integration(self):
         """Test UIHooks class integration."""
-        from agents.core.ui_hooks import UIHooks, EventType
+        from agents.core.ui_hooks import UIHooks
         
         hooks = UIHooks()
         events = []

@@ -26,7 +26,7 @@ def test_vector_retrieval_prefers_closer_embedding():
         memory_type=MemoryType.FACT,
         embedding=[1.0, 0.0, 0.0],
     )
-    id_b = memory.store(
+    memory.store(
         content="Vector B",
         memory_type=MemoryType.FACT,
         embedding=[0.0, 1.0, 0.0],

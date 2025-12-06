@@ -21,8 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from logic import (
     ReasoningAgent,
-    LogicType,
-    InferenceRule
+    LogicType
 )
 
 
@@ -104,9 +103,9 @@ def demo_complex_reasoning():
 
     print(f"\n❓ Complex Query: {query}")
 
-    result = agent.reason(query)
+    agent.reason(query)
 
-    print(f"\n📊 Knowledge Base Statistics:")
+    print("\n📊 Knowledge Base Statistics:")
     stats = agent.get_knowledge_stats()
     for key, value in stats.items():
         print(f"  • {key}: {value}")
@@ -164,8 +163,8 @@ def demo_inference_rules():
     agent.add_knowledge("If it rains, the ground is wet")
     agent.add_knowledge("It is raining")
     result = agent.reason("Is the ground wet?")
-    print(f"  P: It is raining")
-    print(f"  P→Q: If it rains, the ground is wet")
+    print("  P: It is raining")
+    print("  P→Q: If it rains, the ground is wet")
     print(f"  ∴ Q: {result['conclusion']}")
     print(f"  Confidence: {result['confidence']:.1%}")
 
@@ -174,8 +173,8 @@ def demo_inference_rules():
     agent.add_knowledge("All humans are mortal")
     agent.add_knowledge("Socrates is human")
     result = agent.reason("Is Socrates mortal?")
-    print(f"  ∀x(Human(x) → Mortal(x))")
-    print(f"  Human(Socrates)")
+    print("  ∀x(Human(x) → Mortal(x))")
+    print("  Human(Socrates)")
     print(f"  ∴ {result['formal_conclusion']}")
     print(f"  Natural language: {result['conclusion']}")
     print(f"  Confidence: {result['confidence']:.1%}")
@@ -215,7 +214,7 @@ def demo_knowledge_validation():
         print(f"  Sources: {', '.join(validation.sources) if validation.sources else 'None'}")
 
         if validation.reasoning_chain:
-            print(f"  Reasoning:")
+            print("  Reasoning:")
             for step in validation.reasoning_chain:
                 print(f"    • {step}")
 

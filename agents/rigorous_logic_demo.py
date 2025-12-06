@@ -20,17 +20,11 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from logic.grounding import (
     SemanticParser,
-    SemanticContext,
-    create_ml_context,
-    QuantifierType,
-    ModalityType
+    create_ml_context
 )
 from logic.epistemic import (
-    EpistemicStatus,
     ConfidenceCalculator,
-    ValidityChecker,
-    ValidityStatus,
-    SoundnessStatus
+    ValidityChecker
 )
 
 
@@ -49,7 +43,7 @@ def demo_symbol_grounding():
 
     print("\n📚 Semantic Context: Machine Learning Domain")
     print(f"  Predicates defined: {list(ml_context.predicates.keys())}")
-    print(f"\n  'biased' in ML context:")
+    print("\n  'biased' in ML context:")
     print(f"    → {ml_context.predicates['biased']}")
 
     # Parse statement with context
@@ -61,18 +55,18 @@ def demo_symbol_grounding():
 
     result = parser.parse(statement)
 
-    print(f"\n✅ Parse Result:")
+    print("\n✅ Parse Result:")
     print(f"  Success: {result.success}")
     print(f"  Logical Form: {result.logical_form}")
     print(f"  Confidence: {result.confidence:.1%}")
 
     if result.assumptions:
-        print(f"\n⚠️  Assumptions Made:")
+        print("\n⚠️  Assumptions Made:")
         for assumption in result.assumptions:
             print(f"    • {assumption}")
 
     if result.unparseable_fragments:
-        print(f"\n❌ Unparseable Fragments:")
+        print("\n❌ Unparseable Fragments:")
         for fragment in result.unparseable_fragments:
             print(f"    • {fragment}")
 
@@ -108,12 +102,12 @@ def demo_quantification_types():
             print(f"  Logical Form: {result.logical_form}")
             print(f"  Confidence: {result.confidence:.1%}")
         else:
-            print(f"  ❌ Cannot formalize in first-order logic:")
+            print("  ❌ Cannot formalize in first-order logic:")
             for fragment in result.unparseable_fragments:
                 print(f"     • {fragment}")
 
         if result.assumptions:
-            print(f"  ⚠️  Assumptions:")
+            print("  ⚠️  Assumptions:")
             for assumption in result.assumptions:
                 print(f"     • {assumption}")
 
@@ -149,8 +143,8 @@ def demo_epistemic_vs_validity():
     print(f"  Soundness: {status1.soundness.value}")
     print(f"  Overall Confidence: {status1.overall_confidence:.1%}")
     print(f"  Justification: {status1.validity_justification}")
-    print(f"\n  💡 This argument is VALID (correct structure)")
-    print(f"     but UNSOUND (premise 2 is false)")
+    print("\n  💡 This argument is VALID (correct structure)")
+    print("     but UNSOUND (premise 2 is false)")
 
     # Case 2: Invalid but believable
     print("\n🔹 Case 2: Invalid but Believable")
@@ -159,9 +153,9 @@ def demo_epistemic_vs_validity():
     print("  Conclusion: Google is successful")
 
     # This looks like modus ponens but isn't (missing universal quantifier)
-    print(f"\n  ❌ FALLACY: Affirming the Consequent")
-    print(f"     Missing: 'ALL tech companies are successful'")
-    print(f"     Actual: 'Tech companies are successful' (generic/existential)")
+    print("\n  ❌ FALLACY: Affirming the Consequent")
+    print("     Missing: 'ALL tech companies are successful'")
+    print("     Actual: 'Tech companies are successful' (generic/existential)")
 
     # Detect the fallacy
     from logic.epistemic import ConfidenceCalculator
@@ -209,24 +203,24 @@ def demo_confidence_propagation():
         rule_types=["universal_instantiation"]
     )
 
-    print(f"\n🔬 Confidence Breakdown:")
+    print("\n🔬 Confidence Breakdown:")
     print(f"  Logical Confidence: {breakdown.logical_confidence:.1%}")
-    print(f"    (How confident are we the argument is valid?)")
+    print("    (How confident are we the argument is valid?)")
     print(f"  Source Confidence: {breakdown.source_confidence:.1%}")
-    print(f"    (How confident are we the premises are true?)")
+    print("    (How confident are we the premises are true?)")
     print(f"  Propagation Method: {breakdown.propagation_method}")
     print(f"  Chain Length: {breakdown.chain_length}")
 
     # Show different propagation methods
-    print(f"\n📉 Confidence Degradation with Chain Length:")
+    print("\n📉 Confidence Degradation with Chain Length:")
 
     for chain_length in [1, 3, 5, 10]:
         confidences = [0.9] * chain_length
         result = calc.conjunctive_chain(confidences)
         print(f"  {chain_length} steps at 0.9 each → {result:.1%}")
 
-    print(f"\n💡 Observation: Confidence degrades exponentially with chain length")
-    print(f"   This is why shorter proofs are preferred!")
+    print("\n💡 Observation: Confidence degrades exponentially with chain length")
+    print("   This is why shorter proofs are preferred!")
 
 
 def demo_modality_detection():
@@ -260,7 +254,7 @@ def demo_modality_detection():
         if result.success:
             print(f"  ✅ Parseable: {result.logical_form}")
         else:
-            print(f"  ❌ Unparseable in FOL")
+            print("  ❌ Unparseable in FOL")
             if result.unparseable_fragments:
                 print(f"     Reason: {result.unparseable_fragments[0]}")
 

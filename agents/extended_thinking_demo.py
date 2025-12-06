@@ -8,7 +8,6 @@ Shows chain-of-thought reasoning with multi-layer analysis.
 import asyncio
 from agent import Agent
 from tools.extended_thinking import ExtendedThinkingTool, WatsonGlaserThinkingTool
-from anthropic import Anthropic
 
 
 def demo_basic_extended_thinking():
@@ -103,7 +102,7 @@ async def demo_agent_with_extended_thinking():
     et_tool = ExtendedThinkingTool(layers=4, verbose=False)
     
     # Create agent with extended thinking tool
-    agent = Agent(
+    Agent(
         name="Critical Thinker",
         system="An agent that uses extended chain-of-thought reasoning",
         tools=[et_tool.get_schema()]
@@ -156,7 +155,7 @@ async def demo_agent_with_extended_thinking():
     for i, insight in enumerate(result['key_insights'], 1):
         print(f"  {i}. {insight}")
     
-    print(f"\n📊 Meta-Analysis:")
+    print("\n📊 Meta-Analysis:")
     meta = result['meta_analysis']
     print(f"  Total Steps: {meta['total_steps']}")
     print(f"  Analysis Depth: {meta['analysis_depth']}")
@@ -193,7 +192,7 @@ def demo_thinking_history():
     print("📊 HISTORY SUMMARY:")
     print(f"Total Queries: {summary['total_queries']}")
     print(f"Avg Confidence: {summary['avg_confidence']:.1%}")
-    print(f"\nRecent Queries:")
+    print("\nRecent Queries:")
     for q in summary['recent_queries']:
         print(f"  • {q}")
     

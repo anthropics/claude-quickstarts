@@ -11,7 +11,6 @@ import math
 pytest.skip("Uncertainty system suite skipped pending full implementation", allow_module_level=True)
 
 from agents.core.uncertainty_system import (  # noqa: E402
-    UncertaintySystem,
     ConfidenceCalibrator,
     AbstentionSystem,
     ConfidenceEstimate,

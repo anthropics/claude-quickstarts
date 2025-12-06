@@ -183,7 +183,7 @@ class LogicTool(Tool):
     def _infer_rule_from_thought(self, thought: Dict[str, Any]) -> InferenceRule:
         """Infer which logical rule corresponds to a thinking step."""
         name = thought.get("name", "").lower()
-        content = thought.get("content", "").lower()
+        thought.get("content", "").lower()
 
         if "analysis" in name:
             return InferenceRule.UNIVERSAL_INSTANTIATION

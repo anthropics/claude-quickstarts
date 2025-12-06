@@ -1,4 +1,3 @@
-import asyncio
 
 import pytest
 
@@ -6,7 +5,6 @@ from agents.core.planning_system import (
     Plan,
     PlanExecutor,
     PlanStep,
-    PlanStatus,
     Planner,
     StepType,
     Tool,
@@ -153,7 +151,7 @@ async def test_preconditions_block_until_effects_present():
 
 
 def test_priority_sorting_orders_ready_steps():
-    planner = Planner()
+    Planner()
     high = PlanStep(
         id="a",
         name="High",

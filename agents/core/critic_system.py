@@ -496,8 +496,8 @@ class DebateAgent:
         rebuttals = [
             f"While {opposing_position.claim}, we must consider...",
             f"The argument that {opposing_position.arguments[0] if opposing_position.arguments else 'this'} overlooks...",
-            f"This reasoning has merit but fails to account for...",
-            f"The evidence cited does not fully support the claim because...",
+            "This reasoning has merit but fails to account for...",
+            "The evidence cited does not fully support the claim because...",
         ]
         return random.choice(rebuttals)
     

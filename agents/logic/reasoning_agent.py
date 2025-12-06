@@ -251,7 +251,7 @@ class ArgumentFormatter:
 
         lines.append(f"\nINFERENCE RULES: {', '.join(r.value for r in argument.inference_steps)}")
 
-        lines.append(f"\nCONCLUSION:")
+        lines.append("\nCONCLUSION:")
         lines.append(f"  ∴ {argument.conclusion.formal_notation}")
         lines.append(f"     ({argument.conclusion.natural_language})")
 
@@ -526,7 +526,7 @@ class ReasoningAgent:
                 parts = fact.logical_form.split("→")
                 if len(parts) == 2:
                     antecedent = parts[0].strip()
-                    consequent = parts[1].strip()
+                    parts[1].strip()
                     if "not" in problem.lower() or "¬" in problem:
                         return f"not {antecedent}", True
 
@@ -609,7 +609,7 @@ class ReasoningAgent:
     def _print_result(self, result: Dict[str, Any]):
         """Print reasoning result."""
         print("=" * 70)
-        print(f"🧠 REASONING RESULT")
+        print("🧠 REASONING RESULT")
         print("=" * 70)
         print(f"\nConclusion: {result['conclusion']}")
         print(f"Formal: {result['formal_conclusion']}")
@@ -621,7 +621,7 @@ class ReasoningAgent:
                 print("Warnings:")
                 for w in guard["warnings"]:
                     print(f"  - {w}")
-        print(f"\nReasoning Chain:")
+        print("\nReasoning Chain:")
         for i, step in enumerate(result['reasoning_chain'], 1):
             print(f"  {i}. {step['premise']}")
             print(f"     → {step['rule']} → {step['conclusion']}")

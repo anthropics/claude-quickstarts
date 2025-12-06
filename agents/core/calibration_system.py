@@ -8,11 +8,10 @@ Provides confidence calibration and adjustment:
 - Expected calibration error
 """
 
-from typing import Dict, Any, Optional, List, Tuple, Callable
+from typing import Dict, Any, Optional, List, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-import statistics
 import math
 
 

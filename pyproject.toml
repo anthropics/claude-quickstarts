@@ -61,3 +61,13 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
+
+[tool.ruff]
+extend-exclude = ["computer-use-demo"]
+
+[tool.ruff.lint]
+select = ["E", "F"]
+ignore = ["E501"]  # Line too long
+
+[tool.ruff.lint.per-file-ignores]
+"*.ipynb" = ["E402", "F821"]  # Allow imports not at top of cell and undefined names in notebooks

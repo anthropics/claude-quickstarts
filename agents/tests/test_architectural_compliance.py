@@ -11,10 +11,8 @@ This test suite enforces architectural invariants and prevents layer violations.
 """
 
 import pytest
-import inspect
-import importlib
 from pathlib import Path
-from typing import List, Dict, Any, Set
+from typing import List, Dict, Set
 from dataclasses import dataclass
 from enum import Enum
 
@@ -427,7 +425,7 @@ class TestSynthesisLayerCompliance:
             user_id="test_user"
         )
 
-        decision = model.decide(context)
+        model.decide(context)
 
         # Decision should reference multiple evidence types
         evidence_types = {e.evidence_type for e in evidence}

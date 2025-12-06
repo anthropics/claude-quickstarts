@@ -10,7 +10,6 @@ import pytest
 pytest.skip("Debate system suite skipped pending full implementation", allow_module_level=True)
 
 from agents.core.debate_system import (  # noqa: E402
-    DebateSystem,
     ArgumentBuilder,
     ArgumentQualityScorer,
     AdversarialGenerator,
@@ -19,11 +18,9 @@ from agents.core.debate_system import (  # noqa: E402
     ArgumentStructure,
     ArgumentType,
     AttackType,
-    ConsensusMethod,
     DebateAgent,
     DebateVote,
     AdversarialAttack,
-    ConsensusResult,
 )
 
 
@@ -629,11 +626,11 @@ class TestIntegrationDebateFlow:
         # Create positions
         builder_a = ArgumentBuilder("pos_a", "Position A is correct")
         builder_a.add_claim("Evidence supports A")
-        position_a = builder_a.build()
+        builder_a.build()
 
         builder_b = ArgumentBuilder("pos_b", "Position B is correct")
         builder_b.add_claim("Evidence supports B")
-        position_b = builder_b.build()
+        builder_b.build()
 
         # Verify debate setup
         assert len(debate.agents) > 0

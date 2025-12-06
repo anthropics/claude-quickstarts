@@ -9,11 +9,10 @@ Provides intelligent clarification and disambiguation:
 - Context preservation during clarification
 """
 
-from typing import List, Dict, Any, Optional, Callable, Set, Tuple
+from typing import List, Dict, Any, Optional, Callable, Tuple
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from abc import ABC, abstractmethod
 import re
 
 
@@ -686,28 +685,3 @@ class ClarificationRequest:
     original_query: str
     ambiguity_type: str
     clarifying_questions: List[str]
-
-
-class AmbiguityDetector:
-    def detect(self, text: str) -> bool:
-        return "it" in text.lower() or "this" in text.lower()
-
-
-class QuestionGenerator:
-    def generate(self, query: str, ambiguities: List[str]) -> List[str]:
-        return [f"What do you mean by '{ambiguities[0]}'?"] if ambiguities else [f"Can you clarify '{query}'?"]
-
-
-class ClarificationSystem:
-    def __init__(self):
-        self.detector = AmbiguityDetector()
-        self.generator = QuestionGenerator()
-
-    def needs_clarification(self, query: str) -> bool:
-        return self.detector.detect(query)
-
-    def generate_questions(self, query: str) -> List[str]:
-        return self.generator.generate(query, ["unclear_referent"])
-
-    def resolve(self, original_query: str, user_clarification: str) -> str:
-        return f"{original_query} ({user_clarification})"

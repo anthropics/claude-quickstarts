@@ -40,17 +40,13 @@ from typing import Any, Dict, List, Literal, Optional, Tuple
 # Internal engine imports
 from agents.core.categorical_engine import (
     CategoricalEngine,
-    SyllogismResult,
 )
 from agents.core.inference_engine import (
     InferenceEngine,
-    InferenceResult,
-    InferencePattern,
 )
 from agents.core.fallacy_detector import (
     FallacyDetector,
     FallacyPattern,
-    FallacyCategory,
 )
 
 

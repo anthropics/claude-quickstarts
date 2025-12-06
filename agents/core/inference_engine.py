@@ -8,12 +8,10 @@ Expands on the rule engine with:
 - Proof-or-flag mechanism
 """
 
-from typing import List, Dict, Any, Optional, Set, Tuple, Callable
+from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
-from datetime import datetime
 from enum import Enum
 import re
-import math
 
 
 class InferencePattern(Enum):
@@ -571,7 +569,7 @@ class InferenceEngine:
             return None
         
         query_pred = query.get("name", "")
-        query_args = query.get("arguments", [])
+        query.get("arguments", [])
         
         for fact in self.facts.values():
             parsed = fact["parsed"]
@@ -580,7 +578,7 @@ class InferenceEngine:
                 fact_pred = parsed.get("predicate", "")
                 if fact_pred.lower() == query_pred.lower():
                     # Check subject constraint
-                    fact_subject = parsed.get("subject", "")
+                    parsed.get("subject", "")
                     # Would need to verify instance is of subject type
                     patterns_used.append(InferencePattern.UNIVERSAL_INSTANTIATION)
                     

@@ -8,8 +8,8 @@ Provides persistent storage backends for the memory system:
 - Version-controlled memory snapshots
 """
 
-from typing import List, Dict, Any, Optional, Callable
-from dataclasses import dataclass, field, asdict
+from typing import List, Dict, Any, Optional
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import Enum
 from abc import ABC, abstractmethod

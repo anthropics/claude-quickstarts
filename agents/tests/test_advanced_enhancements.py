@@ -14,8 +14,7 @@ Comprehensive tests for:
 """
 
 import pytest
-from datetime import datetime, timedelta
-from typing import List, Dict, Any
+from datetime import datetime
 
 
 # ============================================================================
@@ -607,7 +606,7 @@ class TestAdversarialTesting:
         
         tester = AdversarialTester()
         
-        results = tester.run_tests()
+        tester.run_tests()
         summary = tester.get_summary()
         
         assert summary["tests"] > 0
@@ -739,7 +738,7 @@ class TestAdvancedIntegration:
     
     def test_retrieval_with_source_trust(self):
         """Test retrieval diversity with source trust."""
-        from agents.core.retrieval_diversity import Document, BM25Retriever
+        from agents.core.retrieval_diversity import Document
         from agents.core.source_trust import Source, SourceCategory
         
         # Create retrieval doc
@@ -879,12 +878,12 @@ class TestTokenOptimization:
         retriever.index(docs)
         
         # First search - cache miss
-        results1 = retriever.search("python programming")
+        retriever.search("python programming")
         stats1 = retriever.cache_stats()
         assert stats1["cache_misses"] == 1
         
         # Second search - cache hit
-        results2 = retriever.search("python programming")
+        retriever.search("python programming")
         stats2 = retriever.cache_stats()
         assert stats2["cache_hits"] == 1
     
@@ -944,12 +943,12 @@ class TestTokenOptimization:
         )
         
         # First call - cache miss
-        result1 = verifier.verify(claim1)
+        verifier.verify(claim1)
         stats1 = verifier.cache_stats()
         assert stats1["cache_misses"] == 1
         
         # Second call with same text - cache hit
-        result2 = verifier.verify(claim2)
+        verifier.verify(claim2)
         stats2 = verifier.cache_stats()
         assert stats2["cache_hits"] == 1
 

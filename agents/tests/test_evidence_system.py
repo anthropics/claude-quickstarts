@@ -96,7 +96,7 @@ class TestEvidenceValidator:
             source="Unknown"
         )
 
-        result = validator.validate(suspicious)
+        validator.validate(suspicious)
         # Should flag suspicious claims
 
 

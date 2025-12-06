@@ -274,7 +274,7 @@ class TestUnifier:
         pred2 = Predicate("Eq", ["f(X)", "Y"])
 
         # Should detect X occurs in f(X)
-        bindings = unifier.unify(pred1, pred2)
+        unifier.unify(pred1, pred2)
 
         # May return None or handle occurs check
 

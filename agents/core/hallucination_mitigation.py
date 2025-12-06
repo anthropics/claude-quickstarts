@@ -8,7 +8,7 @@ Provides hallucination detection and prevention:
 - Confidence calibration for uncertain outputs
 """
 
-from typing import List, Dict, Any, Optional, Tuple, Set, Callable
+from typing import List, Dict, Any, Optional, Tuple, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
@@ -493,7 +493,7 @@ class ClaimVerifier:
             return f"Add citation or evidence for: '{claim.text[:50]}...'"
         
         if status == ClaimStatus.UNCERTAIN:
-            return f"Consider hedging: 'It appears that' or 'Evidence suggests that'"
+            return "Consider hedging: 'It appears that' or 'Evidence suggests that'"
         
         return ""
 

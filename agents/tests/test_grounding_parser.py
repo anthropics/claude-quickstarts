@@ -1,4 +1,3 @@
-import pytest
 
 from agents.logic.grounding import (
     ModalityType,

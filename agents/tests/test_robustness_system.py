@@ -7,18 +7,13 @@ rate limiting, and resource management.
 
 import pytest
 import time
-from unittest.mock import Mock, patch
 from agents.core.robustness_system import (
-    RobustnessSystem,
     InputValidator,
     OutputGuardrail,
     CircuitBreaker,
     RateLimiter,
     ResourceManager,
     ValidationResult,
-    ValidationReport,
-    GuardrailReport,
-    GuardrailType,
     CircuitState,
     CircuitBreakerStats,
 )
@@ -240,7 +235,7 @@ class TestOutputGuardrail:
         plain_text = "Just plain text with no markdown"
 
         result_valid = guardrail.check_format(valid_md, "markdown")
-        result_plain = guardrail.check_format(plain_text, "markdown")
+        guardrail.check_format(plain_text, "markdown")
 
         assert result_valid.passed is True
         # Plain text might fail markdown check
@@ -319,7 +314,7 @@ class TestCircuitBreaker:
         time.sleep(breaker.recovery_timeout + 0.1)
 
         # Next request should transition to half-open
-        allowed = breaker.allow_request()
+        breaker.allow_request()
 
         assert breaker.state == CircuitState.HALF_OPEN
 

@@ -8,7 +8,7 @@ Provides intelligent tool/action selection:
 - Context-aware tool recommendation
 """
 
-from typing import List, Dict, Any, Optional, Tuple, Callable, Set
+from typing import List, Dict, Any, Optional, Tuple, Set
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum

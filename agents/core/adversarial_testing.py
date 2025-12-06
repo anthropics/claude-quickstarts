@@ -12,7 +12,6 @@ from typing import List, Dict, Any, Optional, Tuple, Set, Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
-from abc import ABC, abstractmethod
 import re
 import hashlib
 
@@ -492,7 +491,7 @@ class AdversarialTester:
         
         # Detect threats
         detections = self.detector.detect(test.input_text)
-        category_detected = any(
+        any(
             d.category == test.category and d.detected
             for d in detections
         )
