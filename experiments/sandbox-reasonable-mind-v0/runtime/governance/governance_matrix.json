@@ -1,0 +1,55 @@
+{
+  "metadata": {
+    "version": "1.0.1",
+    "strictness_level": "B",
+    "description": "Semi-open subprocess + restricted writes"
+  },
+  "action_matrix": {
+    "file_operations": {
+      "read": {
+        "allow": ["*.py", "*.json", "*.yaml", "*.yml", "*.md", "*.txt"],
+        "deny": ["*.env", "*.pem", "*.key", "*.secret"],
+        "escalate": ["**/secrets/**", "**/credentials/**"]
+      },
+      "write": {
+        "allow": ["runtime/**", "tests/**", "*.md"],
+        "deny": ["../**", "/*", "~/**", "**/governance/**", "governance_matrix.json", "*constraint*", "*profile*"],
+        "escalate": ["*.py", "*.json", "pyproject.toml"]
+      },
+      "delete": {
+        "allow": [],
+        "deny": ["**/*"],
+        "escalate": ["runtime/governance/**"]
+      }
+    },
+    "subprocess": {
+      "shell_commands": {
+        "allow": ["ls", "cat", "head", "tail", "wc", "grep", "find", "pwd", "echo", "date", "python", "pytest"],
+        "deny": ["rm -rf", "sudo", "chmod 777", "curl | bash", "wget | sh", "shutdown", "reboot"],
+        "escalate": ["pip install", "git push", "docker run"]
+      },
+      "network": {
+        "allow": ["localhost", "127.0.0.1"],
+        "deny": ["*"],
+        "escalate": ["api.anthropic.com", "github.com"]
+      }
+    },
+    "code_execution": {
+      "eval": {
+        "allow": [],
+        "deny": ["exec(", "eval(", "__import__"],
+        "escalate": []
+      },
+      "imports": {
+        "allow": ["os.path", "pathlib", "json", "yaml", "dataclasses", "typing", "enum", "hashlib"],
+        "deny": ["ctypes", "cffi"],
+        "escalate": ["subprocess", "os.system", "shutil.rmtree"]
+      }
+    }
+  },
+  "escalation_policy": {
+    "require_human_approval": true,
+    "timeout_seconds": 300,
+    "default_on_timeout": "deny"
+  }
+}

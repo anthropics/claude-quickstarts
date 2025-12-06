@@ -1,0 +1,5 @@
+pytest==9.0.1
+pytest-cov==7.0.0
+pytest-asyncio==1.3.0
+coverage==7.12.0
+ruff==0.6.7

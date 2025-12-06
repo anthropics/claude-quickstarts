@@ -1,0 +1,64 @@
+{
+  "metadata": {
+    "profile_id": "coding_agent",
+    "version": "1.0.0",
+    "extends": "base_profile",
+    "description": "Profile for autonomous coding agent with semi-open subprocess access"
+  },
+  "persona": {
+    "name": "CodingAgent",
+    "capabilities": ["code_generation", "test_execution", "file_editing"],
+    "locked": true
+  },
+  "permissions": {
+    "file_operations": {
+      "allow": {
+        "read": ["**/*.py", "**/*.json", "**/*.yaml", "**/*.md"],
+        "write": ["runtime/**", "tests/**"],
+        "create": ["runtime/**", "tests/**"]
+      },
+      "deny": {
+        "write": ["governance_matrix.json", "base_profile.json"],
+        "delete": ["**/*"]
+      },
+      "escalate": {
+        "write": ["*.py"],
+        "delete": ["tests/**"]
+      }
+    },
+    "subprocess": {
+      "allow": {
+        "commands": ["python", "pytest", "ls", "cat", "grep", "find", "head", "tail"],
+        "max_runtime_seconds": 60
+      },
+      "deny": {
+        "commands": ["rm -rf", "sudo", "chmod", "chown"],
+        "patterns": [".*\\|.*sh$", ".*curl.*\\|.*"]
+      },
+      "escalate": {
+        "commands": ["pip", "git"],
+        "requires_reason": true
+      }
+    },
+    "code_execution": {
+      "allow": {
+        "test_frameworks": ["pytest", "unittest"],
+        "linters": ["pylint", "flake8", "ruff"]
+      },
+      "deny": {
+        "dynamic_execution": ["exec", "eval", "compile"]
+      }
+    }
+  },
+  "constraints": {
+    "max_file_size_bytes": 1048576,
+    "max_files_per_operation": 10,
+    "require_diff_preview": true,
+    "require_test_pass": true
+  },
+  "audit": {
+    "log_all_actions": true,
+    "include_hash": true,
+    "retention_days": 30
+  }
+}

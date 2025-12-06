@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Agent Architecture Views</title>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({ startOnLoad: true, theme: "default" });
+  </script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; line-height: 1.4; }
+    h2 { margin-top: 32px; }
+    .diagram { margin: 24px 0; border: 1px solid #ddd; padding: 16px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <h1>Agent Architecture Views</h1>
+  <p>Rendered diagrams from <code>agents/ARCHITECTURE_VIEWS.md</code>. Keep this file in sync with the Markdown when diagrams change.</p>
+
+  <div class="diagram">
+    <h2>End-to-End Reasoning Flow</h2>
+<pre class="mermaid">
+flowchart LR
+    Q(Query) --> P(Parse/Ground)
+    P --> KB[(Knowledge Base)]
+    KB -->|facts| R(Reasoning Chain)
+    R --> FA(Formal Argument)
+    FA --> VAL(Validation + Contradiction Check)
+    VAL --> HG(Hallucination Guard)
+    R --> DEC(Decision Model)
+    DEC --> PLAN(Planner/Executor)
+    PLAN --> TOOLS{{Tools}}
+    TOOLS --> PLAN
+    PLAN --> STATE[(Plan State)]
+    STATE --> DEC
+    HG --> OUT(Answer + Warnings)
+    DEC --> OUT
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>Decision Model Scoring Pipeline</h2>
+<pre class="mermaid">
+flowchart TD
+    A(Options) --> B(Hard Constraints Check)
+    B -->|blocked| W[Warnings/No options]
+    B -->|pass| C(Score: value - cost - risk)
+    C --> D(Apply soft penalties)
+    D --> E(Citation/Contradiction penalties)
+    E --> F(Risk gate warnings)
+    F --> G(Sort & Select)
+    G --> H(Output: ranked options + warnings)
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>Planner with Preconditions/Effects and State</h2>
+<pre class="mermaid">
+flowchart LR
+    PLAN[Plan Steps] -->|priority| READY{Ready Steps}
+    READY -->|preconditions met| EXEC[Execute Step]
+    EXEC --> TOOL{{Tool / Reasoning / Decision}}
+    TOOL --> RESULT[Result]
+    RESULT --> STATE[(State Effects)]
+    STATE --> READY
+    EXEC --> WARN[Warnings/Errors]
+    WARN --> REPLAN[Retry/Recovery/Replan]
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>Validation, Critic, and Hallucination Guard</h2>
+<pre class="mermaid">
+flowchart LR
+    CHAIN(Reasoning Chain) --> ARG(Formal Argument)
+    ARG --> VAL(Validate + Contradiction Detect)
+    VAL --> CRIT(Critic/Debate - planned)
+    CRIT --> HG(Hallucination Guard)
+    HG --> OUT(Conclusion + Adjusted Confidence + Warnings)
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>WG Alignment (Future Intent)</h2>
+<pre class="mermaid">
+flowchart TD
+    SHARED[Shared Agent Logic & Config (future package)]
+    SHARED --> QS[Quickstarts Agents]
+    SHARED --> WGBE[WG Local Backend (planned)]
+    WGBE --> WGFE[WG Front-End]
+    WGFE --> USERS(Users/Tests)
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>Sequence: Reasoning with Validation and Guard</h2>
+<pre class="mermaid">
+sequenceDiagram
+    participant User
+    participant Parser
+    participant KB
+    participant Reasoner
+    participant Validator
+    participant Guard
+    User->>Parser: query
+    Parser-->>Reasoner: parse/grounded query
+    Reasoner->>KB: fetch relevant facts
+    KB-->>Reasoner: facts
+    Reasoner->>Validator: formal argument
+    Validator-->>Guard: validation + contradictions
+    Guard-->>User: conclusion + adjusted confidence + warnings
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>Sequence: Planner Execution with Failure/Recovery</h2>
+<pre class="mermaid">
+sequenceDiagram
+    participant Planner
+    participant Executor
+    participant Tool
+    participant State
+    Planner->>Executor: prioritized ready steps
+    Executor->>Tool: execute step
+    Tool-->>Executor: success or error
+    Executor-->>State: apply effects (on success)
+    Executor-->>Planner: warn/replan (on failure)
+    Planner-->>Executor: recovery/retry steps
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>Sequence: Decision Scoring with Constraints/Risk</h2>
+<pre class="mermaid">
+sequenceDiagram
+    participant DecisionModel
+    participant Constraints
+    participant Critic
+    DecisionModel->>Constraints: check hard/soft rules
+    DecisionModel-->>DecisionModel: apply value/cost/risk math
+    DecisionModel-->>DecisionModel: apply citation/contradiction penalties
+    DecisionModel-->>Critic: (high-risk) request extra scrutiny
+    DecisionModel-->>DecisionModel: rank options + warnings
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>State: Plan Step</h2>
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> PENDING
+    PENDING --> IN_PROGRESS
+    IN_PROGRESS --> COMPLETED
+    IN_PROGRESS --> FAILED
+    FAILED --> PENDING : retry
+    FAILED --> BLOCKED : no recovery
+    PENDING --> SKIPPED
+</pre>
+  </div>
+
+  <div class="diagram">
+    <h2>State: Validation/Guard</h2>
+<pre class="mermaid">
+stateDiagram-v2
+    [*] --> RAW
+    RAW --> VALIDATED : KB check
+    VALIDATED --> CONTRADICTED : conflicts found
+    VALIDATED --> GUARDED : guard adjusts confidence
+    GUARDED --> OUTPUT
+    CONTRADICTED --> GUARDED
+</pre>
+  </div>
+</body>
+</html>

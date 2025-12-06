@@ -1,0 +1,42 @@
+# Docker Compose for local development
+# Usage: docker-compose up -d && docker-compose exec app bash
+
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      # Mount source code for live editing
+      - .:/app
+      # Persist pip cache
+      - pip-cache:/root/.cache/pip
+    working_dir: /app
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8000:8000"  # Python dev server
+      - "8080:8080"  # Watson Glaser Trainer
+    # Keep container running for interactive use
+    command: tail -f /dev/null
+    stdin_open: true
+    tty: true
+
+  # Optional: Run tests in isolated container
+  tests:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/app:ro  # Read-only mount for tests
+    working_dir: /app
+    command: pytest agents/tests/ autonomous-coding/test_security.py -v
+    profiles:
+      - test  # Only runs with: docker-compose --profile test up
+
+volumes:
+  pip-cache:
