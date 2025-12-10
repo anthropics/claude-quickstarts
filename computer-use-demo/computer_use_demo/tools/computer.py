@@ -131,6 +131,7 @@ class BaseComputerTool:
         action: Action_20241022,
         text: str | None = None,
         coordinate: tuple[int, int] | None = None,
+        start_coordinate: tuple[int, int] | None = None,
         **kwargs,
     ):
         if action in ("mouse_move", "left_click_drag"):
@@ -139,16 +140,19 @@ class BaseComputerTool:
             if text is not None:
                 raise ToolError(f"text is not accepted for {action}")
 
-            x, y = self.validate_and_get_coordinates(coordinate)
-
-            if action == "mouse_move":
-                command_parts = [self.xdotool, f"mousemove --sync {x} {y}"]
-                return await self.shell(" ".join(command_parts))
-            elif action == "left_click_drag":
+            if action == "left_click_drag":
+                if start_coordinate is None:
+                    raise ToolError(f"start_coordinate is required for {action}")
+                start_x, start_y = self.validate_and_get_coordinates(start_coordinate)
+                end_x, end_y = self.validate_and_get_coordinates(coordinate)
                 command_parts = [
                     self.xdotool,
-                    f"mousedown 1 mousemove --sync {x} {y} mouseup 1",
+                    f"mousemove --sync {start_x} {start_y} mousedown 1 mousemove --sync {end_x} {end_y} mouseup 1",
                 ]
+                return await self.shell(" ".join(command_parts))
+            elif action == "mouse_move":
+                x, y = self.validate_and_get_coordinates(coordinate)
+                command_parts = [self.xdotool, f"mousemove --sync {x} {y}"]
                 return await self.shell(" ".join(command_parts))
 
         if action in ("key", "type"):
@@ -309,6 +313,7 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
         action: Action_20250124,
         text: str | None = None,
         coordinate: tuple[int, int] | None = None,
+        start_coordinate: tuple[int, int] | None = None,
         scroll_direction: ScrollDirection | None = None,
         scroll_amount: int | None = None,
         duration: int | float | None = None,
@@ -400,7 +405,12 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
             return await self.shell(" ".join(command_parts))
 
         return await super().__call__(
-            action=action, text=text, coordinate=coordinate, key=key, **kwargs
+            action=action,
+            text=text,
+            coordinate=coordinate,
+            start_coordinate=start_coordinate,
+            key=key,
+            **kwargs,
         )
 
 
