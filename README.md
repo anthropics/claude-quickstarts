@@ -26,6 +26,12 @@ An environment and tools that Claude can use to control a desktop computer. This
 
 [Go to Computer Use Demo Quickstart](./computer-use-demo)
 
+### Browser Tools API Demo
+
+A complete reference implementation for browser automation powered by Claude. This project demonstrates how to leverage Claude's browser tools API for web interaction, including navigation, DOM inspection, and form manipulation using Playwright.
+
+[Go to Browser Tools API Demo Quickstart](./browser-tools-api-demo)
+
 ### Autonomous Coding Agent
 
 An autonomous coding agent powered by the Claude Agent SDK. This project demonstrates a two-agent pattern (initializer + coding agent) that can build complete applications over multiple sessions, with progress persisted via git and a feature list that the agent works through incrementally.

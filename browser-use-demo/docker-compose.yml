@@ -1,0 +1,27 @@
+services:
+  browser-use:
+    build:
+      context: .
+    image: browser-use-demo:latest
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./validate_env.py:/home/browseruse/validate_env.py
+      - ${HOME}/.anthropic:/home/browseruse/.anthropic
+    ports:
+      - "${VNC_PORT:-5900}:5900"  # VNC
+      - "${STREAMLIT_PORT:-8501}:8501"  # Streamlit
+      - "${NOVNC_PORT:-6080}:6080"  # noVNC
+      - "${HTTP_PORT:-8080}:8080"  # HTTP server
+    stdin_open: true
+    tty: true
+    env_file:
+      - .env
+    develop:
+      watch:
+        - path: ./browser_use_demo
+          action: sync+restart
+          target: /home/browseruse/browser_use_demo
+        - path: ./validate_env.py
+          action: rebuild
+          target: /home/browseruse/validate_env.py
