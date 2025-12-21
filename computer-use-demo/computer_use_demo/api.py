@@ -19,6 +19,7 @@ import httpx
 from anthropic import RateLimitError
 from anthropic.types.beta import (
     BetaContentBlockParam,
+    BetaMessageParam,
     BetaTextBlockParam,
     BetaToolResultBlockParam,
 )
@@ -32,6 +33,28 @@ from computer_use_demo.loop import (
     sampling_loop,
 )
 from computer_use_demo.tools import ToolResult, ToolVersion
+from computer_use_demo.database import (
+    SessionModel,
+    MessageModel,
+    ToolResultModel,
+    APIResponseModel,
+    init_db,
+    get_db,
+    async_session_maker,
+)
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
+from computer_use_demo.database import (
+    SessionModel,
+    MessageModel,
+    ToolResultModel,
+    APIResponseModel,
+    init_db,
+    get_db,
+    async_session_maker,
+)
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, delete
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
     APIProvider.ANTHROPIC: "claude-sonnet-4-5-20250929",
@@ -141,12 +164,12 @@ class SessionState:
         object.__setattr__(self, 'thinking_budget', int(model_conf.default_output_tokens / 2))
 
 
-# Global session storage (in production, use a proper database)
-sessions: dict[str, SessionState] = {}
-
 # Streaming connections: session_id -> list of connections
 websocket_connections: dict[str, list[WebSocket]] = {}
 sse_connections: dict[str, list[asyncio.Queue]] = {}
+
+# In-memory cache for active sessions (for performance)
+_session_cache: dict[str, SessionState] = {}
 
 
 # Pydantic models for API
@@ -251,6 +274,147 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize database on startup."""
+    await init_db()
+    print("Database initialized")
+
+
+async def get_session_from_db(session_id: str, db: AsyncSession) -> SessionState | None:
+    """Load session from database and convert to SessionState."""
+    result = await db.execute(select(SessionModel).where(SessionModel.session_id == session_id))
+    db_session = result.scalar_one_or_none()
+    
+    if not db_session:
+        return None
+    
+    # Load messages
+    messages_result = await db.execute(
+        select(MessageModel)
+        .where(MessageModel.session_id == session_id)
+        .order_by(MessageModel.message_index)
+    )
+    db_messages = messages_result.scalars().all()
+    messages = [msg.content for msg in db_messages]
+    
+    # Load tool results
+    tools_result = await db.execute(
+        select(ToolResultModel).where(ToolResultModel.session_id == session_id)
+    )
+    db_tools = tools_result.scalars().all()
+    tools = {}
+    for db_tool in db_tools:
+        tool_result = ToolResult(
+            output=db_tool.output,
+            error=db_tool.error,
+            base64_image=db_tool.base64_image,
+        )
+        tools[db_tool.tool_id] = tool_result
+    
+    # Load API responses (simplified - just store IDs)
+    responses = {}
+    
+    # Create SessionState
+    session = SessionState(
+        session_id=db_session.session_id,
+        api_key=db_session.api_key or "",
+        provider=APIProvider(db_session.provider),
+        model=db_session.model,
+        tool_version=cast(ToolVersion, db_session.tool_version),
+        has_thinking=db_session.has_thinking,
+        output_tokens=db_session.output_tokens,
+        max_output_tokens=db_session.max_output_tokens,
+        thinking_budget=db_session.thinking_budget,
+        only_n_most_recent_images=db_session.only_n_most_recent_images,
+        custom_system_prompt=db_session.custom_system_prompt or "",
+        hide_images=db_session.hide_images,
+        token_efficient_tools_beta=db_session.token_efficient_tools_beta,
+        in_sampling_loop=db_session.in_sampling_loop,
+        auth_validated=db_session.auth_validated,
+        messages=messages,
+        tools=tools,
+        responses=responses,
+        created_at=db_session.created_at,
+        updated_at=db_session.updated_at,
+    )
+    
+    return session
+
+
+async def save_session_to_db(session: SessionState, db: AsyncSession):
+    """Save session to database."""
+    # Update or create session
+    result = await db.execute(select(SessionModel).where(SessionModel.session_id == session.session_id))
+    db_session = result.scalar_one_or_none()
+    
+    if db_session:
+        # Update existing
+        db_session.api_key = session.api_key
+        db_session.provider = session.provider.value
+        db_session.model = session.model
+        db_session.tool_version = session.tool_version
+        db_session.has_thinking = session.has_thinking
+        db_session.output_tokens = session.output_tokens
+        db_session.max_output_tokens = session.max_output_tokens
+        db_session.thinking_budget = session.thinking_budget
+        db_session.only_n_most_recent_images = session.only_n_most_recent_images
+        db_session.custom_system_prompt = session.custom_system_prompt
+        db_session.hide_images = session.hide_images
+        db_session.token_efficient_tools_beta = session.token_efficient_tools_beta
+        db_session.in_sampling_loop = session.in_sampling_loop
+        db_session.auth_validated = session.auth_validated
+        db_session.updated_at = datetime.now()
+    else:
+        # Create new
+        db_session = SessionModel(
+            session_id=session.session_id,
+            api_key=session.api_key,
+            provider=session.provider.value,
+            model=session.model,
+            tool_version=session.tool_version,
+            has_thinking=session.has_thinking,
+            output_tokens=session.output_tokens,
+            max_output_tokens=session.max_output_tokens,
+            thinking_budget=session.thinking_budget,
+            only_n_most_recent_images=session.only_n_most_recent_images,
+            custom_system_prompt=session.custom_system_prompt,
+            hide_images=session.hide_images,
+            token_efficient_tools_beta=session.token_efficient_tools_beta,
+            in_sampling_loop=session.in_sampling_loop,
+            auth_validated=session.auth_validated,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+        )
+        db.add(db_session)
+    
+    # Save messages - delete existing and recreate
+    await db.execute(delete(MessageModel).where(MessageModel.session_id == session.session_id))
+    for idx, message in enumerate(session.messages):
+        db_message = MessageModel(
+            session_id=session.session_id,
+            role=message.get("role", "user"),
+            content=message,
+            message_index=idx,
+        )
+        db.add(db_message)
+    
+    # Save tool results
+    await db.execute(delete(ToolResultModel).where(ToolResultModel.session_id == session.session_id))
+    for tool_id, tool_result in session.tools.items():
+        db_tool = ToolResultModel(
+            session_id=session.session_id,
+            tool_id=tool_id,
+            output=tool_result.output,
+            error=tool_result.error,
+            has_image=bool(tool_result.base64_image),
+            base64_image=tool_result.base64_image,
+        )
+        db.add(db_tool)
+    
+    await db.commit()
 
 
 def load_from_storage(filename: str) -> str | None:
@@ -420,108 +584,133 @@ def track_sampling_loop(session: SessionState):
 @app.post("/api/sessions", response_model=SessionResponse, status_code=201)
 async def create_session(request: SessionCreateRequest) -> SessionResponse:
     """Create a new session."""
-    session_id = str(uuid.uuid4())
-    
-    # Get API key from request or environment or storage
-    api_key = request.api_key or load_from_storage("api_key") or os.getenv("ANTHROPIC_API_KEY", "")
-    
-    # Determine provider
-    provider = APIProvider(request.provider) if request.provider in [p.value for p in APIProvider] else APIProvider.ANTHROPIC
-    
-    # Create session state
-    session = SessionState(
-        session_id=session_id,
-        api_key=api_key,
-        provider=provider,
-        custom_system_prompt=request.custom_system_prompt or load_from_storage("system_prompt") or "",
-        only_n_most_recent_images=request.only_n_most_recent_images,
-        token_efficient_tools_beta=request.token_efficient_tools_beta,
-    )
-    
-    # Override model if provided
-    if request.model:
-        object.__setattr__(session, 'model', request.model)
-        session._reset_model_conf()
-    
-    # Override tool version if provided
-    if request.tool_version:
-        object.__setattr__(session, 'tool_version', cast(ToolVersion, request.tool_version))
-    
-    # Override max tokens if provided
-    if request.max_tokens:
-        object.__setattr__(session, 'output_tokens', request.max_tokens)
-    
-    # Handle thinking
-    if request.thinking_enabled:
-        if request.thinking_budget:
-            object.__setattr__(session, 'thinking_budget', request.thinking_budget)
-    else:
-        object.__setattr__(session, 'thinking_budget', 0)
-    
-    # Validate auth
-    if auth_error := validate_auth(session.provider, session.api_key):
-        raise HTTPException(status_code=400, detail=auth_error)
-    
-    session.auth_validated = True
-    
-    # Store session
-    sessions[session_id] = session
-    
-    return SessionResponse(
-        session_id=session_id,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
-        provider=session.provider.value,
-        model=session.model,
-        message_count=len(session.messages),
-        in_sampling_loop=session.in_sampling_loop,
-    )
+    async with async_session_maker() as db:
+        session_id = str(uuid.uuid4())
+        
+        # Get API key from request or environment or storage
+        api_key = request.api_key or load_from_storage("api_key") or os.getenv("ANTHROPIC_API_KEY", "")
+        
+        # Determine provider
+        provider = APIProvider(request.provider) if request.provider in [p.value for p in APIProvider] else APIProvider.ANTHROPIC
+        
+        # Create session state
+        session = SessionState(
+            session_id=session_id,
+            api_key=api_key,
+            provider=provider,
+            custom_system_prompt=request.custom_system_prompt or load_from_storage("system_prompt") or "",
+            only_n_most_recent_images=request.only_n_most_recent_images,
+            token_efficient_tools_beta=request.token_efficient_tools_beta,
+        )
+        
+        # Override model if provided
+        if request.model:
+            object.__setattr__(session, 'model', request.model)
+            session._reset_model_conf()
+        
+        # Override tool version if provided
+        if request.tool_version:
+            object.__setattr__(session, 'tool_version', cast(ToolVersion, request.tool_version))
+        
+        # Override max tokens if provided
+        if request.max_tokens:
+            object.__setattr__(session, 'output_tokens', request.max_tokens)
+        
+        # Handle thinking
+        if request.thinking_enabled:
+            if request.thinking_budget:
+                object.__setattr__(session, 'thinking_budget', request.thinking_budget)
+        else:
+            object.__setattr__(session, 'thinking_budget', 0)
+        
+        # Validate auth
+        if auth_error := validate_auth(session.provider, session.api_key):
+            raise HTTPException(status_code=400, detail=auth_error)
+        
+        session.auth_validated = True
+        
+        # Save to database
+        await save_session_to_db(session, db)
+        
+        return SessionResponse(
+            session_id=session_id,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+            provider=session.provider.value,
+            model=session.model,
+            message_count=len(session.messages),
+            in_sampling_loop=session.in_sampling_loop,
+        )
 
 
 @app.get("/api/sessions", response_model=SessionListResponse)
 async def list_sessions() -> SessionListResponse:
     """List all sessions."""
-    return SessionListResponse(
-        sessions=[
-            SessionResponse(
-                session_id=session.session_id,
-                created_at=session.created_at,
-                updated_at=session.updated_at,
-                provider=session.provider.value,
-                model=session.model,
-                message_count=len(session.messages),
-                in_sampling_loop=session.in_sampling_loop,
+    async with async_session_maker() as db:
+        result = await db.execute(select(SessionModel).order_by(SessionModel.created_at.desc()))
+        db_sessions = result.scalars().all()
+        
+        # Get message counts
+        session_list = []
+        for db_session in db_sessions:
+            msg_count_result = await db.execute(
+                select(MessageModel).where(MessageModel.session_id == db_session.session_id)
             )
-            for session in sessions.values()
-        ]
-    )
+            message_count = len(msg_count_result.scalars().all())
+            
+            session_list.append(
+                SessionResponse(
+                    session_id=db_session.session_id,
+                    created_at=db_session.created_at,
+                    updated_at=db_session.updated_at,
+                    provider=db_session.provider,
+                    model=db_session.model,
+                    message_count=message_count,
+                    in_sampling_loop=db_session.in_sampling_loop,
+                )
+            )
+        
+        return SessionListResponse(sessions=session_list)
 
 
 @app.get("/api/sessions/{session_id}", response_model=SessionResponse)
 async def get_session(session_id: str) -> SessionResponse:
     """Get a specific session."""
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = sessions[session_id]
-    return SessionResponse(
-        session_id=session.session_id,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
-        provider=session.provider.value,
-        model=session.model,
-        message_count=len(session.messages),
-        in_sampling_loop=session.in_sampling_loop,
-    )
+    async with async_session_maker() as db:
+        session = await get_session_from_db(session_id, db)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        return SessionResponse(
+            session_id=session.session_id,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+            provider=session.provider.value,
+            model=session.model,
+            message_count=len(session.messages),
+            in_sampling_loop=session.in_sampling_loop,
+        )
 
 
 @app.delete("/api/sessions/{session_id}", status_code=204)
 async def delete_session(session_id: str):
     """Delete a session."""
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    del sessions[session_id]
+    async with async_session_maker() as db:
+        # Check if session exists
+        result = await db.execute(select(SessionModel).where(SessionModel.session_id == session_id))
+        if not result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Delete related records
+        await db.execute(delete(MessageModel).where(MessageModel.session_id == session_id))
+        await db.execute(delete(ToolResultModel).where(ToolResultModel.session_id == session_id))
+        await db.execute(delete(APIResponseModel).where(APIResponseModel.session_id == session_id))
+        await db.execute(delete(SessionModel).where(SessionModel.session_id == session_id))
+        await db.commit()
+        
+        # Remove from cache
+        if session_id in _session_cache:
+            del _session_cache[session_id]
 
 
 @app.post("/api/sessions/{session_id}/messages", response_model=MessageResponse)
@@ -531,62 +720,65 @@ async def send_message(
     background_tasks: BackgroundTasks,
 ) -> MessageResponse:
     """Send a message to a session and process it."""
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = sessions[session_id]
-    
-    if not session.auth_validated:
-        if auth_error := validate_auth(session.provider, session.api_key):
-            raise HTTPException(status_code=400, detail=auth_error)
-        session.auth_validated = True
-    
-    # Add user message
-    message_id = str(uuid.uuid4())
-    user_content = [
-        *maybe_add_interruption_blocks(session),
-        BetaTextBlockParam(type="text", text=request.message),
-    ]
-    
-    session.messages.append({
-        "role": Sender.USER,
-        "content": user_content,
-    })
-    session.updated_at = datetime.now()
-    
-    # Emit message start event
-    await _emit_event(
-        session_id,
-        MessageStartEvent(
-            session_id=session_id,
-            data={
-                "message_id": message_id,
-                "message": request.message,
-            }
+    async with async_session_maker() as db:
+        session = await get_session_from_db(session_id, db)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        if not session.auth_validated:
+            if auth_error := validate_auth(session.provider, session.api_key):
+                raise HTTPException(status_code=400, detail=auth_error)
+            session.auth_validated = True
+        
+        # Add user message
+        message_id = str(uuid.uuid4())
+        user_content = [
+            *maybe_add_interruption_blocks(session),
+            BetaTextBlockParam(type="text", text=request.message),
+        ]
+        
+        session.messages.append({
+            "role": Sender.USER,
+            "content": user_content,
+        })
+        session.updated_at = datetime.now()
+        
+        # Save to database
+        await save_session_to_db(session, db)
+        
+        # Emit message start event
+        await _emit_event(
+            session_id,
+            MessageStartEvent(
+                session_id=session_id,
+                data={
+                    "message_id": message_id,
+                    "message": request.message,
+                }
+            )
         )
-    )
-    
-    # Process message in background
-    background_tasks.add_task(
-        process_message,
-        session_id,
-        message_id,
-    )
-    
-    return MessageResponse(
-        session_id=session_id,
-        message_id=message_id,
-        status="processing",
-        content=None,
-    )
+        
+        # Process message in background
+        background_tasks.add_task(
+            process_message,
+            session_id,
+            message_id,
+        )
+        
+        return MessageResponse(
+            session_id=session_id,
+            message_id=message_id,
+            status="processing",
+            content=None,
+        )
 
 
 async def process_message(session_id: str, message_id: str):
     """Process a message through the sampling loop."""
-    if session_id not in sessions:
-        return
-    
-    session = sessions[session_id]
+    async with async_session_maker() as db:
+        session = await get_session_from_db(session_id, db)
+        if not session:
+            return
     
     # Create streaming callbacks (synchronous, but schedule async tasks)
     def output_callback(content_block: BetaContentBlockParam):
@@ -628,26 +820,29 @@ async def process_message(session_id: str, message_id: str):
                 )
             )
             
-            session.messages = await sampling_loop(
-                system_prompt_suffix=session.custom_system_prompt,
-                model=session.model,
-                provider=session.provider,
-                messages=session.messages,
-                output_callback=output_callback,
-                tool_output_callback=_create_tool_output_callback(
-                    session.tools,
-                    session_id,
-                ),
-                api_response_callback=_create_api_response_callback(
-                    session.responses,
-                    session_id,
-                ),
-                api_key=session.api_key,
-                only_n_most_recent_images=session.only_n_most_recent_images,
-                tool_version=session.tool_version,
-                max_tokens=session.output_tokens,
-                thinking_budget=session.thinking_budget if session.thinking_budget > 0 else None,
-                token_efficient_tools_beta=session.token_efficient_tools_beta,
+            session.messages = cast(
+                list[dict[str, Any]],
+                await sampling_loop(
+                    system_prompt_suffix=session.custom_system_prompt,
+                    model=session.model,
+                    provider=session.provider,
+                    messages=cast(list[BetaMessageParam], session.messages),
+                    output_callback=output_callback,
+                    tool_output_callback=_create_tool_output_callback(
+                        session.tools,
+                        session_id,
+                    ),
+                    api_response_callback=_create_api_response_callback(
+                        session.responses,
+                        session_id,
+                    ),
+                    api_key=session.api_key,
+                    only_n_most_recent_images=session.only_n_most_recent_images,
+                    tool_version=session.tool_version,
+                    max_tokens=session.output_tokens,
+                    thinking_budget=session.thinking_budget if session.thinking_budget > 0 else None,
+                    token_efficient_tools_beta=session.token_efficient_tools_beta,
+                )
             )
             
             # Emit completion event
@@ -661,6 +856,9 @@ async def process_message(session_id: str, message_id: str):
                     }
                 )
             )
+            
+            # Save updated session to database
+            await save_session_to_db(session, db)
         except Exception as e:
             print(f"Error processing message: {e}")
             await _emit_event(
@@ -675,67 +873,79 @@ async def process_message(session_id: str, message_id: str):
             )
         finally:
             session.updated_at = datetime.now()
+            await save_session_to_db(session, db)
 
 
 @app.get("/api/sessions/{session_id}/messages")
 async def get_messages(session_id: str) -> dict[str, Any]:
     """Get all messages for a session."""
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = sessions[session_id]
-    return {
-        "session_id": session_id,
-        "messages": session.messages,
-        "tools": {
-            tool_id: {
-                "output": tool_result.output,
-                "error": tool_result.error,
-                "base64_image": tool_result.base64_image,
-            }
-            for tool_id, tool_result in session.tools.items()
-        },
-    )
+    async with async_session_maker() as db:
+        session = await get_session_from_db(session_id, db)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        return {
+            "session_id": session_id,
+            "messages": session.messages,
+            "tools": {
+                tool_id: {
+                    "output": tool_result.output,
+                    "error": tool_result.error,
+                    "base64_image": tool_result.base64_image,
+                }
+                for tool_id, tool_result in session.tools.items()
+            },
+        }
 
 
 @app.post("/api/sessions/{session_id}/reset", response_model=SessionResponse)
 async def reset_session(session_id: str) -> SessionResponse:
     """Reset a session (clear messages and restart desktop environment)."""
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
-    
-    session = sessions[session_id]
-    
-    # Clear messages and tools
-    session.messages = []
-    session.tools = {}
-    session.responses = {}
-    session.in_sampling_loop = False
-    
-    # Restart desktop environment
-    subprocess.run("pkill Xvfb; pkill tint2", shell=True)  # noqa: ASYNC221
-    await asyncio.sleep(1)
-    subprocess.run("./start_all.sh", shell=True)  # noqa: ASYNC221
-    
-    session.updated_at = datetime.now()
-    
-    return SessionResponse(
-        session_id=session.session_id,
-        created_at=session.created_at,
-        updated_at=session.updated_at,
-        provider=session.provider.value,
-        model=session.model,
-        message_count=len(session.messages),
-        in_sampling_loop=session.in_sampling_loop,
-    )
+    async with async_session_maker() as db:
+        session = await get_session_from_db(session_id, db)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        # Clear messages and tools
+        session.messages = []
+        session.tools = {}
+        session.responses = {}
+        session.in_sampling_loop = False
+        
+        # Delete messages and tools from database
+        await db.execute(delete(MessageModel).where(MessageModel.session_id == session_id))
+        await db.execute(delete(ToolResultModel).where(ToolResultModel.session_id == session_id))
+        await db.execute(delete(APIResponseModel).where(APIResponseModel.session_id == session_id))
+        
+        # Restart desktop environment
+        subprocess.run("pkill Xvfb; pkill tint2", shell=True)  # noqa: ASYNC221
+        await asyncio.sleep(1)
+        subprocess.run("./start_all.sh", shell=True)  # noqa: ASYNC221
+        
+        session.updated_at = datetime.now()
+        
+        # Save to database
+        await save_session_to_db(session, db)
+        
+        return SessionResponse(
+            session_id=session.session_id,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+            provider=session.provider.value,
+            model=session.model,
+            message_count=len(session.messages),
+            in_sampling_loop=session.in_sampling_loop,
+        )
 
 
 @app.websocket("/ws/sessions/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket endpoint for real-time progress streaming."""
-    if session_id not in sessions:
-        await websocket.close(code=1008, reason="Session not found")
-        return
+    async with async_session_maker() as db:
+        session = await get_session_from_db(session_id, db)
+        if not session:
+            await websocket.close(code=1008, reason="Session not found")
+            return
     
     await websocket.accept()
     
@@ -761,16 +971,18 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
                 
                 # Handle client messages (e.g., interrupt, cancel)
                 if data.get("type") == "interrupt":
-                    session = sessions[session_id]
-                    if session.in_sampling_loop:
-                        # Mark for interruption
-                        object.__setattr__(session, 'in_sampling_loop', False)
-                        await websocket.send_json({
-                            "event_type": "interrupted",
-                            "timestamp": datetime.now().isoformat(),
-                            "session_id": session_id,
-                            "data": {"message": "Processing interrupted"},
-                        })
+                    async with async_session_maker() as db_interrupt:
+                        session = await get_session_from_db(session_id, db_interrupt)
+                        if session and session.in_sampling_loop:
+                            # Mark for interruption
+                            object.__setattr__(session, 'in_sampling_loop', False)
+                            await save_session_to_db(session, db_interrupt)
+                            await websocket.send_json({
+                                "event_type": "interrupted",
+                                "timestamp": datetime.now().isoformat(),
+                                "session_id": session_id,
+                                "data": {"message": "Processing interrupted"},
+                            })
             except asyncio.TimeoutError:
                 # Send keepalive
                 await websocket.send_json({
@@ -795,8 +1007,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 @app.get("/api/sessions/{session_id}/stream")
 async def sse_endpoint(session_id: str):
     """Server-Sent Events endpoint for real-time progress streaming."""
-    if session_id not in sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
+    async with async_session_maker() as db:
+        session = await get_session_from_db(session_id, db)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
     
     async def event_generator():
         """Generate SSE events."""
@@ -849,10 +1063,146 @@ async def sse_endpoint(session_id: str):
     )
 
 
+@app.get("/api/vnc/info")
+async def get_vnc_info():
+    """Get VNC connection information."""
+    import socket
+    
+    # Get hostname/IP for connection strings
+    hostname = socket.gethostname()
+    try:
+        # Try to get the actual IP address
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip_address = s.getsockname()[0]
+        s.close()
+    except Exception:
+        ip_address = "localhost"
+    
+    # Check if VNC services are running
+    vnc_running = False
+    novnc_running = False
+    
+    try:
+        # Check x11vnc on port 5900
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex(('localhost', 5900))
+        vnc_running = result == 0
+        sock.close()
+    except Exception:
+        pass
+    
+    try:
+        # Check noVNC on port 6080
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex(('localhost', 6080))
+        novnc_running = result == 0
+        sock.close()
+    except Exception:
+        pass
+    
+    return {
+        "vnc_enabled": True,
+        "vnc_running": vnc_running,
+        "novnc_running": novnc_running,
+        "connections": {
+            "direct_vnc": {
+                "protocol": "vnc",
+                "host": ip_address,
+                "port": 5900,
+                "url": f"vnc://{ip_address}:5900",
+                "description": "Direct VNC connection (requires VNC client)",
+                "password_required": False,
+            },
+            "web_vnc": {
+                "protocol": "http",
+                "host": ip_address,
+                "port": 6080,
+                "url": f"http://{ip_address}:6080/vnc.html",
+                "description": "Web-based VNC viewer (no client required)",
+                "view_only": False,
+            },
+            "web_vnc_view_only": {
+                "protocol": "http",
+                "host": ip_address,
+                "port": 6080,
+                "url": f"http://{ip_address}:6080/vnc.html?view_only=1",
+                "description": "Web-based VNC viewer (view-only mode)",
+                "view_only": True,
+            },
+        },
+        "display": {
+            "display_num": os.getenv("DISPLAY_NUM", "1"),
+            "width": os.getenv("WIDTH", "1024"),
+            "height": os.getenv("HEIGHT", "768"),
+        },
+    }
+
+
+@app.get("/api/sessions/{session_id}/vnc")
+async def get_session_vnc_info(session_id: str):
+    """Get VNC connection information for a specific session."""
+    async with async_session_maker() as db:
+        session = await get_session_from_db(session_id, db)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        vnc_info = await get_vnc_info()
+        return {
+            **vnc_info,
+            "session_id": session_id,
+            "session_active": session.in_sampling_loop,
+            "session_created": session.created_at.isoformat(),
+            "recommended_url": vnc_info["connections"]["web_vnc"]["url"],
+        }
+
+
+@app.post("/api/vnc/restart")
+async def restart_vnc():
+    """Restart VNC services."""
+    try:
+        # Stop existing VNC processes
+        subprocess.run("pkill x11vnc", shell=True, check=False)
+        subprocess.run("pkill novnc_proxy", shell=True, check=False)
+        await asyncio.sleep(1)
+        
+        # Restart VNC services (scripts are in home directory in container)
+        home_dir = os.path.expanduser("~")
+        subprocess.run("./x11vnc_startup.sh", shell=True, check=True, cwd=home_dir)
+        await asyncio.sleep(1)
+        subprocess.run("./novnc_startup.sh", shell=True, check=True, cwd=home_dir)
+        
+        # Wait a moment for services to start
+        await asyncio.sleep(2)
+        
+        return {
+            "status": "success",
+            "message": "VNC services restarted",
+            "vnc_info": await get_vnc_info(),
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to restart VNC: {str(e)}")
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "sessions": len(sessions)}
+    async with async_session_maker() as db:
+        result = await db.execute(select(SessionModel))
+        session_count = len(result.scalars().all())
+        
+        vnc_info = await get_vnc_info()
+        return {
+            "status": "healthy",
+            "sessions": session_count,
+            "vnc": {
+                "enabled": vnc_info["vnc_enabled"],
+                "vnc_running": vnc_info["vnc_running"],
+                "novnc_running": vnc_info["novnc_running"],
+            },
+        }
 
 
 if __name__ == "__main__":

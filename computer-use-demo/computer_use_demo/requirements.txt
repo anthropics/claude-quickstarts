@@ -4,3 +4,5 @@ anthropic[bedrock,vertex]>=0.39.0
 jsonschema==4.22.0
 boto3>=1.28.57
 google-auth<3,>=2
+sqlalchemy==2.0.36
+aiosqlite==0.20.0
