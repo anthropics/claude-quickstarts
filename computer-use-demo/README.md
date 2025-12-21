@@ -38,7 +38,7 @@ Please use [this form](https://forms.gle/BT1hpBrqDPDUrCqo7) to provide feedback 
 > You can find your API key in the [Claude Console](https://console.anthropic.com/).
 
 ```bash
-export ANTHROPIC_API_KEY=%your_api_key%
+export ANTHROPIC_API_KEY=%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%
 docker run \
     -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
     -v $HOME/.anthropic:/home/computeruse/.anthropic \
