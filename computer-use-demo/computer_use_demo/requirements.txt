@@ -1,1 +1,6 @@
- 
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+anthropic[bedrock,vertex]>=0.39.0
+jsonschema==4.22.0
+boto3>=1.28.57
+google-auth<3,>=2
