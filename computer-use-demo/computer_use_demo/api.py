@@ -23,9 +23,10 @@ from anthropic.types.beta import (
     BetaTextBlockParam,
     BetaToolResultBlockParam,
 )
-from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket, WebSocketDisconnect
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi import FastAPI, HTTPException, BackgroundTasks, WebSocket  # type: ignore
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from fastapi.responses import StreamingResponse  # type: ignore
+from starlette.websockets import WebSocketDisconnect  # type: ignore
 from pydantic import BaseModel, Field
 
 from computer_use_demo.loop import (
@@ -33,6 +34,8 @@ from computer_use_demo.loop import (
     sampling_loop,
 )
 from computer_use_demo.tools import ToolResult, ToolVersion
+from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
+from sqlalchemy import select, delete  # type: ignore
 from computer_use_demo.database import (
     SessionModel,
     MessageModel,
@@ -42,19 +45,6 @@ from computer_use_demo.database import (
     get_db,
     async_session_maker,
 )
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
-from computer_use_demo.database import (
-    SessionModel,
-    MessageModel,
-    ToolResultModel,
-    APIResponseModel,
-    init_db,
-    get_db,
-    async_session_maker,
-)
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, delete
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
     APIProvider.ANTHROPIC: "claude-sonnet-4-5-20250929",
