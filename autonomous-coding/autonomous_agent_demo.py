@@ -44,7 +44,10 @@ Examples:
   python autonomous_agent_demo.py --project-dir ./claude_clone
 
 Environment Variables:
-  ANTHROPIC_API_KEY    Your Anthropic API key (required)
+  ANTHROPIC_API_KEY              Your Anthropic API key (required for standard API)
+  ANTHROPIC_FOUNDRY_API_KEY      Your Azure Foundry API key (required for Foundry)
+  CLAUDE_CODE_USE_FOUNDRY        Set to 1 to use Azure Foundry
+  ANTHROPIC_FOUNDRY_RESOURCE     Your Azure Foundry resource name
         """,
     )
 
@@ -76,12 +79,18 @@ def main() -> None:
     """Main entry point."""
     args = parse_args()
 
-    # Check for API key
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY environment variable not set")
-        print("\nGet your API key from: https://console.anthropic.com/")
-        print("\nThen set it:")
+    # Check for API key (supports both standard and Azure Foundry)
+    has_standard_key = os.environ.get("ANTHROPIC_API_KEY")
+    has_foundry_key = os.environ.get("ANTHROPIC_FOUNDRY_API_KEY")
+
+    if not has_standard_key and not has_foundry_key:
+        print("Error: No API key found")
+        print("\nFor standard Anthropic API:")
         print("  export ANTHROPIC_API_KEY='your-api-key-here'")
+        print("\nFor Azure Foundry:")
+        print("  export ANTHROPIC_FOUNDRY_API_KEY='your-api-key'")
+        print("  export CLAUDE_CODE_USE_FOUNDRY=1")
+        print("  export ANTHROPIC_FOUNDRY_RESOURCE='your-resource-name'")
         return
 
     # Automatically place projects in generations/ directory unless already specified
