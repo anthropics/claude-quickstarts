@@ -195,6 +195,10 @@ class BrowserTool(BaseAnthropicTool):
     @property
     def options(self) -> BrowserOptions:
         """Return browser display options."""
+        # Note: This implementation uses fixed 1920x1080 dimensions with empirical
+        # coordinate correction. For the recommended approach using client-side
+        # downscaling, see the "Handle coordinate scaling" section in the computer
+        # use documentation.
         return {
             "display_width_px": self.width,
             "display_height_px": self.height,

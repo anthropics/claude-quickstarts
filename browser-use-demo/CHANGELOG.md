@@ -30,4 +30,7 @@ This file tracks all modifications made to files derived from or inspired by Mic
 - **Nature of Changes**:
   - Added `hover` action to move mouse cursor without clicking using Playwright's `mouse.move()` API. Useful for revealing tooltips, dropdown menus, or triggering hover states.
   - Added `execute_js` action to execute JavaScript code in page context using Playwright's `page.evaluate()` API. Returns the result of the last expression.
+- **Date Modified**: 1/18/26
+- **Nature of Changes**:
+  - Added clarifying comment in the `options` property explaining that this implementation uses fixed 1920x1080 dimensions with empirical coordinate correction, and directing users to the "Handle coordinate scaling" section in the computer use documentation for the recommended client-side downscaling approach.
 
