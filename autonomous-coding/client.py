@@ -9,8 +9,8 @@ import json
 import os
 from pathlib import Path
 
-from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
-from claude_code_sdk.types import HookMatcher
+from claude_agent_sdk import ClaudeAgentOptions, ClaudeSDKClient
+from claude_agent_sdk.types import HookMatcher
 
 from security import bash_security_hook
 
@@ -100,7 +100,7 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     print()
 
     return ClaudeSDKClient(
-        options=ClaudeCodeOptions(
+        options=ClaudeAgentOptions(
             model=model,
             system_prompt="You are an expert full-stack developer building a production-quality web application.",
             allowed_tools=[
