@@ -17,7 +17,7 @@ pip install -r requirements.txt
 Verify your installations:
 ```bash
 claude --version  # Should be latest version
-pip show claude-code-sdk  # Check SDK is installed
+pip show claude-agent-sdk  # Check SDK is installed
 ```
 
 **API Key:** Set your Anthropic API key:

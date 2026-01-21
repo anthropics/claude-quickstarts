@@ -1,1 +1,1 @@
-claude-code-sdk>=0.0.25
+claude-agent-sdk>=0.1.0
