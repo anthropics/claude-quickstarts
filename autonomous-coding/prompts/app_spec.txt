@@ -10,9 +10,6 @@
   </overview>
 
   <technology_stack>
-    <api_key>
-        You can use an API key located at /tmp/api-key for testing. You will not be allowed to read this file, but you can reference it in code.
-    </api_key>
     <frontend>
       <framework>React with Vite</framework>
       <styling>Tailwind CSS (via CDN)</styling>
@@ -37,7 +34,6 @@
 
   <prerequisites>
     <environment_setup>
-      - Repository includes .env with VITE_ANTHROPIC_API_KEY configured
       - Frontend dependencies pre-installed via pnpm
       - Backend code goes in /server directory
       - Install backend dependencies as needed
@@ -129,7 +125,6 @@
       - Keyboard shortcuts reference
       - Data export options
       - Privacy settings
-      - API key management
     </settings_preferences>
 
     <advanced_features>
@@ -265,12 +260,6 @@
         - model, input_tokens, output_tokens
         - cost_estimate, created_at
       </usage_tracking>
-
-      <api_keys>
-        - id, user_id, key_name, api_key_hash
-        - created_at, last_used_at
-        - is_active
-      </api_keys>
     </tables>
   </database_schema>
 
@@ -663,7 +652,6 @@
     <technical_quality>
       - Clean, maintainable code structure
       - Proper error handling throughout
-      - Secure API key management
       - Optimized database queries
       - Efficient streaming implementation
       - Comprehensive testing coverage
