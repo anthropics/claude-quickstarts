@@ -20,10 +20,7 @@ claude --version  # Should be latest version
 pip show claude-agent-sdk  # Check SDK is installed
 ```
 
-**API Key:** Set your Anthropic API key:
-```bash
-export ANTHROPIC_API_KEY='your-api-key-here'
-```
+**Authentication:** Make sure you are logged in to Claude Code with an account that has an active subscription. No API key is required when running locally.
 
 ## Quick Start
 
@@ -154,9 +151,6 @@ This is normal. The initializer agent is generating 200 detailed test cases, whi
 
 **"Command blocked by security hook"**
 The agent tried to run a command not in the allowlist. This is the security system working as intended. If needed, add the command to `ALLOWED_COMMANDS` in `security.py`.
-
-**"API key not set"**
-Ensure `ANTHROPIC_API_KEY` is exported in your shell environment.
 
 ## License
 
