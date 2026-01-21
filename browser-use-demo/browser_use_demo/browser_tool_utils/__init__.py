@@ -1,1 +1,0 @@
-# Browser tool utility files
