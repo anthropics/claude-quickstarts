@@ -100,9 +100,11 @@ docker run \
 
 Once the container is running, see the [Accessing the demo app](#accessing-the-demo-app) section below for instructions on how to connect to the interface.
 
-### Vertex
+### Google Cloud Vertex AI
 
-You'll need to pass in Google Cloud credentials with appropriate permissions to use Claude on Vertex.
+#### Running on local machine 
+
+You'll need to pass in Google Cloud credentials with appropriate permissions to use Claude on Google Cloud Vertex AI.
 
 ```bash
 docker build . -t computer-use-demo
@@ -125,6 +127,10 @@ Once the container is running, see the [Accessing the demo app](#accessing-the-d
 
 This example shows how to use the Google Cloud Application Default Credentials to authenticate with Vertex.
 You can also set `GOOGLE_APPLICATION_CREDENTIALS` to use an arbitrary credential file, see the [Google Cloud Authentication documentation](https://cloud.google.com/docs/authentication/application-default-credentials#GAC) for more details.
+
+
+#### Deploing on Google Kubernetes Engine (GKE)
+If you are looking to run the computer use demo on a secure sandbox container within Google Kubernetes Engine (GKE), please at a look at the [deployment instructions here](https://github.com/GoogleCloudPlatform/generative-ai/tree/main/partner-models/claude/computer-use-demo)
 
 ### Accessing the demo app
 
