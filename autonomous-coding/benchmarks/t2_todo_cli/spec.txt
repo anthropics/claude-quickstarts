@@ -1,0 +1,47 @@
+# T2: Todo CLI Application
+# Complexity: Simple (single feature, 2-3 files)
+
+## Goal
+Build a command-line todo application with persistent storage.
+
+## Requirements
+
+### Commands
+- `todo add "task description"` - Add a new todo item
+- `todo list` - Show all todos with status
+- `todo complete <id>` - Mark a todo as complete
+- `todo delete <id>` - Remove a todo
+- `todo --help` - Show usage information
+
+### Data Storage
+- Store todos in a JSON file (`todos.json`)
+- Each todo has: id (int), description (str), completed (bool), created_at (ISO timestamp)
+- IDs should auto-increment
+
+### Output Format
+- `list` shows numbered todos with [x] for completed, [ ] for pending
+- Success/error messages for all operations
+- Exit code 0 for success, 1 for errors
+
+### Edge Cases
+- Empty description should show error
+- Invalid ID should show "Todo not found"
+- Empty list should show "No todos yet"
+
+## Tech Stack
+- Python 3.11+
+- Click for CLI
+- pytest for tests
+- pyproject.toml with entry point
+
+## Deliverables
+1. `src/todo_cli/cli.py` - Main CLI implementation
+2. `src/todo_cli/__init__.py` - Package init
+3. `tests/test_cli.py` - Test file with at least 10 tests
+4. `pyproject.toml` - With `todo` entry point
+
+## Success Criteria
+- All commands work correctly
+- Data persists between runs
+- At least 10 tests passing
+- Code passes linting
