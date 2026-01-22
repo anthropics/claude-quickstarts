@@ -77,11 +77,11 @@ def main() -> None:
     args = parse_args()
 
     # Check for API key
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY environment variable not set")
+    if not os.environ.get("CLAUDE_CODE_OAUTH_TOKEN"):
+        print("Error: CLAUDE_CODE_OAUTH_TOKEN environment variable not set")
         print("\nGet your API key from: https://console.anthropic.com/")
         print("\nThen set it:")
-        print("  export ANTHROPIC_API_KEY='your-api-key-here'")
+        print("  export CLAUDE_CODE_OAUTH_TOKEN='your-api-key-here'")
         return
 
     # Automatically place projects in generations/ directory unless already specified
