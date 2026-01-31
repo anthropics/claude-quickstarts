@@ -52,6 +52,7 @@ class EditTool20250124(BaseAnthropicTool):
         view_range: list[int] | None = None,
         old_str: str | None = None,
         new_str: str | None = None,
+        insert_text: str | None = None,
         insert_line: int | None = None,
         **kwargs,
     ):
@@ -76,9 +77,9 @@ class EditTool20250124(BaseAnthropicTool):
                 raise ToolError(
                     "Parameter `insert_line` is required for command: insert"
                 )
-            if new_str is None:
-                raise ToolError("Parameter `new_str` is required for command: insert")
-            return self.insert(_path, insert_line, new_str)
+            if insert_text is None:
+                raise ToolError("Parameter `insert_text` is required for command: insert")
+            return self.insert(_path, insert_line, insert_text)
         elif command == "undo_edit":
             return self.undo_edit(_path)
         raise ToolError(
