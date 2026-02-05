@@ -1,3 +1,4 @@
+import asyncio
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Literal, get_args
@@ -111,7 +112,7 @@ class EditTool20250728(BaseAnthropicTool):
 
     async def view(self, path: Path, view_range: list[int] | None = None):
         """Implement the view command"""
-        if path.is_dir():
+        if await asyncio.to_thread(path.is_dir):
             if view_range:
                 raise ToolError(
                     "The `view_range` parameter is not allowed when `path` points to a directory."
