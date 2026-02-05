@@ -1,6 +1,7 @@
 import asyncio
 import base64
 import os
+import platform
 import shlex
 import shutil
 from enum import StrEnum
@@ -17,6 +18,8 @@ OUTPUT_DIR = "/tmp/outputs"
 
 TYPING_DELAY_MS = 12
 TYPING_GROUP_SIZE = 50
+
+IS_MACOS = platform.system() == "Darwin"
 
 Action_20241022 = Literal[
     "key",
@@ -115,7 +118,29 @@ class BaseComputerTool:
 
         self.width = int(os.getenv("WIDTH") or 0)
         self.height = int(os.getenv("HEIGHT") or 0)
-        assert self.width and self.height, "WIDTH, HEIGHT must be set"
+
+        # Auto-detect screen size on macOS if not set
+        if IS_MACOS and (not self.width or not self.height):
+            import subprocess
+            try:
+                result = subprocess.run(
+                    ["system_profiler", "SPDisplaysDataType"],
+                    capture_output=True, text=True
+                )
+                for line in result.stdout.split("\n"):
+                    if "Resolution:" in line:
+                        parts = line.split(":")[-1].strip().split()
+                        self.width = int(parts[0])
+                        self.height = int(parts[2])
+                        break
+            except Exception:
+                pass
+
+        if not self.width or not self.height:
+            # Default to common resolution
+            self.width = self.width or 1920
+            self.height = self.height or 1080
+
         if (display_num := os.getenv("DISPLAY_NUM")) is not None:
             self.display_num = int(display_num)
             self._display_prefix = f"DISPLAY=:{self.display_num} "
@@ -124,6 +149,7 @@ class BaseComputerTool:
             self._display_prefix = ""
 
         self.xdotool = f"{self._display_prefix}xdotool"
+        self.cliclick = "cliclick"  # macOS mouse/keyboard tool
 
     async def __call__(
         self,
@@ -145,15 +171,23 @@ class BaseComputerTool:
                     raise ToolError(f"start_coordinate is required for {action}")
                 start_x, start_y = self.validate_and_get_coordinates(start_coordinate)
                 end_x, end_y = self.validate_and_get_coordinates(coordinate)
-                command_parts = [
-                    self.xdotool,
-                    f"mousemove --sync {start_x} {start_y} mousedown 1 mousemove --sync {end_x} {end_y} mouseup 1",
-                ]
-                return await self.shell(" ".join(command_parts))
+                if IS_MACOS:
+                    command = f"{self.cliclick} dd:{start_x},{start_y} du:{end_x},{end_y}"
+                else:
+                    command_parts = [
+                        self.xdotool,
+                        f"mousemove --sync {start_x} {start_y} mousedown 1 mousemove --sync {end_x} {end_y} mouseup 1",
+                    ]
+                    command = " ".join(command_parts)
+                return await self.shell(command)
             elif action == "mouse_move":
                 x, y = self.validate_and_get_coordinates(coordinate)
-                command_parts = [self.xdotool, f"mousemove --sync {x} {y}"]
-                return await self.shell(" ".join(command_parts))
+                if IS_MACOS:
+                    command = f"{self.cliclick} m:{x},{y}"
+                else:
+                    command_parts = [self.xdotool, f"mousemove --sync {x} {y}"]
+                    command = " ".join(command_parts)
+                return await self.shell(command)
 
         if action in ("key", "type"):
             if text is None:
@@ -164,17 +198,37 @@ class BaseComputerTool:
                 raise ToolError(output=f"{text} must be a string")
 
             if action == "key":
-                command_parts = [self.xdotool, f"key -- {text}"]
-                return await self.shell(" ".join(command_parts))
+                if IS_MACOS:
+                    # Map common key names for cliclick
+                    key_map = {
+                        "Return": "return", "Escape": "escape", "Tab": "tab",
+                        "BackSpace": "delete", "Delete": "forwarddelete",
+                        "Up": "arrow-up", "Down": "arrow-down",
+                        "Left": "arrow-left", "Right": "arrow-right",
+                        "space": "space", "Home": "home", "End": "end",
+                        "Page_Up": "pageup", "Page_Down": "pagedown",
+                    }
+                    mapped_key = key_map.get(text, text.lower())
+                    command = f"{self.cliclick} kp:{mapped_key}"
+                else:
+                    command_parts = [self.xdotool, f"key -- {text}"]
+                    command = " ".join(command_parts)
+                return await self.shell(command)
             elif action == "type":
                 results: list[ToolResult] = []
                 for chunk in chunks(text, TYPING_GROUP_SIZE):
-                    command_parts = [
-                        self.xdotool,
-                        f"type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}",
-                    ]
+                    if IS_MACOS:
+                        # Escape special characters for cliclick
+                        escaped = chunk.replace("\\", "\\\\").replace(":", "\\:")
+                        command = f"{self.cliclick} t:{shlex.quote(escaped)}"
+                    else:
+                        command_parts = [
+                            self.xdotool,
+                            f"type --delay {TYPING_DELAY_MS} -- {shlex.quote(chunk)}",
+                        ]
+                        command = " ".join(command_parts)
                     results.append(
-                        await self.shell(" ".join(command_parts), take_screenshot=False)
+                        await self.shell(command, take_screenshot=False)
                     )
                 screenshot_base64 = (await self.screenshot()).base64_image
                 return ToolResult(
@@ -199,21 +253,48 @@ class BaseComputerTool:
             if action == "screenshot":
                 return await self.screenshot()
             elif action == "cursor_position":
-                command_parts = [self.xdotool, "getmouselocation --shell"]
-                result = await self.shell(
-                    " ".join(command_parts),
-                    take_screenshot=False,
-                )
-                output = result.output or ""
-                x, y = self.scale_coordinates(
-                    ScalingSource.COMPUTER,
-                    int(output.split("X=")[1].split("\n")[0]),
-                    int(output.split("Y=")[1].split("\n")[0]),
-                )
-                return result.replace(output=f"X={x},Y={y}")
+                if IS_MACOS:
+                    result = await self.shell(
+                        f"{self.cliclick} p",
+                        take_screenshot=False,
+                    )
+                    output = result.output or ""
+                    # cliclick p outputs: x,y
+                    parts = output.strip().split(",")
+                    if len(parts) == 2:
+                        x, y = self.scale_coordinates(
+                            ScalingSource.COMPUTER,
+                            int(parts[0]),
+                            int(parts[1]),
+                        )
+                        return result.replace(output=f"X={x},Y={y}")
+                    return result
+                else:
+                    command_parts = [self.xdotool, "getmouselocation --shell"]
+                    result = await self.shell(
+                        " ".join(command_parts),
+                        take_screenshot=False,
+                    )
+                    output = result.output or ""
+                    x, y = self.scale_coordinates(
+                        ScalingSource.COMPUTER,
+                        int(output.split("X=")[1].split("\n")[0]),
+                        int(output.split("Y=")[1].split("\n")[0]),
+                    )
+                    return result.replace(output=f"X={x},Y={y}")
             else:
-                command_parts = [self.xdotool, f"click {CLICK_BUTTONS[action]}"]
-                return await self.shell(" ".join(command_parts))
+                if IS_MACOS:
+                    click_map = {
+                        "left_click": "c:.",
+                        "right_click": "rc:.",
+                        "double_click": "dc:.",
+                        "middle_click": "tc:.",  # triple click as substitute for middle
+                    }
+                    command = f"{self.cliclick} {click_map[action]}"
+                else:
+                    command_parts = [self.xdotool, f"click {CLICK_BUTTONS[action]}"]
+                    command = " ".join(command_parts)
+                return await self.shell(command)
 
         raise ToolError(f"Invalid action: {action}")
 
@@ -231,21 +312,30 @@ class BaseComputerTool:
         await asyncio.to_thread(output_dir.mkdir, parents=True, exist_ok=True)
         path = output_dir / f"screenshot_{uuid4().hex}.png"
 
-        # Try gnome-screenshot first
-        if shutil.which("gnome-screenshot"):
+        if IS_MACOS:
+            # Use screencapture on macOS
+            screenshot_cmd = f"screencapture -x {path}"  # -x = no sound
+        elif shutil.which("gnome-screenshot"):
             screenshot_cmd = f"{self._display_prefix}gnome-screenshot -f {path} -p"
         else:
             # Fall back to scrot if gnome-screenshot isn't available
-            screenshot_cmd = f"{self._display_prefix}scrot -p {path}"
+            screenshot_cmd = f"scrot {path}"
 
         result = await self.shell(screenshot_cmd, take_screenshot=False)
-        if self._scaling_enabled:
+
+        if self._scaling_enabled and path.exists():
             x, y = self.scale_coordinates(
                 ScalingSource.COMPUTER, self.width, self.height
             )
-            await self.shell(
-                f"convert {path} -resize {x}x{y}! {path}", take_screenshot=False
-            )
+            if IS_MACOS:
+                # Use sips on macOS for resizing
+                await self.shell(
+                    f"sips -z {y} {x} {path} --out {path}", take_screenshot=False
+                )
+            elif shutil.which("convert"):
+                await self.shell(
+                    f"convert {path} -resize {x}x{y}! {path}", take_screenshot=False
+                )
 
         if path.exists():
             return result.replace(
@@ -323,11 +413,17 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
         if action in ("left_mouse_down", "left_mouse_up"):
             if coordinate is not None:
                 raise ToolError(f"coordinate is not accepted for {action=}.")
-            command_parts = [
-                self.xdotool,
-                f"{'mousedown' if action == 'left_mouse_down' else 'mouseup'} 1",
-            ]
-            return await self.shell(" ".join(command_parts))
+            if IS_MACOS:
+                # cliclick doesn't have separate mouse down/up, use AppleScript
+                script = f'''osascript -e 'tell application "System Events" to {"mouse down" if action == "left_mouse_down" else "mouse up"}' '''
+                return await self.shell(script)
+            else:
+                command_parts = [
+                    self.xdotool,
+                    f"{'mousedown' if action == 'left_mouse_down' else 'mouseup'} 1",
+                ]
+                return await self.shell(" ".join(command_parts))
+
         if action == "scroll":
             if scroll_direction is None or scroll_direction not in get_args(
                 ScrollDirection
@@ -337,25 +433,50 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
                 )
             if not isinstance(scroll_amount, int) or scroll_amount < 0:
                 raise ToolError(f"{scroll_amount=} must be a non-negative int")
-            mouse_move_part = ""
-            if coordinate is not None:
-                x, y = self.validate_and_get_coordinates(coordinate)
-                mouse_move_part = f"mousemove --sync {x} {y}"
-            scroll_button = {
-                "up": 4,
-                "down": 5,
-                "left": 6,
-                "right": 7,
-            }[scroll_direction]
 
-            command_parts = [self.xdotool, mouse_move_part]
-            if text:
-                command_parts.append(f"keydown {text}")
-            command_parts.append(f"click --repeat {scroll_amount} {scroll_button}")
-            if text:
-                command_parts.append(f"keyup {text}")
+            if IS_MACOS:
+                # Use cliclick for scroll on macOS
+                # Move mouse first if coordinate specified
+                commands = []
+                if coordinate is not None:
+                    x, y = self.validate_and_get_coordinates(coordinate)
+                    commands.append(f"m:{x},{y}")
 
-            return await self.shell(" ".join(command_parts))
+                # cliclick scroll: scroll:x,y where positive y = up, negative y = down
+                scroll_map = {
+                    "up": f"0,{scroll_amount}",
+                    "down": f"0,-{scroll_amount}",
+                    "left": f"-{scroll_amount},0",
+                    "right": f"{scroll_amount},0",
+                }
+                # Use AppleScript for scrolling as cliclick scroll can be limited
+                scroll_script = f'''osascript -e 'tell application "System Events" to scroll {"up" if scroll_direction == "up" else "down" if scroll_direction == "down" else scroll_direction} by {scroll_amount}' '''
+                # Fallback: simple approach using keyboard
+                if scroll_direction in ("up", "down"):
+                    key_cmd = "arrow-up" if scroll_direction == "up" else "arrow-down"
+                    for _ in range(scroll_amount):
+                        commands.append(f"kp:{key_cmd}")
+                return await self.shell(f"{self.cliclick} {' '.join(commands)}" if commands else "true")
+            else:
+                mouse_move_part = ""
+                if coordinate is not None:
+                    x, y = self.validate_and_get_coordinates(coordinate)
+                    mouse_move_part = f"mousemove --sync {x} {y}"
+                scroll_button = {
+                    "up": 4,
+                    "down": 5,
+                    "left": 6,
+                    "right": 7,
+                }[scroll_direction]
+
+                command_parts = [self.xdotool, mouse_move_part]
+                if text:
+                    command_parts.append(f"keydown {text}")
+                command_parts.append(f"click --repeat {scroll_amount} {scroll_button}")
+                if text:
+                    command_parts.append(f"keyup {text}")
+
+                return await self.shell(" ".join(command_parts))
 
         if action in ("hold_key", "wait"):
             if duration is None or not isinstance(duration, (int, float)):
@@ -368,14 +489,20 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
             if action == "hold_key":
                 if text is None:
                     raise ToolError(f"text is required for {action}")
-                escaped_keys = shlex.quote(text)
-                command_parts = [
-                    self.xdotool,
-                    f"keydown {escaped_keys}",
-                    f"sleep {duration}",
-                    f"keyup {escaped_keys}",
-                ]
-                return await self.shell(" ".join(command_parts))
+                if IS_MACOS:
+                    # Use AppleScript for hold key on macOS
+                    escaped_keys = text.replace('"', '\\"')
+                    script = f'''osascript -e 'tell application "System Events" to key down "{escaped_keys}"' && sleep {duration} && osascript -e 'tell application "System Events" to key up "{escaped_keys}"' '''
+                    return await self.shell(script)
+                else:
+                    escaped_keys = shlex.quote(text)
+                    command_parts = [
+                        self.xdotool,
+                        f"keydown {escaped_keys}",
+                        f"sleep {duration}",
+                        f"keyup {escaped_keys}",
+                    ]
+                    return await self.shell(" ".join(command_parts))
 
             if action == "wait":
                 await asyncio.sleep(duration)
@@ -390,19 +517,45 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
         ):
             if text is not None:
                 raise ToolError(f"text is not accepted for {action}")
-            mouse_move_part = ""
-            if coordinate is not None:
-                x, y = self.validate_and_get_coordinates(coordinate)
-                mouse_move_part = f"mousemove --sync {x} {y}"
 
-            command_parts = [self.xdotool, mouse_move_part]
-            if key:
-                command_parts.append(f"keydown {key}")
-            command_parts.append(f"click {CLICK_BUTTONS[action]}")
-            if key:
-                command_parts.append(f"keyup {key}")
+            if IS_MACOS:
+                commands = []
+                if coordinate is not None:
+                    x, y = self.validate_and_get_coordinates(coordinate)
+                    commands.append(f"m:{x},{y}")
 
-            return await self.shell(" ".join(command_parts))
+                click_map = {
+                    "left_click": "c:.",
+                    "right_click": "rc:.",
+                    "double_click": "dc:.",
+                    "triple_click": "tc:.",
+                    "middle_click": "tc:.",  # triple click as substitute
+                }
+
+                if key:
+                    # Map modifier keys for cliclick
+                    mod_map = {"shift": "shift", "ctrl": "ctrl", "alt": "alt", "cmd": "cmd"}
+                    mod = mod_map.get(key.lower(), key.lower())
+                    commands.append(f"kd:{mod}")
+                commands.append(click_map[action])
+                if key:
+                    commands.append(f"ku:{mod}")
+
+                return await self.shell(f"{self.cliclick} {' '.join(commands)}")
+            else:
+                mouse_move_part = ""
+                if coordinate is not None:
+                    x, y = self.validate_and_get_coordinates(coordinate)
+                    mouse_move_part = f"mousemove --sync {x} {y}"
+
+                command_parts = [self.xdotool, mouse_move_part]
+                if key:
+                    command_parts.append(f"keydown {key}")
+                command_parts.append(f"click {CLICK_BUTTONS[action]}")
+                if key:
+                    command_parts.append(f"keyup {key}")
+
+                return await self.shell(" ".join(command_parts))
 
         return await super().__call__(
             action=action,
@@ -464,10 +617,15 @@ class ComputerTool20251124(ComputerTool20250124):
             # Write the screenshot to a temp file
             temp_path.write_bytes(base64.b64decode(screenshot_result.base64_image))
 
-            # Crop using ImageMagick: convert input -crop WxH+X+Y output
+            # Crop the image
             width = x1 - x0
             height = y1 - y0
-            crop_cmd = f"convert {temp_path} -crop {width}x{height}+{x0}+{y0} +repage {cropped_path}"
+            if IS_MACOS:
+                # Use sips for cropping on macOS
+                crop_cmd = f"sips -c {height} {width} --cropOffset {y0} {x0} {temp_path} --out {cropped_path}"
+            else:
+                # Use ImageMagick: convert input -crop WxH+X+Y output
+                crop_cmd = f"convert {temp_path} -crop {width}x{height}+{x0}+{y0} +repage {cropped_path}"
             await run(crop_cmd)
 
             if cropped_path.exists():
