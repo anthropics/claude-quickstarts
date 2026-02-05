@@ -269,11 +269,11 @@ def validate_init_script(command_string: str) -> tuple[bool, str]:
     # The command should be exactly ./init.sh (possibly with arguments)
     script = tokens[0]
 
-    # Allow ./init.sh or paths ending in /init.sh
-    if script == "./init.sh" or script.endswith("/init.sh"):
+    # Only allow the project-local init.sh
+    if script == "./init.sh":
         return True, ""
 
-    return False, f"Only ./init.sh is allowed, got: {script}"
+    return False, f"Only ./init.sh from the current project is allowed, got: {script}"
 
 
 def get_command_for_validation(cmd: str, segments: list[str]) -> str:

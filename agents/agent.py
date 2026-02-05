@@ -1,6 +1,7 @@
 """Agent implementation with Claude API and tools."""
 
 import asyncio
+import inspect
 import os
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
@@ -37,7 +38,7 @@ class Agent:
         self,
         name: str,
         system: str,
-        tools: list[Tool] | None = None,
+        tools: list[Any] | None = None,
         mcp_servers: list[dict[str, Any]] | None = None,
         config: ModelConfig | None = None,
         verbose: bool = False,
@@ -83,13 +84,22 @@ class Agent:
         Returns a dict with base parameters from config, with any
         message_params overriding conflicting keys.
         """
+        def _tool_to_dict(tool: Any) -> dict[str, Any]:
+            if hasattr(tool, "to_dict"):
+                return tool.to_dict()
+            if isinstance(tool, dict):
+                return tool
+            raise TypeError(
+                f"Tool {tool} must define to_dict() or be a tool schema dict"
+            )
+
         return {
             "model": self.config.model,
             "max_tokens": self.config.max_tokens,
             "temperature": self.config.temperature,
             "system": self.system,
             "messages": self.history.format_for_api(),
-            "tools": [tool.to_dict() for tool in self.tools],
+            "tools": [_tool_to_dict(tool) for tool in self.tools],
             **self.message_params,
         }
 
@@ -99,7 +109,15 @@ class Agent:
             print(f"\n[{self.name}] Received: {user_input}")
         await self.history.add_message("user", user_input, None)
 
-        tool_dict = {tool.name: tool for tool in self.tools}
+        import inspect
+
+        tool_dict = {
+            tool.name: tool
+            for tool in self.tools
+            if hasattr(tool, "name")
+            and hasattr(tool, "execute")
+            and inspect.iscoroutinefunction(getattr(tool, "execute"))
+        }
 
         while True:
             self.history.truncate()
