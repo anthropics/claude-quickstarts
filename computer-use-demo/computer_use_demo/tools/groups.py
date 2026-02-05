@@ -4,7 +4,7 @@ from typing import Literal
 from .base import BaseAnthropicTool
 from .bash import BashTool20241022, BashTool20250124
 from .computer import ComputerTool20241022, ComputerTool20250124, ComputerTool20251124
-from .edit import EditTool20241022, EditTool20250728
+from .edit import EditTool20250728
 
 ToolVersion = Literal[
     "computer_use_20250124",
@@ -30,7 +30,7 @@ class ToolGroup:
 TOOL_GROUPS: list[ToolGroup] = [
     ToolGroup(
         version="computer_use_20241022",
-        tools=[ComputerTool20241022, EditTool20241022, BashTool20241022],
+        tools=[ComputerTool20241022, EditTool20250728, BashTool20241022],
         beta_flag="computer-use-2024-10-22",
     ),
     ToolGroup(

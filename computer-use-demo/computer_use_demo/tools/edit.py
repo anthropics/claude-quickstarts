@@ -5,15 +5,7 @@ from typing import Any, Literal, get_args
 from .base import BaseAnthropicTool, CLIResult, ToolError, ToolResult
 from .run import maybe_truncate, run
 
-Command_20250124 = Literal[
-    "view",
-    "create",
-    "str_replace",
-    "insert",
-    "undo_edit",
-]
-
-Command_20250728 = Literal[
+Command = Literal[
     "view",
     "create",
     "str_replace",
@@ -22,14 +14,19 @@ Command_20250728 = Literal[
 SNIPPET_LINES: int = 4
 
 
-class EditTool20250124(BaseAnthropicTool):
+class EditTool20250728(BaseAnthropicTool):
     """
-    An filesystem editor tool that allows the agent to view, create, and edit files.
+    A filesystem editor tool that allows the agent to view, create, and edit files.
     The tool parameters are defined by Anthropic and are not editable.
+
+    This implements the text_editor_20250728 tool version, which:
+    - Uses `insert_text` (not `new_str`) for the insert command
+    - Uses `str_replace_based_edit_tool` as the tool name
+    - Does not support `undo_edit`
     """
 
-    api_type: Literal["text_editor_20250124"] = "text_editor_20250124"
-    name: Literal["str_replace_editor"] = "str_replace_editor"
+    api_type: Literal["text_editor_20250728"] = "text_editor_20250728"
+    name: Literal["str_replace_based_edit_tool"] = "str_replace_based_edit_tool"
 
     _file_history: dict[Path, list[str]]
 
@@ -46,13 +43,14 @@ class EditTool20250124(BaseAnthropicTool):
     async def __call__(
         self,
         *,
-        command: Command_20250124,
+        command: Command,
         path: str,
         file_text: str | None = None,
         view_range: list[int] | None = None,
         old_str: str | None = None,
         new_str: str | None = None,
         insert_line: int | None = None,
+        insert_text: str | None = None,
         **kwargs,
     ):
         _path = Path(path)
@@ -76,13 +74,13 @@ class EditTool20250124(BaseAnthropicTool):
                 raise ToolError(
                     "Parameter `insert_line` is required for command: insert"
                 )
-            if new_str is None:
-                raise ToolError("Parameter `new_str` is required for command: insert")
-            return self.insert(_path, insert_line, new_str)
-        elif command == "undo_edit":
-            return self.undo_edit(_path)
+            if insert_text is None:
+                raise ToolError(
+                    "Parameter `insert_text` is required for command: insert"
+                )
+            return self.insert(_path, insert_line, insert_text)
         raise ToolError(
-            f"Unrecognized command {command}. The allowed commands for the {self.name} tool are: {', '.join(get_args(Command_20250124))}"
+            f"Unrecognized command {command}. The allowed commands for the {self.name} tool are: {', '.join(get_args(Command))}"
         )
 
     def validate_path(self, command: str, path: Path):
@@ -245,18 +243,6 @@ class EditTool20250124(BaseAnthropicTool):
         success_msg += "Review the changes and make sure they are as expected (correct indentation, no duplicate lines, etc). Edit the file again if necessary."
         return CLIResult(output=success_msg)
 
-    def undo_edit(self, path: Path):
-        """Implement the undo_edit command."""
-        if not self._file_history[path]:
-            raise ToolError(f"No edit history found for {path}.")
-
-        old_text = self._file_history[path].pop()
-        self.write_file(path, old_text)
-
-        return CLIResult(
-            output=f"Last edit to {path} undone successfully. {self._make_output(old_text, str(path))}"
-        )
-
     def read_file(self, path: Path):
         """Read the content of a file from a given path; raise a ToolError if an error occurs."""
         try:
@@ -293,12 +279,3 @@ class EditTool20250124(BaseAnthropicTool):
             + file_content
             + "\n"
         )
-
-
-class EditTool20250728(EditTool20250124):
-    api_type: Literal["text_editor_20250728"] = "text_editor_20250728"  # pyright: ignore[reportIncompatibleVariableOverride]
-    name: Literal["str_replace_based_edit_tool"] = "str_replace_based_edit_tool"  # pyright: ignore[reportIncompatibleVariableOverride]
-
-
-class EditTool20241022(EditTool20250124):
-    api_type: Literal["text_editor_20250429"] = "text_editor_20250429"  # pyright: ignore[reportIncompatibleVariableOverride]
