@@ -228,7 +228,7 @@ class BaseComputerTool:
     async def screenshot(self):
         """Take a screenshot of the current screen and return the base64 encoded image."""
         output_dir = Path(OUTPUT_DIR)
-        output_dir.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(output_dir.mkdir, parents=True, exist_ok=True)
         path = output_dir / f"screenshot_{uuid4().hex}.png"
 
         # Try gnome-screenshot first
