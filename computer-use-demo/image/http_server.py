@@ -12,6 +12,7 @@ def run_server():
     server_address = ("::", 8080)
     httpd = HTTPServerV6(server_address, SimpleHTTPRequestHandler)
     print("Starting HTTP server on port 8080...")  # noqa: T201
+    print("Demo frontend available at: http://localhost:8080/demo.html")  # noqa: T201
     httpd.serve_forever()
 
 
