@@ -30,7 +30,7 @@ An environment and tools that Claude can use to control a desktop computer. This
 
 A complete reference implementation for browser automation powered by Claude. This project demonstrates how to leverage Claude's browser tools API for web interaction, including navigation, DOM inspection, and form manipulation using Playwright.
 
-[Go to Browser Tools API Demo Quickstart](./browser-tools-api-demo)
+[Go to Browser Tools API Demo Quickstart](./browser-use-demo)
 
 ### Autonomous Coding Agent
 
