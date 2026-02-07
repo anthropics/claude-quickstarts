@@ -38,6 +38,12 @@ An autonomous coding agent powered by the Claude Agent SDK. This project demonst
 
 [Go to Autonomous Coding Agent Quickstart](./autonomous-coding)
 
+### Cost Optimization
+
+A practical guide with runnable examples demonstrating how to save 50-90% on Claude API costs. This project covers three officially verified techniques: Batch API, Prompt Caching, and Extended Thinking.
+
+[Go to Cost Optimization Quickstart](./cost-optimization)
+
 ## General Usage
 
 Each quickstart project comes with its own README and setup instructions. Generally, you'll follow these steps:
