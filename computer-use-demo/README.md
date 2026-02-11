@@ -37,6 +37,7 @@ Please use [this form](https://forms.gle/BT1hpBrqDPDUrCqo7) to provide feedback 
 > [!TIP]
 > You can find your API key in the [Claude Console](https://console.anthropic.com/).
 
+#### Mac / Linux
 ```bash
 export ANTHROPIC_API_KEY=%your_api_key%
 docker run \
@@ -47,6 +48,13 @@ docker run \
     -p 6080:6080 \
     -p 8080:8080 \
     -it ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
+```
+
+#### Windows
+Open your cmd in administrator mode then paste the following:
+```
+set ANTHROPIC_API_KEY=[paste your Anthropic API key here (remove this message along with the square brackets)]
+docker run -e ANTHROPIC_API_KEY=%ANTHROPIC_API_KEY% -v %HOMEDRIVE%%HOMEPATH%\.anthropic:/home/computeruse/.anthropic -p 5900:5900 -p 8501:8501 -p 6080:6080 -p 8080:8080 -it ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
 ```
 
 Once the container is running, see the [Accessing the demo app](#accessing-the-demo-app) section below for instructions on how to connect to the interface.
