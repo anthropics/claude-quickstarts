@@ -421,6 +421,154 @@
       .anomaly-summary { grid-template-columns: 1fr 1fr; }
     }
 
+    /* SETTINGS MODAL */
+    .settings-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+    }
+    .settings-overlay.active { display: flex; }
+    .settings-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      width: 780px;
+      max-width: 95vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .settings-modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-light);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .settings-modal-header h2 { font-size: 16px; font-weight: 600; color: var(--text); }
+    .settings-modal-body { padding: 16px 24px; overflow-y: auto; flex: 1; }
+    .settings-section { margin-bottom: 20px; }
+    .settings-section-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+    .opt-field-group { margin-bottom: 16px; }
+    .opt-field-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .opt-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 6px;
+    }
+    .opt-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      background: var(--navy-faint);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .opt-tag-edit, .opt-tag-del {
+      cursor: pointer;
+      opacity: 0.5;
+      font-size: 11px;
+      border: none;
+      background: none;
+      color: inherit;
+      padding: 0 2px;
+    }
+    .opt-tag-edit:hover { opacity: 1; color: var(--navy); }
+    .opt-tag-del:hover { opacity: 1; color: var(--red); }
+    .opt-add-row {
+      display: flex;
+      gap: 6px;
+    }
+    .opt-add-input {
+      flex: 1;
+      padding: 5px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-family: inherit;
+    }
+    .opt-add-input:focus { outline: none; border-color: var(--navy); }
+    .opt-add-btn {
+      padding: 5px 12px;
+      background: var(--navy);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* CUSTOM TESTS */
+    .custom-test-section {
+      margin-top: 20px;
+      padding: 16px;
+      border: 1px dashed var(--border);
+      border-radius: 8px;
+      background: var(--surface);
+    }
+    .custom-test-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .custom-test-header h3 { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
+    .custom-test-list { display: flex; flex-direction: column; gap: 8px; }
+    .custom-test-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 8px 10px;
+      background: var(--bg);
+      border-radius: var(--radius);
+      border: 1px solid var(--border-light);
+    }
+    .custom-test-row select, .custom-test-row input {
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-family: inherit;
+      background: var(--surface);
+    }
+    .custom-test-row select:focus, .custom-test-row input:focus { outline: none; border-color: var(--navy); }
+    .custom-test-row .ct-field { width: 160px; }
+    .custom-test-row .ct-op { width: 100px; }
+    .custom-test-row .ct-val { width: 120px; }
+    .custom-test-row .ct-sev { width: 90px; }
+    .custom-test-row .ct-name { flex: 1; min-width: 100px; }
+    .ct-del {
+      cursor: pointer;
+      color: var(--text-muted);
+      border: none;
+      background: none;
+      font-size: 14px;
+      padding: 2px 4px;
+    }
+    .ct-del:hover { color: var(--red); }
+    .custom-test-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 12px; }
+
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -550,6 +698,20 @@
     <div class="tab-content" id="tab-anomalies">
       <div class="section" id="anomaly-summary-section"></div>
       <div class="section" id="anomaly-list-section"></div>
+      <div class="section">
+        <div class="custom-test-section">
+          <div class="custom-test-header">
+            <h3>Custom Tests</h3>
+            <button class="btn btn-outline btn-sm" onclick="addCustomTest()">+ Add Test</button>
+          </div>
+          <div class="custom-test-list" id="custom-test-list">
+            <div class="custom-test-empty" id="custom-test-empty">No custom tests defined. Click "+ Add Test" to create one.</div>
+          </div>
+          <div style="margin-top:10px; text-align:right;">
+            <button class="btn btn-primary btn-sm" onclick="runCustomTests()" id="run-custom-tests-btn" style="display:none;">Run Custom Tests</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- DATA TAB -->
@@ -563,7 +725,7 @@
           <div class="table-scroll" style="max-height:600px;">
             <table>
               <thead><tr>
-                <th>ID</th><th>Lessee</th><th>Sector</th><th>Region</th><th>Original Bal</th><th>Outstanding</th><th>Maturity</th><th>Rate</th><th>Rating</th><th>Type</th><th>Arrears</th>
+                <th>ID</th><th>Lessee</th><th>Sector</th><th>Region</th><th>Postcode</th><th>Original Bal</th><th>Outstanding</th><th>Maturity</th><th>Rate</th><th>Rating</th><th>Type</th><th>BBB</th><th>Arrears</th>
               </tr></thead>
               <tbody id="data-table-body"></tbody>
             </table>
@@ -593,6 +755,17 @@
   </div>
 </div>
 
+<!-- SETTINGS MODAL -->
+<div class="settings-overlay" id="settings-overlay">
+  <div class="settings-modal">
+    <div class="settings-modal-header">
+      <h2>Settings</h2>
+      <button class="btn btn-outline btn-sm" onclick="closeSettings()">Close</button>
+    </div>
+    <div class="settings-modal-body" id="settings-body"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 //  STATE
@@ -601,6 +774,57 @@ let loans = [];
 let charts = {};
 let pendingRawData = null;
 let columnMapping = {};
+let customTests = [];
+
+// Configurable predefined options per field — users can add/edit/delete
+let fieldOptions = {
+  facility_type:       ['Loan', 'Hire Purchase', 'Finance Lease', 'Operating Lease', 'Refinance'],
+  bbb_guarantee:       ['None', 'GGS', 'RLS'],
+  customer_segment:    ['SME', 'Mid-Market', 'Large Corporate', 'Micro Enterprise', 'Sole Trader'],
+  payment_frequency:   ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'],
+  interest_rate_type:  ['Fixed', 'Floating', 'Mixed'],
+  repayment_method:    ['Level', 'Reducing', 'Balloon', 'Seasonal', 'Stepped'],
+  amortisation_type:   ['Annuity', 'Linear', 'Bullet', 'Soft Bullet']
+};
+
+// UK postcode area → region mapping
+const POSTCODE_REGION_MAP = {
+  'EC':'London','WC':'London','E':'London','N':'London','NW':'London','SE':'London','SW':'London','W':'London',
+  'BN':'South East','BR':'South East','CR':'South East','CT':'South East','DA':'South East','GU':'South East',
+  'HP':'South East','KT':'South East','ME':'South East','MK':'South East','OX':'South East','PO':'South East',
+  'RG':'South East','RH':'South East','SL':'South East','SM':'South East','SO':'South East','SS':'South East',
+  'TN':'South East','TW':'South East','UB':'South East',
+  'BA':'South West','BH':'South West','BS':'South West','DT':'South West','EX':'South West','GL':'South West',
+  'PL':'South West','SN':'South West','SP':'South West','TA':'South West','TQ':'South West','TR':'South West',
+  'B':'Midlands','CV':'Midlands','DE':'Midlands','DY':'Midlands','LE':'Midlands','NG':'Midlands',
+  'NN':'Midlands','PE':'Midlands','ST':'Midlands','TF':'Midlands','WR':'Midlands','WS':'Midlands','WV':'Midlands',
+  'AL':'East of England','CB':'East of England','CM':'East of England','CO':'East of England','EN':'East of England',
+  'HA':'East of England','IG':'East of England','IP':'East of England','LU':'East of England','NR':'East of England',
+  'RM':'East of England','SG':'East of England','WD':'East of England',
+  'BB':'North West','BL':'North West','CA':'North West','CH':'North West','CW':'North West','FY':'North West',
+  'L':'North West','LA':'North West','M':'North West','OL':'North West','PR':'North West','SK':'North West',
+  'WA':'North West','WN':'North West',
+  'DH':'North East','DL':'North East','NE':'North East','SR':'North East','TS':'North East',
+  'BD':'Yorkshire & Humber','DN':'Yorkshire & Humber','HD':'Yorkshire & Humber','HG':'Yorkshire & Humber',
+  'HU':'Yorkshire & Humber','HX':'Yorkshire & Humber','LN':'Yorkshire & Humber','LS':'Yorkshire & Humber',
+  'S':'Yorkshire & Humber','WF':'Yorkshire & Humber','YO':'Yorkshire & Humber',
+  'AB':'Scotland','DD':'Scotland','DG':'Scotland','EH':'Scotland','FK':'Scotland','G':'Scotland',
+  'HS':'Scotland','IV':'Scotland','KA':'Scotland','KW':'Scotland','KY':'Scotland','ML':'Scotland',
+  'PA':'Scotland','PH':'Scotland','TD':'Scotland','ZE':'Scotland',
+  'CF':'Wales','LD':'Wales','LL':'Wales','NP':'Wales','SA':'Wales','SY':'Wales',
+  'BT':'Northern Ireland'
+};
+
+function postcodeToRegion(postcode) {
+  if (!postcode) return '';
+  const clean = String(postcode).trim().toUpperCase().replace(/\s+/g, '');
+  const m = clean.match(/^([A-Z]{1,2})/);
+  if (!m) return '';
+  // Try 2-letter prefix first, then 1-letter
+  if (POSTCODE_REGION_MAP[m[1]]) return POSTCODE_REGION_MAP[m[1]];
+  if (m[1].length === 2 && POSTCODE_REGION_MAP[m[1][0]]) return POSTCODE_REGION_MAP[m[1][0]];
+  return '';
+}
 
 const COLORS = [
   '#003078','#00857c','#4a6fa5','#6d8c70','#8a7d5a',
@@ -617,6 +841,7 @@ function updateNav(view) {
     el.innerHTML = '';
   } else {
     el.innerHTML = `
+      <button class="btn btn-nav btn-sm" onclick="openSettings()">Settings</button>
       <button class="btn btn-nav btn-sm" onclick="goHome()">New Tape</button>
       <button class="btn btn-nav btn-sm" onclick="exportCSV()">Export CSV</button>
     `;
@@ -741,7 +966,9 @@ const TEMPLATE_FIELDS = [
   { key: 'asset_type',          label: 'Asset Type',          required: false, type: 'string' },
   { key: 'customer_segment',    label: 'Customer Segment',    required: false, type: 'string' },
   { key: 'origination_channel', label: 'Origination Channel', required: false, type: 'string' },
-  { key: 'balloon_pct',         label: 'Balloon %',           required: false, type: 'number' }
+  { key: 'balloon_pct',         label: 'Balloon %',           required: false, type: 'number' },
+  { key: 'postcode',            label: 'Postcode',            required: false, type: 'string' },
+  { key: 'bbb_guarantee',       label: 'BBB Guarantee',       required: false, type: 'string' }
 ];
 
 const FIELD_ALIASES = {
@@ -768,7 +995,9 @@ const FIELD_ALIASES = {
   asset_type:          ['asset_type','assettype','asset type','asset_class','assetclass','asset_category','collateral_type','equipment_type','asset_description'],
   customer_segment:    ['customer_segment','customersegment','customer segment','cust_segment','segment','borrower_type','obligor_type','client_segment','legal_form_or_business_type','legalformorbusinesstype','legal form or business type','legal_form','business_type'],
   origination_channel: ['origination_channel','originationchannel','origination channel','channel','source','distribution_channel','sales_channel','origination_source','orig_channel'],
-  balloon_pct:         ['balloon_pct','balloonpct','balloon_percentage','balloonpercentage','balloon percentage','balloon','residual_value_pct','residual_pct','rv_pct','balloon_pct_of_original','balloon_percent']
+  balloon_pct:         ['balloon_pct','balloonpct','balloon_percentage','balloonpercentage','balloon percentage','balloon','residual_value_pct','residual_pct','rv_pct','balloon_pct_of_original','balloon_percent'],
+  postcode:            ['postcode','post_code','post code','zip','zip_code','zipcode','postal_code','postalcode','postal code'],
+  bbb_guarantee:       ['bbb_guarantee','bbbguarantee','bbb guarantee','bbb_program','bbbprogram','bbb program','guarantee_scheme','guaranteescheme','guarantee scheme','ggs','rls','government_guarantee','govguarantee','bbb_scheme','bbb scheme','guarantee_program','guarantee program','recovery_loan_scheme','growth_guarantee_scheme']
 };
 
 // ============================================================
@@ -898,32 +1127,40 @@ function confirmMapping() {
 }
 
 function applyMapping(data, rm) {
-  return data.map((row, i) => ({
-    loan_id:             rm.loan_id ? String(row[rm.loan_id] || '') || `L${i+1}` : `L${i+1}`,
-    borrower_name:       rm.borrower_name ? String(row[rm.borrower_name] || '') : '',
-    sector:              rm.sector ? String(row[rm.sector] || '') : '',
-    region:              rm.region ? String(row[rm.region] || '') : '',
-    loan_amount:         rm.loan_amount ? parseNum(row[rm.loan_amount]) : 0,
-    outstanding_balance: rm.outstanding_balance ? parseNum(row[rm.outstanding_balance]) : 0,
-    maturity_date:       rm.maturity_date ? String(row[rm.maturity_date] || '') : '',
-    interest_rate:       rm.interest_rate ? parseNum(row[rm.interest_rate]) : 0,
-    credit_rating:       rm.credit_rating ? String(row[rm.credit_rating] || '') : '',
-    facility_type:       rm.facility_type ? String(row[rm.facility_type] || '') : '',
-    default_flag:        rm.default_flag ? parseDefault(row[rm.default_flag]) : false,
-    origination_date:    rm.origination_date ? String(row[rm.origination_date] || '') : '',
-    original_term:       rm.original_term ? parseNum(row[rm.original_term]) : 0,
-    remaining_term:      rm.remaining_term ? parseNum(row[rm.remaining_term]) : 0,
-    currency:            rm.currency ? String(row[rm.currency] || '') : '',
-    repayment_method:    rm.repayment_method ? String(row[rm.repayment_method] || '') : '',
-    amortisation_type:   rm.amortisation_type ? String(row[rm.amortisation_type] || '') : '',
-    payment_frequency:   rm.payment_frequency ? String(row[rm.payment_frequency] || '') : '',
-    interest_rate_type:  rm.interest_rate_type ? String(row[rm.interest_rate_type] || '') : '',
-    days_in_arrears:     rm.days_in_arrears ? parseNum(row[rm.days_in_arrears]) : 0,
-    asset_type:          rm.asset_type ? String(row[rm.asset_type] || '') : '',
-    customer_segment:    rm.customer_segment ? String(row[rm.customer_segment] || '') : '',
-    origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '') : '',
-    balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) : 0
-  }));
+  return data.map((row, i) => {
+    const pc = rm.postcode ? String(row[rm.postcode] || '') : '';
+    const explicitRegion = rm.region ? String(row[rm.region] || '') : '';
+    // Derive region from postcode if no explicit region mapped
+    const region = explicitRegion || postcodeToRegion(pc);
+    return {
+      loan_id:             rm.loan_id ? String(row[rm.loan_id] || '') || `L${i+1}` : `L${i+1}`,
+      borrower_name:       rm.borrower_name ? String(row[rm.borrower_name] || '') : '',
+      sector:              rm.sector ? String(row[rm.sector] || '') : '',
+      region:              region,
+      loan_amount:         rm.loan_amount ? parseNum(row[rm.loan_amount]) : 0,
+      outstanding_balance: rm.outstanding_balance ? parseNum(row[rm.outstanding_balance]) : 0,
+      maturity_date:       rm.maturity_date ? String(row[rm.maturity_date] || '') : '',
+      interest_rate:       rm.interest_rate ? parseNum(row[rm.interest_rate]) : 0,
+      credit_rating:       rm.credit_rating ? String(row[rm.credit_rating] || '') : '',
+      facility_type:       rm.facility_type ? String(row[rm.facility_type] || '') : '',
+      default_flag:        rm.default_flag ? parseDefault(row[rm.default_flag]) : false,
+      origination_date:    rm.origination_date ? String(row[rm.origination_date] || '') : '',
+      original_term:       rm.original_term ? parseNum(row[rm.original_term]) : 0,
+      remaining_term:      rm.remaining_term ? parseNum(row[rm.remaining_term]) : 0,
+      currency:            rm.currency ? String(row[rm.currency] || '') : '',
+      repayment_method:    rm.repayment_method ? String(row[rm.repayment_method] || '') : '',
+      amortisation_type:   rm.amortisation_type ? String(row[rm.amortisation_type] || '') : '',
+      payment_frequency:   rm.payment_frequency ? String(row[rm.payment_frequency] || '') : '',
+      interest_rate_type:  rm.interest_rate_type ? String(row[rm.interest_rate_type] || '') : '',
+      days_in_arrears:     rm.days_in_arrears ? parseNum(row[rm.days_in_arrears]) : 0,
+      asset_type:          rm.asset_type ? String(row[rm.asset_type] || '') : '',
+      customer_segment:    rm.customer_segment ? String(row[rm.customer_segment] || '') : '',
+      origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '') : '',
+      balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) : 0,
+      postcode:            pc,
+      bbb_guarantee:       rm.bbb_guarantee ? String(row[rm.bbb_guarantee] || '') : ''
+    };
+  });
 }
 
 function parseNum(v) { const n = parseFloat(String(v).replace(/[\u00a3,$%]/g, '')); return isNaN(n) ? 0 : n; }
@@ -953,6 +1190,19 @@ function generateSampleRows() {
   const custSegWeights = [0.35, 0.25, 0.15, 0.15, 0.10];
   const channels = ['Direct','Broker','Vendor','Online','Partnership'];
   const channelWeights = [0.30, 0.25, 0.20, 0.15, 0.10];
+  const bbbPrograms = ['None','None','None','None','None','None','GGS','GGS','RLS','None'];
+  const postcodes = [
+    'EC1A 1BB','SW1A 1AA','W1D 3QU','SE1 7PB','N1 9GU',
+    'BN1 1AE','CT1 2EH','GU1 1AA','ME1 1QX','OX1 1BX',
+    'BS1 1HT','EX1 1QA','BA1 1SU','PL1 1EA','GL1 1DZ',
+    'B1 1BB','CV1 1FY','LE1 1AA','NG1 1AB','DE1 1QH',
+    'CB1 1JW','NR1 1RN','IP1 1AY','CM1 1QZ','CO1 1PJ',
+    'M1 1AE','L1 1JD','PR1 1HT','CH1 1NJ','BB1 1ET',
+    'NE1 4ST','DH1 3EE','SR1 1PP','DL1 1QA','TS1 1DT',
+    'LS1 1BA','BD1 1EP','HU1 1AA','S1 1WB','YO1 6GA',
+    'EH1 1YZ','G1 1AA','AB10 1AN','DD1 1DA','KY1 1LQ',
+    'CF10 1BH','SA1 1DP','LL11 1AB','NP20 1GE','LD1 5DL'
+  ];
   const borrowers = [
     'Acorn Manufacturing Ltd','Beacon Healthcare Group','Crestfield Properties Plc','Drummond Engineering Ltd','Evergreen Retail Holdings',
     'Foxbridge Capital Ltd','Glenmore Logistics Plc','Hartland Construction Ltd','Ironside Technologies Ltd','Jubilee Hotels Group',
@@ -1039,7 +1289,9 @@ function generateSampleRows() {
       'Asset_Type':          assetTypes[wr(assetTypeWeights)],
       'Customer_Segment':    custSegments[wr(custSegWeights)],
       'Origination_Channel': channels[wr(channelWeights)],
-      'Balloon_Percentage':  i === 77 ? 115 : balloonPct
+      'Balloon_Percentage':  i === 77 ? 115 : balloonPct,
+      'Postcode':            postcodes[Math.floor(Math.random() * postcodes.length)],
+      'BBB_Guarantee':       bbbPrograms[Math.floor(Math.random() * bbbPrograms.length)]
     });
   }
   return rows;
@@ -1279,7 +1531,8 @@ function renderStratification() {
     { key: 'customer_segment',    title: 'By Customer Segment' },
     { key: 'origination_channel', title: 'By Origination Channel' },
     { key: 'credit_rating',       title: 'By Credit Rating' },
-    { key: 'region',              title: 'By Region' }
+    { key: 'region',              title: 'By Region' },
+    { key: 'bbb_guarantee',       title: 'By BBB Guarantee Programme' }
   ];
 
   // Banded strats
@@ -1720,12 +1973,14 @@ function renderDataTable() {
       <td>${escapeHtml(l.borrower_name)}</td>
       <td>${escapeHtml(l.sector)}</td>
       <td>${escapeHtml(l.region)}</td>
+      <td>${escapeHtml(l.postcode || '')}</td>
       <td class="mono">${fmtFull(l.loan_amount)}</td>
       <td class="mono">${fmtFull(l.outstanding_balance)}</td>
       <td class="mono">${escapeHtml(l.maturity_date)}</td>
       <td class="mono">${l.interest_rate.toFixed(2)}%</td>
       <td>${escapeHtml(l.credit_rating)}</td>
       <td>${escapeHtml(l.facility_type)}</td>
+      <td>${escapeHtml(l.bbb_guarantee || '')}</td>
       <td><span class="badge ${arrearsClass}">${arrearsText}</span></td>
     </tr>`;
   }).join('');
@@ -1753,6 +2008,270 @@ function exportCSV() {
   a.click();
   URL.revokeObjectURL(url);
 }
+
+// ============================================================
+//  SETTINGS MODAL — field option editor
+// ============================================================
+function openSettings() {
+  renderSettingsBody();
+  document.getElementById('settings-overlay').classList.add('active');
+}
+function closeSettings() {
+  document.getElementById('settings-overlay').classList.remove('active');
+  // Re-render dashboard if data loaded, to reflect any option changes
+  if (loans.length) renderDashboard();
+}
+
+function renderSettingsBody() {
+  const body = document.getElementById('settings-body');
+  let html = '<div class="settings-section"><div class="settings-section-title">Field Category Options</div>';
+  html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Configure the predefined options for categorical fields. These options are used in stratification and data quality checks.</p>';
+
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+
+  for (const [fieldKey, options] of Object.entries(fieldOptions)) {
+    const label = fieldLabels[fieldKey] || fieldKey;
+    html += `<div class="opt-field-group">
+      <div class="opt-field-label">${escapeHtml(label)}</div>
+      <div class="opt-tags" id="opt-tags-${fieldKey}">
+        ${options.map((opt, idx) =>
+          `<span class="opt-tag">
+            ${escapeHtml(opt)}
+            <button class="opt-tag-edit" onclick="editFieldOption('${fieldKey}',${idx})" title="Edit">&#9998;</button>
+            <button class="opt-tag-del" onclick="deleteFieldOption('${fieldKey}',${idx})" title="Remove">&times;</button>
+          </span>`
+        ).join('')}
+      </div>
+      <div class="opt-add-row">
+        <input class="opt-add-input" id="opt-input-${fieldKey}" placeholder="New option..." onkeydown="if(event.key==='Enter')addFieldOption('${fieldKey}')">
+        <button class="opt-add-btn" onclick="addFieldOption('${fieldKey}')">Add</button>
+      </div>
+    </div>`;
+  }
+
+  html += '<div style="margin-top:16px;"><button class="btn btn-outline btn-sm" onclick="addNewFieldCategory()">+ Add New Field Category</button></div>';
+  html += '</div>';
+  body.innerHTML = html;
+}
+
+function addFieldOption(fieldKey) {
+  const input = document.getElementById('opt-input-' + fieldKey);
+  const val = input.value.trim();
+  if (!val) return;
+  if (fieldOptions[fieldKey].includes(val)) { input.value = ''; return; }
+  fieldOptions[fieldKey].push(val);
+  input.value = '';
+  renderSettingsBody();
+}
+
+function editFieldOption(fieldKey, idx) {
+  const current = fieldOptions[fieldKey][idx];
+  const newVal = prompt('Edit option:', current);
+  if (newVal === null || newVal.trim() === '' || newVal.trim() === current) return;
+  fieldOptions[fieldKey][idx] = newVal.trim();
+  renderSettingsBody();
+}
+
+function deleteFieldOption(fieldKey, idx) {
+  fieldOptions[fieldKey].splice(idx, 1);
+  renderSettingsBody();
+}
+
+function addNewFieldCategory() {
+  const name = prompt('Enter a field key (e.g. "product_line"):');
+  if (!name || !name.trim()) return;
+  const key = name.trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
+  if (fieldOptions[key]) { alert('Field "' + key + '" already exists.'); return; }
+  const label = prompt('Display label for this field (e.g. "Product Line"):', key);
+  if (!label) return;
+  const optionsStr = prompt('Enter initial options separated by commas (e.g. "Green Loan, SME Loan, Asset Finance"):');
+  const opts = optionsStr ? optionsStr.split(',').map(s => s.trim()).filter(Boolean) : [];
+  fieldOptions[key] = opts;
+  // Add to TEMPLATE_FIELDS if not already there
+  if (!TEMPLATE_FIELDS.find(f => f.key === key)) {
+    TEMPLATE_FIELDS.push({ key: key, label: label.trim(), required: false, type: 'string' });
+  }
+  // Add empty alias list
+  if (!FIELD_ALIASES[key]) {
+    FIELD_ALIASES[key] = [key, key.replace(/_/g, ''), key.replace(/_/g, ' ')];
+  }
+  renderSettingsBody();
+}
+
+// ============================================================
+//  CUSTOM TESTS — user-defined data quality checks
+// ============================================================
+function addCustomTest() {
+  customTests.push({ name: '', field: 'outstanding_balance', op: '>', value: '', severity: 'warning' });
+  renderCustomTestList();
+}
+
+function removeCustomTest(idx) {
+  customTests.splice(idx, 1);
+  renderCustomTestList();
+}
+
+function updateCustomTest(idx, prop, val) {
+  customTests[idx][prop] = val;
+}
+
+function renderCustomTestList() {
+  const list = document.getElementById('custom-test-list');
+  const empty = document.getElementById('custom-test-empty');
+  const runBtn = document.getElementById('run-custom-tests-btn');
+  if (customTests.length === 0) {
+    empty.style.display = '';
+    runBtn.style.display = 'none';
+    list.innerHTML = '<div class="custom-test-empty" id="custom-test-empty">No custom tests defined. Click "+ Add Test" to create one.</div>';
+    return;
+  }
+  runBtn.style.display = '';
+
+  const numericFields = TEMPLATE_FIELDS.filter(f => f.type === 'number').map(f => f.key);
+  const stringFields = TEMPLATE_FIELDS.filter(f => f.type === 'string').map(f => f.key);
+  const allFields = TEMPLATE_FIELDS.map(f => f.key);
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+
+  list.innerHTML = customTests.map((t, i) => {
+    const fieldOpts = allFields.map(k => `<option value="${k}" ${t.field === k ? 'selected' : ''}>${fieldLabels[k] || k}</option>`).join('');
+    const isNum = numericFields.includes(t.field);
+    const ops = isNum
+      ? ['>','>=','<','<=','=','!=']
+      : ['=','!=','contains','is empty','is not empty'];
+    const opOpts = ops.map(o => `<option value="${o}" ${t.op === o ? 'selected' : ''}>${escapeHtml(o)}</option>`).join('');
+    const needsVal = t.op !== 'is empty' && t.op !== 'is not empty';
+    return `<div class="custom-test-row">
+      <input class="ct-name" placeholder="Test name" value="${escapeHtml(t.name)}" onchange="updateCustomTest(${i},'name',this.value)">
+      <select class="ct-field" onchange="updateCustomTest(${i},'field',this.value);renderCustomTestList();">${fieldOpts}</select>
+      <select class="ct-op" onchange="updateCustomTest(${i},'op',this.value);renderCustomTestList();">${opOpts}</select>
+      ${needsVal ? `<input class="ct-val" placeholder="Value" value="${escapeHtml(t.value)}" onchange="updateCustomTest(${i},'value',this.value)">` : '<span class="ct-val"></span>'}
+      <select class="ct-sev" onchange="updateCustomTest(${i},'severity',this.value)">
+        <option value="error" ${t.severity==='error'?'selected':''}>Error</option>
+        <option value="warning" ${t.severity==='warning'?'selected':''}>Warning</option>
+        <option value="info" ${t.severity==='info'?'selected':''}>Info</option>
+      </select>
+      <button class="ct-del" onclick="removeCustomTest(${i})" title="Delete">&times;</button>
+    </div>`;
+  }).join('');
+}
+
+function runCustomTests() {
+  if (!loans.length) return;
+  const results = evaluateCustomTests();
+  // Merge with built-in anomalies and re-render
+  renderAnomalies(results);
+}
+
+function evaluateCustomTests() {
+  const results = [];
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+
+  customTests.forEach(t => {
+    if (!t.field) return;
+    const matches = loans.filter(l => {
+      const v = l[t.field];
+      const tv = t.value;
+      switch (t.op) {
+        case '>':          return parseFloat(v) > parseFloat(tv);
+        case '>=':         return parseFloat(v) >= parseFloat(tv);
+        case '<':          return parseFloat(v) < parseFloat(tv);
+        case '<=':         return parseFloat(v) <= parseFloat(tv);
+        case '=':          return String(v).toLowerCase() === String(tv).toLowerCase();
+        case '!=':         return String(v).toLowerCase() !== String(tv).toLowerCase();
+        case 'contains':   return String(v).toLowerCase().includes(String(tv).toLowerCase());
+        case 'is empty':   return v == null || String(v).trim() === '' || v === 0;
+        case 'is not empty': return v != null && String(v).trim() !== '' && v !== 0;
+        default: return false;
+      }
+    });
+    if (matches.length > 0) {
+      const label = fieldLabels[t.field] || t.field;
+      const needsVal = t.op !== 'is empty' && t.op !== 'is not empty';
+      results.push({
+        severity: t.severity,
+        title: t.name || `Custom: ${label} ${t.op}${needsVal ? ' ' + t.value : ''}`,
+        description: `${matches.length} receivable(s) where ${label} ${t.op}${needsVal ? ' ' + t.value : ''}.`,
+        count: matches.length,
+        examples: matches.slice(0, 5).map(l => l.loan_id + ': ' + String(l[t.field])),
+        custom: true
+      });
+    }
+  });
+  return results;
+}
+
+// Extend renderAnomalies to accept extra results from custom tests
+const _origRenderAnomalies = renderAnomalies;
+renderAnomalies = function(extraResults) {
+  const anomalies = detectAnomalies();
+  if (extraResults && extraResults.length) anomalies.push(...extraResults);
+  // Also always run custom tests
+  const customResults = evaluateCustomTests();
+  customResults.forEach(cr => {
+    if (!anomalies.find(a => a.title === cr.title)) anomalies.push(cr);
+  });
+
+  const sevOrder = { error: 0, warning: 1, info: 2 };
+  anomalies.sort((a, b) => sevOrder[a.severity] - sevOrder[b.severity]);
+
+  const errors = anomalies.filter(a => a.severity === 'error');
+  const warnings = anomalies.filter(a => a.severity === 'warning');
+  const infos = anomalies.filter(a => a.severity === 'info');
+
+  document.getElementById('anomaly-summary-section').innerHTML = `
+    <div class="anomaly-summary">
+      <div class="card anomaly-summary-card">
+        <div class="stat-label">Total Checks</div>
+        <div class="stat-value">${anomalies.length > 0 ? anomalies.length : 'All clear'}</div>
+        <div class="stat-sub">${anomalies.length === 0 ? 'No anomalies detected' : 'anomalies found'}</div>
+      </div>
+      <div class="card anomaly-summary-card">
+        <div class="stat-label">Errors</div>
+        <div class="stat-value" style="color:var(--red)">${errors.length}</div>
+        <div class="stat-sub">Data integrity issues</div>
+      </div>
+      <div class="card anomaly-summary-card">
+        <div class="stat-label">Warnings</div>
+        <div class="stat-value" style="color:var(--amber)">${warnings.length}</div>
+        <div class="stat-sub">Potential issues</div>
+      </div>
+      <div class="card anomaly-summary-card">
+        <div class="stat-label">Info</div>
+        <div class="stat-value" style="color:var(--navy)">${infos.length}</div>
+        <div class="stat-sub">Observations</div>
+      </div>
+    </div>
+  `;
+
+  if (anomalies.length === 0) {
+    document.getElementById('anomaly-list-section').innerHTML = '<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);">No anomalies detected in this tape. All checks passed.</div>';
+  } else {
+    const listHtml = anomalies.map(a => {
+      const iconClass = a.severity === 'error' ? 'error' : a.severity === 'warning' ? 'warning' : 'info';
+      const iconChar = a.severity === 'error' ? '!' : a.severity === 'warning' ? '?' : 'i';
+      const customBadge = a.custom ? '<span class="mapping-badge auto">custom</span>' : '';
+      const examplesHtml = a.examples && a.examples.length
+        ? `<div class="anomaly-examples">${a.examples.map(e => escapeHtml(e)).join(' &middot; ')}</div>` : '';
+      return `<div class="card anomaly-card">
+        <div class="anomaly-icon ${iconClass}">${iconChar}</div>
+        <div class="anomaly-body">
+          <div class="anomaly-title">${escapeHtml(a.title)} ${customBadge}</div>
+          <div class="anomaly-desc">${escapeHtml(a.description)}</div>
+          ${examplesHtml}
+        </div>
+        <div class="anomaly-count"><span class="badge badge-${iconClass === 'error' ? 'red' : iconClass === 'warning' ? 'amber' : 'navy'}">${a.count}</span></div>
+      </div>`;
+    }).join('');
+    document.getElementById('anomaly-list-section').innerHTML = `<div class="anomaly-list">${listHtml}</div>`;
+  }
+
+  // Always render custom test UI
+  renderCustomTestList();
+};
+
 </script>
 </body>
 </html>
