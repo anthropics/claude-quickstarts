@@ -1694,6 +1694,30 @@ function confirmMapping() {
 // Store the original source column names for CSV export
 let sourceColumnNames = {};
 
+// Normalise region names for cross-tape comparison
+const REGION_ALIASES = {
+  'london': 'London', 'greater london': 'London', 'inner london': 'London', 'outer london': 'London',
+  'south east': 'South East', 'southeast': 'South East', 'south-east': 'South East', 'se england': 'South East',
+  'south west': 'South West', 'southwest': 'South West', 'south-west': 'South West', 'sw england': 'South West',
+  'north west': 'North West', 'northwest': 'North West', 'north-west': 'North West', 'nw england': 'North West',
+  'north east': 'North East', 'northeast': 'North East', 'north-east': 'North East', 'ne england': 'North East',
+  'east of england': 'East of England', 'east anglia': 'East of England', 'eastern': 'East of England', 'east england': 'East of England',
+  'west midlands': 'Midlands', 'east midlands': 'Midlands', 'midlands': 'Midlands',
+  'yorkshire': 'Yorkshire & Humber', 'yorkshire and humber': 'Yorkshire & Humber', 'yorkshire & humber': 'Yorkshire & Humber',
+  'yorkshire and the humber': 'Yorkshire & Humber', 'yorkshire & the humber': 'Yorkshire & Humber', 'yorks & humber': 'Yorkshire & Humber',
+  'humberside': 'Yorkshire & Humber',
+  'scotland': 'Scotland', 'wales': 'Wales', 'northern ireland': 'Northern Ireland', 'ni': 'Northern Ireland',
+  'channel islands': 'Channel Islands', 'isle of man': 'Isle of Man'
+};
+
+function normaliseRegion(region) {
+  if (!region) return '';
+  const trimmed = String(region).trim();
+  if (!trimmed) return '';
+  const lower = trimmed.toLowerCase();
+  return REGION_ALIASES[lower] || trimmed;
+}
+
 function applyMapping(data, rm, customRm) {
   // Remember which source column maps to which internal field
   sourceColumnNames = {};
@@ -1705,7 +1729,7 @@ function applyMapping(data, rm, customRm) {
   return data.map((row, i) => {
     const pc = rm.postcode ? String(row[rm.postcode] || '') : '';
     const explicitRegion = rm.region ? String(row[rm.region] || '') : '';
-    const region = explicitRegion || postcodeToRegion(pc);
+    const region = normaliseRegion(explicitRegion) || normaliseRegion(postcodeToRegion(pc));
     const sicCode = rm.sic_code ? String(row[rm.sic_code] || '') : '';
     const naceCode = rm.nace_code ? String(row[rm.nace_code] || '') : '';
     const explicitSector = rm.sector ? String(row[rm.sector] || '') : '';
@@ -1754,12 +1778,12 @@ function applyMapping(data, rm, customRm) {
     // Derive days_in_arrears from arrears_status when not explicitly mapped
     if (obj.days_in_arrears === 0 && obj.arrears_status) {
       const as = obj.arrears_status.toLowerCase().trim();
-      if (as === 'current' || as === '0' || as === '') { /* already 0 */ }
-      else if (as.includes('>90') || as.includes('90+') || as.includes('91+')) obj.days_in_arrears = 91;
+      // Only derive if the status clearly indicates arrears
+      if (as.includes('>90') || as.includes('90+') || as.includes('91+') || as.includes('90 day') || as.includes('90day')) obj.days_in_arrears = 91;
       else if (as.includes('61-90') || as.includes('61 -90') || as.includes('60-90')) obj.days_in_arrears = 75;
       else if (as.includes('31-60') || as.includes('31 -60') || as.includes('30-60')) obj.days_in_arrears = 45;
-      else if (as.includes('1-30') || as.includes('1 -30') || as.includes('0-30')) obj.days_in_arrears = 15;
-      else if (!as.includes('current') && as !== '0') obj.days_in_arrears = 1; // non-current but unknown band
+      else if (as.includes('1-30') || as.includes('1 -30') || as.includes('0-30') || as === '1-30 days') obj.days_in_arrears = 15;
+      // Everything else (current, up to date, performing, n/a, 0, blank, etc.) stays at 0
     }
 
     // Apply custom field mappings
@@ -2367,7 +2391,7 @@ function renderOverviewWidgets() {
     };
 
     if (active.includes('facilityMix') && document.getElementById('ow-chart-facility')) {
-      const fMap = groupBy(loans, 'facility_type', 'outstanding_balance');
+      const fMap = capChartData(groupBy(loans, 'facility_type', 'outstanding_balance', { excludeBlanks: true }), 8);
       overviewCharts.facility = new Chart(document.getElementById('ow-chart-facility'), {
         type: 'bar', data: { labels: Object.keys(fMap), datasets: [{ data: Object.values(fMap), backgroundColor: COLORS, borderRadius: 2, borderWidth: 0 }] },
         options: { ...miniChartOpts, indexAxis: 'y' }
@@ -2443,26 +2467,38 @@ const chartDefaults = {
 
 function destroyCharts() { Object.values(charts).forEach(c => c.destroy()); charts = {}; }
 
+// Cap chart data: keep top N entries, group remainder into "Other"
+function capChartData(map, maxSlices) {
+  const entries = Object.entries(map);
+  if (entries.length <= maxSlices) return map;
+  const top = entries.slice(0, maxSlices - 1);
+  const rest = entries.slice(maxSlices - 1);
+  const otherVal = rest.reduce((s, e) => s + e[1], 0);
+  const result = Object.fromEntries(top);
+  if (otherVal > 0) result['Other'] = otherVal;
+  return result;
+}
+
 function renderCharts() {
   destroyCharts();
   const tot = loans.reduce((s, l) => s + l.outstanding_balance, 0);
   const ttipCb = { callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + (tot > 0 ? ((ctx.raw / tot) * 100).toFixed(1) : 0) + '%)' } };
 
-  const sectorMap = groupBy(loans, 'sector', 'outstanding_balance');
+  const sectorMap = capChartData(groupBy(loans, 'sector', 'outstanding_balance', { excludeBlanks: true }), 15);
   charts.sector = new Chart(document.getElementById('chart-sector'), {
-    type: 'doughnut',
-    data: { labels: Object.keys(sectorMap), datasets: [{ data: Object.values(sectorMap), backgroundColor: COLORS, borderWidth: 0 }] },
-    options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, ...ttipCb } } }
+    type: 'bar',
+    data: { labels: Object.keys(sectorMap), datasets: [{ label: 'Outstanding', data: Object.values(sectorMap), backgroundColor: COLORS, borderRadius: 2, borderWidth: 0 }] },
+    options: { indexAxis: 'y', ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false }, tooltip: { ...chartDefaults.plugins.tooltip, ...ttipCb } }, scales: { x: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true }, y: { ticks: { color: '#4a5068', font: { size: 11 } }, grid: { display: false } } } }
   });
 
-  const regionMap = groupBy(loans, 'region', 'outstanding_balance');
+  const regionMap = capChartData(groupBy(loans, 'region', 'outstanding_balance', { excludeBlanks: true }), 12);
   charts.region = new Chart(document.getElementById('chart-region'), {
     type: 'doughnut',
     data: { labels: Object.keys(regionMap), datasets: [{ data: Object.values(regionMap), backgroundColor: COLORS.slice(5).concat(COLORS.slice(0, 5)), borderWidth: 0 }] },
     options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, ...ttipCb } } }
   });
 
-  const ratingMap = groupBy(loans, 'credit_rating', 'outstanding_balance');
+  const ratingMap = groupBy(loans, 'credit_rating', 'outstanding_balance', { excludeBlanks: true });
   charts.rating = new Chart(document.getElementById('chart-rating'), {
     type: 'bar',
     data: { labels: Object.keys(ratingMap), datasets: [{ label: 'Outstanding', data: Object.values(ratingMap), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
@@ -2497,9 +2533,15 @@ function renderCharts() {
   });
 }
 
-function groupBy(arr, key, sumKey) {
+function groupBy(arr, key, sumKey, opts) {
   const map = {};
-  arr.forEach(item => { const k = item[key] || '(blank)'; map[k] = (map[k] || 0) + item[sumKey]; });
+  const excludeBlanks = opts && opts.excludeBlanks;
+  arr.forEach(item => {
+    const raw = item[key];
+    const k = (raw != null && String(raw).trim() !== '') ? String(raw) : '(blank)';
+    if (excludeBlanks && k === '(blank)') return;
+    map[k] = (map[k] || 0) + item[sumKey];
+  });
   return Object.fromEntries(Object.entries(map).sort((a, b) => b[1] - a[1]));
 }
 
@@ -2687,11 +2729,17 @@ function renderStratification() {
 
   // Categorical strats
   stratFields.forEach(sf => {
-    if (!loans.some(l => l[sf.key])) return; // skip if all blank
+    // Skip if ALL loans are blank for this field
+    if (!loans.some(l => l[sf.key] && String(l[sf.key]).trim() !== '')) return;
     if (hidden.includes(sf.key)) return; // user hidden
     const groups = {};
     loans.forEach(l => addToGroup(groups, l[sf.key] || '(blank)', l));
-    const sorted = Object.entries(groups).sort((a, b) => b[1].balance - a[1].balance);
+    // Sort: blanks to bottom, rest by balance descending
+    const sorted = Object.entries(groups).sort((a, b) => {
+      if (a[0] === '(blank)') return 1;
+      if (b[0] === '(blank)') return -1;
+      return b[1].balance - a[1].balance;
+    });
     html += buildStratCard(sf.title, sorted, n, tot);
   });
 
