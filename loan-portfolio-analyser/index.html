@@ -9,164 +9,190 @@
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
   <style>
     :root {
-      --bg: #0a0b0f;
-      --surface: #111219;
-      --surface-2: #181a22;
-      --border: #21242e;
-      --text: #b8bcc8;
-      --text-bright: #d0d3dc;
-      --text-muted: #585e6f;
-      --accent: #4a6a8f;
-      --accent-light: #6888a8;
-      --positive: #4a7a5e;
-      --positive-bg: rgba(74,122,94,0.08);
-      --negative: #8a4a4a;
-      --negative-bg: rgba(138,74,74,0.08);
-      --caution: #8a7a4a;
-      --caution-bg: rgba(138,122,74,0.08);
-      --radius: 3px;
-      --shadow: 0 1px 4px rgba(0,0,0,0.4);
+      --bg: #f7f8fa;
+      --surface: #ffffff;
+      --border: #e2e5ea;
+      --border-light: #eef0f3;
+      --text: #1a1e2a;
+      --text-secondary: #4a5068;
+      --text-muted: #8890a0;
+      --navy: #003078;
+      --navy-light: #1d4e9e;
+      --navy-faint: rgba(0,48,120,0.06);
+      --teal: #00857c;
+      --teal-faint: rgba(0,133,124,0.06);
+      --red: #b3253a;
+      --red-faint: rgba(179,37,58,0.05);
+      --green: #00703c;
+      --green-faint: rgba(0,112,60,0.05);
+      --radius: 4px;
+      --mono: 'SF Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'SF Mono', 'Consolas', 'Menlo', 'Monaco', 'Liberation Mono', monospace;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       background: var(--bg);
       color: var(--text);
       min-height: 100vh;
       line-height: 1.5;
-      font-size: 13px;
+      font-size: 14px;
     }
 
+    /* NAV */
     .nav {
-      background: var(--surface);
-      border-bottom: 1px solid var(--border);
+      background: var(--navy);
       padding: 0 28px;
-      height: 48px;
+      height: 52px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      position: sticky;
-      top: 0;
-      z-index: 100;
     }
     .nav-brand {
-      font-size: 12px;
+      font-size: 15px;
       font-weight: 600;
+      color: #ffffff;
       display: flex;
       align-items: center;
       gap: 10px;
-      color: var(--text-bright);
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
     }
-    .nav-brand svg { width: 18px; height: 18px; color: var(--text-muted); }
+    .nav-brand svg { width: 20px; height: 20px; color: rgba(255,255,255,0.7); }
+    .nav-sub { font-size: 13px; color: rgba(255,255,255,0.55); font-weight: 400; margin-left: 6px; }
     .nav-actions { display: flex; gap: 8px; align-items: center; }
-    .nav-sub { font-size: 11px; color: var(--text-muted); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 8px; }
 
-    .container { max-width: 1440px; margin: 0 auto; padding: 20px 28px; }
-    .section { margin-bottom: 20px; }
-    .section-title {
-      font-size: 10px;
-      font-weight: 600;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 10px;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
+    .btn {
+      padding: 7px 14px;
+      border: none;
       border-radius: var(--radius);
-      padding: 16px;
-      box-shadow: var(--shadow);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: opacity 0.15s, background 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
     }
+    .btn:hover { opacity: 0.85; }
+    .btn-nav { background: rgba(255,255,255,0.15); color: #ffffff; border: 1px solid rgba(255,255,255,0.2); }
+    .btn-nav:hover { background: rgba(255,255,255,0.22); }
+    .btn-primary { background: var(--navy); color: #ffffff; }
+    .btn-outline { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+    .btn-outline:hover { background: var(--navy-faint); border-color: var(--navy-light); color: var(--navy); }
+    .btn-teal { background: var(--teal); color: #ffffff; }
+    .btn-sm { padding: 5px 12px; font-size: 12px; }
 
-    .stat-grid {
-      display: grid;
-      grid-template-columns: repeat(6, 1fr);
-      gap: 10px;
-    }
-    .stat-card { padding: 14px 14px; }
-    .stat-label {
-      font-size: 9px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 6px;
-      font-weight: 600;
-    }
-    .stat-value {
-      font-size: 1.2rem;
-      font-weight: 700;
-      white-space: nowrap;
-      color: var(--text-bright);
-      font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
-    }
-    .stat-sub {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-top: 3px;
-    }
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px 28px; }
+
+    /* UPLOAD PAGE */
+    .home-page { max-width: 640px; margin: 80px auto 0; text-align: center; }
+    .home-title { font-size: 22px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+    .home-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 32px; }
 
     .upload-area {
-      border: 1px dashed var(--border);
-      border-radius: var(--radius);
+      border: 2px dashed var(--border);
+      border-radius: 8px;
       padding: 48px 40px;
-      text-align: center;
       cursor: pointer;
       transition: border-color 0.2s, background 0.2s;
       background: var(--surface);
     }
     .upload-area:hover, .upload-area.drag-over {
-      border-color: var(--accent);
-      background: rgba(74,106,143,0.04);
+      border-color: var(--navy);
+      background: var(--navy-faint);
     }
-    .upload-area svg { width: 32px; height: 32px; color: var(--text-muted); margin-bottom: 12px; }
-    .upload-title { font-size: 13px; font-weight: 600; margin-bottom: 4px; color: var(--text-bright); }
-    .upload-sub { font-size: 11px; color: var(--text-muted); }
+    .upload-area svg { width: 36px; height: 36px; color: var(--text-muted); margin-bottom: 12px; }
+    .upload-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+    .upload-sub { font-size: 13px; color: var(--text-muted); }
     .upload-area input { display: none; }
 
-    .btn {
-      padding: 6px 14px;
-      border: none;
-      border-radius: var(--radius);
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-family: inherit;
-      letter-spacing: 0.02em;
+    .sample-section {
+      margin-top: 24px;
+      padding: 20px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
     }
-    .btn:hover { opacity: 0.8; }
-    .btn-primary { background: var(--accent); color: #d0d8e4; }
-    .btn-outline { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
-    .btn-outline:hover { color: var(--text); border-color: var(--text-muted); }
-    .btn-sm { padding: 5px 10px; font-size: 10px; }
+    .sample-section p { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
+    .sample-section .btn { font-size: 13px; }
 
-    .chart-grid-2 {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 10px;
-    }
-    .chart-grid-3 {
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr;
-      gap: 10px;
-    }
-    .chart-card { padding: 16px; }
-    .chart-card h3 {
-      font-size: 10px;
+    /* DASHBOARD */
+    .dashboard { display: none; }
+    .dashboard.active { display: block; }
+
+    .section { margin-bottom: 20px; }
+    .section-title {
+      font-size: 12px;
       font-weight: 600;
-      margin-bottom: 12px;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+      padding: 16px;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 12px;
+    }
+    .stat-card { padding: 16px; }
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+    .stat-value {
+      font-size: 1.25rem;
+      font-weight: 700;
+      white-space: nowrap;
+      color: var(--text);
+      font-family: var(--mono);
+    }
+    .stat-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-top: 3px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 0;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+    .tab {
+      padding: 10px 20px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--navy); border-bottom-color: var(--navy); font-weight: 600; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .chart-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .chart-grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .chart-card { padding: 16px; }
+    .chart-card h3 {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-secondary);
     }
     .chart-wrap { position: relative; height: 260px; }
 
@@ -176,18 +202,18 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid var(--border);
+      border-bottom: 1px solid var(--border-light);
     }
-    .table-header h3 { font-size: 11px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+    .table-header h3 { font-size: 13px; font-weight: 600; color: var(--text-secondary); }
     .table-scroll { max-height: 420px; overflow-y: auto; }
     table { width: 100%; border-collapse: collapse; }
     thead th {
       text-align: left;
-      font-size: 9px;
+      font-size: 11px;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.06em;
-      padding: 8px 12px;
+      letter-spacing: 0.04em;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border);
       position: sticky;
       top: 0;
@@ -195,59 +221,30 @@
       font-weight: 600;
     }
     tbody td {
-      padding: 7px 12px;
-      border-bottom: 1px solid var(--border);
-      font-size: 11px;
-      font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 13px;
     }
-    tbody tr:hover { background: rgba(74,106,143,0.03); }
+    tbody td.mono { font-family: var(--mono); font-size: 12px; }
+    tbody tr:hover { background: var(--navy-faint); }
     tbody tr:last-child td { border-bottom: none; }
+
     .badge {
       display: inline-block;
-      padding: 1px 6px;
-      border-radius: 2px;
-      font-size: 10px;
-      font-weight: 600;
-    }
-    .badge-positive { background: var(--positive-bg); color: var(--positive); }
-    .badge-negative { background: var(--negative-bg); color: var(--negative); }
-
-    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
-    .tab {
-      padding: 8px 18px;
+      padding: 2px 8px;
+      border-radius: 3px;
       font-size: 11px;
       font-weight: 600;
-      color: var(--text-muted);
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-      transition: color 0.15s, border-color 0.15s;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
-    .tab:hover { color: var(--text); }
-    .tab.active { color: var(--text-bright); border-bottom-color: var(--accent); }
-    .tab-content { display: none; }
-    .tab-content.active { display: block; }
+    .badge-green { background: var(--green-faint); color: var(--green); }
+    .badge-red { background: var(--red-faint); color: var(--red); }
 
-    .dashboard { display: none; }
-    .dashboard.active { display: block; }
-
-    @media (max-width: 1100px) {
-      .stat-grid { grid-template-columns: repeat(3, 1fr); }
-      .chart-grid-3 { grid-template-columns: 1fr 1fr; }
-    }
-    @media (max-width: 700px) {
-      .container { padding: 12px; }
-      .stat-grid { grid-template-columns: 1fr 1fr; }
-      .chart-grid-2, .chart-grid-3 { grid-template-columns: 1fr; }
-    }
-
-    /* --- MAPPING MODAL --- */
+    /* MAPPING MODAL */
     .mapping-overlay {
       display: none;
       position: fixed;
       inset: 0;
-      background: rgba(0,0,0,0.75);
+      background: rgba(0,0,0,0.4);
       z-index: 200;
       align-items: center;
       justify-content: center;
@@ -256,55 +253,51 @@
     .mapping-modal {
       background: var(--surface);
       border: 1px solid var(--border);
-      border-radius: var(--radius);
-      box-shadow: 0 8px 40px rgba(0,0,0,0.6);
-      width: 700px;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+      width: 720px;
       max-width: 95vw;
       max-height: 85vh;
       display: flex;
       flex-direction: column;
     }
     .mapping-modal-header {
-      padding: 16px 20px;
-      border-bottom: 1px solid var(--border);
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border-light);
     }
     .mapping-modal-header h2 {
-      font-size: 12px;
-      font-weight: 700;
+      font-size: 16px;
+      font-weight: 600;
       margin-bottom: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      color: var(--text-bright);
+      color: var(--text);
     }
     .mapping-modal-header p {
-      font-size: 11px;
+      font-size: 13px;
       color: var(--text-muted);
     }
     .mapping-modal-body {
-      padding: 12px 20px;
+      padding: 12px 24px;
       overflow-y: auto;
       flex: 1;
     }
     .mapping-modal-footer {
-      padding: 12px 20px;
-      border-top: 1px solid var(--border);
+      padding: 14px 24px;
+      border-top: 1px solid var(--border-light);
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
-    .mapping-status {
-      font-size: 11px;
-      color: var(--text-muted);
-    }
-    .mapping-status .count { color: var(--accent-light); font-weight: 600; }
-    .mapping-status .warn { color: var(--caution); }
+    .mapping-status { font-size: 13px; color: var(--text-muted); }
+    .mapping-status .count { color: var(--navy); font-weight: 600; }
+    .mapping-status .warn { color: var(--red); }
+
     .mapping-row {
       display: grid;
       grid-template-columns: 1fr 32px 1fr;
       gap: 10px;
       align-items: center;
-      padding: 6px 0;
-      border-bottom: 1px solid rgba(33,36,46,0.6);
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border-light);
     }
     .mapping-row:last-child { border-bottom: none; }
     .mapping-row-header {
@@ -316,25 +309,22 @@
       margin-bottom: 2px;
     }
     .mapping-row-header span {
-      font-size: 9px;
+      font-size: 10px;
       color: var(--text-muted);
       text-transform: uppercase;
-      letter-spacing: 0.08em;
+      letter-spacing: 0.06em;
       font-weight: 600;
     }
     .mapping-col-name {
-      font-size: 11px;
+      font-size: 13px;
       font-weight: 500;
       padding: 6px 10px;
-      background: var(--surface-2);
+      background: var(--bg);
       border-radius: var(--radius);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
     }
     .mapping-col-name .sample {
       display: block;
-      font-size: 10px;
+      font-size: 11px;
       color: var(--text-muted);
       font-weight: 400;
       margin-top: 2px;
@@ -342,50 +332,51 @@
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .mapping-arrow {
-      text-align: center;
-      color: var(--text-muted);
-      font-size: 11px;
-    }
+    .mapping-arrow { text-align: center; color: var(--text-muted); font-size: 12px; }
     .mapping-select {
       width: 100%;
-      padding: 6px 10px;
-      background: var(--surface-2);
+      padding: 7px 10px;
+      background: var(--surface);
       color: var(--text);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      font-size: 11px;
+      font-size: 13px;
       font-family: inherit;
       cursor: pointer;
       appearance: none;
       -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%23585e6f' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' fill='%238890a0' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: right 8px center;
       padding-right: 24px;
     }
-    .mapping-select:focus {
-      outline: none;
-      border-color: var(--accent);
-    }
-    .mapping-select.mapped { border-color: var(--accent); }
-    .mapping-select.unmapped { border-color: transparent; }
+    .mapping-select:focus { outline: none; border-color: var(--navy); }
+    .mapping-select.mapped { border-color: var(--navy-light); }
     .mapping-badge {
       display: inline-block;
-      font-size: 9px;
-      padding: 1px 5px;
-      border-radius: 2px;
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 3px;
       margin-left: 6px;
       font-weight: 600;
       vertical-align: middle;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
     }
-    .mapping-badge.auto { background: rgba(74,106,143,0.1); color: var(--accent-light); }
+    .mapping-badge.auto { background: var(--navy-faint); color: var(--navy); }
 
-    ::-webkit-scrollbar { width: 5px; }
+    @media (max-width: 1100px) {
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+      .chart-grid-3 { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 700px) {
+      .container { padding: 12px; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .chart-grid-2, .chart-grid-3 { grid-template-columns: 1fr; }
+      .home-page { margin: 40px 16px 0; }
+    }
+
+    ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
   </style>
 </head>
 <body>
@@ -395,26 +386,34 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M2 9h20"/><path d="M9 21V9"/></svg>
     Tape Analyser<span class="nav-sub">Enable Funding</span>
   </div>
-  <div class="nav-actions">
-    <button class="btn btn-outline btn-sm" onclick="downloadSampleTape()">Download Sample Tape</button>
-    <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+  <div class="nav-actions" id="nav-actions">
+    <!-- Buttons injected dynamically based on view -->
   </div>
 </nav>
 
 <div class="container">
 
-  <!-- UPLOAD -->
-  <div class="section" id="upload-section">
-    <div class="upload-area" id="upload-area">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-      <div class="upload-title">Upload Data Tape</div>
-      <div class="upload-sub">Drag &amp; drop a CSV or Excel file, or click to browse</div>
-      <div class="upload-sub" style="margin-top:8px;">Any column layout — you'll map columns to the template after upload</div>
-      <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
-    </div>
-    <div style="text-align:center; margin-top:12px;">
-      <button class="btn btn-outline btn-sm" onclick="downloadSampleTape()">Download Sample Tape (.xlsx)</button>
-      <span style="color:var(--text-muted); font-size:11px; margin-left:6px;">to test the upload flow</span>
+  <!-- HOME / UPLOAD -->
+  <div id="upload-section">
+    <div class="home-page">
+      <h1 class="home-title">Data Tape Analyser</h1>
+      <p class="home-subtitle">Upload a loan tape to analyse portfolio composition, concentration and exposures.</p>
+
+      <div class="upload-area" id="upload-area">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <div class="upload-title">Upload Data Tape</div>
+        <div class="upload-sub">Drag & drop a CSV or Excel file, or click to browse</div>
+        <div class="upload-sub" style="margin-top:6px; font-size:12px;">Any column layout accepted — you'll map columns after upload</div>
+        <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+      </div>
+
+      <div class="sample-section">
+        <p>No tape to hand? Download a sample file with 150 UK facilities to test the upload flow.</p>
+        <button class="btn btn-teal" onclick="downloadSampleTape()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Download Sample Tape (.xlsx)
+        </button>
+      </div>
     </div>
   </div>
 
@@ -543,14 +542,14 @@
   <div class="mapping-modal">
     <div class="mapping-modal-header">
       <h2>Map Your Columns</h2>
-      <p>We detected <strong id="mapping-col-count">0</strong> columns in your tape. Map each to a template field — auto-matched where possible.</p>
+      <p>We detected <strong id="mapping-col-count">0</strong> columns. Map each to a template field — auto-matched where possible.</p>
     </div>
     <div class="mapping-modal-body" id="mapping-body"></div>
     <div class="mapping-modal-footer">
       <div class="mapping-status" id="mapping-status"></div>
       <div style="display:flex; gap:8px;">
         <button class="btn btn-outline btn-sm" onclick="cancelMapping()">Cancel</button>
-        <button class="btn btn-primary btn-sm" id="mapping-confirm-btn" onclick="confirmMapping()">Confirm &amp; Analyse</button>
+        <button class="btn btn-primary btn-sm" id="mapping-confirm-btn" onclick="confirmMapping()">Confirm & Analyse</button>
       </div>
     </div>
   </div>
@@ -565,11 +564,40 @@ let charts = {};
 let pendingRawData = null;
 let columnMapping = {};
 
+// Muted palette for charts — low saturation, professional
 const COLORS = [
-  '#4a6a8f','#5a7a6e','#7a7a5a','#7a5a5a','#5a5a7a',
-  '#4a7a7a','#7a5a6a','#6a6a5a','#4a6a6a','#5a5a6a',
-  '#585e6f','#6a4a5a','#4a5a6a','#5a6a4a','#6a5a6a'
+  '#003078','#00857c','#4a6fa5','#6d8c70','#8a7d5a',
+  '#7a5a6a','#5a7a8a','#6a6a5a','#4a7a7a','#8a6a5a',
+  '#5a6a7a','#7a6a4a','#4a5a6a','#6a7a5a','#5a5a7a'
 ];
+
+// ============================================================
+//  NAV BUTTONS — dynamic based on view
+// ============================================================
+function updateNav(view) {
+  const el = document.getElementById('nav-actions');
+  if (view === 'home') {
+    el.innerHTML = '';
+  } else {
+    el.innerHTML = `
+      <button class="btn btn-nav btn-sm" onclick="goHome()">New Tape</button>
+      <button class="btn btn-nav btn-sm" onclick="exportCSV()">Export CSV</button>
+    `;
+  }
+}
+
+function goHome() {
+  document.getElementById('upload-section').style.display = '';
+  document.getElementById('dashboard').classList.remove('active');
+  // Reset tabs to Overview
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelector('.tab[data-tab="overview"]').classList.add('active');
+  document.getElementById('tab-overview').classList.add('active');
+  updateNav('home');
+}
+
+updateNav('home');
 
 // ============================================================
 //  FILE UPLOAD
@@ -624,7 +652,7 @@ const TEMPLATE_FIELDS = [
 ];
 
 const FIELD_ALIASES = {
-  loan_id:             ['loan_id','loanid','loan id','loan #','loan_number','loannumber','loan number','id','loan_ref','loanref','deal_id','dealid','asset_id','assetid','facility_id','facilityid','reference','ref'],
+  loan_id:             ['loan_id','loanid','loan id','loan #','loan_number','loannumber','loan number','id','loan_ref','loanref','deal_id','dealid','asset_id','assetid','facility_id','facilityid','reference','ref','facility_ref','facilityref'],
   borrower_name:       ['borrower_name','borrowername','borrower name','borrower','obligor','obligor_name','obligorname','counterparty','counterparty_name','client','client_name','company','company_name','entity','entity_name','name','customer','customer_name'],
   sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','sic','sic_code','naics','industry_classification'],
   region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile','country_of_risk','area'],
@@ -634,7 +662,7 @@ const FIELD_ALIASES = {
   interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing','current_rate'],
   credit_rating:       ['credit_rating','creditrating','credit rating','rating','internal_rating','internalrating','external_rating','externalrating','risk_rating','riskrating','grade','risk_grade','credit_grade','pd_grade'],
   facility_type:       ['facility_type','facilitytype','facility type','facility','type','loan_type','loantype','loan type','product','product_type','producttype','instrument','instrument_type','tranche','deal_type','asset_type'],
-  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','status','performing_status','workout','impaired','arrears']
+  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','status','performing_status','workout','impaired','arrears','npl_flag','nplflag']
 };
 
 // ============================================================
@@ -703,7 +731,7 @@ function showMappingModal(rawData) {
         <span class="sample">${escapeHtml(sampleText)}</span>
       </div>
       <div class="mapping-arrow">&rarr;</div>
-      <select class="mapping-select ${columnMapping[col] ? 'mapped' : 'unmapped'}" data-source="${escapeHtml(col)}" onchange="onMappingChange(this)">
+      <select class="mapping-select ${columnMapping[col] ? 'mapped' : ''}" data-source="${escapeHtml(col)}" onchange="onMappingChange(this)">
         <option value="">-- skip --</option>
         ${TEMPLATE_FIELDS.map(f =>
           `<option value="${f.key}" ${columnMapping[col] === f.key ? 'selected' : ''}>${f.label}${f.required ? ' *' : ''}</option>`
@@ -726,7 +754,6 @@ function onMappingChange(select) {
       if (s !== select && s.value === newVal) {
         s.value = '';
         s.classList.remove('mapped');
-        s.classList.add('unmapped');
         delete columnMapping[s.getAttribute('data-source')];
       }
     });
@@ -735,11 +762,9 @@ function onMappingChange(select) {
   if (newVal) {
     columnMapping[sourceCol] = newVal;
     select.classList.add('mapped');
-    select.classList.remove('unmapped');
   } else {
     delete columnMapping[sourceCol];
     select.classList.remove('mapped');
-    select.classList.add('unmapped');
   }
   updateMappingStatus();
 }
@@ -755,11 +780,11 @@ function updateMappingStatus() {
   const confirmBtn = document.getElementById('mapping-confirm-btn');
 
   if (missingRequired.length > 0) {
-    statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped · <span class="warn">Required: ${missingRequired.map(f => f.label).join(', ')}</span>`;
+    statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped &middot; <span class="warn">Required: ${missingRequired.map(f => f.label).join(', ')}</span>`;
     confirmBtn.style.opacity = '0.4';
     confirmBtn.disabled = true;
   } else {
-    statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped · Ready`;
+    statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped &middot; Ready`;
     confirmBtn.style.opacity = '1';
     confirmBtn.disabled = false;
   }
@@ -799,12 +824,11 @@ function applyMapping(data, reverseMap) {
   }));
 }
 
-function parseNum(v) { const n = parseFloat(String(v).replace(/[£,$%]/g, '')); return isNaN(n) ? 0 : n; }
+function parseNum(v) { const n = parseFloat(String(v).replace(/[\u00a3,$%]/g, '')); return isNaN(n) ? 0 : n; }
 function parseDefault(v) { return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'yes' || String(v).toLowerCase() === 'true'; }
 
 // ============================================================
 //  SAMPLE TAPE GENERATOR + DOWNLOAD
-//  Uses non-standard column names to exercise the mapping flow
 // ============================================================
 function generateSampleRows() {
   const sectors = ['Healthcare','Technology','Business Services','Manufacturing','Professional Services','Retail & Consumer','Construction & Property','Energy & Infrastructure','Media & Entertainment','Financial Services','Education','Hospitality & Leisure','Transport & Logistics'];
@@ -856,7 +880,6 @@ function generateSampleRows() {
     const defaultProb = [0.002, 0.005, 0.01, 0.02, 0.04, 0.07, 0.12, 0.18, 0.30][gradeIdx];
     const isDefault = Math.random() < defaultProb;
 
-    // Use non-standard column names to test the mapper
     rows.push({
       'Facility_Ref':      `EF-${String(i).padStart(5, '0')}`,
       'Counterparty':      borrowers[Math.floor(Math.random() * borrowers.length)],
@@ -877,14 +900,11 @@ function generateSampleRows() {
 function downloadSampleTape() {
   const rows = generateSampleRows();
   const ws = XLSX.utils.json_to_sheet(rows);
-
-  // Set column widths
   ws['!cols'] = [
     { wch: 14 }, { wch: 30 }, { wch: 24 }, { wch: 20 },
     { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
     { wch: 12 }, { wch: 22 }, { wch: 10 }
   ];
-
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Loan Tape');
   XLSX.writeFile(wb, 'sample_tape_enable_funding.xlsx');
@@ -921,6 +941,7 @@ document.querySelectorAll('.tab').forEach(tab => {
 function renderDashboard() {
   document.getElementById('upload-section').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
+  updateNav('dashboard');
   renderStats();
   renderTopExposures();
   renderCharts();
@@ -968,18 +989,15 @@ function renderStats() {
 // Parse DD/MM/YYYY or YYYY-MM-DD or other common formats
 function parseDate(s) {
   if (!s) return null;
-  // DD/MM/YYYY
   const dmy = String(s).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
   if (dmy) {
     const day = parseInt(dmy[1]), mon = parseInt(dmy[2]), yr = parseInt(dmy[3]);
-    if (day > 12) return new Date(yr, mon - 1, day); // definitely DD/MM
-    if (mon > 12) return new Date(yr, day - 1, mon); // definitely MM/DD
-    return new Date(yr, mon - 1, day); // assume DD/MM for UK
+    if (day > 12) return new Date(yr, mon - 1, day);
+    if (mon > 12) return new Date(yr, day - 1, mon);
+    return new Date(yr, mon - 1, day); // UK default: DD/MM
   }
-  // YYYY-MM-DD
   const ymd = String(s).match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if (ymd) return new Date(parseInt(ymd[1]), parseInt(ymd[2]) - 1, parseInt(ymd[3]));
-  // Excel serial number
   const num = parseFloat(s);
   if (!isNaN(num) && num > 30000 && num < 100000) {
     return new Date((num - 25569) * 86400000);
@@ -997,14 +1015,14 @@ function renderTopExposures() {
 
   document.getElementById('top-exposures-body').innerHTML = sorted.map((l, i) => {
     const pct = totalOutstanding > 0 ? ((l.outstanding_balance / totalOutstanding) * 100).toFixed(2) : '0.00';
-    const statusClass = l.default_flag ? 'badge-negative' : 'badge-positive';
+    const statusClass = l.default_flag ? 'badge-red' : 'badge-green';
     const statusText = l.default_flag ? 'Default' : 'Current';
     return `<tr>
       <td>${i + 1}</td>
       <td>${escapeHtml(l.borrower_name)}</td>
       <td>${escapeHtml(l.sector)}</td>
-      <td>${fmtFull(l.outstanding_balance)}</td>
-      <td>${pct}%</td>
+      <td class="mono">${fmtFull(l.outstanding_balance)}</td>
+      <td class="mono">${pct}%</td>
       <td>${escapeHtml(l.credit_rating)}</td>
       <td><span class="badge ${statusClass}">${statusText}</span></td>
     </tr>`;
@@ -1018,8 +1036,16 @@ const chartDefaults = {
   responsive: true,
   maintainAspectRatio: false,
   plugins: {
-    legend: { labels: { color: '#585e6f', font: { size: 10, family: "'SF Mono','Consolas','Menlo',monospace" }, padding: 10, boxWidth: 10 } },
-    tooltip: { backgroundColor: '#181a22', titleColor: '#b8bcc8', bodyColor: '#b8bcc8', borderColor: '#21242e', borderWidth: 1, titleFont: { family: "'SF Mono','Consolas',monospace", size: 11 }, bodyFont: { family: "'SF Mono','Consolas',monospace", size: 11 } }
+    legend: { labels: { color: '#4a5068', font: { size: 11, family: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }, padding: 10, boxWidth: 10 } },
+    tooltip: {
+      backgroundColor: '#1a1e2a',
+      titleColor: '#ffffff',
+      bodyColor: '#e2e5ea',
+      borderColor: '#4a5068',
+      borderWidth: 1,
+      titleFont: { family: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif", size: 12 },
+      bodyFont: { family: "'SF Mono','Consolas',monospace", size: 12 }
+    }
   }
 };
 
@@ -1050,8 +1076,8 @@ function renderCharts() {
   const allRatings = Object.keys(ratingMap);
   charts.rating = new Chart(document.getElementById('chart-rating'), {
     type: 'bar',
-    data: { labels: allRatings, datasets: [{ label: 'Outstanding', data: allRatings.map(r => ratingMap[r] || 0), backgroundColor: '#4a6a8f', borderRadius: 2, borderWidth: 0 }] },
-    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#585e6f', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } }, y: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true } } }
+    data: { labels: allRatings, datasets: [{ label: 'Outstanding', data: allRatings.map(r => ratingMap[r] || 0), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 11 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
   });
 
   const borrowerMap = {};
@@ -1059,8 +1085,8 @@ function renderCharts() {
   const top10 = Object.entries(borrowerMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
   charts.top10 = new Chart(document.getElementById('chart-top10'), {
     type: 'bar',
-    data: { labels: top10.map(b => b[0].length > 22 ? b[0].slice(0, 20) + '..' : b[0]), datasets: [{ label: 'Exposure', data: top10.map(b => b[1]), backgroundColor: '#4a6a8f', borderRadius: 2, borderWidth: 0 }] },
-    options: { ...chartDefaults, indexAxis: 'y', plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true }, y: { ticks: { color: '#585e6f', font: { size: 9, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } } } }
+    data: { labels: top10.map(b => b[0].length > 24 ? b[0].slice(0, 22) + '..' : b[0]), datasets: [{ label: 'Exposure', data: top10.map(b => b[1]), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
+    options: { ...chartDefaults, indexAxis: 'y', plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true }, y: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } } } }
   });
 
   const now = new Date();
@@ -1077,8 +1103,8 @@ function renderCharts() {
   });
   charts.maturity = new Chart(document.getElementById('chart-maturity'), {
     type: 'bar',
-    data: { labels: Object.keys(buckets), datasets: [{ label: 'Outstanding', data: Object.values(buckets), backgroundColor: '#5a7a6e', borderRadius: 2, borderWidth: 0 }] },
-    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#585e6f', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } }, y: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true } } }
+    data: { labels: Object.keys(buckets), datasets: [{ label: 'Outstanding', data: Object.values(buckets), backgroundColor: '#00857c', borderRadius: 2, borderWidth: 0 }] },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 11 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
   });
 }
 
@@ -1094,17 +1120,17 @@ function groupBy(arr, key, sumKey) {
 function renderDataTable() {
   document.getElementById('data-table-title').textContent = `Tape Data \u2014 ${loans.length} records`;
   document.getElementById('data-table-body').innerHTML = loans.map(l => {
-    const statusClass = l.default_flag ? 'badge-negative' : 'badge-positive';
+    const statusClass = l.default_flag ? 'badge-red' : 'badge-green';
     const statusText = l.default_flag ? 'Yes' : 'No';
     return `<tr>
       <td>${escapeHtml(l.loan_id)}</td>
       <td>${escapeHtml(l.borrower_name)}</td>
       <td>${escapeHtml(l.sector)}</td>
       <td>${escapeHtml(l.region)}</td>
-      <td>${fmtFull(l.loan_amount)}</td>
-      <td>${fmtFull(l.outstanding_balance)}</td>
-      <td>${escapeHtml(l.maturity_date)}</td>
-      <td>${l.interest_rate.toFixed(2)}%</td>
+      <td class="mono">${fmtFull(l.loan_amount)}</td>
+      <td class="mono">${fmtFull(l.outstanding_balance)}</td>
+      <td class="mono">${escapeHtml(l.maturity_date)}</td>
+      <td class="mono">${l.interest_rate.toFixed(2)}%</td>
       <td>${escapeHtml(l.credit_rating)}</td>
       <td>${escapeHtml(l.facility_type)}</td>
       <td><span class="badge ${statusClass}">${statusText}</span></td>
