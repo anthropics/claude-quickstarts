@@ -663,7 +663,7 @@
           <div class="table-scroll">
             <table>
               <thead><tr>
-                <th>#</th><th>Lessee</th><th>Sector</th><th>Outstanding</th><th>% of Book</th><th>Rating</th><th>Arrears</th>
+                <th>#</th><th>Lessee (Loans)</th><th>Sector</th><th>Agg. Outstanding</th><th>% of Book</th><th>Rating</th><th>Arrears</th>
               </tr></thead>
               <tbody id="top-exposures-body"></tbody>
             </table>
@@ -725,7 +725,7 @@
           <div class="table-scroll" style="max-height:600px;">
             <table>
               <thead><tr>
-                <th>ID</th><th>Lessee</th><th>Sector</th><th>Region</th><th>Postcode</th><th>Original Bal</th><th>Outstanding</th><th>Maturity</th><th>Rate</th><th>Rating</th><th>Type</th><th>BBB</th><th>Arrears</th>
+                <th>ID</th><th>Lessee</th><th>Sector</th><th>Region</th><th>Postcode</th><th>Original Bal</th><th>Outstanding</th><th>Rate</th><th>Type</th><th>Status</th><th>BBB</th><th>Arrears</th>
               </tr></thead>
               <tbody id="data-table-body"></tbody>
             </table>
@@ -780,12 +780,84 @@ let customTests = [];
 let fieldOptions = {
   facility_type:       ['Loan', 'Hire Purchase', 'Finance Lease', 'Operating Lease', 'Refinance'],
   bbb_guarantee:       ['None', 'GGS', 'RLS'],
+  loan_status:         ['Live', 'Repaid', 'Defaulted', 'Written Off', 'Restructured', 'Settled Early'],
+  arrears_status:      ['Current', '1-30 days', '31-60 days', '61-90 days', '>90 days'],
   customer_segment:    ['SME', 'Mid-Market', 'Large Corporate', 'Micro Enterprise', 'Sole Trader'],
   payment_frequency:   ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'],
   interest_rate_type:  ['Fixed', 'Floating', 'Mixed'],
   repayment_method:    ['Level', 'Reducing', 'Balloon', 'Seasonal', 'Stepped'],
-  amortisation_type:   ['Annuity', 'Linear', 'Bullet', 'Soft Bullet']
+  amortisation_type:   ['Annuity', 'Linear', 'Bullet', 'Soft Bullet'],
+  vat_deferral:        ['Yes', 'No', 'Partial'],
+  equipment_type:      ['Vehicles', 'Plant & Machinery', 'IT Equipment', 'Office Equipment', 'Commercial Vehicles', 'Medical Equipment', 'Construction Equipment'],
+  asset_category:      ['Hard Asset', 'Soft Asset', 'Vehicle', 'Property', 'Technology']
 };
+
+// Display settings
+let displaySettings = {
+  termUnit: 'months' // 'months', 'years', 'days'
+};
+
+// SIC code → sector mapping (UK SIC 2007 divisions)
+const SIC_DIVISION_MAP = {
+  '01':'Agriculture','02':'Forestry','03':'Fishing',
+  '05':'Mining','06':'Oil & Gas','07':'Metal Ores','08':'Quarrying','09':'Mining Support',
+  '10':'Food Products','11':'Beverages','12':'Tobacco','13':'Textiles','14':'Wearing Apparel',
+  '15':'Leather','16':'Wood Products','17':'Paper Products','18':'Printing','19':'Coke & Petroleum',
+  '20':'Chemicals','21':'Pharmaceuticals','22':'Rubber & Plastics','23':'Non-Metallic Minerals',
+  '24':'Basic Metals','25':'Fabricated Metals','26':'Electronics','27':'Electrical Equipment',
+  '28':'Machinery','29':'Motor Vehicles','30':'Other Transport','31':'Furniture','32':'Other Manufacturing','33':'Repair & Installation',
+  '35':'Energy','36':'Water Supply','37':'Sewerage','38':'Waste Management','39':'Remediation',
+  '41':'Construction of Buildings','42':'Civil Engineering','43':'Specialised Construction',
+  '45':'Motor Trade','46':'Wholesale','47':'Retail',
+  '49':'Land Transport','50':'Water Transport','51':'Air Transport','52':'Warehousing','53':'Postal & Courier',
+  '55':'Accommodation','56':'Food & Beverage Service',
+  '58':'Publishing','59':'Film & TV','60':'Broadcasting','61':'Telecommunications','62':'IT Services','63':'Information Services',
+  '64':'Financial Services','65':'Insurance','66':'Financial Auxiliaries',
+  '68':'Real Estate',
+  '69':'Legal & Accounting','70':'Head Offices & Consultancy','71':'Architecture & Engineering','72':'Scientific R&D','73':'Advertising','74':'Other Professional','75':'Veterinary',
+  '77':'Rental & Leasing','78':'Employment Activities','79':'Travel Agencies','80':'Security','81':'Facilities Management','82':'Office Admin',
+  '84':'Public Admin & Defence','85':'Education',
+  '86':'Human Health','87':'Residential Care','88':'Social Work',
+  '90':'Creative Arts','91':'Libraries & Museums','92':'Gambling','93':'Sports & Recreation',
+  '94':'Membership Organisations','95':'Repair of Goods','96':'Other Personal Services',
+  '97':'Households as Employers','98':'Undifferentiated Goods','99':'Extraterritorial'
+};
+
+// NACE Rev.2 section → sector mapping
+const NACE_SECTION_MAP = {
+  'A':'Agriculture, Forestry & Fishing','B':'Mining & Quarrying','C':'Manufacturing',
+  'D':'Energy','E':'Water & Waste','F':'Construction','G':'Wholesale & Retail',
+  'H':'Transport & Storage','I':'Accommodation & Food','J':'Information & Communication',
+  'K':'Financial & Insurance','L':'Real Estate','M':'Professional & Scientific',
+  'N':'Administrative & Support','O':'Public Administration','P':'Education',
+  'Q':'Health & Social Work','R':'Arts & Entertainment','S':'Other Services',
+  'T':'Households','U':'Extraterritorial'
+};
+
+function sicToSector(code) {
+  if (!code) return '';
+  const s = String(code).replace(/[^0-9]/g, '');
+  if (s.length < 2) return '';
+  const div = s.substring(0, 2);
+  return SIC_DIVISION_MAP[div] || '';
+}
+
+function naceToSector(code) {
+  if (!code) return '';
+  const s = String(code).trim().toUpperCase();
+  // NACE codes can start with a letter (section) or be numeric
+  if (s.match(/^[A-U]/)) return NACE_SECTION_MAP[s[0]] || '';
+  // Numeric NACE codes use same division structure as SIC
+  const num = s.replace(/[^0-9]/g, '');
+  if (num.length >= 2) return SIC_DIVISION_MAP[num.substring(0, 2)] || '';
+  return '';
+}
+
+function convertTerm(months, unit) {
+  if (unit === 'years') return (months / 12).toFixed(1) + 'yr';
+  if (unit === 'days') return Math.round(months * 30.44) + 'd';
+  return months.toFixed(0) + 'm';
+}
 
 // UK postcode area → region mapping
 const POSTCODE_REGION_MAP = {
@@ -947,12 +1019,16 @@ const TEMPLATE_FIELDS = [
   { key: 'outstanding_balance', label: 'Current Outstanding', required: true,  type: 'number' },
   // Core (optional)
   { key: 'sector',              label: 'Sector / SIC',        required: false, type: 'string' },
+  { key: 'sic_code',            label: 'SIC Code',            required: false, type: 'string' },
+  { key: 'nace_code',           label: 'NACE Code',           required: false, type: 'string' },
   { key: 'region',              label: 'Region',              required: false, type: 'string' },
   { key: 'maturity_date',       label: 'Maturity Date',       required: false, type: 'string' },
   { key: 'interest_rate',       label: 'Margin / Coupon',     required: false, type: 'number' },
   { key: 'credit_rating',       label: 'Credit Rating',       required: false, type: 'string' },
-  { key: 'facility_type',       label: 'Type of Lease',       required: false, type: 'string' },
+  { key: 'facility_type',       label: 'Facility Type',       required: false, type: 'string' },
   { key: 'default_flag',        label: 'Default Flag',        required: false, type: 'boolean' },
+  { key: 'loan_status',         label: 'Status',              required: false, type: 'string' },
+  { key: 'arrears_status',      label: 'Arrears Status',      required: false, type: 'string' },
   // Lease tape extensions
   { key: 'origination_date',    label: 'Origination Date',    required: false, type: 'string' },
   { key: 'original_term',       label: 'Original Term (m)',   required: false, type: 'number' },
@@ -963,7 +1039,13 @@ const TEMPLATE_FIELDS = [
   { key: 'payment_frequency',   label: 'Payment Frequency',   required: false, type: 'string' },
   { key: 'interest_rate_type',  label: 'Interest Rate Type',  required: false, type: 'string' },
   { key: 'days_in_arrears',     label: 'Days in Arrears',     required: false, type: 'number' },
+  { key: 'equipment_type',      label: 'Equipment Type',      required: false, type: 'string' },
+  { key: 'asset_category',      label: 'Asset Category',      required: false, type: 'string' },
   { key: 'asset_type',          label: 'Asset Type',          required: false, type: 'string' },
+  { key: 'supplier',            label: 'Supplier / Vendor',   required: false, type: 'string' },
+  { key: 'deposit_amount',      label: 'Deposit Amount',      required: false, type: 'number' },
+  { key: 'deposit_pct',         label: 'Deposit %',           required: false, type: 'number' },
+  { key: 'vat_deferral',        label: 'VAT Deferral',        required: false, type: 'string' },
   { key: 'customer_segment',    label: 'Customer Segment',    required: false, type: 'string' },
   { key: 'origination_channel', label: 'Origination Channel', required: false, type: 'string' },
   { key: 'balloon_pct',         label: 'Balloon %',           required: false, type: 'number' },
@@ -974,7 +1056,9 @@ const TEMPLATE_FIELDS = [
 const FIELD_ALIASES = {
   loan_id:             ['loan_id','loanid','loan id','loan #','loan_number','loannumber','loan number','id','loan_ref','loanref','deal_id','dealid','asset_id','assetid','facility_id','facilityid','reference','ref','facility_ref','facilityref','lease_identifier','leaseidentifier','lease identifier','lease_id','leaseid','lease id','lease_ref','leaseref','receivable_id'],
   borrower_name:       ['borrower_name','borrowername','borrower name','borrower','obligor','obligor_name','obligorname','counterparty','counterparty_name','client','client_name','company','company_name','entity','entity_name','name','customer','customer_name','lessee','lessee_name','lessee_identifier','lesseeidentifier','lessee identifier','group_company_identifier','group company identifier'],
-  sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','sic','sic_code','naics','industry_classification','sic_industry_code','sicindustrycode','sic industry code'],
+  sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','industry_classification','industry_description','sector_description'],
+  sic_code:            ['sic_code','siccode','sic code','sic','sic_industry_code','sicindustrycode','sic industry code','sic_number','standard_industrial_classification','sic_division','uk_sic','uk sic'],
+  nace_code:           ['nace_code','nacecode','nace code','nace','nace_rev2','nace_classification','nace_section','eu_nace','nace_industry'],
   region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile','country_of_risk','area','uk_region','ukregion','uk region','asset_location','assetlocation','asset location'],
   loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size','facility_size','facilitysize','limit','facility_limit','original_principal_balance','originalprincipalbalance','original principal balance','original_balance','originalbalance'],
   outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','current_drawn','currentdrawn','utilised','utilised_amount','current_prin_outstanding_bal','currentprinoutstandingbal','current prin outstanding bal','current_principal','currentprincipal'],
@@ -982,7 +1066,9 @@ const FIELD_ALIASES = {
   interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing','current_rate','margin_coupon','margincoupon','margin / coupon','margin/coupon'],
   credit_rating:       ['credit_rating','creditrating','credit rating','rating','internal_rating','internalrating','external_rating','externalrating','risk_rating','riskrating','grade','risk_grade','credit_grade','pd_grade'],
   facility_type:       ['facility_type','facilitytype','facility type','type','loan_type','loantype','loan type','product','product_type','producttype','instrument','instrument_type','tranche','deal_type','type_of_lease','typeoflease','type of lease','lease_type','leasetype'],
-  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','status','performing_status','workout','impaired','npl_flag','nplflag'],
+  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','workout','impaired','npl_flag','nplflag'],
+  loan_status:         ['loan_status','loanstatus','loan status','status','account_status','accountstatus','account status','facility_status','facilitystatus','performing_status','performingstatus','performing status','contract_status','contractstatus'],
+  arrears_status:      ['arrears_status','arrearsstatus','arrears status','arrears_band','arrearsband','arrears band','arrears_category','collection_status','collectionstatus','delinquency_status','delinquencystatus'],
   origination_date:    ['origination_date','originationdate','origination date','lease_origination_date','leaseoriginationdate','lease origination date','start_date','startdate','start date','drawdown_date','inception_date','commencement_date','orig_date'],
   original_term:       ['original_term','originalterm','original term','orig_term','origterm','original_term_months','term_months','contractual_term','initial_term','lease_term','orig_term_months'],
   remaining_term:      ['remaining_term','remainingterm','remaining term','rem_term','remterm','remaining_term_months','residual_term','rem_term_months','months_remaining','time_to_maturity'],
@@ -992,7 +1078,13 @@ const FIELD_ALIASES = {
   payment_frequency:   ['payment_frequency','paymentfrequency','payment frequency','pay_frequency','payfrequency','pay_freq','frequency','installment_frequency'],
   interest_rate_type:  ['interest_rate_type','interestratetype','interest rate type','rate_type','ratetype','rate type','fixed_floating','fixedfloating','fixed_or_floating','interest_type','interesttype','interest_rate_basis','interestratebasis','interest rate basis'],
   days_in_arrears:     ['days_in_arrears','daysinarrears','days in arrears','arrears_days','arrearsdays','dpd','days_past_due','dayspastdue','number_of_days_in_arrears','numberofdaysinarrears','number of days in arrears','arrears'],
-  asset_type:          ['asset_type','assettype','asset type','asset_class','assetclass','asset_category','collateral_type','equipment_type','asset_description'],
+  equipment_type:      ['equipment_type','equipmenttype','equipment type','equipment','equipment_description','equipmentdescription','equipment_class','make_model','makemodel'],
+  asset_category:      ['asset_category','assetcategory','asset category','asset_class','assetclass','asset class','collateral_category','collateralcategory'],
+  asset_type:          ['asset_type','assettype','asset type','collateral_type','collateraltype','asset_description','assetdescription'],
+  supplier:            ['supplier','supplier_name','suppliername','vendor','vendor_name','vendorname','dealer','dealer_name','dealername','introducer','manufacturer'],
+  deposit_amount:      ['deposit_amount','depositamount','deposit amount','deposit','advance_payment','advancepayment','advance payment','upfront_payment','initial_payment'],
+  deposit_pct:         ['deposit_pct','depositpct','deposit_percentage','depositpercentage','deposit percentage','deposit_percent','deposit_%','advance_pct'],
+  vat_deferral:        ['vat_deferral','vatdeferral','vat deferral','vat_deferred','vatdeferred','vat deferred','vat_treatment','vattreatment','vat treatment','vat_status','vatstatus'],
   customer_segment:    ['customer_segment','customersegment','customer segment','cust_segment','segment','borrower_type','obligor_type','client_segment','legal_form_or_business_type','legalformorbusinesstype','legal form or business type','legal_form','business_type'],
   origination_channel: ['origination_channel','originationchannel','origination channel','channel','source','distribution_channel','sales_channel','origination_source','orig_channel'],
   balloon_pct:         ['balloon_pct','balloonpct','balloon_percentage','balloonpercentage','balloon percentage','balloon','residual_value_pct','residual_pct','rv_pct','balloon_pct_of_original','balloon_percent'],
@@ -1126,16 +1218,29 @@ function confirmMapping() {
   renderDashboard();
 }
 
+// Store the original source column names for CSV export
+let sourceColumnNames = {};
+
 function applyMapping(data, rm) {
+  // Remember which source column maps to which internal field
+  sourceColumnNames = {};
+  for (const [field, source] of Object.entries(rm)) sourceColumnNames[field] = source;
+
   return data.map((row, i) => {
     const pc = rm.postcode ? String(row[rm.postcode] || '') : '';
     const explicitRegion = rm.region ? String(row[rm.region] || '') : '';
-    // Derive region from postcode if no explicit region mapped
     const region = explicitRegion || postcodeToRegion(pc);
+    const sicCode = rm.sic_code ? String(row[rm.sic_code] || '') : '';
+    const naceCode = rm.nace_code ? String(row[rm.nace_code] || '') : '';
+    const explicitSector = rm.sector ? String(row[rm.sector] || '') : '';
+    // Derive sector from SIC or NACE code if not explicitly mapped
+    const sector = explicitSector || sicToSector(sicCode) || naceToSector(naceCode);
     return {
       loan_id:             rm.loan_id ? String(row[rm.loan_id] || '') || `L${i+1}` : `L${i+1}`,
       borrower_name:       rm.borrower_name ? String(row[rm.borrower_name] || '') : '',
-      sector:              rm.sector ? String(row[rm.sector] || '') : '',
+      sector:              sector,
+      sic_code:            sicCode,
+      nace_code:           naceCode,
       region:              region,
       loan_amount:         rm.loan_amount ? parseNum(row[rm.loan_amount]) : 0,
       outstanding_balance: rm.outstanding_balance ? parseNum(row[rm.outstanding_balance]) : 0,
@@ -1144,6 +1249,8 @@ function applyMapping(data, rm) {
       credit_rating:       rm.credit_rating ? String(row[rm.credit_rating] || '') : '',
       facility_type:       rm.facility_type ? String(row[rm.facility_type] || '') : '',
       default_flag:        rm.default_flag ? parseDefault(row[rm.default_flag]) : false,
+      loan_status:         rm.loan_status ? String(row[rm.loan_status] || '') : '',
+      arrears_status:      rm.arrears_status ? String(row[rm.arrears_status] || '') : '',
       origination_date:    rm.origination_date ? String(row[rm.origination_date] || '') : '',
       original_term:       rm.original_term ? parseNum(row[rm.original_term]) : 0,
       remaining_term:      rm.remaining_term ? parseNum(row[rm.remaining_term]) : 0,
@@ -1153,7 +1260,13 @@ function applyMapping(data, rm) {
       payment_frequency:   rm.payment_frequency ? String(row[rm.payment_frequency] || '') : '',
       interest_rate_type:  rm.interest_rate_type ? String(row[rm.interest_rate_type] || '') : '',
       days_in_arrears:     rm.days_in_arrears ? parseNum(row[rm.days_in_arrears]) : 0,
+      equipment_type:      rm.equipment_type ? String(row[rm.equipment_type] || '') : '',
+      asset_category:      rm.asset_category ? String(row[rm.asset_category] || '') : '',
       asset_type:          rm.asset_type ? String(row[rm.asset_type] || '') : '',
+      supplier:            rm.supplier ? String(row[rm.supplier] || '') : '',
+      deposit_amount:      rm.deposit_amount ? parseNum(row[rm.deposit_amount]) : 0,
+      deposit_pct:         rm.deposit_pct ? parseNum(row[rm.deposit_pct]) : 0,
+      vat_deferral:        rm.vat_deferral ? String(row[rm.vat_deferral] || '') : '',
       customer_segment:    rm.customer_segment ? String(row[rm.customer_segment] || '') : '',
       origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '') : '',
       balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) : 0,
@@ -1191,6 +1304,12 @@ function generateSampleRows() {
   const channels = ['Direct','Broker','Vendor','Online','Partnership'];
   const channelWeights = [0.30, 0.25, 0.20, 0.15, 0.10];
   const bbbPrograms = ['None','None','None','None','None','None','GGS','GGS','RLS','None'];
+  const loanStatuses = ['Live','Live','Live','Live','Live','Live','Live','Repaid','Defaulted','Settled Early'];
+  const suppliers = ['ABC Vehicles Ltd','MegaPlant Corp','TechDirect Ltd','BuildPro Equipment','MedSupply UK','AgriEquip Ltd','PrintMax Solutions','CaterPro Ltd','OfficeHub UK','FleetCo'];
+  const equipTypes = ['Car','Van','Forklift','CNC Machine','Server','Laptop','Excavator','X-Ray Machine','Tractor','Printer'];
+  const assetCats = ['Hard Asset','Soft Asset','Vehicle','Hard Asset','Technology','Technology','Hard Asset','Hard Asset','Hard Asset','Soft Asset'];
+  const sicCodes = ['45110','46900','47710','28110','62020','86101','41201','55100','01110','58110','74909','85310','49410','56101','35110'];
+  const vatDeferrals = ['Yes','No','No','No','No','Partial','No','No','No','No'];
   const postcodes = [
     'EC1A 1BB','SW1A 1AA','W1D 3QU','SE1 7PB','N1 9GU',
     'BN1 1AE','CT1 2EH','GU1 1AA','ME1 1QX','OX1 1BX',
@@ -1291,7 +1410,15 @@ function generateSampleRows() {
       'Origination_Channel': channels[wr(channelWeights)],
       'Balloon_Percentage':  i === 77 ? 115 : balloonPct,
       'Postcode':            postcodes[Math.floor(Math.random() * postcodes.length)],
-      'BBB_Guarantee':       bbbPrograms[Math.floor(Math.random() * bbbPrograms.length)]
+      'BBB_Guarantee':       bbbPrograms[Math.floor(Math.random() * bbbPrograms.length)],
+      'Status':              loanStatuses[Math.floor(Math.random() * loanStatuses.length)],
+      'SIC_Code':            sicCodes[Math.floor(Math.random() * sicCodes.length)],
+      'Equipment_Type':      equipTypes[Math.floor(Math.random() * equipTypes.length)],
+      'Asset_Category':      assetCats[Math.floor(Math.random() * assetCats.length)],
+      'Supplier':            suppliers[Math.floor(Math.random() * suppliers.length)],
+      'Deposit_Amount':      Math.round((origBal * (5 + Math.random() * 15) / 100) / 100) * 100,
+      'Deposit_Percentage':  Math.round((5 + Math.random() * 15) * 100) / 100,
+      'VAT_Deferral':        vatDeferrals[Math.floor(Math.random() * vatDeferrals.length)]
     });
   }
   return rows;
@@ -1403,8 +1530,8 @@ function renderStats() {
   document.getElementById('s-outstanding').textContent = fmtM(totalOutstanding);
   document.getElementById('s-utilisation').textContent = fmtPct(utilisation) + ' of original';
   document.getElementById('s-wair').textContent = fmtPct(wair);
-  document.getElementById('s-wam').textContent = waRem.toFixed(1) + 'm';
-  document.getElementById('s-wam-sub').textContent = hasRemTerm ? 'Weighted avg remaining' : 'From maturity dates';
+  document.getElementById('s-wam').textContent = convertTerm(waRem, displaySettings.termUnit);
+  document.getElementById('s-wam-sub').textContent = (hasRemTerm ? 'Weighted avg remaining' : 'From maturity dates') + ' (' + displaySettings.termUnit + ')';
   document.getElementById('s-default-rate').textContent = fmtPct(arrears90Pct);
   document.getElementById('s-default-count').textContent = arrears90.length + ' receivables';
   document.getElementById('s-borrower-count').textContent = uniqueBorrowers;
@@ -1416,18 +1543,44 @@ function renderStats() {
 // ============================================================
 function renderTopExposures() {
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
-  const sorted = [...loans].sort((a, b) => b.outstanding_balance - a.outstanding_balance).slice(0, 10);
-  document.getElementById('top-exposures-body').innerHTML = sorted.map((l, i) => {
-    const pct = totalOutstanding > 0 ? ((l.outstanding_balance / totalOutstanding) * 100).toFixed(2) : '0.00';
-    const arrearsLabel = l.days_in_arrears > 90 ? 'badge-red' : l.days_in_arrears > 0 ? 'badge-amber' : 'badge-green';
-    const arrearsText = l.days_in_arrears > 0 ? l.days_in_arrears + 'd' : 'Current';
+  // Aggregate all loans per lessee
+  const lesseeMap = {};
+  loans.forEach(l => {
+    const name = l.borrower_name || '(unknown)';
+    if (!lesseeMap[name]) lesseeMap[name] = { name, totalBal: 0, loanCount: 0, sectors: new Set(), ratings: new Set(), loansInArrears: 0, totalArrearsBal: 0, maxArrearsDays: 0 };
+    const entry = lesseeMap[name];
+    entry.totalBal += l.outstanding_balance;
+    entry.loanCount++;
+    if (l.sector) entry.sectors.add(l.sector);
+    if (l.credit_rating) entry.ratings.add(l.credit_rating);
+    if (l.days_in_arrears > 0) {
+      entry.loansInArrears++;
+      entry.totalArrearsBal += l.outstanding_balance;
+      entry.maxArrearsDays = Math.max(entry.maxArrearsDays, l.days_in_arrears);
+    }
+  });
+  const sorted = Object.values(lesseeMap).sort((a, b) => b.totalBal - a.totalBal).slice(0, 10);
+  document.getElementById('top-exposures-body').innerHTML = sorted.map((e, i) => {
+    const pct = totalOutstanding > 0 ? ((e.totalBal / totalOutstanding) * 100).toFixed(2) : '0.00';
+    let arrearsLabel, arrearsText;
+    if (e.loansInArrears === 0) {
+      arrearsLabel = 'badge-green'; arrearsText = 'Current';
+    } else if (e.loansInArrears === e.loanCount) {
+      arrearsLabel = e.maxArrearsDays > 90 ? 'badge-red' : 'badge-amber';
+      arrearsText = e.maxArrearsDays + 'd (' + e.loanCount + ')';
+    } else {
+      arrearsLabel = e.maxArrearsDays > 90 ? 'badge-red' : 'badge-amber';
+      arrearsText = e.loansInArrears + '/' + e.loanCount + ' (' + e.maxArrearsDays + 'd max)';
+    }
+    const sectorText = [...e.sectors].slice(0, 2).join(', ') + (e.sectors.size > 2 ? '...' : '');
+    const ratingText = [...e.ratings].join('/');
     return `<tr>
       <td>${i + 1}</td>
-      <td>${escapeHtml(l.borrower_name)}</td>
-      <td>${escapeHtml(l.sector)}</td>
-      <td class="mono">${fmtFull(l.outstanding_balance)}</td>
+      <td>${escapeHtml(e.name)}<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">(${e.loanCount})</span></td>
+      <td>${escapeHtml(sectorText)}</td>
+      <td class="mono">${fmtFull(e.totalBal)}</td>
       <td class="mono">${pct}%</td>
-      <td>${escapeHtml(l.credit_rating)}</td>
+      <td>${escapeHtml(ratingText)}</td>
       <td><span class="badge ${arrearsLabel}">${arrearsText}</span></td>
     </tr>`;
   }).join('');
@@ -1532,7 +1685,13 @@ function renderStratification() {
     { key: 'origination_channel', title: 'By Origination Channel' },
     { key: 'credit_rating',       title: 'By Credit Rating' },
     { key: 'region',              title: 'By Region' },
-    { key: 'bbb_guarantee',       title: 'By BBB Guarantee Programme' }
+    { key: 'bbb_guarantee',       title: 'By BBB Guarantee Programme' },
+    { key: 'loan_status',         title: 'By Status' },
+    { key: 'arrears_status',      title: 'By Arrears Status' },
+    { key: 'equipment_type',      title: 'By Equipment Type' },
+    { key: 'asset_category',      title: 'By Asset Category' },
+    { key: 'supplier',            title: 'By Supplier / Vendor' },
+    { key: 'vat_deferral',        title: 'By VAT Deferral' }
   ];
 
   // Banded strats
@@ -1976,10 +2135,9 @@ function renderDataTable() {
       <td>${escapeHtml(l.postcode || '')}</td>
       <td class="mono">${fmtFull(l.loan_amount)}</td>
       <td class="mono">${fmtFull(l.outstanding_balance)}</td>
-      <td class="mono">${escapeHtml(l.maturity_date)}</td>
       <td class="mono">${l.interest_rate.toFixed(2)}%</td>
-      <td>${escapeHtml(l.credit_rating)}</td>
       <td>${escapeHtml(l.facility_type)}</td>
+      <td>${escapeHtml(l.loan_status || '')}</td>
       <td>${escapeHtml(l.bbb_guarantee || '')}</td>
       <td><span class="badge ${arrearsClass}">${arrearsText}</span></td>
     </tr>`;
@@ -1991,15 +2149,26 @@ function renderDataTable() {
 // ============================================================
 function exportCSV() {
   if (!loans.length) return;
-  const headers = Object.keys(loans[0]);
-  const rows = loans.map(l => headers.map(h => {
+  const fieldKeys = Object.keys(loans[0]);
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+  // Row 1: internal field labels, Row 2: original tape column names
+  const labelRow = fieldKeys.map(k => {
+    const lbl = fieldLabels[k] || k;
+    return lbl.includes(',') ? '"' + lbl + '"' : lbl;
+  }).join(',');
+  const sourceRow = fieldKeys.map(k => {
+    const src = sourceColumnNames[k] || '';
+    return src.includes(',') ? '"' + src + '"' : src;
+  }).join(',');
+  const rows = loans.map(l => fieldKeys.map(h => {
     const val = l[h];
     if (typeof val === 'boolean') return val ? '1' : '0';
     const s = String(val);
     if (s.includes(',') || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"';
     return s;
   }).join(','));
-  const csv = headers.join(',') + '\n' + rows.join('\n');
+  const csv = labelRow + '\n' + sourceRow + '\n' + rows.join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2024,8 +2193,21 @@ function closeSettings() {
 
 function renderSettingsBody() {
   const body = document.getElementById('settings-body');
-  let html = '<div class="settings-section"><div class="settings-section-title">Field Category Options</div>';
-  html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Configure the predefined options for categorical fields. These options are used in stratification and data quality checks.</p>';
+  let html = '';
+
+  // Display settings section
+  html += '<div class="settings-section"><div class="settings-section-title">Display Settings</div>';
+  html += '<div class="opt-field-group"><div class="opt-field-label">Remaining / Original Term Display Unit</div>';
+  html += '<div style="display:flex;gap:6px;">';
+  ['months','years','days'].forEach(u => {
+    const sel = displaySettings.termUnit === u ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '';
+    html += `<button class="btn btn-outline btn-sm" style="${sel}" onclick="displaySettings.termUnit='${u}';renderSettingsBody();if(loans.length)renderDashboard();">${u.charAt(0).toUpperCase()+u.slice(1)}</button>`;
+  });
+  html += '</div></div></div>';
+
+  // Field category options section
+  html += '<div class="settings-section"><div class="settings-section-title">Field Category Options</div>';
+  html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:14px;">Configure predefined options for categorical fields. Click an option to edit it inline. These drive stratification tables and data quality checks.</p>';
 
   const fieldLabels = {};
   TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
@@ -2033,18 +2215,20 @@ function renderSettingsBody() {
   for (const [fieldKey, options] of Object.entries(fieldOptions)) {
     const label = fieldLabels[fieldKey] || fieldKey;
     html += `<div class="opt-field-group">
-      <div class="opt-field-label">${escapeHtml(label)}</div>
+      <div class="opt-field-label">${escapeHtml(label)} <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(${options.length} options)</span>
+        <button class="opt-tag-del" style="float:right;font-size:13px;cursor:pointer;" onclick="deleteFieldCategory('${fieldKey}')" title="Remove entire category">&times;</button>
+      </div>
       <div class="opt-tags" id="opt-tags-${fieldKey}">
         ${options.map((opt, idx) =>
-          `<span class="opt-tag">
-            ${escapeHtml(opt)}
-            <button class="opt-tag-edit" onclick="editFieldOption('${fieldKey}',${idx})" title="Edit">&#9998;</button>
+          `<span class="opt-tag" id="opt-tag-${fieldKey}-${idx}">
+            <span class="opt-tag-text" ondblclick="inlineEditOption('${fieldKey}',${idx})" title="Double-click to edit">${escapeHtml(opt)}</span>
+            <button class="opt-tag-edit" onclick="inlineEditOption('${fieldKey}',${idx})" title="Edit">&#9998;</button>
             <button class="opt-tag-del" onclick="deleteFieldOption('${fieldKey}',${idx})" title="Remove">&times;</button>
           </span>`
         ).join('')}
       </div>
       <div class="opt-add-row">
-        <input class="opt-add-input" id="opt-input-${fieldKey}" placeholder="New option..." onkeydown="if(event.key==='Enter')addFieldOption('${fieldKey}')">
+        <input class="opt-add-input" id="opt-input-${fieldKey}" placeholder="Add new option..." onkeydown="if(event.key==='Enter')addFieldOption('${fieldKey}')">
         <button class="opt-add-btn" onclick="addFieldOption('${fieldKey}')">Add</button>
       </div>
     </div>`;
@@ -2073,8 +2257,32 @@ function editFieldOption(fieldKey, idx) {
   renderSettingsBody();
 }
 
+function inlineEditOption(fieldKey, idx) {
+  const tag = document.getElementById('opt-tag-' + fieldKey + '-' + idx);
+  if (!tag) return editFieldOption(fieldKey, idx);
+  const textSpan = tag.querySelector('.opt-tag-text');
+  if (!textSpan) return editFieldOption(fieldKey, idx);
+  const current = fieldOptions[fieldKey][idx];
+  textSpan.innerHTML = `<input type="text" value="${escapeHtml(current)}" style="border:1px solid var(--navy);border-radius:3px;padding:1px 6px;font-size:12px;width:${Math.max(60, current.length * 8)}px;font-family:inherit;" onblur="finishInlineEdit('${fieldKey}',${idx},this.value)" onkeydown="if(event.key==='Enter'){this.blur();}if(event.key==='Escape'){this.value='${escapeHtml(current)}';this.blur();}">`;
+  textSpan.querySelector('input').focus();
+  textSpan.querySelector('input').select();
+}
+
+function finishInlineEdit(fieldKey, idx, newVal) {
+  if (newVal && newVal.trim() && newVal.trim() !== fieldOptions[fieldKey][idx]) {
+    fieldOptions[fieldKey][idx] = newVal.trim();
+  }
+  renderSettingsBody();
+}
+
 function deleteFieldOption(fieldKey, idx) {
   fieldOptions[fieldKey].splice(idx, 1);
+  renderSettingsBody();
+}
+
+function deleteFieldCategory(fieldKey) {
+  if (!confirm('Remove the entire "' + fieldKey + '" category?')) return;
+  delete fieldOptions[fieldKey];
   renderSettingsBody();
 }
 
