@@ -569,6 +569,117 @@
     .ct-del:hover { color: var(--red); }
     .custom-test-empty { font-size: 12px; color: var(--text-muted); text-align: center; padding: 12px; }
 
+    /* SERIES SELECTOR */
+    .series-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 8px 12px;
+      background: var(--surface);
+      border: 1px solid var(--border-light);
+      border-radius: var(--radius);
+    }
+    .series-bar-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .series-pills {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .series-pill {
+      padding: 4px 12px;
+      border-radius: 3px;
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-secondary);
+      font-family: inherit;
+      transition: all 0.15s;
+    }
+    .series-pill:hover { background: var(--navy-faint); border-color: var(--navy-light); }
+    .series-pill.active { background: var(--navy); color: #fff; border-color: var(--navy); }
+    .series-pill .pill-count { font-size: 10px; opacity: 0.7; margin-left: 4px; }
+
+    /* OVERVIEW WIDGETS */
+    .ow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+    .ow-card { padding: 16px; }
+    .ow-card h3 {
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text-secondary);
+    }
+    .health-bar-track {
+      height: 8px;
+      background: var(--bg);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .health-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.4s;
+    }
+    .health-metrics {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .health-metric {
+      text-align: center;
+    }
+    .health-metric-val {
+      font-size: 1.1rem;
+      font-weight: 700;
+      font-family: var(--mono);
+    }
+    .health-metric-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .mini-chart-wrap { height: 160px; position: relative; }
+    .ow-exposures-table { width: 100%; font-size: 12px; }
+    .ow-exposures-table th { font-size: 10px; }
+    .ow-exposures-table td { padding: 5px 8px; font-size: 12px; }
+    .arrears-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+    .arrears-bucket {
+      text-align: center;
+      padding: 10px 4px;
+      border-radius: var(--radius);
+    }
+    .arrears-bucket-val {
+      font-size: 1rem;
+      font-weight: 700;
+      font-family: var(--mono);
+    }
+    .arrears-bucket-label {
+      font-size: 10px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .arrears-bucket-pct {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text-secondary);
+    }
+    @media (max-width: 1100px) {
+      .ow-grid { grid-template-columns: 1fr; }
+      .arrears-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
@@ -613,6 +724,12 @@
   <!-- DASHBOARD -->
   <div class="dashboard" id="dashboard">
 
+    <div class="series-bar" id="series-bar" style="display:none;">
+      <span class="series-bar-label">Portfolio:</span>
+      <div class="series-pills" id="series-pills"></div>
+      <button class="btn btn-outline btn-sm" style="margin-left:auto;" onclick="addAnotherTape()">+ Add Tape</button>
+    </div>
+
     <div class="tabs">
       <div class="tab active" data-tab="overview">Overview</div>
       <div class="tab" data-tab="concentration">Concentration</div>
@@ -624,52 +741,9 @@
     <!-- OVERVIEW TAB -->
     <div class="tab-content active" id="tab-overview">
       <div class="section">
-        <div class="stat-grid">
-          <div class="card stat-card">
-            <div class="stat-label">Total Commitments</div>
-            <div class="stat-value" id="s-portfolio-size">-</div>
-            <div class="stat-sub" id="s-loan-count">-</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-label">Outstanding Balance</div>
-            <div class="stat-value" id="s-outstanding">-</div>
-            <div class="stat-sub" id="s-utilisation">-</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-label">WA Coupon / Margin</div>
-            <div class="stat-value" id="s-wair">-</div>
-            <div class="stat-sub">Weighted by balance</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-label">WA Remaining Term</div>
-            <div class="stat-value" id="s-wam">-</div>
-            <div class="stat-sub" id="s-wam-sub">-</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-label">Arrears &gt;90 Days</div>
-            <div class="stat-value" id="s-default-rate">-</div>
-            <div class="stat-sub" id="s-default-count">-</div>
-          </div>
-          <div class="card stat-card">
-            <div class="stat-label">Lessee Count</div>
-            <div class="stat-value" id="s-borrower-count">-</div>
-            <div class="stat-sub" id="s-avg-facility">-</div>
-          </div>
-        </div>
+        <div class="stat-grid" id="stat-grid-container"></div>
       </div>
-      <div class="section">
-        <div class="section-title">Top Exposures</div>
-        <div class="card table-card">
-          <div class="table-scroll">
-            <table>
-              <thead><tr>
-                <th>#</th><th>Lessee (Loans)</th><th>Sector</th><th>Agg. Outstanding</th><th>% of Book</th><th>Rating</th><th>Arrears</th>
-              </tr></thead>
-              <tbody id="top-exposures-body"></tbody>
-            </table>
-          </div>
-        </div>
-      </div>
+      <div id="overview-widgets"></div>
     </div>
 
     <!-- CONCENTRATION TAB -->
@@ -721,6 +795,7 @@
           <div class="table-header">
             <h3 id="data-table-title">Tape Data</h3>
             <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+            <button class="btn btn-outline btn-sm" onclick="exportXLSX()">Export XLSX (All Tabs)</button>
           </div>
           <div class="table-scroll" style="max-height:600px;">
             <table>
@@ -794,8 +869,14 @@ let fieldOptions = {
 
 // Display settings
 let displaySettings = {
-  termUnit: 'months' // 'months', 'years', 'days'
+  termUnit: 'months', // 'months', 'years', 'days'
+  overviewWidgets: ['stats', 'health', 'topExposures', 'facilityMix', 'maturityProfile', 'arrearsSnapshot']
 };
+
+// Multi-tape series management
+let tapes = []; // [{name, series, loans, sourceColumnNames, columnMapping}]
+let activeSeries = 'all'; // 'all' or specific series name
+let currentTapeName = '';
 
 // SIC code → sector mapping (UK SIC 2007 divisions)
 const SIC_DIVISION_MAP = {
@@ -914,12 +995,16 @@ function updateNav(view) {
   } else {
     el.innerHTML = `
       <button class="btn btn-nav btn-sm" onclick="openSettings()">Settings</button>
-      <button class="btn btn-nav btn-sm" onclick="goHome()">New Tape</button>
-      <button class="btn btn-nav btn-sm" onclick="exportCSV()">Export CSV</button>
+      <button class="btn btn-nav btn-sm" onclick="addAnotherTape()">+ Add Tape</button>
+      <button class="btn btn-nav btn-sm" onclick="exportXLSX()">Export XLSX</button>
+      <button class="btn btn-nav btn-sm" onclick="goHome()">Reset</button>
     `;
   }
 }
 function goHome() {
+  tapes = [];
+  loans = [];
+  activeSeries = 'all';
   document.getElementById('upload-section').style.display = '';
   document.getElementById('dashboard').classList.remove('active');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -985,6 +1070,7 @@ function processRawRows(rows) {
 }
 
 function handleFile(file) {
+  currentTapeName = file.name;
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'csv') {
     Papa.parse(file, { header: false, skipEmptyLines: true,
@@ -1212,9 +1298,25 @@ function confirmMapping() {
   if (!pendingRawData) return;
   const reverseMap = {};
   for (const [source, target] of Object.entries(columnMapping)) reverseMap[target] = source;
-  loans = applyMapping(pendingRawData, reverseMap);
+  const mappedLoans = applyMapping(pendingRawData, reverseMap);
   document.getElementById('mapping-overlay').classList.remove('active');
   pendingRawData = null;
+
+  // Prompt for series name
+  const defaultName = 'Series ' + (tapes.length + 1);
+  const seriesName = prompt('Enter a name/series label for this tape:', defaultName);
+  const series = (seriesName && seriesName.trim()) ? seriesName.trim() : defaultName;
+
+  tapes.push({
+    name: currentTapeName || series,
+    series: series,
+    loans: mappedLoans,
+    sourceColumnNames: { ...sourceColumnNames },
+    columnMapping: { ...columnMapping }
+  });
+
+  loans = [];
+  tapes.forEach(t => loans.push(...t.loans));
   renderDashboard();
 }
 
@@ -1485,8 +1587,10 @@ function renderDashboard() {
   document.getElementById('upload-section').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
   updateNav('dashboard');
+  refreshLoansFromTapes();
+  renderSeriesBar();
   renderStats();
-  renderTopExposures();
+  renderOverviewWidgets();
   renderCharts();
   renderStratification();
   renderAnomalies();
@@ -1494,17 +1598,55 @@ function renderDashboard() {
 }
 
 // ============================================================
-//  STATS
+//  SERIES MANAGEMENT
 // ============================================================
-function renderStats() {
+function refreshLoansFromTapes() {
+  if (tapes.length === 0) return;
+  if (activeSeries === 'all') {
+    loans = [];
+    tapes.forEach(t => loans.push(...t.loans));
+  } else {
+    const filtered = tapes.filter(t => t.series === activeSeries);
+    loans = [];
+    filtered.forEach(t => loans.push(...t.loans));
+  }
+}
+
+function renderSeriesBar() {
+  const bar = document.getElementById('series-bar');
+  if (tapes.length <= 1) { bar.style.display = 'none'; return; }
+  bar.style.display = '';
+  const pills = document.getElementById('series-pills');
+  const seriesNames = [...new Set(tapes.map(t => t.series))];
+  let html = `<button class="series-pill ${activeSeries === 'all' ? 'active' : ''}" onclick="switchSeries('all')">All<span class="pill-count">(${tapes.reduce((s, t) => s + t.loans.length, 0)})</span></button>`;
+  seriesNames.forEach((s, i) => {
+    const count = tapes.filter(t => t.series === s).reduce((n, t) => n + t.loans.length, 0);
+    const safeS = s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    html += `<button class="series-pill ${activeSeries === s ? 'active' : ''}" onclick="switchSeries('${safeS}')">${escapeHtml(s)}<span class="pill-count">(${count})</span></button>`;
+  });
+  pills.innerHTML = html;
+}
+
+function switchSeries(series) {
+  activeSeries = series;
+  renderDashboard();
+}
+
+function addAnotherTape() {
+  document.getElementById('upload-section').style.display = '';
+  document.getElementById('dashboard').classList.remove('active');
+  updateNav('home');
+}
+
+// ============================================================
+//  STATS — dynamically generated
+// ============================================================
+function computeStats() {
   const totalOriginal = loans.reduce((s, l) => s + l.loan_amount, 0);
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
   const utilisation = totalOriginal > 0 ? (totalOutstanding / totalOriginal) * 100 : 0;
-
   const wair = totalOutstanding > 0
     ? loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / totalOutstanding : 0;
-
-  // WA remaining term (months)
   const hasRemTerm = loans.some(l => l.remaining_term > 0);
   let waRem = 0;
   if (hasRemTerm && totalOutstanding > 0) {
@@ -1518,32 +1660,59 @@ function renderStats() {
           return s + mo * l.outstanding_balance;
         }, 0) / totalOutstanding : 0;
   }
-
   const arrears90 = loans.filter(l => l.days_in_arrears > 90);
   const arrears90Bal = arrears90.reduce((s, l) => s + l.outstanding_balance, 0);
   const arrears90Pct = totalOutstanding > 0 ? (arrears90Bal / totalOutstanding) * 100 : 0;
   const uniqueBorrowers = new Set(loans.map(l => l.borrower_name)).size;
   const avgFacility = loans.length > 0 ? totalOriginal / loans.length : 0;
+  const defaultCount = loans.filter(l => l.default_flag).length;
+  const defaultPct = loans.length > 0 ? (defaultCount / loans.length) * 100 : 0;
+  return { totalOriginal, totalOutstanding, utilisation, wair, waRem, hasRemTerm, arrears90, arrears90Bal, arrears90Pct, uniqueBorrowers, avgFacility, defaultCount, defaultPct };
+}
 
-  document.getElementById('s-portfolio-size').textContent = fmtM(totalOriginal);
-  document.getElementById('s-loan-count').textContent = loans.length + ' receivables';
-  document.getElementById('s-outstanding').textContent = fmtM(totalOutstanding);
-  document.getElementById('s-utilisation').textContent = fmtPct(utilisation) + ' of original';
-  document.getElementById('s-wair').textContent = fmtPct(wair);
-  document.getElementById('s-wam').textContent = convertTerm(waRem, displaySettings.termUnit);
-  document.getElementById('s-wam-sub').textContent = (hasRemTerm ? 'Weighted avg remaining' : 'From maturity dates') + ' (' + displaySettings.termUnit + ')';
-  document.getElementById('s-default-rate').textContent = fmtPct(arrears90Pct);
-  document.getElementById('s-default-count').textContent = arrears90.length + ' receivables';
-  document.getElementById('s-borrower-count').textContent = uniqueBorrowers;
-  document.getElementById('s-avg-facility').textContent = 'Avg: ' + fmtM(avgFacility);
+function renderStats() {
+  const s = computeStats();
+  const container = document.getElementById('stat-grid-container');
+  if (!displaySettings.overviewWidgets.includes('stats')) { container.innerHTML = ''; return; }
+  container.innerHTML = `
+    <div class="card stat-card">
+      <div class="stat-label">Portfolio Size</div>
+      <div class="stat-value">${fmtM(s.totalOriginal)}</div>
+      <div class="stat-sub">${loans.length} receivables</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">Outstanding</div>
+      <div class="stat-value">${fmtM(s.totalOutstanding)}</div>
+      <div class="stat-sub">${fmtPct(s.utilisation)} of original</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">WA Interest Rate</div>
+      <div class="stat-value">${fmtPct(s.wair)}</div>
+      <div class="stat-sub">Weighted average</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">WA Maturity</div>
+      <div class="stat-value">${convertTerm(s.waRem, displaySettings.termUnit)}</div>
+      <div class="stat-sub">${s.hasRemTerm ? 'Weighted avg remaining' : 'From maturity dates'} (${displaySettings.termUnit})</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">90+ Arrears</div>
+      <div class="stat-value" style="color:${s.arrears90Pct > 5 ? 'var(--red)' : s.arrears90Pct > 2 ? 'var(--amber)' : 'var(--green)'}">${fmtPct(s.arrears90Pct)}</div>
+      <div class="stat-sub">${s.arrears90.length} receivables</div>
+    </div>
+    <div class="card stat-card">
+      <div class="stat-label">Borrowers</div>
+      <div class="stat-value">${s.uniqueBorrowers}</div>
+      <div class="stat-sub">Avg: ${fmtM(s.avgFacility)}</div>
+    </div>
+  `;
 }
 
 // ============================================================
-//  TOP EXPOSURES
+//  TOP EXPOSURES (returns HTML string)
 // ============================================================
-function renderTopExposures() {
+function getTopExposuresData() {
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
-  // Aggregate all loans per lessee
   const lesseeMap = {};
   loans.forEach(l => {
     const name = l.borrower_name || '(unknown)';
@@ -1559,8 +1728,12 @@ function renderTopExposures() {
       entry.maxArrearsDays = Math.max(entry.maxArrearsDays, l.days_in_arrears);
     }
   });
-  const sorted = Object.values(lesseeMap).sort((a, b) => b.totalBal - a.totalBal).slice(0, 10);
-  document.getElementById('top-exposures-body').innerHTML = sorted.map((e, i) => {
+  return { totalOutstanding, sorted: Object.values(lesseeMap).sort((a, b) => b.totalBal - a.totalBal).slice(0, 10) };
+}
+
+function buildTopExposuresHtml() {
+  const { totalOutstanding, sorted } = getTopExposuresData();
+  const rows = sorted.map((e, i) => {
     const pct = totalOutstanding > 0 ? ((e.totalBal / totalOutstanding) * 100).toFixed(2) : '0.00';
     let arrearsLabel, arrearsText;
     if (e.loansInArrears === 0) {
@@ -1584,6 +1757,137 @@ function renderTopExposures() {
       <td><span class="badge ${arrearsLabel}">${arrearsText}</span></td>
     </tr>`;
   }).join('');
+  return `<div class="card table-card">
+    <div class="table-header"><h3>Top 10 Lessee Exposures</h3></div>
+    <div class="table-scroll"><table class="ow-exposures-table">
+      <thead><tr><th>#</th><th>Lessee</th><th>Sector</th><th class="right">Balance</th><th class="right">% Port</th><th>Rating</th><th>Arrears</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
+// ============================================================
+//  OVERVIEW WIDGETS — configurable
+// ============================================================
+let overviewCharts = {};
+function destroyOverviewCharts() { Object.values(overviewCharts).forEach(c => c.destroy()); overviewCharts = {}; }
+
+function renderOverviewWidgets() {
+  destroyOverviewCharts();
+  const container = document.getElementById('overview-widgets');
+  const active = displaySettings.overviewWidgets;
+  let html = '<div class="ow-grid">';
+
+  // HEALTH widget
+  if (active.includes('health')) {
+    const st = computeStats();
+    const tot = st.totalOutstanding;
+    const arrearsBal = loans.filter(l => l.days_in_arrears > 0).reduce((s, l) => s + l.outstanding_balance, 0);
+    const arrearsPct = tot > 0 ? (arrearsBal / tot) * 100 : 0;
+    const defaultBal = loans.filter(l => l.default_flag).reduce((s, l) => s + l.outstanding_balance, 0);
+    const defaultPct = tot > 0 ? (defaultBal / tot) * 100 : 0;
+    const concentrationTop5 = (() => {
+      const bMap = {};
+      loans.forEach(l => { bMap[l.borrower_name] = (bMap[l.borrower_name] || 0) + l.outstanding_balance; });
+      const top5 = Object.values(bMap).sort((a, b) => b - a).slice(0, 5);
+      return tot > 0 ? (top5.reduce((s, v) => s + v, 0) / tot) * 100 : 0;
+    })();
+    // Simple health score: 100 minus penalty for arrears, defaults, concentration
+    const healthScore = Math.max(0, Math.min(100, Math.round(100 - arrearsPct * 2 - defaultPct * 5 - Math.max(0, concentrationTop5 - 30) * 0.5)));
+    const healthColor = healthScore >= 75 ? 'var(--green)' : healthScore >= 50 ? 'var(--amber)' : 'var(--red)';
+    const healthLabel = healthScore >= 75 ? 'Good' : healthScore >= 50 ? 'Fair' : 'Needs Attention';
+    html += `<div class="card ow-card">
+      <h3>Portfolio Health</h3>
+      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
+        <span style="font-size:2rem;font-weight:700;font-family:var(--mono);color:${healthColor};">${healthScore}</span>
+        <span style="font-size:13px;color:${healthColor};font-weight:600;">${healthLabel}</span>
+      </div>
+      <div class="health-bar-track"><div class="health-bar-fill" style="width:${healthScore}%;background:${healthColor};"></div></div>
+      <div class="health-metrics">
+        <div class="health-metric"><div class="health-metric-val" style="color:${arrearsPct > 5 ? 'var(--red)' : arrearsPct > 2 ? 'var(--amber)' : 'var(--green)'}">${fmtPct(arrearsPct)}</div><div class="health-metric-label">Arrears %</div></div>
+        <div class="health-metric"><div class="health-metric-val" style="color:${defaultPct > 3 ? 'var(--red)' : defaultPct > 1 ? 'var(--amber)' : 'var(--green)'}">${fmtPct(defaultPct)}</div><div class="health-metric-label">Default %</div></div>
+        <div class="health-metric"><div class="health-metric-val" style="color:${concentrationTop5 > 40 ? 'var(--red)' : concentrationTop5 > 25 ? 'var(--amber)' : 'var(--green)'}">${concentrationTop5.toFixed(1)}%</div><div class="health-metric-label">Top 5 Conc.</div></div>
+      </div>
+    </div>`;
+  }
+
+  // ARREARS SNAPSHOT widget
+  if (active.includes('arrearsSnapshot')) {
+    const tot = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+    const buckets = [
+      { label: 'Current', filter: l => l.days_in_arrears === 0, bg: 'var(--green-faint)', color: 'var(--green)' },
+      { label: '1-30d', filter: l => l.days_in_arrears > 0 && l.days_in_arrears <= 30, bg: 'var(--navy-faint)', color: 'var(--navy)' },
+      { label: '31-60d', filter: l => l.days_in_arrears > 30 && l.days_in_arrears <= 60, bg: 'var(--amber-faint)', color: 'var(--amber)' },
+      { label: '61-90d', filter: l => l.days_in_arrears > 60 && l.days_in_arrears <= 90, bg: 'var(--amber-faint)', color: 'var(--amber)' },
+      { label: '90d+', filter: l => l.days_in_arrears > 90, bg: 'var(--red-faint)', color: 'var(--red)' }
+    ];
+    html += `<div class="card ow-card"><h3>Arrears Snapshot</h3><div class="arrears-grid">`;
+    buckets.forEach(b => {
+      const matched = loans.filter(b.filter);
+      const bal = matched.reduce((s, l) => s + l.outstanding_balance, 0);
+      const pct = tot > 0 ? ((bal / tot) * 100).toFixed(1) : '0.0';
+      html += `<div class="arrears-bucket" style="background:${b.bg};">
+        <div class="arrears-bucket-val" style="color:${b.color};">${matched.length}</div>
+        <div class="arrears-bucket-label">${b.label}</div>
+        <div class="arrears-bucket-pct">${pct}%</div>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  // TOP EXPOSURES widget
+  if (active.includes('topExposures')) {
+    html += buildTopExposuresHtml();
+  }
+
+  // FACILITY MIX widget
+  if (active.includes('facilityMix') && loans.some(l => l.facility_type)) {
+    html += `<div class="card ow-card"><h3>Facility Type Mix</h3><div class="mini-chart-wrap"><canvas id="ow-chart-facility"></canvas></div></div>`;
+  }
+
+  // MATURITY PROFILE widget
+  if (active.includes('maturityProfile')) {
+    html += `<div class="card ow-card"><h3>Maturity Profile</h3><div class="mini-chart-wrap"><canvas id="ow-chart-maturity"></canvas></div></div>`;
+  }
+
+  html += '</div>';
+  container.innerHTML = html;
+
+  // Render mini charts after DOM is updated
+  setTimeout(() => {
+    const miniChartOpts = {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) } } },
+      scales: { x: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 9, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } }
+    };
+
+    if (active.includes('facilityMix') && document.getElementById('ow-chart-facility')) {
+      const fMap = groupBy(loans, 'facility_type', 'outstanding_balance');
+      overviewCharts.facility = new Chart(document.getElementById('ow-chart-facility'), {
+        type: 'bar', data: { labels: Object.keys(fMap), datasets: [{ data: Object.values(fMap), backgroundColor: COLORS, borderRadius: 2, borderWidth: 0 }] },
+        options: { ...miniChartOpts, indexAxis: 'y' }
+      });
+    }
+
+    if (active.includes('maturityProfile') && document.getElementById('ow-chart-maturity')) {
+      const now = new Date();
+      const mBuckets = { '<1yr': 0, '1-2yr': 0, '2-3yr': 0, '3-5yr': 0, '5-7yr': 0, '7+yr': 0 };
+      loans.forEach(l => {
+        const mat = parseDate(l.maturity_date);
+        const years = mat ? Math.max(0, (mat - now) / (365.25 * 86400000)) : 0;
+        if (years < 1) mBuckets['<1yr'] += l.outstanding_balance;
+        else if (years < 2) mBuckets['1-2yr'] += l.outstanding_balance;
+        else if (years < 3) mBuckets['2-3yr'] += l.outstanding_balance;
+        else if (years < 5) mBuckets['3-5yr'] += l.outstanding_balance;
+        else if (years < 7) mBuckets['5-7yr'] += l.outstanding_balance;
+        else mBuckets['7+yr'] += l.outstanding_balance;
+      });
+      overviewCharts.maturity = new Chart(document.getElementById('ow-chart-maturity'), {
+        type: 'bar', data: { labels: Object.keys(mBuckets), datasets: [{ data: Object.values(mBuckets), backgroundColor: '#00857c', borderRadius: 2, borderWidth: 0 }] },
+        options: miniChartOpts
+      });
+    }
+  }, 0);
 }
 
 // ============================================================
@@ -2145,14 +2449,13 @@ function renderDataTable() {
 }
 
 // ============================================================
-//  EXPORT CSV — includes all fields
+//  EXPORT CSV — data tab only
 // ============================================================
 function exportCSV() {
   if (!loans.length) return;
   const fieldKeys = Object.keys(loans[0]);
   const fieldLabels = {};
   TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
-  // Row 1: internal field labels, Row 2: original tape column names
   const labelRow = fieldKeys.map(k => {
     const lbl = fieldLabels[k] || k;
     return lbl.includes(',') ? '"' + lbl + '"' : lbl;
@@ -2176,6 +2479,101 @@ function exportCSV() {
   a.download = 'tape_export.csv';
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ============================================================
+//  EXPORT XLSX — all tabs as separate sheets
+// ============================================================
+function exportXLSX() {
+  if (!loans.length) return;
+  const wb = XLSX.utils.book_new();
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+
+  // Sheet 1: Tape Data
+  const fieldKeys = Object.keys(loans[0]);
+  const dataHeaders = fieldKeys.map(k => fieldLabels[k] || k);
+  const dataSourceRow = fieldKeys.map(k => sourceColumnNames[k] || '');
+  const dataRows = loans.map(l => fieldKeys.map(k => {
+    const v = l[k];
+    return typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
+  }));
+  const dataSheet = XLSX.utils.aoa_to_sheet([dataHeaders, dataSourceRow, ...dataRows]);
+  dataSheet['!cols'] = fieldKeys.map(() => ({ wch: 18 }));
+  XLSX.utils.book_append_sheet(wb, dataSheet, 'Tape Data');
+
+  // Sheet 2: Stratification — gather all strat tables
+  const stratRows = [];
+  const tot = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const n = loans.length;
+  const stratFields = [
+    { key: 'facility_type', title: 'By Type of Lease' }, { key: 'asset_type', title: 'By Asset Type' },
+    { key: 'interest_rate_type', title: 'By Interest Rate Type' }, { key: 'repayment_method', title: 'By Repayment Method' },
+    { key: 'amortisation_type', title: 'By Amortisation Type' }, { key: 'payment_frequency', title: 'By Payment Frequency' },
+    { key: 'customer_segment', title: 'By Customer Segment' }, { key: 'credit_rating', title: 'By Credit Rating' },
+    { key: 'region', title: 'By Region' }, { key: 'bbb_guarantee', title: 'By BBB Guarantee' },
+    { key: 'loan_status', title: 'By Status' }, { key: 'arrears_status', title: 'By Arrears Status' },
+    { key: 'equipment_type', title: 'By Equipment Type' }, { key: 'asset_category', title: 'By Asset Category' },
+    { key: 'supplier', title: 'By Supplier' }, { key: 'vat_deferral', title: 'By VAT Deferral' }
+  ];
+  stratFields.forEach(sf => {
+    if (!loans.some(l => l[sf.key])) return;
+    const groups = {};
+    loans.forEach(l => {
+      const k = l[sf.key] || '(blank)';
+      if (!groups[k]) groups[k] = { count: 0, balance: 0 };
+      groups[k].count++; groups[k].balance += l.outstanding_balance;
+    });
+    const sorted = Object.entries(groups).sort((a, b) => b[1].balance - a[1].balance);
+    stratRows.push([sf.title]);
+    stratRows.push(['Category', 'Count', '% Count', 'Balance', '% Balance', 'Average']);
+    sorted.forEach(([label, data]) => {
+      stratRows.push([label, data.count, n > 0 ? ((data.count / n) * 100).toFixed(1) + '%' : '0%', data.balance, tot > 0 ? ((data.balance / tot) * 100).toFixed(1) + '%' : '0%', data.count > 0 ? data.balance / data.count : 0]);
+    });
+    stratRows.push([]);
+  });
+  if (stratRows.length > 0) {
+    const stratSheet = XLSX.utils.aoa_to_sheet(stratRows);
+    stratSheet['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 10 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(wb, stratSheet, 'Stratification');
+  }
+
+  // Sheet 3: Anomalies
+  const anomalies = detectAnomalies();
+  const customResults = evaluateCustomTests();
+  customResults.forEach(cr => { if (!anomalies.find(a => a.title === cr.title)) anomalies.push(cr); });
+  if (anomalies.length > 0) {
+    const anomalyRows = [['Severity', 'Title', 'Description', 'Count', 'Examples']];
+    anomalies.forEach(a => {
+      anomalyRows.push([a.severity, a.title, a.description, a.count, a.examples ? a.examples.join('; ') : '']);
+    });
+    const anomSheet = XLSX.utils.aoa_to_sheet(anomalyRows);
+    anomSheet['!cols'] = [{ wch: 10 }, { wch: 30 }, { wch: 50 }, { wch: 8 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(wb, anomSheet, 'Anomalies');
+  }
+
+  // Sheet 4: Overview Summary
+  const st = computeStats();
+  const summaryRows = [
+    ['Metric', 'Value'],
+    ['Portfolio Size', st.totalOriginal],
+    ['Outstanding Balance', st.totalOutstanding],
+    ['Utilisation', fmtPct(st.utilisation)],
+    ['WA Interest Rate', fmtPct(st.wair)],
+    ['WA Remaining Term', convertTerm(st.waRem, displaySettings.termUnit)],
+    ['90+ Arrears %', fmtPct(st.arrears90Pct)],
+    ['Unique Borrowers', st.uniqueBorrowers],
+    ['Average Facility', st.avgFacility],
+    ['Number of Receivables', loans.length],
+    ['Number of Tapes', tapes.length],
+    ['Active Series', activeSeries]
+  ];
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+  summarySheet['!cols'] = [{ wch: 24 }, { wch: 24 }];
+  XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+
+  const fileName = activeSeries !== 'all' ? 'tape_export_' + activeSeries.replace(/[^a-zA-Z0-9]/g, '_') + '.xlsx' : 'tape_export.xlsx';
+  XLSX.writeFile(wb, fileName);
 }
 
 // ============================================================
@@ -2204,6 +2602,40 @@ function renderSettingsBody() {
     html += `<button class="btn btn-outline btn-sm" style="${sel}" onclick="displaySettings.termUnit='${u}';renderSettingsBody();if(loans.length)renderDashboard();">${u.charAt(0).toUpperCase()+u.slice(1)}</button>`;
   });
   html += '</div></div></div>';
+
+  // Overview widgets section
+  const widgetDefs = [
+    { key: 'stats', label: 'Key Metrics (stats bar)' },
+    { key: 'health', label: 'Portfolio Health Score' },
+    { key: 'topExposures', label: 'Top 10 Lessee Exposures' },
+    { key: 'facilityMix', label: 'Facility Type Mix Chart' },
+    { key: 'maturityProfile', label: 'Maturity Profile Chart' },
+    { key: 'arrearsSnapshot', label: 'Arrears Snapshot' }
+  ];
+  html += '<div class="settings-section"><div class="settings-section-title">Overview Page Widgets</div>';
+  html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Choose which widgets appear on the Overview tab.</p>';
+  widgetDefs.forEach(w => {
+    const checked = displaySettings.overviewWidgets.includes(w.key) ? 'checked' : '';
+    html += `<label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:4px 0;cursor:pointer;">
+      <input type="checkbox" ${checked} onchange="toggleOverviewWidget('${w.key}', this.checked)" style="accent-color:var(--navy);"> ${escapeHtml(w.label)}
+    </label>`;
+  });
+  html += '</div>';
+
+  // Series management section
+  if (tapes.length > 0) {
+    html += '<div class="settings-section"><div class="settings-section-title">Loaded Tapes</div>';
+    tapes.forEach((t, i) => {
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-light);">
+        <span style="font-size:13px;font-weight:500;">${escapeHtml(t.name)}</span>
+        <span class="badge badge-navy">${escapeHtml(t.series)}</span>
+        <span style="font-size:11px;color:var(--text-muted);">${t.loans.length} records</span>
+        <button class="opt-tag-del" style="margin-left:auto;" onclick="renameTapeSeries(${i})" title="Rename series">&#9998;</button>
+        <button class="opt-tag-del" onclick="removeTape(${i})" title="Remove tape">&times;</button>
+      </div>`;
+    });
+    html += '</div>';
+  }
 
   // Field category options section
   html += '<div class="settings-section"><div class="settings-section-title">Field Category Options</div>';
@@ -2305,6 +2737,34 @@ function addNewFieldCategory() {
     FIELD_ALIASES[key] = [key, key.replace(/_/g, ''), key.replace(/_/g, ' ')];
   }
   renderSettingsBody();
+}
+
+// ============================================================
+//  OVERVIEW WIDGET TOGGLES
+// ============================================================
+function toggleOverviewWidget(key, enabled) {
+  if (enabled && !displaySettings.overviewWidgets.includes(key)) {
+    displaySettings.overviewWidgets.push(key);
+  } else if (!enabled) {
+    displaySettings.overviewWidgets = displaySettings.overviewWidgets.filter(k => k !== key);
+  }
+}
+
+function renameTapeSeries(idx) {
+  const tape = tapes[idx];
+  const newName = prompt('Rename series for "' + tape.name + '":', tape.series);
+  if (newName && newName.trim()) {
+    tape.series = newName.trim();
+    renderSettingsBody();
+  }
+}
+
+function removeTape(idx) {
+  if (!confirm('Remove tape "' + tapes[idx].name + '"? This cannot be undone.')) return;
+  tapes.splice(idx, 1);
+  if (tapes.length === 0) { goHome(); return; }
+  renderSettingsBody();
+  if (loans.length) renderDashboard();
 }
 
 // ============================================================
