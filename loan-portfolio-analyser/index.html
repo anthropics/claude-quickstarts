@@ -842,7 +842,7 @@
 
     <div class="tabs">
       <div class="tab active" data-tab="overview">Overview</div>
-      <div class="tab" data-tab="concentration">Concentration</div>
+      <div class="tab" data-tab="concentration">Key Concentrations</div>
       <div class="tab" data-tab="stratification">Stratification</div>
       <div class="tab" data-tab="anomalies">Anomalies</div>
       <div class="tab" data-tab="comparison" id="tab-comparison-link" style="display:none;">Comparison</div>
@@ -863,14 +863,14 @@
       <div class="section">
         <div class="chart-grid-2">
           <div class="card chart-card"><h3>Sector Concentration</h3><div class="chart-wrap"><canvas id="chart-sector"></canvas></div></div>
-          <div class="card chart-card"><h3>Regional Concentration</h3><div class="chart-wrap"><canvas id="chart-region"></canvas></div></div>
+          <div class="card chart-card"><h3 id="chart-top-title">Top 10 Lessee Exposures</h3><div class="chart-wrap"><canvas id="chart-top10"></canvas></div></div>
         </div>
       </div>
       <div class="section">
         <div class="chart-grid-3">
           <div class="card chart-card"><h3>Loan Size Distribution</h3><div class="chart-wrap"><canvas id="chart-loansize"></canvas></div></div>
-          <div class="card chart-card"><h3 id="chart-top-title">Top 10 Lessee Exposures</h3><div class="chart-wrap"><canvas id="chart-top10"></canvas></div></div>
           <div class="card chart-card"><h3>Maturity Profile</h3><div class="chart-wrap"><canvas id="chart-maturity"></canvas></div></div>
+          <div class="card chart-card"><h3>Regional Breakdown</h3><div class="chart-wrap"><canvas id="chart-region"></canvas></div></div>
         </div>
       </div>
     </div>
@@ -1019,7 +1019,8 @@ let fieldOptions = {
   asset_category:      ['Hard Asset', 'Soft Asset', 'Vehicle', 'Property', 'Technology'],
   origination_channel: ['Direct', 'Broker', 'Vendor', 'Online', 'Branch'],
   broker:              [],
-  originator:          []
+  originator:          [],
+  lessee_type:         ['Limited Company', 'Sole Trader', 'Partnership', 'LLP', 'PLC', 'Charity', 'Individual']
 };
 
 // Display settings
@@ -1214,16 +1215,38 @@ function hideLoading() {
   document.getElementById('loading-overlay').classList.remove('active');
 }
 
-// Find the actual header row by picking the row with the most non-empty cells.
-// Scans the first 20 rows (or fewer if the file is smaller).
+// Find the actual header row — improved detection for files with title rows,
+// filters, merged cells, and decorative rows above the data.
+// A good header row has: many non-empty cells, mostly strings (not numbers),
+// mostly unique values, and data rows following it.
 function findHeaderRow(rows) {
-  const limit = Math.min(rows.length, 20);
-  let bestIdx = 0, bestCount = 0;
+  const limit = Math.min(rows.length, 30);
+  let bestIdx = 0, bestScore = -1;
   for (let i = 0; i < limit; i++) {
     const row = rows[i];
     if (!Array.isArray(row)) continue;
-    const count = row.filter(c => c != null && String(c).trim() !== '').length;
-    if (count > bestCount) { bestCount = count; bestIdx = i; }
+    const cells = row.filter(c => c != null && String(c).trim() !== '');
+    const count = cells.length;
+    if (count < 3) continue; // headers need at least 3 columns
+    // Score: prefer rows with many non-empty string cells
+    const strings = cells.filter(c => typeof c === 'string' || (typeof c !== 'number' && isNaN(Number(c))));
+    const stringRatio = count > 0 ? strings.length / count : 0;
+    // Prefer rows where most values are unique (headers are distinct)
+    const unique = new Set(cells.map(c => String(c).trim().toLowerCase()));
+    const uniqueRatio = count > 0 ? unique.size / count : 0;
+    // Check that the next row exists and has data (confirming this is really a header)
+    let hasDataBelow = false;
+    for (let j = i + 1; j < Math.min(i + 4, rows.length); j++) {
+      const nextRow = rows[j];
+      if (Array.isArray(nextRow)) {
+        const nextCells = nextRow.filter(c => c != null && String(c).trim() !== '');
+        if (nextCells.length >= count * 0.5) { hasDataBelow = true; break; }
+      }
+    }
+    if (!hasDataBelow) continue;
+    // Score: count * string_ratio * unique_ratio (favour many unique string headers with data below)
+    const score = count * (0.3 + 0.4 * stringRatio + 0.3 * uniqueRatio);
+    if (score > bestScore) { bestScore = score; bestIdx = i; }
   }
   return bestIdx;
 }
@@ -1327,7 +1350,8 @@ const TEMPLATE_FIELDS = [
   { key: 'postcode',            label: 'Postcode',            required: false, type: 'string' },
   { key: 'bbb_guarantee',       label: 'BBB Guarantee',       required: false, type: 'string' },
   { key: 'broker',              label: 'Broker',              required: false, type: 'string' },
-  { key: 'originator',          label: 'Originator',          required: false, type: 'string' }
+  { key: 'originator',          label: 'Originator',          required: false, type: 'string' },
+  { key: 'lessee_type',         label: 'Lessee Type',         required: false, type: 'string' }
 ];
 
 const FIELD_ALIASES = {
@@ -1337,8 +1361,8 @@ const FIELD_ALIASES = {
   sic_code:            ['sic_code','siccode','sic code','sic','sic_industry_code','sicindustrycode','sic industry code','sic_number','standard_industrial_classification','sic_division','uk_sic','uk sic'],
   nace_code:           ['nace_code','nacecode','nace code','nace','nace_rev2','nace_classification','nace_section','eu_nace','nace_industry'],
   region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile','country_of_risk','area','uk_region','ukregion','uk region','asset_location','assetlocation','asset location'],
-  loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size','facility_size','facilitysize','limit','facility_limit','original_principal_balance','originalprincipalbalance','original principal balance','original_balance','originalbalance'],
-  outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','current_drawn','currentdrawn','utilised','utilised_amount','current_prin_outstanding_bal','currentprinoutstandingbal','current prin outstanding bal','current_principal','currentprincipal'],
+  loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size','facility_size','facilitysize','limit','facility_limit','original_principal_balance','originalprincipalbalance','original principal balance','original_balance','originalbalance','advance','advance_amount','advanceamount','advance amount','original_advance','originaladvance','original advance','total_advance','totaladvance'],
+  outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','current_drawn','currentdrawn','utilised','utilised_amount','current_prin_outstanding_bal','currentprinoutstandingbal','current prin outstanding bal','current_principal','currentprincipal','current_principal_outstanding','currentprincipaloutstanding','current principal outstanding','principal_outstanding','principaloutstanding','current_outstanding','currentoutstanding'],
   maturity_date:       ['maturity_date','maturitydate','maturity date','maturity','mat_date','matdate','final_maturity','finalmaturity','end_date','enddate','expiry','expiry_date','expirydate','termination_date','repayment_date'],
   interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing','current_rate','margin_coupon','margincoupon','margin / coupon','margin/coupon'],
   credit_rating:       ['credit_rating','creditrating','credit rating','rating','internal_rating','internalrating','external_rating','externalrating','risk_rating','riskrating','grade','risk_grade','credit_grade','pd_grade'],
@@ -1354,7 +1378,7 @@ const FIELD_ALIASES = {
   amortisation_type:   ['amortisation_type','amortisationtype','amortisation type','amortization_type','amortizationtype','amort_type','amorttype','amortisation','amortization','amort_profile'],
   payment_frequency:   ['payment_frequency','paymentfrequency','payment frequency','pay_frequency','payfrequency','pay_freq','frequency','installment_frequency'],
   interest_rate_type:  ['interest_rate_type','interestratetype','interest rate type','rate_type','ratetype','rate type','fixed_floating','fixedfloating','fixed_or_floating','interest_type','interesttype','interest_rate_basis','interestratebasis','interest rate basis'],
-  days_in_arrears:     ['days_in_arrears','daysinarrears','days in arrears','arrears_days','arrearsdays','dpd','days_past_due','dayspastdue','number_of_days_in_arrears','numberofdaysinarrears','number of days in arrears','arrears'],
+  days_in_arrears:     ['days_in_arrears','daysinarrears','days in arrears','arrears_days','arrearsdays','dpd','days_past_due','dayspastdue','number_of_days_in_arrears','numberofdaysinarrears','number of days in arrears','days_in_arrear','arrears_amount_days','no_of_days_in_arrears','noofdaysinarrears'],
   equipment_type:      ['equipment_type','equipmenttype','equipment type','equipment','equipment_description','equipmentdescription','equipment_class','make_model','makemodel'],
   asset_category:      ['asset_category','assetcategory','asset category','asset_class','assetclass','asset class','collateral_category','collateralcategory'],
   asset_type:          ['asset_type','assettype','asset type','collateral_type','collateraltype','asset_description','assetdescription'],
@@ -1362,13 +1386,14 @@ const FIELD_ALIASES = {
   deposit_amount:      ['deposit_amount','depositamount','deposit amount','deposit','advance_payment','advancepayment','advance payment','upfront_payment','initial_payment'],
   deposit_pct:         ['deposit_pct','depositpct','deposit_percentage','depositpercentage','deposit percentage','deposit_percent','deposit_%','advance_pct'],
   vat_deferral:        ['vat_deferral','vatdeferral','vat deferral','vat_deferred','vatdeferred','vat deferred','vat_treatment','vattreatment','vat treatment','vat_status','vatstatus'],
-  customer_segment:    ['customer_segment','customersegment','customer segment','cust_segment','segment','borrower_type','obligor_type','client_segment','legal_form_or_business_type','legalformorbusinesstype','legal form or business type','legal_form','business_type'],
+  customer_segment:    ['customer_segment','customersegment','customer segment','cust_segment','client_segment'],
   origination_channel: ['origination_channel','originationchannel','origination channel','channel','source','distribution_channel','sales_channel','origination_source','orig_channel'],
   balloon_pct:         ['balloon_pct','balloonpct','balloon_percentage','balloonpercentage','balloon percentage','balloon','residual_value_pct','residual_pct','rv_pct','balloon_pct_of_original','balloon_percent'],
   postcode:            ['postcode','post_code','post code','zip','zip_code','zipcode','postal_code','postalcode','postal code'],
   bbb_guarantee:       ['bbb_guarantee','bbbguarantee','bbb guarantee','bbb_program','bbbprogram','bbb program','guarantee_scheme','guaranteescheme','guarantee scheme','ggs','rls','government_guarantee','govguarantee','bbb_scheme','bbb scheme','guarantee_program','guarantee program','recovery_loan_scheme','growth_guarantee_scheme'],
   broker:              ['broker','broker_name','brokername','broker name','intermediary','intermediary_name','introducing_broker','introducingbroker','ib','broker_firm','brokerfirm'],
-  originator:          ['originator','originator_name','originatorname','originator name','lending_entity','lendingentity','lending entity','originating_entity','originatingentity','originating entity','lender','lender_name','lending_institution']
+  originator:          ['originator','originator_name','originatorname','originator name','lending_entity','lendingentity','lending entity','originating_entity','originatingentity','originating entity','lender','lender_name','lending_institution'],
+  lessee_type:         ['lessee_type','lesseetype','lessee type','lessee_entity_type','lesseeentitytype','borrower_type','borrowertype','borrower type','entity_type','entitytype','entity type','legal_form','legalform','legal form','company_type','companytype','company type','obligor_type','obligortype','obligor type','legal_entity_type','legalentitytype','customer_type','customertype']
 };
 
 // ============================================================
@@ -1378,20 +1403,44 @@ function normalizeStr(s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, 
 
 function autoMatchColumn(colName) {
   const norm = normalizeStr(colName);
+  if (!norm) return '';
+
+  // Pass 1: Exact match (highest priority)
   for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
     for (const alias of aliases) {
       if (normalizeStr(alias) === norm) return field;
     }
   }
+
+  // Pass 2: Fuzzy substring match — require the alias to cover a significant
+  // portion of the column name to avoid false positives like
+  // "currentinternalriskcategory" matching "currency"
+  let bestField = '';
+  let bestScore = 0;
   for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
     for (const alias of aliases) {
       const normAlias = normalizeStr(alias);
-      if (norm.includes(normAlias) || normAlias.includes(norm)) {
-        if (normAlias.length >= 3 && norm.length >= 3) return field;
+      if (normAlias.length < 4) continue; // skip very short aliases for substring matching
+      // Check if column contains alias or alias contains column
+      const colContainsAlias = norm.includes(normAlias);
+      const aliasContainsCol = normAlias.includes(norm);
+      if (!colContainsAlias && !aliasContainsCol) continue;
+      // Score by how much of the column name the alias covers
+      // Higher coverage = better match
+      const coverage = colContainsAlias
+        ? normAlias.length / norm.length
+        : norm.length / normAlias.length;
+      // Require at least 50% coverage to avoid spurious matches
+      if (coverage < 0.5) continue;
+      // Prefer longer alias matches and higher coverage
+      const score = normAlias.length * coverage;
+      if (score > bestScore) {
+        bestScore = score;
+        bestField = field;
       }
     }
   }
-  return '';
+  return bestField;
 }
 
 // ============================================================
@@ -1904,7 +1953,8 @@ function applyMapping(data, rm, customRm) {
       postcode:            pc,
       bbb_guarantee:       rm.bbb_guarantee ? String(row[rm.bbb_guarantee] || '') : '',
       broker:              rm.broker ? String(row[rm.broker] || '') : '',
-      originator:          rm.originator ? String(row[rm.originator] || '') : ''
+      originator:          rm.originator ? String(row[rm.originator] || '') : '',
+      lessee_type:         rm.lessee_type ? String(row[rm.lessee_type] || '') : ''
     };
 
     // Derive days_in_arrears from arrears_status when not explicitly mapped
@@ -3209,7 +3259,7 @@ function renderStratification() {
     { key: 'repayment_method',    title: 'By Repayment Method' },
     { key: 'amortisation_type',   title: 'By Amortisation Type' },
     { key: 'payment_frequency',   title: 'By Payment Frequency' },
-    { key: 'customer_segment',    title: 'By Customer Segment' },
+    { key: 'lessee_type',          title: 'By Lessee Type' },
     { key: 'origination_channel', title: 'By Origination Channel' },
     { key: 'credit_rating',       title: 'By Credit Rating' },
     { key: 'region',              title: 'By Region' },
@@ -3859,7 +3909,7 @@ function exportXLSX() {
     { key: 'facility_type', title: 'By Type of Lease' }, { key: 'asset_type', title: 'By Asset Type' },
     { key: 'interest_rate_type', title: 'By Interest Rate Type' }, { key: 'repayment_method', title: 'By Repayment Method' },
     { key: 'amortisation_type', title: 'By Amortisation Type' }, { key: 'payment_frequency', title: 'By Payment Frequency' },
-    { key: 'customer_segment', title: 'By Customer Segment' }, { key: 'credit_rating', title: 'By Credit Rating' },
+    { key: 'lessee_type', title: 'By Lessee Type' }, { key: 'credit_rating', title: 'By Credit Rating' },
     { key: 'region', title: 'By Region' }, { key: 'bbb_guarantee', title: 'By BBB Guarantee' },
     { key: 'loan_status', title: 'By Status' }, { key: 'arrears_status', title: 'By Arrears Status' },
     { key: 'equipment_type', title: 'By Equipment Type' }, { key: 'asset_category', title: 'By Asset Category' },
