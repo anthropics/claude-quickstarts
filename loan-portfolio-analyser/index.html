@@ -39,7 +39,6 @@
       font-size: 13px;
     }
 
-    /* --- NAV --- */
     .nav {
       background: var(--surface);
       border-bottom: 1px solid var(--border);
@@ -66,7 +65,6 @@
     .nav-actions { display: flex; gap: 8px; align-items: center; }
     .nav-sub { font-size: 11px; color: var(--text-muted); font-weight: 400; text-transform: none; letter-spacing: 0; margin-left: 8px; }
 
-    /* --- LAYOUT --- */
     .container { max-width: 1440px; margin: 0 auto; padding: 20px 28px; }
     .section { margin-bottom: 20px; }
     .section-title {
@@ -78,7 +76,6 @@
       margin-bottom: 10px;
     }
 
-    /* --- CARDS --- */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -87,7 +84,6 @@
       box-shadow: var(--shadow);
     }
 
-    /* --- STAT GRID --- */
     .stat-grid {
       display: grid;
       grid-template-columns: repeat(6, 1fr);
@@ -115,7 +111,6 @@
       margin-top: 3px;
     }
 
-    /* --- UPLOAD --- */
     .upload-area {
       border: 1px dashed var(--border);
       border-radius: var(--radius);
@@ -134,7 +129,6 @@
     .upload-sub { font-size: 11px; color: var(--text-muted); }
     .upload-area input { display: none; }
 
-    /* --- BUTTONS --- */
     .btn {
       padding: 6px 14px;
       border: none;
@@ -155,7 +149,6 @@
     .btn-outline:hover { color: var(--text); border-color: var(--text-muted); }
     .btn-sm { padding: 5px 10px; font-size: 10px; }
 
-    /* --- CHART GRIDS --- */
     .chart-grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -177,47 +170,6 @@
     }
     .chart-wrap { position: relative; height: 260px; }
 
-    /* --- RISK METRICS --- */
-    .risk-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-    }
-    .risk-card { text-align: center; padding: 20px 14px; }
-    .risk-value {
-      font-size: 1.4rem;
-      font-weight: 700;
-      margin-bottom: 4px;
-      color: var(--text-bright);
-      font-family: 'SF Mono', 'Consolas', 'Menlo', monospace;
-    }
-    .risk-label {
-      font-size: 9px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.06em;
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-    .risk-bar {
-      height: 3px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-      margin-top: 10px;
-    }
-    .risk-bar-fill {
-      height: 100%;
-      border-radius: 2px;
-      transition: width 0.5s;
-    }
-    .risk-desc {
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-top: 8px;
-    }
-
-    /* --- TABLE --- */
     .table-card { padding: 0; overflow: hidden; }
     .table-header {
       padding: 12px 16px;
@@ -259,9 +211,7 @@
     }
     .badge-positive { background: var(--positive-bg); color: var(--positive); }
     .badge-negative { background: var(--negative-bg); color: var(--negative); }
-    .badge-caution { background: var(--caution-bg); color: var(--caution); }
 
-    /* --- TABS --- */
     .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 16px; }
     .tab {
       padding: 8px 18px;
@@ -279,60 +229,17 @@
     .tab-content { display: none; }
     .tab-content.active { display: block; }
 
-    /* --- HIDDEN UNTIL DATA --- */
     .dashboard { display: none; }
     .dashboard.active { display: block; }
 
-    /* --- IG/HY SPLIT BAR --- */
-    .split-bar-wrap { margin-top: 16px; }
-    .split-bar-labels {
-      display: flex;
-      justify-content: space-between;
-      font-size: 10px;
-      color: var(--text-muted);
-      margin-bottom: 4px;
-    }
-    .split-bar-labels span { font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
-    .split-bar-labels .val { color: var(--text-bright); }
-    .split-bar {
-      height: 6px;
-      background: var(--border);
-      border-radius: 2px;
-      overflow: hidden;
-      display: flex;
-    }
-    .split-bar-ig {
-      height: 100%;
-      background: var(--accent);
-      transition: width 0.5s;
-    }
-    .split-bar-hy {
-      height: 100%;
-      background: var(--text-muted);
-      transition: width 0.5s;
-    }
-
-    /* --- ASSUMPTIONS PANEL --- */
-    .assumptions-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
-    }
-    .assumptions-grid .stat-label { margin-bottom: 3px; }
-    .assumptions-grid p { font-size: 11px; color: var(--text-muted); line-height: 1.4; }
-
-    /* --- RESPONSIVE --- */
     @media (max-width: 1100px) {
       .stat-grid { grid-template-columns: repeat(3, 1fr); }
       .chart-grid-3 { grid-template-columns: 1fr 1fr; }
-      .risk-grid { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 700px) {
       .container { padding: 12px; }
       .stat-grid { grid-template-columns: 1fr 1fr; }
       .chart-grid-2, .chart-grid-3 { grid-template-columns: 1fr; }
-      .risk-grid { grid-template-columns: 1fr; }
-      .assumptions-grid { grid-template-columns: 1fr; }
     }
 
     /* --- MAPPING MODAL --- */
@@ -474,11 +381,8 @@
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
-    .mapping-badge.required { background: var(--negative-bg); color: var(--negative); }
-    .mapping-badge.optional { background: var(--surface-2); color: var(--text-muted); }
     .mapping-badge.auto { background: rgba(74,106,143,0.1); color: var(--accent-light); }
 
-    /* Scrollbar */
     ::-webkit-scrollbar { width: 5px; }
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
@@ -486,15 +390,14 @@
 </head>
 <body>
 
-<!-- NAV -->
 <nav class="nav">
   <div class="nav-brand">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M2 9h20"/><path d="M9 21V9"/></svg>
     Tape Analyser<span class="nav-sub">Enable Funding</span>
   </div>
   <div class="nav-actions">
+    <button class="btn btn-outline btn-sm" onclick="downloadSampleTape()">Download Sample Tape</button>
     <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
-    <button class="btn btn-primary btn-sm" onclick="loadSampleData()">Sample Tape</button>
   </div>
 </nav>
 
@@ -506,23 +409,21 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <div class="upload-title">Upload Data Tape</div>
       <div class="upload-sub">Drag &amp; drop a CSV or Excel file, or click to browse</div>
-      <div class="upload-sub" style="margin-top:8px;">Any column layout accepted — you'll map columns to the template after upload</div>
+      <div class="upload-sub" style="margin-top:8px;">Any column layout — you'll map columns to the template after upload</div>
       <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
     </div>
     <div style="text-align:center; margin-top:12px;">
-      <span style="color:var(--text-muted); font-size:11px;">or</span>
-      <button class="btn btn-primary btn-sm" style="margin-left:8px;" onclick="loadSampleData()">Load Sample Tape (200 facilities)</button>
+      <button class="btn btn-outline btn-sm" onclick="downloadSampleTape()">Download Sample Tape (.xlsx)</button>
+      <span style="color:var(--text-muted); font-size:11px; margin-left:6px;">to test the upload flow</span>
     </div>
   </div>
 
   <!-- DASHBOARD -->
   <div class="dashboard" id="dashboard">
 
-    <!-- TABS -->
     <div class="tabs">
       <div class="tab active" data-tab="overview">Overview</div>
       <div class="tab" data-tab="concentration">Concentration</div>
-      <div class="tab" data-tab="risk">Risk &amp; Credit</div>
       <div class="tab" data-tab="data">Tape Data</div>
     </div>
 
@@ -536,17 +437,17 @@
             <div class="stat-sub" id="s-loan-count">-</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Outstanding Par</div>
+            <div class="stat-label">Outstanding Balance</div>
             <div class="stat-value" id="s-outstanding">-</div>
             <div class="stat-sub" id="s-utilisation">-</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">WA Coupon</div>
+            <div class="stat-label">WA Interest Rate</div>
             <div class="stat-value" id="s-wair">-</div>
-            <div class="stat-sub">Weighted by par</div>
+            <div class="stat-sub">Weighted by balance</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">WA Life</div>
+            <div class="stat-label">WA Maturity</div>
             <div class="stat-value" id="s-wam">-</div>
             <div class="stat-sub">Years to maturity</div>
           </div>
@@ -556,8 +457,8 @@
             <div class="stat-sub" id="s-default-count">-</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Obligor Count</div>
-            <div class="stat-value" id="s-obligor-count">-</div>
+            <div class="stat-label">Borrower Count</div>
+            <div class="stat-value" id="s-borrower-count">-</div>
             <div class="stat-sub" id="s-avg-facility">-</div>
           </div>
         </div>
@@ -570,7 +471,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>#</th><th>Obligor</th><th>Industry</th><th>Outstanding</th><th>% of Par</th><th>Rating</th><th>Status</th>
+                  <th>#</th><th>Borrower</th><th>Sector</th><th>Outstanding</th><th>% of Book</th><th>Rating</th><th>Status</th>
                 </tr>
               </thead>
               <tbody id="top-exposures-body"></tbody>
@@ -585,11 +486,11 @@
       <div class="section">
         <div class="chart-grid-2">
           <div class="card chart-card">
-            <h3>Industry Concentration</h3>
+            <h3>Sector Concentration</h3>
             <div class="chart-wrap"><canvas id="chart-sector"></canvas></div>
           </div>
           <div class="card chart-card">
-            <h3>Geographic Concentration</h3>
+            <h3>Regional Concentration</h3>
             <div class="chart-wrap"><canvas id="chart-region"></canvas></div>
           </div>
         </div>
@@ -601,97 +502,12 @@
             <div class="chart-wrap"><canvas id="chart-rating"></canvas></div>
           </div>
           <div class="card chart-card">
-            <h3>Top 10 Obligor Exposures</h3>
+            <h3>Top 10 Borrower Exposures</h3>
             <div class="chart-wrap"><canvas id="chart-top10"></canvas></div>
           </div>
           <div class="card chart-card">
             <h3>Maturity Profile</h3>
             <div class="chart-wrap"><canvas id="chart-maturity"></canvas></div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- RISK TAB -->
-    <div class="tab-content" id="tab-risk">
-      <div class="section">
-        <div class="section-title">Portfolio Risk Metrics</div>
-        <div class="risk-grid">
-          <div class="card risk-card">
-            <div class="risk-label">HHI (Name Concentration)</div>
-            <div class="risk-value" id="r-hhi">-</div>
-            <div class="risk-bar"><div class="risk-bar-fill" id="r-hhi-bar" style="width:0; background:var(--accent);"></div></div>
-            <div class="risk-desc" id="r-hhi-desc">-</div>
-          </div>
-          <div class="card risk-card">
-            <div class="risk-label">Largest Single Obligor</div>
-            <div class="risk-value" id="r-largest">-</div>
-            <div class="risk-bar"><div class="risk-bar-fill" id="r-largest-bar" style="width:0; background:var(--accent);"></div></div>
-            <div class="risk-desc" id="r-largest-desc">-</div>
-          </div>
-          <div class="card risk-card">
-            <div class="risk-label">WARF</div>
-            <div class="risk-value" id="r-warf">-</div>
-            <div class="risk-bar"><div class="risk-bar-fill" id="r-warf-bar" style="width:0; background:var(--accent);"></div></div>
-            <div class="risk-desc" id="r-warf-desc">-</div>
-          </div>
-          <div class="card risk-card">
-            <div class="risk-label">Diversity Score</div>
-            <div class="risk-value" id="r-diversity">-</div>
-            <div class="risk-bar"><div class="risk-bar-fill" id="r-diversity-bar" style="width:0; background:var(--accent);"></div></div>
-            <div class="risk-desc" id="r-diversity-desc">-</div>
-          </div>
-          <div class="card risk-card">
-            <div class="risk-label">Weighted Average Life</div>
-            <div class="risk-value" id="r-wal">-</div>
-            <div class="risk-bar"><div class="risk-bar-fill" id="r-wal-bar" style="width:0; background:var(--accent);"></div></div>
-            <div class="risk-desc">Years, weighted by outstanding par</div>
-          </div>
-          <div class="card risk-card">
-            <div class="risk-label">Expected Loss (PD x LGD x EAD)</div>
-            <div class="risk-value" id="r-el">-</div>
-            <div class="risk-bar"><div class="risk-bar-fill" id="r-el-bar" style="width:0; background:var(--negative);"></div></div>
-            <div class="risk-desc" id="r-el-desc">-</div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="card" style="padding:16px;">
-          <div class="section-title" style="margin-bottom:8px;">IG / HY Split</div>
-          <div class="split-bar-wrap">
-            <div class="split-bar-labels">
-              <span>Investment Grade <span class="val" id="ig-pct">-</span></span>
-              <span>High Yield <span class="val" id="hy-pct">-</span></span>
-            </div>
-            <div class="split-bar">
-              <div class="split-bar-ig" id="ig-bar" style="width:0;"></div>
-              <div class="split-bar-hy" id="hy-bar" style="width:0;"></div>
-            </div>
-            <div class="split-bar-labels" style="margin-top:4px; margin-bottom:0;">
-              <span class="val" id="ig-amount">-</span>
-              <span class="val" id="hy-amount">-</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="section">
-        <div class="card" style="padding:16px;">
-          <div class="section-title" style="margin-bottom:8px;">Assumptions</div>
-          <div class="assumptions-grid">
-            <div>
-              <div class="stat-label">PD (Probability of Default)</div>
-              <p>Derived from historical default rate in portfolio</p>
-            </div>
-            <div>
-              <div class="stat-label">LGD (Loss Given Default)</div>
-              <p>Assumed 40% for senior secured</p>
-            </div>
-            <div>
-              <div class="stat-label">EAD (Exposure at Default)</div>
-              <p>Total outstanding par balance of portfolio</p>
-            </div>
           </div>
         </div>
       </div>
@@ -709,7 +525,7 @@
             <table>
               <thead>
                 <tr>
-                  <th>Loan ID</th><th>Obligor</th><th>Industry</th><th>Region</th><th>Commitment</th><th>Outstanding</th><th>Maturity</th><th>Coupon</th><th>Rating</th><th>Facility</th><th>Default</th>
+                  <th>Loan ID</th><th>Borrower</th><th>Sector</th><th>Region</th><th>Commitment</th><th>Outstanding</th><th>Maturity</th><th>Rate</th><th>Rating</th><th>Facility</th><th>Default</th>
                 </tr>
               </thead>
               <tbody id="data-table-body"></tbody>
@@ -727,7 +543,7 @@
   <div class="mapping-modal">
     <div class="mapping-modal-header">
       <h2>Map Your Columns</h2>
-      <p>We detected <strong id="mapping-col-count">0</strong> columns in your tape. Map each to a template field below — auto-matched where possible.</p>
+      <p>We detected <strong id="mapping-col-count">0</strong> columns in your tape. Map each to a template field — auto-matched where possible.</p>
     </div>
     <div class="mapping-modal-body" id="mapping-body"></div>
     <div class="mapping-modal-footer">
@@ -749,9 +565,6 @@ let charts = {};
 let pendingRawData = null;
 let columnMapping = {};
 
-// ============================================================
-//  CHART COLORS — muted institutional palette
-// ============================================================
 const COLORS = [
   '#4a6a8f','#5a7a6e','#7a7a5a','#7a5a5a','#5a5a7a',
   '#4a7a7a','#7a5a6a','#6a6a5a','#4a6a6a','#5a5a6a',
@@ -798,62 +611,31 @@ function handleFile(file) {
 // ============================================================
 const TEMPLATE_FIELDS = [
   { key: 'loan_id',             label: 'Loan ID',             required: true,  type: 'string' },
-  { key: 'borrower_name',       label: 'Obligor Name',        required: true,  type: 'string' },
-  { key: 'sector',              label: 'Industry',            required: false, type: 'string' },
+  { key: 'borrower_name',       label: 'Borrower Name',       required: true,  type: 'string' },
+  { key: 'sector',              label: 'Sector',              required: false, type: 'string' },
   { key: 'region',              label: 'Region',              required: false, type: 'string' },
   { key: 'loan_amount',         label: 'Commitment',          required: true,  type: 'number' },
-  { key: 'outstanding_balance', label: 'Outstanding Par',     required: true,  type: 'number' },
+  { key: 'outstanding_balance', label: 'Outstanding Balance', required: true,  type: 'number' },
   { key: 'maturity_date',       label: 'Maturity Date',       required: false, type: 'string' },
-  { key: 'interest_rate',       label: 'Coupon / Spread',     required: false, type: 'number' },
+  { key: 'interest_rate',       label: 'Interest Rate',       required: false, type: 'number' },
   { key: 'credit_rating',       label: 'Credit Rating',       required: false, type: 'string' },
   { key: 'facility_type',       label: 'Facility Type',       required: false, type: 'string' },
   { key: 'default_flag',        label: 'Default Flag',        required: false, type: 'boolean' }
 ];
 
-// Aliases for fuzzy auto-matching
 const FIELD_ALIASES = {
-  loan_id:             ['loan_id','loanid','loan id','loan #','loan_number','loannumber','loan number','id','loan_ref','loanref','deal_id','dealid','asset_id','assetid','cusip','isin','loanx_id'],
-  borrower_name:       ['borrower_name','borrowername','borrower name','borrower','obligor','obligor_name','obligorname','counterparty','counterparty_name','client','client_name','company','company_name','entity','entity_name','name','issuer','issuer_name'],
-  sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','sic','sic_code','naics','moodys_industry','moody_industry','sp_industry','industry_classification'],
-  region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile','country_of_risk'],
-  loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size','original_par','originalpar','initial_balance'],
-  outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','par','par_amount','current_par','currentpar','par_value','market_value'],
-  maturity_date:       ['maturity_date','maturitydate','maturity date','maturity','mat_date','matdate','final_maturity','finalmaturity','end_date','enddate','expiry','expiry_date','expirydate','termination_date','legal_maturity','stated_maturity'],
-  interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing','current_coupon','spread_bps','all_in_spread'],
-  credit_rating:       ['credit_rating','creditrating','credit rating','rating','internal_rating','internalrating','external_rating','externalrating','sp_rating','moody_rating','moodys_rating','fitch_rating','risk_rating','riskrating','grade','risk_grade','composite_rating'],
-  facility_type:       ['facility_type','facilitytype','facility type','facility','type','loan_type','loantype','loan type','product','product_type','producttype','instrument','instrument_type','tranche','deal_type','asset_type','security_type'],
-  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','status','performing_status','workout','credit_event']
+  loan_id:             ['loan_id','loanid','loan id','loan #','loan_number','loannumber','loan number','id','loan_ref','loanref','deal_id','dealid','asset_id','assetid','facility_id','facilityid','reference','ref'],
+  borrower_name:       ['borrower_name','borrowername','borrower name','borrower','obligor','obligor_name','obligorname','counterparty','counterparty_name','client','client_name','company','company_name','entity','entity_name','name','customer','customer_name'],
+  sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','sic','sic_code','naics','industry_classification'],
+  region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile','country_of_risk','area'],
+  loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size','facility_size','facilitysize','limit','facility_limit'],
+  outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','current_drawn','currentdrawn','utilised','utilised_amount'],
+  maturity_date:       ['maturity_date','maturitydate','maturity date','maturity','mat_date','matdate','final_maturity','finalmaturity','end_date','enddate','expiry','expiry_date','expirydate','termination_date','repayment_date'],
+  interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing','current_rate'],
+  credit_rating:       ['credit_rating','creditrating','credit rating','rating','internal_rating','internalrating','external_rating','externalrating','risk_rating','riskrating','grade','risk_grade','credit_grade','pd_grade'],
+  facility_type:       ['facility_type','facilitytype','facility type','facility','type','loan_type','loantype','loan type','product','product_type','producttype','instrument','instrument_type','tranche','deal_type','asset_type'],
+  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','status','performing_status','workout','impaired','arrears']
 };
-
-// ============================================================
-//  WARF MAPPING — Moody's rating factor table
-// ============================================================
-const WARF_MAP = {
-  'Aaa':1,'AAA':1,
-  'Aa1':10,'AA+':10,
-  'Aa2':20,'AA':20,
-  'Aa3':40,'AA-':40,
-  'A1':70,'A+':70,
-  'A2':120,'A':120,
-  'A3':180,'A-':180,
-  'Baa1':260,'BBB+':260,
-  'Baa2':360,'BBB':360,
-  'Baa3':610,'BBB-':610,
-  'Ba1':940,'BB+':940,
-  'Ba2':1350,'BB':1350,
-  'Ba3':1766,'BB-':1766,
-  'B1':2220,'B+':2220,
-  'B2':2720,'B':2720,
-  'B3':3490,'B-':3490,
-  'Caa1':4770,'CCC+':4770,
-  'Caa2':6500,'CCC':6500,
-  'Caa3':8070,'CCC-':8070,
-  'Ca':10000,'CC':10000,
-  'C':10000,'D':10000
-};
-
-// Investment grade ratings
-const IG_RATINGS = new Set(['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-','Aaa','Aa1','Aa2','Aa3','A1','A2','A3','Baa1','Baa2','Baa3']);
 
 // ============================================================
 //  FUZZY COLUMN MATCHING
@@ -911,7 +693,6 @@ function showMappingModal(rawData) {
   sourceColumns.forEach(col => {
     const row = document.createElement('div');
     row.className = 'mapping-row';
-
     const samples = rawData.slice(0, 10).map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3);
     const sampleText = samples.length ? samples.join(', ') : '(empty)';
     const isAuto = !!autoMatched[col];
@@ -1018,37 +799,34 @@ function applyMapping(data, reverseMap) {
   }));
 }
 
-function parseNum(v) { const n = parseFloat(String(v).replace(/[,$%]/g, '')); return isNaN(n) ? 0 : n; }
+function parseNum(v) { const n = parseFloat(String(v).replace(/[£,$%]/g, '')); return isNaN(n) ? 0 : n; }
 function parseDefault(v) { return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'yes' || String(v).toLowerCase() === 'true'; }
 
 // ============================================================
-//  SAMPLE DATA GENERATOR — CLO / Leveraged Loan warehouse
+//  SAMPLE TAPE GENERATOR + DOWNLOAD
+//  Uses non-standard column names to exercise the mapping flow
 // ============================================================
-function loadSampleData() {
-  const sectors = ['Healthcare','Technology','Business Services','Industrials','Media & Telecom','Consumer Products','Energy & Utilities','Financial Services','Chemicals','Retail & Food','Transportation','Real Estate','Aerospace & Defence'];
-  const regions = ['US','Western Europe','UK','Nordics','APAC','Canada'];
-  const ratings = ['BBB','BBB-','BB+','BB','BB-','B+','B','B-','CCC'];
-  const ratingWeights = [0.02, 0.04, 0.08, 0.18, 0.22, 0.20, 0.16, 0.07, 0.03];
-  const facilities = ['Term Loan B','Term Loan A','Revolver','Second Lien','Delayed Draw TL','Unitranche'];
-  const facilityWeights = [0.50, 0.15, 0.12, 0.08, 0.10, 0.05];
+function generateSampleRows() {
+  const sectors = ['Healthcare','Technology','Business Services','Manufacturing','Professional Services','Retail & Consumer','Construction & Property','Energy & Infrastructure','Media & Entertainment','Financial Services','Education','Hospitality & Leisure','Transport & Logistics'];
+  const regions = ['London','South East','Midlands','North West','North East','Scotland','Wales','South West','East of England','Yorkshire & Humber'];
+  const grades = ['A','A-','B+','B','B-','C+','C','C-','D'];
+  const gradeWeights = [0.04, 0.08, 0.14, 0.24, 0.20, 0.14, 0.10, 0.04, 0.02];
+  const products = ['Term Loan','Revolving Credit','Capex Facility','Acquisition Facility','Working Capital','Asset-Based Lending'];
+  const productWeights = [0.35, 0.22, 0.12, 0.10, 0.13, 0.08];
   const borrowers = [
-    'Acrisure LLC','Asurion','Athenahealth','Bausch Health','Caesars Entertainment',
-    'Carnival Corp','Charter Communications','Citrix Systems','Coherent Corp','CommScope',
-    'Coty Inc','CSC Holdings','DirecTV','Edgewell Personal Care','Envision Healthcare',
-    'Epicor Software','First Quantum Minerals','Frontier Communications','Gates Industrial','Genesys',
-    'GoTo Group','Grab Holdings','Grifols','Hanes Brands','Hilton Hotels',
-    'Horizon Therapeutics','Hub International','Ineos','IRB Infrastructure','J Crew',
-    'KAR Auction Services','Kindred Healthcare','Level 3 Financing','LifePoint Health','LogMeIn',
-    'Lumen Technologies','Mallinckrodt','Marathon Petroleum','McAfee','Medline Industries',
-    'Mitel Networks','NCI Information Systems','Neptune Bidco','Numericable','Ortho-Clinical',
-    'PetSmart','Prestige Brands','Quest Software','RealPage','Reynolds Group',
-    'Sabre Corp','Scientific Games','Sedgwick CMS','Solera Holdings','Sprint Corp',
-    'SS&C Technologies','Sunshine Luxembourg','Talen Energy','Team Health','Terrier Media',
-    'TransDigm Group','Travelport','Univar Solutions','Veritas Capital','Vertiv Holdings',
-    'Viasat Inc','Voyage Australia','Wand NewCo','Weber-Stephen','Western Digital',
-    'Windstream Services','WR Grace','XPO Logistics','Zayo Group','Zelis Healthcare',
-    'Amneal Pharmaceuticals','Applied Systems','Arsenal Capital','Broadcom Inc','Cablevision',
-    'Cengage Learning','CenturyLink','Chrysler Capital','Cloud Software','Danaher Corp'
+    'Acorn Manufacturing Ltd','Beacon Healthcare Group','Crestfield Properties Plc','Drummond Engineering Ltd','Evergreen Retail Holdings',
+    'Foxbridge Capital Ltd','Glenmore Logistics Plc','Hartland Construction Ltd','Ironside Technologies Ltd','Jubilee Hotels Group',
+    'Kingfisher Media Ltd','Lakeside Foods Plc','Millbrook Pharmaceuticals','Northgate Services Ltd','Oakwood Education Trust',
+    'Pennine Transport Ltd','Quartermile Ventures Ltd','Rosewood Hospitality Plc','Silverstone Motors Ltd','Thornbury Agriculture',
+    'Ashworth Textiles Ltd','Barrington Financial Plc','Cavendish Partners Ltd','Dalton Energy Services','Elmwood Care Homes Ltd',
+    'Farnham Digital Ltd','Guildhall Property Trust','Hawthorn Packaging Ltd','Ivybridge Renewables','Kensington Capital Plc',
+    'Langley Aerospace Ltd','Moorfield Recycling Ltd','Newbury Biotech Ltd','Osprey Defence Systems','Pemberton Mining Ltd',
+    'Ridgeway Infrastructure','Stanmore Chemicals Ltd','Tavistock Brewing Co','Underwood Telecom Ltd','Vauxhall Precision Ltd',
+    'Whitfield Consulting Ltd','Yarmouth Marine Services','Albion Steel Works Ltd','Brixton Foods Group','Cheltenham IT Services',
+    'Devonshire Paper Mills','Exmouth Leisure Holdings','Falkirk Plant Hire Ltd','Greenwich Software Ltd','Holborn Legal Services',
+    'Islington Health Partners','Jersey Finance Solutions','Kelso Agricultural Co','Lewisham Logistics Ltd','Manchester Print Group',
+    'Norwich Data Centre Ltd','Oxford Instruments Plc','Preston Composites Ltd','Reading Facilities Mgmt','Sheffield Forgings Ltd',
+    'Taunton Warehousing Ltd','Uxbridge Engineering Plc','Warwick Plastics Ltd','Exeter Renewable Power','York Building Supplies'
   ];
 
   function weightedRandom(weights) {
@@ -1062,53 +840,66 @@ function loadSampleData() {
     const y = startYear + Math.floor(Math.random() * (endYear - startYear + 1));
     const m = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
     const d = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
-    return `${y}-${m}-${d}`;
+    return `${d}/${m}/${y}`;
   }
 
-  const data = [];
-  for (let i = 1; i <= 200; i++) {
-    const ratingIdx = weightedRandom(ratingWeights);
-    const rating = ratings[ratingIdx];
-    const facilityIdx = weightedRandom(facilityWeights);
-    const loanAmt = Math.round((2000000 + Math.random() * 48000000) / 100000) * 100000;
-    const util = facilityIdx === 2 ? (0.1 + Math.random() * 0.5) : (0.85 + Math.random() * 0.15);
-    const outstanding = Math.round(loanAmt * util / 10000) * 10000;
-    const baseSpread = [175, 225, 275, 325, 375, 425, 475, 550, 650][ratingIdx];
-    const spread = Math.round(baseSpread + (Math.random() - 0.5) * 75);
-    const rateBps = spread + 530; // SOFR ~5.30% + spread
-    const rate = Math.round(rateBps) / 100;
-    const defaultProb = [0.002, 0.005, 0.01, 0.02, 0.04, 0.06, 0.10, 0.15, 0.25][ratingIdx];
+  const rows = [];
+  for (let i = 1; i <= 150; i++) {
+    const gradeIdx = weightedRandom(gradeWeights);
+    const prodIdx = weightedRandom(productWeights);
+    const facilitySize = Math.round((250000 + Math.random() * 9750000) / 25000) * 25000;
+    const isRevolver = prodIdx === 1 || prodIdx === 4;
+    const util = isRevolver ? (0.1 + Math.random() * 0.6) : (0.85 + Math.random() * 0.15);
+    const drawn = Math.round(facilitySize * util / 1000) * 1000;
+    const baseRate = [3.5, 4.2, 5.0, 5.8, 6.5, 7.5, 8.5, 10.0, 12.0][gradeIdx];
+    const rate = Math.round((baseRate + (Math.random() - 0.5) * 1.2) * 100) / 100;
+    const defaultProb = [0.002, 0.005, 0.01, 0.02, 0.04, 0.07, 0.12, 0.18, 0.30][gradeIdx];
     const isDefault = Math.random() < defaultProb;
 
-    data.push({
-      loan_id: `LN-${String(i).padStart(4, '0')}`,
-      borrower_name: borrowers[Math.floor(Math.random() * borrowers.length)],
-      sector: sectors[Math.floor(Math.random() * sectors.length)],
-      region: regions[Math.floor(Math.random() * regions.length)],
-      loan_amount: loanAmt,
-      outstanding_balance: outstanding,
-      maturity_date: randomDate(2026, 2031),
-      interest_rate: Math.max(3, rate),
-      credit_rating: rating,
-      facility_type: facilities[facilityIdx],
-      default_flag: isDefault
+    // Use non-standard column names to test the mapper
+    rows.push({
+      'Facility_Ref':      `EF-${String(i).padStart(5, '0')}`,
+      'Counterparty':      borrowers[Math.floor(Math.random() * borrowers.length)],
+      'Industry':          sectors[Math.floor(Math.random() * sectors.length)],
+      'Geography':         regions[Math.floor(Math.random() * regions.length)],
+      'Facility_Limit':    facilitySize,
+      'Current_Drawn':     drawn,
+      'Final_Maturity':    randomDate(2026, 2032),
+      'All_In_Rate':       Math.max(2.5, rate),
+      'Risk_Grade':        grades[gradeIdx],
+      'Product_Type':      products[prodIdx],
+      'NPL_Flag':          isDefault ? 'Yes' : 'No'
     });
   }
+  return rows;
+}
 
-  loans = data;
-  renderDashboard();
+function downloadSampleTape() {
+  const rows = generateSampleRows();
+  const ws = XLSX.utils.json_to_sheet(rows);
+
+  // Set column widths
+  ws['!cols'] = [
+    { wch: 14 }, { wch: 30 }, { wch: 24 }, { wch: 20 },
+    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
+    { wch: 12 }, { wch: 22 }, { wch: 10 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Loan Tape');
+  XLSX.writeFile(wb, 'sample_tape_enable_funding.xlsx');
 }
 
 // ============================================================
-//  FORMATTING HELPERS
+//  FORMATTING HELPERS — GBP
 // ============================================================
 function fmtM(v) {
-  if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'bn';
-  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'mm';
-  if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'k';
-  return '$' + v.toFixed(0);
+  if (v >= 1e9) return '\u00A3' + (v / 1e9).toFixed(2) + 'bn';
+  if (v >= 1e6) return '\u00A3' + (v / 1e6).toFixed(1) + 'mm';
+  if (v >= 1e3) return '\u00A3' + (v / 1e3).toFixed(0) + 'k';
+  return '\u00A3' + v.toFixed(0);
 }
-function fmtFull(v) { return '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function fmtFull(v) { return '\u00A3' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 function fmtPct(v) { return v.toFixed(2) + '%'; }
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
@@ -1130,11 +921,9 @@ document.querySelectorAll('.tab').forEach(tab => {
 function renderDashboard() {
   document.getElementById('upload-section').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
-
   renderStats();
   renderTopExposures();
   renderCharts();
-  renderRiskMetrics();
   renderDataTable();
 }
 
@@ -1145,7 +934,7 @@ function renderStats() {
   const totalOriginal = loans.reduce((s, l) => s + l.loan_amount, 0);
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
   const defaults = loans.filter(l => l.default_flag);
-  const defaultRate = (defaults.length / loans.length) * 100;
+  const defaultRate = loans.length > 0 ? (defaults.length / loans.length) * 100 : 0;
 
   const wair = totalOutstanding > 0
     ? loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / totalOutstanding
@@ -1154,14 +943,14 @@ function renderStats() {
   const now = new Date();
   const wam = totalOutstanding > 0
     ? loans.reduce((s, l) => {
-        const mat = new Date(l.maturity_date);
-        const years = Math.max(0, (mat - now) / (365.25 * 86400000));
+        const mat = parseDate(l.maturity_date);
+        const years = mat ? Math.max(0, (mat - now) / (365.25 * 86400000)) : 0;
         return s + years * l.outstanding_balance;
       }, 0) / totalOutstanding
     : 0;
 
-  const uniqueObligors = new Set(loans.map(l => l.borrower_name)).size;
-  const avgFacility = totalOriginal / loans.length;
+  const uniqueBorrowers = new Set(loans.map(l => l.borrower_name)).size;
+  const avgFacility = loans.length > 0 ? totalOriginal / loans.length : 0;
   const utilisation = totalOriginal > 0 ? (totalOutstanding / totalOriginal) * 100 : 0;
 
   document.getElementById('s-portfolio-size').textContent = fmtM(totalOriginal);
@@ -1172,19 +961,42 @@ function renderStats() {
   document.getElementById('s-wam').textContent = wam.toFixed(2) + ' yrs';
   document.getElementById('s-default-rate').textContent = fmtPct(defaultRate);
   document.getElementById('s-default-count').textContent = defaults.length + ' defaults';
-  document.getElementById('s-obligor-count').textContent = uniqueObligors;
+  document.getElementById('s-borrower-count').textContent = uniqueBorrowers;
   document.getElementById('s-avg-facility').textContent = 'Avg facility: ' + fmtM(avgFacility);
 }
 
+// Parse DD/MM/YYYY or YYYY-MM-DD or other common formats
+function parseDate(s) {
+  if (!s) return null;
+  // DD/MM/YYYY
+  const dmy = String(s).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    const day = parseInt(dmy[1]), mon = parseInt(dmy[2]), yr = parseInt(dmy[3]);
+    if (day > 12) return new Date(yr, mon - 1, day); // definitely DD/MM
+    if (mon > 12) return new Date(yr, day - 1, mon); // definitely MM/DD
+    return new Date(yr, mon - 1, day); // assume DD/MM for UK
+  }
+  // YYYY-MM-DD
+  const ymd = String(s).match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymd) return new Date(parseInt(ymd[1]), parseInt(ymd[2]) - 1, parseInt(ymd[3]));
+  // Excel serial number
+  const num = parseFloat(s);
+  if (!isNaN(num) && num > 30000 && num < 100000) {
+    return new Date((num - 25569) * 86400000);
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
+
 // ============================================================
-//  TOP EXPOSURES TABLE
+//  TOP EXPOSURES
 // ============================================================
 function renderTopExposures() {
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
   const sorted = [...loans].sort((a, b) => b.outstanding_balance - a.outstanding_balance).slice(0, 10);
 
   document.getElementById('top-exposures-body').innerHTML = sorted.map((l, i) => {
-    const pct = ((l.outstanding_balance / totalOutstanding) * 100).toFixed(2);
+    const pct = totalOutstanding > 0 ? ((l.outstanding_balance / totalOutstanding) * 100).toFixed(2) : '0.00';
     const statusClass = l.default_flag ? 'badge-negative' : 'badge-positive';
     const statusText = l.default_flag ? 'Default' : 'Current';
     return `<tr>
@@ -1218,113 +1030,44 @@ function destroyCharts() {
 
 function renderCharts() {
   destroyCharts();
-
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
 
-  // --- Industry Doughnut ---
   const sectorMap = groupBy(loans, 'sector', 'outstanding_balance');
   charts.sector = new Chart(document.getElementById('chart-sector'), {
     type: 'doughnut',
-    data: {
-      labels: Object.keys(sectorMap),
-      datasets: [{ data: Object.values(sectorMap), backgroundColor: COLORS, borderWidth: 0 }]
-    },
-    options: {
-      ...chartDefaults,
-      cutout: '60%',
-      plugins: {
-        ...chartDefaults.plugins,
-        tooltip: {
-          ...chartDefaults.plugins.tooltip,
-          callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + ((ctx.raw / totalOutstanding) * 100).toFixed(1) + '%)' }
-        }
-      }
-    }
+    data: { labels: Object.keys(sectorMap), datasets: [{ data: Object.values(sectorMap), backgroundColor: COLORS, borderWidth: 0 }] },
+    options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + (totalOutstanding > 0 ? ((ctx.raw / totalOutstanding) * 100).toFixed(1) : 0) + '%)' } } } }
   });
 
-  // --- Region Doughnut ---
   const regionMap = groupBy(loans, 'region', 'outstanding_balance');
   charts.region = new Chart(document.getElementById('chart-region'), {
     type: 'doughnut',
-    data: {
-      labels: Object.keys(regionMap),
-      datasets: [{ data: Object.values(regionMap), backgroundColor: COLORS.slice(5).concat(COLORS.slice(0, 5)), borderWidth: 0 }]
-    },
-    options: {
-      ...chartDefaults,
-      cutout: '60%',
-      plugins: {
-        ...chartDefaults.plugins,
-        tooltip: {
-          ...chartDefaults.plugins.tooltip,
-          callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + ((ctx.raw / totalOutstanding) * 100).toFixed(1) + '%)' }
-        }
-      }
-    }
+    data: { labels: Object.keys(regionMap), datasets: [{ data: Object.values(regionMap), backgroundColor: COLORS.slice(5).concat(COLORS.slice(0, 5)), borderWidth: 0 }] },
+    options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + (totalOutstanding > 0 ? ((ctx.raw / totalOutstanding) * 100).toFixed(1) : 0) + '%)' } } } }
   });
 
-  // --- Credit Rating Bar ---
-  const ratingOrder = ['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-','BB+','BB','BB-','B+','B','B-','CCC+','CCC','CCC-','CC','C','D'];
   const ratingMap = groupBy(loans, 'credit_rating', 'outstanding_balance');
-  const ratingLabels = ratingOrder.filter(r => ratingMap[r]);
-  const ratingExtra = Object.keys(ratingMap).filter(r => !ratingOrder.includes(r)).sort();
-  const allRatings = ratingLabels.concat(ratingExtra);
-
+  const allRatings = Object.keys(ratingMap);
   charts.rating = new Chart(document.getElementById('chart-rating'), {
     type: 'bar',
-    data: {
-      labels: allRatings,
-      datasets: [{
-        label: 'Outstanding Par',
-        data: allRatings.map(r => ratingMap[r] || 0),
-        backgroundColor: '#4a6a8f',
-        borderRadius: 2,
-        borderWidth: 0
-      }]
-    },
-    options: {
-      ...chartDefaults,
-      plugins: { ...chartDefaults.plugins, legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#585e6f', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } },
-        y: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true }
-      }
-    }
+    data: { labels: allRatings, datasets: [{ label: 'Outstanding', data: allRatings.map(r => ratingMap[r] || 0), backgroundColor: '#4a6a8f', borderRadius: 2, borderWidth: 0 }] },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#585e6f', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } }, y: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true } } }
   });
 
-  // --- Top 10 Obligors Bar ---
   const borrowerMap = {};
   loans.forEach(l => { borrowerMap[l.borrower_name] = (borrowerMap[l.borrower_name] || 0) + l.outstanding_balance; });
   const top10 = Object.entries(borrowerMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
-
   charts.top10 = new Chart(document.getElementById('chart-top10'), {
     type: 'bar',
-    data: {
-      labels: top10.map(b => b[0].length > 20 ? b[0].slice(0, 18) + '..' : b[0]),
-      datasets: [{
-        label: 'Exposure',
-        data: top10.map(b => b[1]),
-        backgroundColor: '#4a6a8f',
-        borderRadius: 2,
-        borderWidth: 0
-      }]
-    },
-    options: {
-      ...chartDefaults,
-      indexAxis: 'y',
-      plugins: { ...chartDefaults.plugins, legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true },
-        y: { ticks: { color: '#585e6f', font: { size: 9, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } }
-      }
-    }
+    data: { labels: top10.map(b => b[0].length > 22 ? b[0].slice(0, 20) + '..' : b[0]), datasets: [{ label: 'Exposure', data: top10.map(b => b[1]), backgroundColor: '#4a6a8f', borderRadius: 2, borderWidth: 0 }] },
+    options: { ...chartDefaults, indexAxis: 'y', plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true }, y: { ticks: { color: '#585e6f', font: { size: 9, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } } } }
   });
 
-  // --- Maturity Profile ---
   const now = new Date();
   const buckets = { '<1yr': 0, '1-2yr': 0, '2-3yr': 0, '3-5yr': 0, '5-7yr': 0, '7+yr': 0 };
   loans.forEach(l => {
-    const years = Math.max(0, (new Date(l.maturity_date) - now) / (365.25 * 86400000));
+    const mat = parseDate(l.maturity_date);
+    const years = mat ? Math.max(0, (mat - now) / (365.25 * 86400000)) : 0;
     if (years < 1) buckets['<1yr'] += l.outstanding_balance;
     else if (years < 2) buckets['1-2yr'] += l.outstanding_balance;
     else if (years < 3) buckets['2-3yr'] += l.outstanding_balance;
@@ -1332,157 +1075,24 @@ function renderCharts() {
     else if (years < 7) buckets['5-7yr'] += l.outstanding_balance;
     else buckets['7+yr'] += l.outstanding_balance;
   });
-
   charts.maturity = new Chart(document.getElementById('chart-maturity'), {
     type: 'bar',
-    data: {
-      labels: Object.keys(buckets),
-      datasets: [{
-        label: 'Outstanding',
-        data: Object.values(buckets),
-        backgroundColor: '#5a7a6e',
-        borderRadius: 2,
-        borderWidth: 0
-      }]
-    },
-    options: {
-      ...chartDefaults,
-      plugins: { ...chartDefaults.plugins, legend: { display: false } },
-      scales: {
-        x: { ticks: { color: '#585e6f', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } },
-        y: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true }
-      }
-    }
+    data: { labels: Object.keys(buckets), datasets: [{ label: 'Outstanding', data: Object.values(buckets), backgroundColor: '#5a7a6e', borderRadius: 2, borderWidth: 0 }] },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#585e6f', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { display: false } }, y: { ticks: { color: '#585e6f', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: 'rgba(33,36,46,0.8)' }, beginAtZero: true } } }
   });
 }
 
 function groupBy(arr, key, sumKey) {
   const map = {};
-  arr.forEach(item => { map[item[key]] = (map[item[key]] || 0) + item[sumKey]; });
+  arr.forEach(item => { const k = item[key] || '(blank)'; map[k] = (map[k] || 0) + item[sumKey]; });
   return Object.fromEntries(Object.entries(map).sort((a, b) => b[1] - a[1]));
-}
-
-// ============================================================
-//  RISK METRICS
-// ============================================================
-function renderRiskMetrics() {
-  const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
-  const now = new Date();
-
-  // --- HHI ---
-  const borrowerMap = {};
-  loans.forEach(l => { borrowerMap[l.borrower_name] = (borrowerMap[l.borrower_name] || 0) + l.outstanding_balance; });
-  const hhi = Object.values(borrowerMap).reduce((s, v) => s + Math.pow(v / totalOutstanding, 2), 0) * 10000;
-
-  let hhiLevel;
-  if (hhi < 1000) hhiLevel = 'Low concentration';
-  else if (hhi < 1800) hhiLevel = 'Moderate concentration';
-  else hhiLevel = 'High concentration';
-
-  document.getElementById('r-hhi').textContent = Math.round(hhi).toLocaleString();
-  document.getElementById('r-hhi-bar').style.width = Math.min(100, hhi / 100) + '%';
-  document.getElementById('r-hhi-desc').textContent = hhiLevel;
-
-  // --- Largest Single Obligor ---
-  const largestExposure = Math.max(...Object.values(borrowerMap));
-  const largestPct = (largestExposure / totalOutstanding) * 100;
-  const largestName = Object.entries(borrowerMap).find(([_, v]) => v === largestExposure)[0];
-
-  document.getElementById('r-largest').textContent = fmtPct(largestPct);
-  document.getElementById('r-largest-bar').style.width = Math.min(100, largestPct * 5) + '%';
-  document.getElementById('r-largest-desc').textContent = largestName + ' — ' + fmtM(largestExposure);
-
-  // --- WARF ---
-  let warfNum = 0;
-  let warfDenom = 0;
-  loans.forEach(l => {
-    const rf = WARF_MAP[l.credit_rating];
-    if (rf !== undefined) {
-      warfNum += rf * l.outstanding_balance;
-      warfDenom += l.outstanding_balance;
-    }
-  });
-  const warf = warfDenom > 0 ? warfNum / warfDenom : 0;
-  let warfLevel;
-  if (warf < 1500) warfLevel = 'Strong credit quality';
-  else if (warf < 2500) warfLevel = 'Moderate — typical BSL CLO';
-  else if (warf < 3500) warfLevel = 'Elevated risk';
-  else warfLevel = 'Weak credit quality';
-
-  document.getElementById('r-warf').textContent = Math.round(warf).toLocaleString();
-  document.getElementById('r-warf-bar').style.width = Math.min(100, warf / 65) + '%';
-  document.getElementById('r-warf-desc').textContent = warfLevel;
-
-  // --- Diversity Score (simplified Moody's) ---
-  const sectorObligors = {};
-  loans.forEach(l => {
-    if (!sectorObligors[l.sector]) sectorObligors[l.sector] = new Set();
-    sectorObligors[l.sector].add(l.borrower_name);
-  });
-  let diversityScore = 0;
-  Object.values(sectorObligors).forEach(obligorSet => {
-    const n = obligorSet.size;
-    // Moody's diminishing returns per industry bucket
-    diversityScore += n <= 1 ? n : 1 + 0.5 * Math.sqrt(n - 1) * 2;
-  });
-  diversityScore = Math.round(diversityScore);
-
-  let divLevel;
-  if (diversityScore >= 60) divLevel = 'Well diversified';
-  else if (diversityScore >= 40) divLevel = 'Adequate diversification';
-  else if (diversityScore >= 20) divLevel = 'Moderate';
-  else divLevel = 'Concentrated';
-
-  document.getElementById('r-diversity').textContent = diversityScore;
-  document.getElementById('r-diversity-bar').style.width = Math.min(100, diversityScore) + '%';
-  document.getElementById('r-diversity-desc').textContent = divLevel;
-
-  // --- WAL ---
-  const wal = totalOutstanding > 0
-    ? loans.reduce((s, l) => {
-        const years = Math.max(0, (new Date(l.maturity_date) - now) / (365.25 * 86400000));
-        return s + years * l.outstanding_balance;
-      }, 0) / totalOutstanding
-    : 0;
-
-  document.getElementById('r-wal').textContent = wal.toFixed(2) + ' yrs';
-  document.getElementById('r-wal-bar').style.width = Math.min(100, wal * 10) + '%';
-
-  // --- Expected Loss ---
-  const defaultCount = loans.filter(l => l.default_flag).length;
-  const pd = defaultCount / loans.length;
-  const lgd = 0.40;
-  const ead = totalOutstanding;
-  const el = pd * lgd * ead;
-  const elPct = totalOutstanding > 0 ? (el / totalOutstanding) * 100 : 0;
-
-  document.getElementById('r-el').textContent = fmtM(el);
-  document.getElementById('r-el-bar').style.width = Math.min(100, elPct * 10) + '%';
-  document.getElementById('r-el-desc').textContent = 'PD: ' + fmtPct(pd * 100) + ' | LGD: 40% | EL/Par: ' + fmtPct(elPct);
-
-  // --- IG/HY Split ---
-  let igPar = 0;
-  let hyPar = 0;
-  loans.forEach(l => {
-    if (IG_RATINGS.has(l.credit_rating)) igPar += l.outstanding_balance;
-    else hyPar += l.outstanding_balance;
-  });
-  const igPct = totalOutstanding > 0 ? (igPar / totalOutstanding) * 100 : 0;
-  const hyPctVal = totalOutstanding > 0 ? (hyPar / totalOutstanding) * 100 : 0;
-
-  document.getElementById('ig-pct').textContent = fmtPct(igPct);
-  document.getElementById('hy-pct').textContent = fmtPct(hyPctVal);
-  document.getElementById('ig-amount').textContent = fmtM(igPar);
-  document.getElementById('hy-amount').textContent = fmtM(hyPar);
-  document.getElementById('ig-bar').style.width = igPct + '%';
-  document.getElementById('hy-bar').style.width = hyPctVal + '%';
 }
 
 // ============================================================
 //  DATA TABLE
 // ============================================================
 function renderDataTable() {
-  document.getElementById('data-table-title').textContent = `Tape Data — ${loans.length} records`;
+  document.getElementById('data-table-title').textContent = `Tape Data \u2014 ${loans.length} records`;
   document.getElementById('data-table-body').innerHTML = loans.map(l => {
     const statusClass = l.default_flag ? 'badge-negative' : 'badge-positive';
     const statusText = l.default_flag ? 'Yes' : 'No';
@@ -1493,7 +1103,7 @@ function renderDataTable() {
       <td>${escapeHtml(l.region)}</td>
       <td>${fmtFull(l.loan_amount)}</td>
       <td>${fmtFull(l.outstanding_balance)}</td>
-      <td>${l.maturity_date}</td>
+      <td>${escapeHtml(l.maturity_date)}</td>
       <td>${l.interest_rate.toFixed(2)}%</td>
       <td>${escapeHtml(l.credit_rating)}</td>
       <td>${escapeHtml(l.facility_type)}</td>
