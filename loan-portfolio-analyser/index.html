@@ -1027,7 +1027,7 @@ let fieldOptions = {
 let displaySettings = {
   termUnit: 'months', // 'months', 'years', 'days'
   rateFormat: 'auto', // 'auto', 'percentage' (5 = 5%), 'decimal' (0.05 = 5%)
-  overviewWidgets: ['stats', 'keyRisks', 'topExposures', 'facilityMix', 'maturityProfile', 'arrearsSnapshot', 'originationProfile', 'amortProfile', 'seriesComparison', 'trends'],
+  overviewWidgets: ['stats', 'keyRisks', 'topExposures', 'facilityMix', 'maturityProfile', 'arrearsSnapshot', 'originationProfile'],
   topObligorCount: 10, // adjustable top X
   // Per-series hidden strats: { 'all': ['field_key',...], 'Series 1': [...] }
   hiddenStrats: {},
@@ -2240,9 +2240,8 @@ function showValueMappingPrompt(tapeIdx) {
   const otherTapes = tapes.filter((_, i) => i !== tapeIdx);
   if (otherTapes.length === 0) return;
 
-  // Find categorical fields with data in the new tape
   const catFields = ['facility_type','asset_type','interest_rate_type','repayment_method','amortisation_type',
-    'payment_frequency','customer_segment','origination_channel','credit_rating','region','loan_status',
+    'lessee_type','origination_channel','credit_rating','region','loan_status',
     'equipment_type','asset_category','supplier','broker','originator','sector'];
 
   // Collect existing values from other tapes
@@ -2255,22 +2254,28 @@ function showValueMappingPrompt(tapeIdx) {
     }));
   });
 
-  // Find new tape values that don't exist in other tapes
-  const mismatches = {};
+  // New tape values
+  const newTapeValues = {};
   catFields.forEach(f => {
-    if (existingValues[f].size === 0) return;
-    const newVals = new Set();
+    newTapeValues[f] = new Set();
     tape.loans.forEach(l => {
       const v = l[f];
-      if (v && String(v).trim()) newVals.add(String(v).trim());
+      if (v && String(v).trim()) newTapeValues[f].add(String(v).trim());
     });
-    const unmatched = [...newVals].filter(v => !existingValues[f].has(v));
-    if (unmatched.length > 0) {
-      mismatches[f] = { unmatched, existing: [...existingValues[f]].sort() };
+  });
+
+  // Find mismatches in both directions
+  const mismatches = {};
+  catFields.forEach(f => {
+    if (existingValues[f].size === 0 && newTapeValues[f].size === 0) return;
+    const newOnly = [...newTapeValues[f]].filter(v => !existingValues[f].has(v));
+    const existingOnly = [...existingValues[f]].filter(v => !newTapeValues[f].has(v));
+    if (newOnly.length > 0 || existingOnly.length > 0) {
+      mismatches[f] = { newOnly, existingOnly, allNew: [...newTapeValues[f]].sort(), allExisting: [...existingValues[f]].sort() };
     }
   });
 
-  if (Object.keys(mismatches).length === 0) return; // all values match
+  if (Object.keys(mismatches).length === 0) return;
 
   const body = document.getElementById('valuemap-body');
   const fieldLabels = {};
@@ -2279,31 +2284,53 @@ function showValueMappingPrompt(tapeIdx) {
   let html = '';
   for (const [field, data] of Object.entries(mismatches)) {
     const label = fieldLabels[field] || field;
-    html += `<div class="opt-field-group" style="margin-bottom:16px;">
-      <div class="opt-field-label">${escapeHtml(label)} <span class="badge badge-amber" style="font-size:10px;">${data.unmatched.length} new</span></div>`;
-    data.unmatched.forEach(val => {
-      // Find best fuzzy match
-      const bestMatch = findBestValueMatch(val, data.existing);
-      const optionsHtml = `<option value="">Keep as "${escapeHtml(val)}"</option>` +
-        data.existing.map(ev => `<option value="${escapeHtml(ev)}" ${bestMatch === ev ? 'selected' : ''}>${escapeHtml(ev)}${bestMatch === ev ? ' (suggested)' : ''}</option>`).join('');
-      const mapId = `vmap-${field}-${val.replace(/[^a-zA-Z0-9]/g, '_')}`;
-      html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
-        <span style="flex:0 0 140px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--amber-faint);border-radius:var(--radius);">${escapeHtml(val)}</span>
-        <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
-        <select id="${mapId}" class="mapping-select" style="flex:1;" onchange="setValueMap('${field}','${val.replace(/'/g, "\\'")}',this.value)">
-          ${optionsHtml}
-        </select>
-      </div>`;
-      // Pre-set suggested match
-      if (bestMatch) {
-        if (!pendingValueMaps[field]) pendingValueMaps[field] = {};
-        pendingValueMaps[field][val] = bestMatch;
-      }
-    });
-    html += `</div>`;
+    // New tape values not in existing tapes
+    if (data.newOnly.length > 0) {
+      html += `<div class="opt-field-group" style="margin-bottom:12px;">
+        <div class="opt-field-label">${escapeHtml(label)} <span class="badge badge-amber" style="font-size:10px;">${data.newOnly.length} in new tape only</span></div>`;
+      data.newOnly.forEach(val => {
+        const bestMatch = findBestValueMatch(val, data.allExisting);
+        const optionsHtml = `<option value="__keep__">Keep as "${escapeHtml(val)}"</option>` +
+          data.allExisting.map(ev => `<option value="${escapeHtml(ev)}" ${bestMatch === ev ? 'selected' : ''}>${escapeHtml(ev)}${bestMatch === ev ? ' (suggested)' : ''}</option>`).join('');
+        html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
+          <span style="flex:0 0 180px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--amber-faint);border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(val)}">${escapeHtml(val)}</span>
+          <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
+          <select class="mapping-select" style="flex:1;" onchange="setValueMap('new','${field}','${val.replace(/'/g, "\\'")}',this.value)">
+            ${optionsHtml}
+          </select>
+        </div>`;
+        if (bestMatch) {
+          if (!pendingValueMaps[field]) pendingValueMaps[field] = {};
+          pendingValueMaps[field]['new:' + val] = bestMatch;
+        }
+      });
+      html += `</div>`;
+    }
+    // Existing tape values not in new tape — allow harmonising the other direction
+    if (data.existingOnly.length > 0) {
+      html += `<div class="opt-field-group" style="margin-bottom:12px;">
+        <div class="opt-field-label">${escapeHtml(label)} <span class="badge badge-navy" style="font-size:10px;">${data.existingOnly.length} in existing tapes only</span></div>`;
+      data.existingOnly.forEach(val => {
+        const bestMatch = findBestValueMatch(val, data.allNew);
+        const optionsHtml = `<option value="__keep__">Keep as "${escapeHtml(val)}"</option>` +
+          data.allNew.map(nv => `<option value="${escapeHtml(nv)}" ${bestMatch === nv ? 'selected' : ''}>${escapeHtml(nv)}${bestMatch === nv ? ' (suggested)' : ''}</option>`).join('');
+        html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
+          <span style="flex:0 0 180px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--navy-faint);border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(val)}">${escapeHtml(val)}</span>
+          <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
+          <select class="mapping-select" style="flex:1;" onchange="setValueMap('existing','${field}','${val.replace(/'/g, "\\'")}',this.value)">
+            ${optionsHtml}
+          </select>
+        </div>`;
+        if (bestMatch) {
+          if (!pendingValueMaps[field]) pendingValueMaps[field] = {};
+          pendingValueMaps[field]['existing:' + val] = bestMatch;
+        }
+      });
+      html += `</div>`;
+    }
   }
 
-  const total = Object.values(mismatches).reduce((s, d) => s + d.unmatched.length, 0);
+  const total = Object.values(mismatches).reduce((s, d) => s + d.newOnly.length + d.existingOnly.length, 0);
   document.getElementById('valuemap-status').innerHTML = `<span class="count">${total}</span> values to review`;
   body.innerHTML = html;
   document.getElementById('valuemap-overlay').classList.add('active');
@@ -2311,39 +2338,52 @@ function showValueMappingPrompt(tapeIdx) {
 
 function findBestValueMatch(val, existing) {
   const lower = val.toLowerCase().replace(/[^a-z0-9]/g, '');
-  // Exact case-insensitive
   const exact = existing.find(e => e.toLowerCase() === val.toLowerCase());
   if (exact) return exact;
-  // Stripped match
   const stripped = existing.find(e => e.toLowerCase().replace(/[^a-z0-9]/g, '') === lower);
   if (stripped) return stripped;
-  // Abbreviation / containment check
   const contained = existing.find(e => e.toLowerCase().includes(lower) || lower.includes(e.toLowerCase().replace(/[^a-z0-9]/g, '')));
   if (contained && lower.length >= 2) return contained;
   return '';
 }
 
-function setValueMap(field, oldVal, newVal) {
+function setValueMap(direction, field, oldVal, newVal) {
   if (!pendingValueMaps[field]) pendingValueMaps[field] = {};
-  if (newVal) {
-    pendingValueMaps[field][oldVal] = newVal;
+  const key = direction + ':' + oldVal;
+  if (newVal && newVal !== '__keep__') {
+    pendingValueMaps[field][key] = newVal;
   } else {
-    delete pendingValueMaps[field][oldVal];
+    delete pendingValueMaps[field][key];
   }
 }
 
 function applyValueMapping() {
   if (pendingValueMapTapeIdx < 0) return;
-  const tape = tapes[pendingValueMapTapeIdx];
+  const newTape = tapes[pendingValueMapTapeIdx];
+  const otherTapes = tapes.filter((_, i) => i !== pendingValueMapTapeIdx);
   for (const [field, maps] of Object.entries(pendingValueMaps)) {
-    for (const [oldVal, newVal] of Object.entries(maps)) {
-      if (!newVal) continue;
-      tape.loans.forEach(l => {
-        if (String(l[field]).trim() === oldVal) l[field] = newVal;
-      });
+    for (const [key, newVal] of Object.entries(maps)) {
+      if (!newVal || newVal === '__keep__') continue;
+      const [direction, ...rest] = key.split(':');
+      const oldVal = rest.join(':');
+      if (direction === 'new') {
+        newTape.loans.forEach(l => {
+          if (String(l[field]).trim() === oldVal) l[field] = newVal;
+        });
+      } else if (direction === 'existing') {
+        otherTapes.forEach(t => t.loans.forEach(l => {
+          if (String(l[field]).trim() === oldVal) l[field] = newVal;
+        }));
+      }
     }
   }
-  closeValueMapping();
+  document.getElementById('valuemap-overlay').classList.remove('active');
+  pendingValueMaps = {};
+  pendingValueMapTapeIdx = -1;
+  // Refresh loans and dashboard
+  loans = [];
+  tapes.forEach(t => loans.push(...t.loans));
+  if (loans.length) renderDashboard();
 }
 
 function closeValueMapping() {
@@ -2355,7 +2395,11 @@ function closeValueMapping() {
 // ============================================================
 //  COMPARISON TAB — detailed series comparison
 // ============================================================
+let comparisonCharts = {};
+function destroyComparisonCharts() { Object.values(comparisonCharts).forEach(c => c.destroy()); comparisonCharts = {}; }
+
 function renderComparison() {
+  destroyComparisonCharts();
   const container = document.getElementById('comparison-content');
   const link = document.getElementById('tab-comparison-link');
   if (tapes.length < 2) {
@@ -2367,6 +2411,9 @@ function renderComparison() {
 
   const seriesNames = [...new Set(tapes.map(t => t.series))];
   if (seriesNames.length < 2) { container.innerHTML = ''; return; }
+
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
 
   // Series data
   const seriesData = seriesNames.map(s => {
@@ -2380,39 +2427,57 @@ function renderComparison() {
     const waOrigTerm = tot > 0 ? sloans.reduce((sm, l) => sm + (l.original_term || 0) * l.outstanding_balance, 0) / tot : 0;
     const arrBal = sloans.filter(l => l.days_in_arrears > 0).reduce((sm, l) => sm + l.outstanding_balance, 0);
     const arrPct = tot > 0 ? (arrBal / tot) * 100 : 0;
-    const arr90Bal = sloans.filter(l => l.days_in_arrears > 90).reduce((sm, l) => sm + l.outstanding_balance, 0);
-    const arr90Pct = tot > 0 ? (arr90Bal / tot) * 100 : 0;
+    const arr30Bal = sloans.filter(l => l.days_in_arrears > 0 && l.days_in_arrears <= 30).reduce((sm, l) => sm + l.outstanding_balance, 0);
+    const arr60Bal = sloans.filter(l => l.days_in_arrears > 30 && l.days_in_arrears <= 60).reduce((sm, l) => sm + l.outstanding_balance, 0);
+    const arr90Bal = sloans.filter(l => l.days_in_arrears > 60 && l.days_in_arrears <= 90).reduce((sm, l) => sm + l.outstanding_balance, 0);
+    const arr90PlusBal = sloans.filter(l => l.days_in_arrears > 90).reduce((sm, l) => sm + l.outstanding_balance, 0);
+    const arr90PlusPct = tot > 0 ? (arr90PlusBal / tot) * 100 : 0;
     const defPct = sloans.length > 0 ? (sloans.filter(l => l.default_flag).length / sloans.length * 100) : 0;
     const uniqueB = new Set(sloans.map(l => l.borrower_name)).size;
     const avgFac = sloans.length > 0 ? orig / sloans.length : 0;
     const bMap = {};
     sloans.forEach(l => { bMap[l.borrower_name] = (bMap[l.borrower_name] || 0) + l.outstanding_balance; });
-    const top5Vals = Object.values(bMap).sort((a, b) => b - a).slice(0, 5);
-    const top5Pct = tot > 0 ? (top5Vals.reduce((sm, v) => sm + v, 0) / tot * 100) : 0;
-    return { name: s, loans: sloans, count: sloans.length, originator: tape ? tape.originator || '' : '', cutoff: tape ? tape.cutoffDate || '' : '', outstanding: tot, original: orig, waRate, waRemTerm, waOrigTerm, arrPct, arr90Pct, defPct, uniqueB, avgFac, top5Pct };
+    const sortedBorrowers = Object.values(bMap).sort((a, b) => b - a);
+    const top5Pct = tot > 0 ? (sortedBorrowers.slice(0, 5).reduce((sm, v) => sm + v, 0) / tot * 100) : 0;
+    const top10Pct = tot > 0 ? (sortedBorrowers.slice(0, 10).reduce((sm, v) => sm + v, 0) / tot * 100) : 0;
+    // Size band distribution
+    const sizeBands = { '0-25k': 0, '25-50k': 0, '50-100k': 0, '100-250k': 0, '250-500k': 0, '500k+': 0 };
+    const sizeCount = { '0-25k': 0, '25-50k': 0, '50-100k': 0, '100-250k': 0, '250-500k': 0, '500k+': 0 };
+    sloans.forEach(l => {
+      const b = l.outstanding_balance;
+      const band = b <= 25000 ? '0-25k' : b <= 50000 ? '25-50k' : b <= 100000 ? '50-100k' : b <= 250000 ? '100-250k' : b <= 500000 ? '250-500k' : '500k+';
+      sizeBands[band] += b;
+      sizeCount[band]++;
+    });
+    return { name: s, loans: sloans, count: sloans.length, originator: tape ? tape.originator || '' : '', cutoff: tape ? tape.cutoffDate || '' : '', outstanding: tot, original: orig, waRate, waRemTerm, waOrigTerm, arrPct, arr30Bal, arr60Bal, arr90Bal, arr90PlusBal, arr90PlusPct, defPct, uniqueB, avgFac, top5Pct, top10Pct, sizeBands, sizeCount };
   });
 
   let html = '';
 
-  // Key metrics comparison table
+  // ---- 1. KEY METRICS SUMMARY TABLE ----
   const metrics = [
     { label: 'Originator', fn: d => d.originator || '-', raw: true },
     { label: 'Cut-Off Date', fn: d => d.cutoff ? formatCutoffDate(d.cutoff) : '-', raw: true },
     { label: 'Receivables', fn: d => d.count, fmt: v => v.toLocaleString() },
     { label: 'Original Amount', fn: d => d.original, fmt: v => fmtM(v) },
     { label: 'Current Outstanding', fn: d => d.outstanding, fmt: v => fmtM(v) },
-    { label: 'WA Rate', fn: d => d.waRate, fmt: v => fmtPct(v) },
+    { label: 'Current Factor', fn: d => d.original > 0 ? (d.outstanding / d.original) : 0, fmt: v => (v * 100).toFixed(1) + '%' },
+    { label: 'WA Interest Rate', fn: d => d.waRate, fmt: v => fmtPct(v) },
     { label: 'WA Orig. Term', fn: d => d.waOrigTerm, fmt: v => convertTerm(v, displaySettings.termUnit) },
     { label: 'WA Rem. Term', fn: d => d.waRemTerm, fmt: v => convertTerm(v, displaySettings.termUnit) },
-    { label: 'Avg Facility', fn: d => d.avgFac, fmt: v => fmtM(v) },
-    { label: 'Borrowers', fn: d => d.uniqueB, fmt: v => v.toLocaleString() },
-    { label: 'Arrears %', fn: d => d.arrPct, fmt: v => fmtPct(v), warn: v => v > 5 ? 'var(--red)' : v > 2 ? 'var(--amber)' : '' },
-    { label: '90+ Arrears %', fn: d => d.arr90Pct, fmt: v => fmtPct(v), warn: v => v > 5 ? 'var(--red)' : v > 2 ? 'var(--amber)' : '' },
-    { label: 'Default %', fn: d => d.defPct, fmt: v => fmtPct(v), warn: v => v > 3 ? 'var(--red)' : v > 1 ? 'var(--amber)' : '' },
-    { label: 'Top 5 Concentration', fn: d => d.top5Pct, fmt: v => v.toFixed(1) + '%', warn: v => v > 40 ? 'var(--red)' : v > 25 ? 'var(--amber)' : '' }
+    { label: 'Avg Facility Size', fn: d => d.avgFac, fmt: v => fmtM(v) },
+    { label: 'Unique Borrowers', fn: d => d.uniqueB, fmt: v => v.toLocaleString() },
+    { label: 'Arrears (% Bal)', fn: d => d.arrPct, fmt: v => fmtPct(v), warn: v => v > 5 ? 'var(--red)' : v > 2 ? 'var(--amber)' : '' },
+    { label: '90+ DPD (% Bal)', fn: d => d.arr90PlusPct, fmt: v => fmtPct(v), warn: v => v > 5 ? 'var(--red)' : v > 2 ? 'var(--amber)' : '' },
+    { label: 'Default Rate', fn: d => d.defPct, fmt: v => fmtPct(v), warn: v => v > 3 ? 'var(--red)' : v > 1 ? 'var(--amber)' : '' },
+    { label: 'Top 5 Concentration', fn: d => d.top5Pct, fmt: v => v.toFixed(1) + '%', warn: v => v > 40 ? 'var(--red)' : v > 25 ? 'var(--amber)' : '' },
+    { label: 'Top 10 Concentration', fn: d => d.top10Pct, fmt: v => v.toFixed(1) + '%', warn: v => v > 60 ? 'var(--red)' : v > 40 ? 'var(--amber)' : '' }
   ];
 
   const headerCells = seriesData.map(d => `<th class="right" style="min-width:120px;">${escapeHtml(d.name)}</th>`).join('');
+  // Add delta column if exactly 2 series
+  const showDelta = seriesData.length === 2;
+  const deltaHeader = showDelta ? '<th class="right" style="min-width:80px;color:var(--text-muted);">Delta</th>' : '';
   const rows = metrics.map(m => {
     const cells = seriesData.map(d => {
       const v = m.fn(d);
@@ -2420,91 +2485,338 @@ function renderComparison() {
       const color = m.warn ? m.warn(v) : '';
       return `<td class="mono right" ${color ? 'style="color:'+color+'"' : ''}>${m.fmt(v)}</td>`;
     }).join('');
-    return `<tr><td style="font-weight:500;">${m.label}</td>${cells}</tr>`;
+    let deltaCell = '';
+    if (showDelta && !m.raw) {
+      const v0 = m.fn(seriesData[0]), v1 = m.fn(seriesData[1]);
+      const diff = v1 - v0;
+      const sign = diff > 0 ? '+' : '';
+      deltaCell = `<td class="mono right" style="color:var(--text-muted);font-size:11px;">${sign}${m.fmt(diff)}</td>`;
+    } else if (showDelta) {
+      deltaCell = '<td></td>';
+    }
+    return `<tr><td style="font-weight:500;">${m.label}</td>${cells}${deltaCell}</tr>`;
   }).join('');
 
   html += `<div class="card" style="margin-bottom:16px;">
     <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Key Metrics Comparison</h3>
     <div class="table-scroll"><table>
-      <thead><tr><th>Metric</th>${headerCells}</tr></thead>
+      <thead><tr><th>Metric</th>${headerCells}${deltaHeader}</tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
 
-  // Field value mismatches — flag where values don't exist in all tapes
-  const catFields = ['facility_type','asset_type','interest_rate_type','repayment_method','customer_segment',
-    'credit_rating','region','loan_status','equipment_type','asset_category','broker','originator','sector'];
-  const fieldLabels = {};
-  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+  // ---- 2. BALANCE SIZE DISTRIBUTION COMPARISON ----
+  const sizeBandLabels = ['0-25k', '25-50k', '50-100k', '100-250k', '250-500k', '500k+'];
+  const sizeChartId = 'comp-chart-size-' + Date.now();
 
-  let mismatchHtml = '';
-  let mismatchCount = 0;
-  catFields.forEach(f => {
-    const perSeries = {};
-    seriesData.forEach(sd => {
-      perSeries[sd.name] = new Set(sd.loans.map(l => l[f]).filter(v => v && String(v).trim()));
-    });
-    const allVals = new Set();
-    Object.values(perSeries).forEach(s => s.forEach(v => allVals.add(v)));
-    if (allVals.size === 0) return;
-    // Find values not present in all series
-    const mismatched = [...allVals].filter(v => {
-      return !seriesData.every(sd => perSeries[sd.name].has(v));
-    });
-    if (mismatched.length === 0) return;
-    mismatchCount += mismatched.length;
-    const label = fieldLabels[f] || f;
-    mismatchHtml += `<div style="margin-bottom:12px;">
-      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">${escapeHtml(label)}</div>
-      <div class="table-scroll" style="max-height:200px;"><table>
-        <thead><tr><th>Value</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
-        <tbody>${mismatched.sort().map(v => {
-          const cells = seriesData.map(d => {
-            const has = perSeries[d.name].has(v);
-            return `<td class="mono right" style="color:${has ? 'var(--green)' : 'var(--red)'};">${has ? 'Yes' : 'No'}</td>`;
-          }).join('');
-          return `<tr><td style="font-size:12px;">${escapeHtml(v)}</td>${cells}</tr>`;
-        }).join('')}</tbody>
+  // Build table
+  let sizeRows = sizeBandLabels.map(band => {
+    const cells = seriesData.map(d => {
+      const bal = d.sizeBands[band];
+      const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) : '0.0';
+      const cnt = d.sizeCount[band];
+      return `<td class="mono right">${pct}%<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">(${cnt})</span></td>`;
+    }).join('');
+    return `<tr><td style="font-size:12px;">${band}</td>${cells}</tr>`;
+  }).join('');
+
+  html += `<div class="card" style="margin-bottom:16px;">
+    <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Balance Size Distribution</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+      <div class="table-scroll"><table>
+        <thead><tr><th>Band</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
+        <tbody>${sizeRows}</tbody>
       </table></div>
-    </div>`;
-  });
+      <div style="position:relative;height:220px;"><canvas id="${sizeChartId}"></canvas></div>
+    </div>
+  </div>`;
 
-  if (mismatchHtml) {
+  // ---- 3. TOP SECTORS COMPARISON ----
+  const sectorChartId = 'comp-chart-sector-' + Date.now();
+  const allSectors = {};
+  seriesData.forEach(d => {
+    d.loans.forEach(l => { if (l.sector && String(l.sector).trim()) allSectors[l.sector] = true; });
+  });
+  const sectorNames = Object.keys(allSectors);
+  if (sectorNames.length > 0) {
+    // Compute sector breakdown per series, sorted by total across all series
+    const sectorTotals = {};
+    sectorNames.forEach(sec => {
+      sectorTotals[sec] = seriesData.reduce((sm, d) => sm + d.loans.filter(l => l.sector === sec).reduce((s, l) => s + l.outstanding_balance, 0), 0);
+    });
+    const topSectors = Object.entries(sectorTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+
+    let sectorRows = topSectors.map(sec => {
+      const cells = seriesData.map(d => {
+        const bal = d.loans.filter(l => l.sector === sec).reduce((sm, l) => sm + l.outstanding_balance, 0);
+        const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) : '0.0';
+        return `<td class="mono right">${pct}%</td>`;
+      }).join('');
+      return `<tr><td style="font-size:12px;">${escapeHtml(sec)}</td>${cells}</tr>`;
+    }).join('');
+    // Add "Other" row if there are more sectors
+    if (sectorNames.length > 10) {
+      const cells = seriesData.map(d => {
+        const topBal = topSectors.reduce((sm, sec) => sm + d.loans.filter(l => l.sector === sec).reduce((s, l) => s + l.outstanding_balance, 0), 0);
+        const otherPct = d.outstanding > 0 ? (((d.outstanding - topBal) / d.outstanding) * 100).toFixed(1) : '0.0';
+        return `<td class="mono right" style="color:var(--text-muted);">${otherPct}%</td>`;
+      }).join('');
+      sectorRows += `<tr><td style="font-size:12px;color:var(--text-muted);">Other (${sectorNames.length - 10})</td>${cells}</tr>`;
+    }
+
     html += `<div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Field Value Mismatches <span class="badge badge-amber">${mismatchCount}</span></h3>
-      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Values that appear in some tapes but not others. Use Settings > Edit Fields to harmonise.</p>
-      ${mismatchHtml}
+      <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Top Sector Breakdown</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+        <div class="table-scroll"><table>
+          <thead><tr><th>Sector</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
+          <tbody>${sectorRows}</tbody>
+        </table></div>
+        <div style="position:relative;height:260px;"><canvas id="${sectorChartId}"></canvas></div>
+      </div>
     </div>`;
   }
 
-  // Per-field side-by-side strat comparison
-  const compareFields = ['facility_type','region','credit_rating','sector','customer_segment','asset_type'];
-  compareFields.forEach(f => {
-    if (!seriesData.some(sd => sd.loans.some(l => l[f] && String(l[f]).trim()))) return;
-    const label = fieldLabels[f] || f;
-    const allVals = new Set();
-    seriesData.forEach(sd => sd.loans.forEach(l => { if (l[f] && String(l[f]).trim()) allVals.add(l[f]); }));
-    if (allVals.size === 0 || allVals.size > 30) return;
-    const sortedVals = [...allVals].sort();
-    const hdr = seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('');
-    const bodyRows = sortedVals.map(v => {
-      const cells = seriesData.map(d => {
-        const bal = d.loans.filter(l => l[f] === v).reduce((sm, l) => sm + l.outstanding_balance, 0);
-        const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) + '%' : '-';
-        return `<td class="mono right">${pct}</td>`;
-      }).join('');
-      return `<tr><td style="font-size:12px;">${escapeHtml(v)}</td>${cells}</tr>`;
+  // ---- 4. ARREARS PROFILE COMPARISON ----
+  const arrearsChartId = 'comp-chart-arrears-' + Date.now();
+  const arrearsBands = ['Current', '1-30 DPD', '31-60 DPD', '61-90 DPD', '90+ DPD'];
+
+  let arrearsRows = arrearsBands.map((band, i) => {
+    const cells = seriesData.map(d => {
+      let bal;
+      if (i === 0) bal = d.outstanding - d.arr30Bal - d.arr60Bal - d.arr90Bal - d.arr90PlusBal;
+      else if (i === 1) bal = d.arr30Bal;
+      else if (i === 2) bal = d.arr60Bal;
+      else if (i === 3) bal = d.arr90Bal;
+      else bal = d.arr90PlusBal;
+      const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) : '0.0';
+      const color = i >= 3 && parseFloat(pct) > 2 ? (parseFloat(pct) > 5 ? 'color:var(--red);' : 'color:var(--amber);') : '';
+      return `<td class="mono right" style="${color}">${pct}%<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">${fmtM(Math.max(0, bal))}</span></td>`;
     }).join('');
-    html += `<div class="card strat-card" style="margin-bottom:12px;">
-      <div class="strat-card-header">${escapeHtml(label)} — % of Outstanding by Series</div>
+    return `<tr><td style="font-size:12px;">${band}</td>${cells}</tr>`;
+  }).join('');
+
+  html += `<div class="card" style="margin-bottom:16px;">
+    <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Arrears Profile</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
       <div class="table-scroll"><table>
-        <thead><tr><th>Category</th>${hdr}</tr></thead>
-        <tbody>${bodyRows}</tbody>
+        <thead><tr><th>Band</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
+        <tbody>${arrearsRows}</tbody>
+      </table></div>
+      <div style="position:relative;height:220px;"><canvas id="${arrearsChartId}"></canvas></div>
+    </div>
+  </div>`;
+
+  // ---- 5. FACILITY TYPE MIX COMPARISON ----
+  const hasFacility = seriesData.some(d => d.loans.some(l => l.facility_type && String(l.facility_type).trim()));
+  if (hasFacility) {
+    const allFacilities = {};
+    seriesData.forEach(d => d.loans.forEach(l => { if (l.facility_type && String(l.facility_type).trim()) allFacilities[l.facility_type] = true; }));
+    const facilityNames = Object.keys(allFacilities);
+    const facTotals = {};
+    facilityNames.forEach(f => {
+      facTotals[f] = seriesData.reduce((sm, d) => sm + d.loans.filter(l => l.facility_type === f).reduce((s, l) => s + l.outstanding_balance, 0), 0);
+    });
+    const topFacilities = Object.entries(facTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+
+    let facRows = topFacilities.map(f => {
+      const cells = seriesData.map(d => {
+        const bal = d.loans.filter(l => l.facility_type === f).reduce((sm, l) => sm + l.outstanding_balance, 0);
+        const cnt = d.loans.filter(l => l.facility_type === f).length;
+        const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) : '0.0';
+        return `<td class="mono right">${pct}%<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">(${cnt})</span></td>`;
+      }).join('');
+      return `<tr><td style="font-size:12px;">${escapeHtml(f)}</td>${cells}</tr>`;
+    }).join('');
+
+    html += `<div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Facility Type Mix</h3>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Type</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
+        <tbody>${facRows}</tbody>
       </table></div>
     </div>`;
+  }
+
+  // ---- 6. MATURITY PROFILE COMPARISON ----
+  const matChartId = 'comp-chart-maturity-' + Date.now();
+  const now = new Date();
+  const matBands = ['0-6m', '6-12m', '1-2yr', '2-3yr', '3-5yr', '5yr+'];
+  const matBandData = seriesData.map(d => {
+    const bands = { '0-6m': 0, '6-12m': 0, '1-2yr': 0, '2-3yr': 0, '3-5yr': 0, '5yr+': 0 };
+    d.loans.forEach(l => {
+      let remMonths = l.remaining_term || 0;
+      if (!remMonths) {
+        const mat = parseDate(l.maturity_date);
+        remMonths = mat ? Math.max(0, (mat - now) / (30.44 * 86400000)) : 0;
+      }
+      const band = remMonths <= 6 ? '0-6m' : remMonths <= 12 ? '6-12m' : remMonths <= 24 ? '1-2yr' : remMonths <= 36 ? '2-3yr' : remMonths <= 60 ? '3-5yr' : '5yr+';
+      bands[band] += l.outstanding_balance;
+    });
+    return bands;
   });
 
+  let matRows = matBands.map(band => {
+    const cells = seriesData.map((d, i) => {
+      const bal = matBandData[i][band];
+      const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) : '0.0';
+      return `<td class="mono right">${pct}%</td>`;
+    }).join('');
+    return `<tr><td style="font-size:12px;">${band}</td>${cells}</tr>`;
+  }).join('');
+
+  html += `<div class="card" style="margin-bottom:16px;">
+    <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Maturity Profile</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+      <div class="table-scroll"><table>
+        <thead><tr><th>Band</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
+        <tbody>${matRows}</tbody>
+      </table></div>
+      <div style="position:relative;height:220px;"><canvas id="${matChartId}"></canvas></div>
+    </div>
+  </div>`;
+
+  // ---- 7. INTEREST RATE DISTRIBUTION ----
+  const rateChartId = 'comp-chart-rate-' + Date.now();
+  const rateBands = ['0-2%', '2-4%', '4-6%', '6-8%', '8-10%', '10%+'];
+  const rateBandData = seriesData.map(d => {
+    const bands = { '0-2%': 0, '2-4%': 0, '4-6%': 0, '6-8%': 0, '8-10%': 0, '10%+': 0 };
+    d.loans.forEach(l => {
+      const r = l.interest_rate;
+      const band = r <= 2 ? '0-2%' : r <= 4 ? '2-4%' : r <= 6 ? '4-6%' : r <= 8 ? '6-8%' : r <= 10 ? '8-10%' : '10%+';
+      bands[band] += l.outstanding_balance;
+    });
+    return bands;
+  });
+  const hasRateData = seriesData.some(d => d.loans.some(l => l.interest_rate > 0));
+
+  if (hasRateData) {
+    let rateRows = rateBands.map(band => {
+      const cells = seriesData.map((d, i) => {
+        const bal = rateBandData[i][band];
+        const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) : '0.0';
+        return `<td class="mono right">${pct}%</td>`;
+      }).join('');
+      return `<tr><td style="font-size:12px;">${band}</td>${cells}</tr>`;
+    }).join('');
+
+    html += `<div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Interest Rate Distribution</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+        <div class="table-scroll"><table>
+          <thead><tr><th>Band</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
+          <tbody>${rateRows}</tbody>
+        </table></div>
+        <div style="position:relative;height:220px;"><canvas id="${rateChartId}"></canvas></div>
+      </div>
+    </div>`;
+  }
+
   container.innerHTML = html;
+
+  // ---- RENDER CHARTS ----
+  const seriesColors = COLORS.slice(0, seriesData.length);
+
+  // Size distribution chart — grouped bar
+  const sizeCtx = document.getElementById(sizeChartId);
+  if (sizeCtx) {
+    comparisonCharts.size = new Chart(sizeCtx, {
+      type: 'bar',
+      data: {
+        labels: sizeBandLabels,
+        datasets: seriesData.map((d, i) => ({
+          label: d.name,
+          data: sizeBandLabels.map(band => d.outstanding > 0 ? ((d.sizeBands[band] / d.outstanding) * 100) : 0),
+          backgroundColor: seriesColors[i], borderRadius: 2, borderWidth: 0
+        }))
+      },
+      options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { boxWidth: 8, font: { size: 10 } } }, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + '%' } } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => v + '%', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
+    });
+  }
+
+  // Sector chart — horizontal grouped bar (top 8 sectors)
+  const secCtx = document.getElementById(sectorChartId);
+  if (secCtx && sectorNames.length > 0) {
+    const sectorTotals2 = {};
+    sectorNames.forEach(sec => {
+      sectorTotals2[sec] = seriesData.reduce((sm, d) => sm + d.loans.filter(l => l.sector === sec).reduce((s, l) => s + l.outstanding_balance, 0), 0);
+    });
+    const chartSectors = Object.entries(sectorTotals2).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
+    comparisonCharts.sector = new Chart(secCtx, {
+      type: 'bar',
+      data: {
+        labels: chartSectors.map(s => s.length > 20 ? s.slice(0, 18) + '..' : s),
+        datasets: seriesData.map((d, i) => ({
+          label: d.name,
+          data: chartSectors.map(sec => {
+            const bal = d.loans.filter(l => l.sector === sec).reduce((sm, l) => sm + l.outstanding_balance, 0);
+            return d.outstanding > 0 ? ((bal / d.outstanding) * 100) : 0;
+          }),
+          backgroundColor: seriesColors[i], borderRadius: 2, borderWidth: 0
+        }))
+      },
+      options: { indexAxis: 'y', ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { boxWidth: 8, font: { size: 10 } } }, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + '%' } } }, scales: { x: { ticks: { color: '#8890a0', callback: v => v + '%', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true }, y: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } } } }
+    });
+  }
+
+  // Arrears chart — stacked bar
+  const arrCtx = document.getElementById(arrearsChartId);
+  if (arrCtx) {
+    const arrColors = ['#e0e4e8', '#b58900', '#e67e22', '#e74c3c', '#8b0000'];
+    comparisonCharts.arrears = new Chart(arrCtx, {
+      type: 'bar',
+      data: {
+        labels: seriesData.map(d => d.name),
+        datasets: arrearsBands.map((band, i) => ({
+          label: band,
+          data: seriesData.map(d => {
+            let bal;
+            if (i === 0) bal = d.outstanding - d.arr30Bal - d.arr60Bal - d.arr90Bal - d.arr90PlusBal;
+            else if (i === 1) bal = d.arr30Bal;
+            else if (i === 2) bal = d.arr60Bal;
+            else if (i === 3) bal = d.arr90Bal;
+            else bal = d.arr90PlusBal;
+            return d.outstanding > 0 ? ((Math.max(0, bal) / d.outstanding) * 100) : 0;
+          }),
+          backgroundColor: arrColors[i], borderWidth: 0, borderRadius: i === arrearsBands.length - 1 ? 2 : 0
+        }))
+      },
+      options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { boxWidth: 8, font: { size: 10 } } }, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + '%' } } }, scales: { x: { stacked: true, ticks: { color: '#4a5068', font: { size: 11 } }, grid: { display: false } }, y: { stacked: true, ticks: { color: '#8890a0', callback: v => v + '%', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, max: 100 } } }
+    });
+  }
+
+  // Maturity chart — grouped bar
+  const matCtx = document.getElementById(matChartId);
+  if (matCtx) {
+    comparisonCharts.maturity = new Chart(matCtx, {
+      type: 'bar',
+      data: {
+        labels: matBands,
+        datasets: seriesData.map((d, i) => ({
+          label: d.name,
+          data: matBands.map(band => d.outstanding > 0 ? ((matBandData[i][band] / d.outstanding) * 100) : 0),
+          backgroundColor: seriesColors[i], borderRadius: 2, borderWidth: 0
+        }))
+      },
+      options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { boxWidth: 8, font: { size: 10 } } }, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + '%' } } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => v + '%', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
+    });
+  }
+
+  // Rate distribution chart — grouped bar
+  const rateCtx = document.getElementById(rateChartId);
+  if (rateCtx && hasRateData) {
+    comparisonCharts.rate = new Chart(rateCtx, {
+      type: 'bar',
+      data: {
+        labels: rateBands,
+        datasets: seriesData.map((d, i) => ({
+          label: d.name,
+          data: rateBands.map(band => d.outstanding > 0 ? ((rateBandData[i][band] / d.outstanding) * 100) : 0),
+          backgroundColor: seriesColors[i], borderRadius: 2, borderWidth: 0
+        }))
+      },
+      options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { boxWidth: 8, font: { size: 10 } } }, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + '%' } } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => v + '%', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
+    });
+  }
 }
 
 function renderDashboard() {
@@ -2603,6 +2915,9 @@ function computeStats() {
           return s + mo * l.outstanding_balance;
         }, 0) / totalOutstanding : 0;
   }
+  const waOrigTerm = totalOutstanding > 0 ? loans.reduce((s, l) => s + (l.original_term || 0) * l.outstanding_balance, 0) / totalOutstanding : 0;
+  const waSeasoning = waOrigTerm > 0 && waRem > 0 ? waOrigTerm - waRem : 0;
+  const currentFactor = totalOriginal > 0 ? (totalOutstanding / totalOriginal) : 0;
   const arrears90 = loans.filter(l => l.days_in_arrears > 90);
   const arrears90Bal = arrears90.reduce((s, l) => s + l.outstanding_balance, 0);
   const arrears90Pct = totalOutstanding > 0 ? (arrears90Bal / totalOutstanding) * 100 : 0;
@@ -2610,7 +2925,7 @@ function computeStats() {
   const avgFacility = loans.length > 0 ? totalOriginal / loans.length : 0;
   const defaultCount = loans.filter(l => l.default_flag).length;
   const defaultPct = loans.length > 0 ? (defaultCount / loans.length) * 100 : 0;
-  return { totalOriginal, totalOutstanding, utilisation, wair, waRem, hasRemTerm, arrears90, arrears90Bal, arrears90Pct, uniqueBorrowers, avgFacility, defaultCount, defaultPct };
+  return { totalOriginal, totalOutstanding, utilisation, wair, waRem, waOrigTerm, waSeasoning, currentFactor, hasRemTerm, arrears90, arrears90Bal, arrears90Pct, uniqueBorrowers, avgFacility, defaultCount, defaultPct };
 }
 
 function renderStats() {
@@ -2621,32 +2936,32 @@ function renderStats() {
     <div class="card stat-card">
       <div class="stat-label">Original Amount</div>
       <div class="stat-value">${fmtM(s.totalOriginal)}</div>
-      <div class="stat-sub">${loans.length} receivables</div>
+      <div class="stat-sub">${loans.length.toLocaleString()} receivables</div>
     </div>
     <div class="card stat-card">
       <div class="stat-label">Current Outstanding</div>
       <div class="stat-value">${fmtM(s.totalOutstanding)}</div>
-      <div class="stat-sub">${fmtPct(s.utilisation)} drawn</div>
+      <div class="stat-sub">Factor: ${(s.currentFactor * 100).toFixed(1)}%</div>
     </div>
     <div class="card stat-card">
       <div class="stat-label">WA Interest Rate</div>
       <div class="stat-value">${fmtPct(s.wair)}</div>
-      <div class="stat-sub">Weighted average</div>
+      <div class="stat-sub">Balance-weighted</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-label">WA Maturity</div>
+      <div class="stat-label">WA Rem. Term</div>
       <div class="stat-value">${convertTerm(s.waRem, displaySettings.termUnit)}</div>
-      <div class="stat-sub">${s.hasRemTerm ? 'Weighted avg remaining' : 'From maturity dates'} (${displaySettings.termUnit})</div>
+      <div class="stat-sub">${s.waSeasoning > 0 ? 'Seasoning: ' + convertTerm(s.waSeasoning, displaySettings.termUnit) : (s.hasRemTerm ? 'Balance-weighted' : 'From maturity dates')}</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-label">90+ Arrears</div>
+      <div class="stat-label">90+ DPD</div>
       <div class="stat-value" style="color:${s.arrears90Pct > 5 ? 'var(--red)' : s.arrears90Pct > 2 ? 'var(--amber)' : 'var(--green)'}">${fmtPct(s.arrears90Pct)}</div>
-      <div class="stat-sub">${s.arrears90.length} receivables</div>
+      <div class="stat-sub">${s.arrears90.length} receivables (${fmtM(s.arrears90Bal)})</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-label">Borrowers</div>
-      <div class="stat-value">${s.uniqueBorrowers}</div>
-      <div class="stat-sub">Avg: ${fmtM(s.avgFacility)}</div>
+      <div class="stat-label">Unique Borrowers</div>
+      <div class="stat-value">${s.uniqueBorrowers.toLocaleString()}</div>
+      <div class="stat-sub">Avg facility: ${fmtM(s.avgFacility)}</div>
     </div>
   `;
 }
@@ -2676,44 +2991,54 @@ function getTopExposuresData() {
 }
 
 function buildTopExposuresHtml() {
-  const { totalOutstanding, sorted } = getTopExposuresData();
-  const rows = sorted.map((e, i) => {
+  const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const lesseeMap = {};
+  loans.forEach(l => {
+    const name = l.borrower_name || '(unknown)';
+    if (!lesseeMap[name]) lesseeMap[name] = { name, totalBal: 0, loanCount: 0, sectors: new Set(), ratings: new Set(), loansInArrears: 0, maxArrearsDays: 0 };
+    const entry = lesseeMap[name];
+    entry.totalBal += l.outstanding_balance;
+    entry.loanCount++;
+    if (l.sector) entry.sectors.add(l.sector);
+    if (l.credit_rating) entry.ratings.add(l.credit_rating);
+    if (l.days_in_arrears > 0) { entry.loansInArrears++; entry.maxArrearsDays = Math.max(entry.maxArrearsDays, l.days_in_arrears); }
+  });
+  const allSorted = Object.values(lesseeMap).sort((a, b) => b.totalBal - a.totalBal);
+  const top10 = allSorted.slice(0, 10);
+  // Cumulative concentrations
+  const cumTop5 = totalOutstanding > 0 ? (allSorted.slice(0, 5).reduce((s, e) => s + e.totalBal, 0) / totalOutstanding * 100) : 0;
+  const cumTop10 = totalOutstanding > 0 ? (allSorted.slice(0, 10).reduce((s, e) => s + e.totalBal, 0) / totalOutstanding * 100) : 0;
+  const cumTop20 = totalOutstanding > 0 ? (allSorted.slice(0, 20).reduce((s, e) => s + e.totalBal, 0) / totalOutstanding * 100) : 0;
+
+  const rows = top10.map((e, i) => {
     const pct = totalOutstanding > 0 ? ((e.totalBal / totalOutstanding) * 100).toFixed(2) : '0.00';
+    const cumPct = totalOutstanding > 0 ? ((allSorted.slice(0, i + 1).reduce((s, x) => s + x.totalBal, 0) / totalOutstanding) * 100).toFixed(1) : '0.0';
     let arrearsLabel, arrearsText;
-    if (e.loansInArrears === 0) {
-      arrearsLabel = 'badge-green'; arrearsText = 'Current';
-    } else if (e.loansInArrears === e.loanCount) {
-      arrearsLabel = e.maxArrearsDays > 90 ? 'badge-red' : 'badge-amber';
-      arrearsText = e.maxArrearsDays + 'd (' + e.loanCount + ')';
-    } else {
-      arrearsLabel = e.maxArrearsDays > 90 ? 'badge-red' : 'badge-amber';
-      arrearsText = e.loansInArrears + '/' + e.loanCount + ' (' + e.maxArrearsDays + 'd max)';
-    }
+    if (e.loansInArrears === 0) { arrearsLabel = 'badge-green'; arrearsText = 'Current'; }
+    else { arrearsLabel = e.maxArrearsDays > 90 ? 'badge-red' : 'badge-amber'; arrearsText = e.loansInArrears + '/' + e.loanCount + ' (' + e.maxArrearsDays + 'd)'; }
     const sectorText = [...e.sectors].slice(0, 2).join(', ') + (e.sectors.size > 2 ? '...' : '');
-    const ratingText = [...e.ratings].join('/');
     return `<tr>
       <td>${i + 1}</td>
       <td>${escapeHtml(e.name)}<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">(${e.loanCount})</span></td>
       <td>${escapeHtml(sectorText)}</td>
-      <td class="mono">${fmtFull(e.totalBal)}</td>
-      <td class="mono">${pct}%</td>
-      <td>${escapeHtml(ratingText)}</td>
+      <td class="mono right">${fmtFull(e.totalBal)}</td>
+      <td class="mono right">${pct}%</td>
+      <td class="mono right">${cumPct}%</td>
       <td><span class="badge ${arrearsLabel}">${arrearsText}</span></td>
     </tr>`;
   }).join('');
-  const topX = displaySettings.topObligorCount || 10;
+
   return `<div class="card table-card">
     <div class="table-header">
-      <h3>Top ${topX} Lessee Exposures</h3>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <label style="font-size:11px;color:var(--text-muted);">Top</label>
-        <select style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:var(--radius);font-family:inherit;background:var(--surface);" onchange="displaySettings.topObligorCount=parseInt(this.value);renderOverviewWidgets();">
-          ${[5,10,15,20,25].map(n => `<option value="${n}" ${topX===n?'selected':''}>${n}</option>`).join('')}
-        </select>
+      <h3>Top 10 Lessee Exposures</h3>
+      <div style="display:flex;align-items:center;gap:12px;">
+        <span class="badge badge-navy" style="font-size:11px;">Top 5: ${cumTop5.toFixed(1)}%</span>
+        <span class="badge badge-navy" style="font-size:11px;">Top 10: ${cumTop10.toFixed(1)}%</span>
+        <span class="badge badge-navy" style="font-size:11px;">Top 20: ${cumTop20.toFixed(1)}%</span>
       </div>
     </div>
     <div class="table-scroll"><table class="ow-exposures-table">
-      <thead><tr><th>#</th><th>Lessee</th><th>Sector</th><th class="right">Balance</th><th class="right">% Port</th><th>Rating</th><th>Arrears</th></tr></thead>
+      <thead><tr><th>#</th><th>Lessee</th><th>Sector</th><th class="right">Balance</th><th class="right">% Port</th><th class="right">Cum %</th><th>Arrears</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
@@ -2951,9 +3276,29 @@ function renderOverviewWidgets() {
     html += buildTopExposuresHtml();
   }
 
-  // FACILITY MIX widget
+  // FACILITY MIX widget — with count and balance
   if (active.includes('facilityMix') && loans.some(l => l.facility_type)) {
-    html += `<div class="card ow-card"><h3>Facility Type Mix</h3><div class="mini-chart-wrap"><canvas id="ow-chart-facility"></canvas></div></div>`;
+    const facGroups = {};
+    loans.forEach(l => {
+      const ft = l.facility_type || '(blank)';
+      if (ft === '(blank)') return;
+      if (!facGroups[ft]) facGroups[ft] = { count: 0, balance: 0 };
+      facGroups[ft].count++;
+      facGroups[ft].balance += l.outstanding_balance;
+    });
+    const facTotal = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+    const facSorted = Object.entries(facGroups).sort((a, b) => b[1].balance - a[1].balance);
+    let facTableRows = facSorted.map(([name, d]) => {
+      const pctBal = facTotal > 0 ? ((d.balance / facTotal) * 100).toFixed(1) : '0.0';
+      return `<tr><td>${escapeHtml(name)}</td><td class="mono right">${d.count.toLocaleString()}</td><td class="mono right">${fmtM(d.balance)}</td><td class="mono right">${pctBal}%</td></tr>`;
+    }).join('');
+    html += `<div class="card ow-card"><h3>Facility Type Mix</h3>
+      <div class="table-scroll" style="max-height:180px;"><table>
+        <thead><tr><th>Type</th><th class="right"># Loans</th><th class="right">Balance</th><th class="right">% Bal</th></tr></thead>
+        <tbody>${facTableRows}</tbody>
+      </table></div>
+      <div class="mini-chart-wrap" style="margin-top:8px;"><canvas id="ow-chart-facility"></canvas></div>
+    </div>`;
   }
 
   // MATURITY PROFILE widget
