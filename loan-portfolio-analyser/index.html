@@ -927,6 +927,13 @@
   </div>
 </div>
 
+<!-- FIELD RE-CATEGORISATION MODAL -->
+<div class="mapping-overlay" id="recat-overlay">
+  <div class="mapping-modal" style="max-height:80vh;">
+    <div class="mapping-modal-body" id="recat-body" style="padding:20px 24px;overflow-y:auto;"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 //  STATE
@@ -963,7 +970,11 @@ let fieldOptions = {
 // Display settings
 let displaySettings = {
   termUnit: 'months', // 'months', 'years', 'days'
-  overviewWidgets: ['stats', 'health', 'topExposures', 'facilityMix', 'maturityProfile', 'arrearsSnapshot']
+  overviewWidgets: ['stats', 'health', 'topExposures', 'facilityMix', 'maturityProfile', 'arrearsSnapshot', 'trends'],
+  // Per-series hidden strats: { 'all': ['field_key',...], 'Series 1': [...] }
+  hiddenStrats: {},
+  // Per-series hidden concentration charts: { 'all': ['sector','region',...], 'Series 1': [...] }
+  hiddenCharts: {}
 };
 
 // Multi-tape series management
@@ -1506,11 +1517,9 @@ function onMappingChange(select) {
   else {
     delete columnMapping[sourceCol];
     select.classList.remove('mapped');
-    // If switching away from custom, re-render to remove config panel
-    if (oldVal && oldVal.startsWith('__custom:')) {
-      renderMappingRows();
-    }
   }
+  // Re-render to update in-use labels and custom config panels
+  renderMappingRows();
   updateMappingStatus();
 }
 
@@ -1655,10 +1664,14 @@ function confirmMapping() {
   document.getElementById('mapping-overlay').classList.remove('active');
   pendingRawData = null;
 
-  // Prompt for series name
+  // Prompt for series name and originator
   const defaultName = 'Series ' + (tapes.length + 1);
   const seriesName = prompt('Enter a name/series label for this tape:', defaultName);
   const series = (seriesName && seriesName.trim()) ? seriesName.trim() : defaultName;
+
+  const defaultOriginator = mappedLoans.length > 0 && mappedLoans[0].originator ? mappedLoans[0].originator : '';
+  const originatorName = prompt('Originator for this tape (leave blank if N/A):', defaultOriginator);
+  const tapeOriginator = (originatorName && originatorName.trim()) ? originatorName.trim() : '';
 
   const cutoffInput = document.getElementById('mapping-cutoff-date');
   const cutoffDate = cutoffInput ? cutoffInput.value : '';
@@ -1669,7 +1682,8 @@ function confirmMapping() {
     loans: mappedLoans,
     sourceColumnNames: { ...sourceColumnNames },
     columnMapping: { ...columnMapping },
-    cutoffDate: cutoffDate
+    cutoffDate: cutoffDate,
+    originator: tapeOriginator
   });
 
   loans = [];
@@ -1736,6 +1750,17 @@ function applyMapping(data, rm, customRm) {
       broker:              rm.broker ? String(row[rm.broker] || '') : '',
       originator:          rm.originator ? String(row[rm.originator] || '') : ''
     };
+
+    // Derive days_in_arrears from arrears_status when not explicitly mapped
+    if (obj.days_in_arrears === 0 && obj.arrears_status) {
+      const as = obj.arrears_status.toLowerCase().trim();
+      if (as === 'current' || as === '0' || as === '') { /* already 0 */ }
+      else if (as.includes('>90') || as.includes('90+') || as.includes('91+')) obj.days_in_arrears = 91;
+      else if (as.includes('61-90') || as.includes('61 -90') || as.includes('60-90')) obj.days_in_arrears = 75;
+      else if (as.includes('31-60') || as.includes('31 -60') || as.includes('30-60')) obj.days_in_arrears = 45;
+      else if (as.includes('1-30') || as.includes('1 -30') || as.includes('0-30')) obj.days_in_arrears = 15;
+      else if (!as.includes('current') && as !== '0') obj.days_in_arrears = 1; // non-current but unknown band
+    }
 
     // Apply custom field mappings
     if (customRm) {
@@ -1965,14 +1990,35 @@ document.querySelectorAll('.tab').forEach(tab => {
 // ============================================================
 function renderCutoffBanner() {
   const banner = document.getElementById('cutoff-date-banner');
-  const cutoffs = getActiveCutoffDates();
-  if (cutoffs.length === 0) { banner.innerHTML = ''; return; }
-  if (cutoffs.length === 1 || new Set(cutoffs.map(c => c.cutoffDate)).size === 1) {
-    banner.innerHTML = `<div class="cutoff-banner"><span class="cutoff-label">Cut-Off Date:</span><span class="cutoff-value">${formatCutoffDate(cutoffs[0].cutoffDate)}</span></div>`;
-  } else {
-    const items = cutoffs.map(c => `<span>${escapeHtml(c.series)}: <span class="cutoff-value">${formatCutoffDate(c.cutoffDate)}</span></span>`).join('<span style="opacity:0.3;margin:0 6px;">|</span>');
-    banner.innerHTML = `<div class="cutoff-banner"><span class="cutoff-label">Cut-Off Dates:</span>${items}</div>`;
+  const meta = getActiveTapeMeta();
+  const hasCutoff = meta.some(m => m.cutoffDate);
+  const hasOriginator = meta.some(m => m.originator);
+  if (!hasCutoff && !hasOriginator) { banner.innerHTML = ''; return; }
+
+  let html = '<div class="cutoff-banner">';
+  // Originator(s)
+  if (hasOriginator) {
+    const originators = [...new Set(meta.filter(m => m.originator).map(m => m.originator))];
+    if (originators.length === 1) {
+      html += `<span class="cutoff-label">Originator:</span><span class="cutoff-value">${escapeHtml(originators[0])}</span>`;
+    } else {
+      const items = meta.filter(m => m.originator).map(m => `<span>${escapeHtml(m.series)}: <span class="cutoff-value">${escapeHtml(m.originator)}</span></span>`).join('<span style="opacity:0.3;margin:0 4px;">|</span>');
+      html += `<span class="cutoff-label">Originators:</span>${items}`;
+    }
+    if (hasCutoff) html += '<span style="opacity:0.2;margin:0 10px;">|</span>';
   }
+  // Cut-off date(s)
+  if (hasCutoff) {
+    const cutoffs = meta.filter(m => m.cutoffDate);
+    if (cutoffs.length === 1 || new Set(cutoffs.map(c => c.cutoffDate)).size === 1) {
+      html += `<span class="cutoff-label">Cut-Off Date:</span><span class="cutoff-value">${formatCutoffDate(cutoffs[0].cutoffDate)}</span>`;
+    } else {
+      const items = cutoffs.map(c => `<span>${escapeHtml(c.series)}: <span class="cutoff-value">${formatCutoffDate(c.cutoffDate)}</span></span>`).join('<span style="opacity:0.3;margin:0 4px;">|</span>');
+      html += `<span class="cutoff-label">Cut-Off Dates:</span>${items}`;
+    }
+  }
+  html += '</div>';
+  banner.innerHTML = html;
 }
 
 function renderDashboard() {
@@ -2016,9 +2062,11 @@ function renderSeriesBar() {
     const count = tapes.filter(t => t.series === s).reduce((n, t) => n + t.loans.length, 0);
     const tape = tapes.find(t => t.series === s);
     const cutoff = tape && tape.cutoffDate ? tape.cutoffDate : '';
+    const orig = tape && tape.originator ? tape.originator : '';
     const cutoffLabel = cutoff ? `<span class="pill-cutoff">${formatCutoffDate(cutoff)}</span>` : '';
+    const origLabel = orig ? `<span class="pill-cutoff">${escapeHtml(orig)}</span>` : '';
     const safeS = s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    html += `<button class="series-pill ${activeSeries === s ? 'active' : ''}" onclick="switchSeries('${safeS}')">${escapeHtml(s)}<span class="pill-count">(${count})</span>${cutoffLabel}</button>`;
+    html += `<button class="series-pill ${activeSeries === s ? 'active' : ''}" onclick="switchSeries('${safeS}')">${escapeHtml(s)}<span class="pill-count">(${count})</span>${origLabel}${cutoffLabel}</button>`;
   });
   pills.innerHTML = html;
 }
@@ -2030,11 +2078,9 @@ function formatCutoffDate(dateStr) {
   return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-function getActiveCutoffDates() {
-  if (activeSeries === 'all') {
-    return tapes.filter(t => t.cutoffDate).map(t => ({ series: t.series, cutoffDate: t.cutoffDate }));
-  }
-  return tapes.filter(t => t.series === activeSeries && t.cutoffDate).map(t => ({ series: t.series, cutoffDate: t.cutoffDate }));
+function getActiveTapeMeta() {
+  const filtered = activeSeries === 'all' ? tapes : tapes.filter(t => t.series === activeSeries);
+  return filtered.map(t => ({ series: t.series, cutoffDate: t.cutoffDate || '', originator: t.originator || '' }));
 }
 
 function switchSeries(series) {
@@ -2182,6 +2228,43 @@ function buildTopExposuresHtml() {
 let overviewCharts = {};
 function destroyOverviewCharts() { Object.values(overviewCharts).forEach(c => c.destroy()); overviewCharts = {}; }
 
+function buildTrendsTable() {
+  if (tapes.length < 2) return '';
+  // Sort tapes by cutoff date, then by index
+  const sorted = [...tapes].sort((a, b) => {
+    if (a.cutoffDate && b.cutoffDate) return a.cutoffDate.localeCompare(b.cutoffDate);
+    if (a.cutoffDate) return -1;
+    if (b.cutoffDate) return 1;
+    return 0;
+  });
+  const rows = sorted.map(t => {
+    const tl = t.loans;
+    const totOrig = tl.reduce((s, l) => s + l.loan_amount, 0);
+    const totOut = tl.reduce((s, l) => s + l.outstanding_balance, 0);
+    const waRate = totOut > 0 ? tl.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / totOut : 0;
+    const arr90 = tl.filter(l => l.days_in_arrears > 90);
+    const arr90Pct = totOut > 0 ? (arr90.reduce((s, l) => s + l.outstanding_balance, 0) / totOut * 100) : 0;
+    const defPct = tl.length > 0 ? (tl.filter(l => l.default_flag).length / tl.length * 100) : 0;
+    const cutoff = t.cutoffDate ? formatCutoffDate(t.cutoffDate) : '-';
+    const orig = t.originator || '-';
+    return `<tr>
+      <td>${escapeHtml(t.series)}</td>
+      <td class="mono">${cutoff}</td>
+      <td class="mono">${escapeHtml(orig)}</td>
+      <td class="mono right">${tl.length}</td>
+      <td class="mono right">${fmtM(totOrig)}</td>
+      <td class="mono right">${fmtM(totOut)}</td>
+      <td class="mono right">${fmtPct(waRate)}</td>
+      <td class="mono right" style="color:${arr90Pct > 5 ? 'var(--red)' : arr90Pct > 2 ? 'var(--amber)' : 'var(--green)'}">${arr90Pct.toFixed(1)}%</td>
+      <td class="mono right" style="color:${defPct > 3 ? 'var(--red)' : defPct > 1 ? 'var(--amber)' : 'var(--green)'}">${defPct.toFixed(1)}%</td>
+    </tr>`;
+  });
+  return `<table>
+    <thead><tr><th>Series</th><th>Cut-Off</th><th>Originator</th><th class="right">#</th><th class="right">Original</th><th class="right">Outstanding</th><th class="right">WA Rate</th><th class="right">90+ Arr</th><th class="right">Default</th></tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table>`;
+}
+
 function renderOverviewWidgets() {
   destroyOverviewCharts();
   const container = document.getElementById('overview-widgets');
@@ -2260,6 +2343,18 @@ function renderOverviewWidgets() {
     html += `<div class="card ow-card"><h3>Maturity Profile</h3><div class="mini-chart-wrap"><canvas id="ow-chart-maturity"></canvas></div></div>`;
   }
 
+  // HISTORIC TRENDS widget (only if 2+ tapes)
+  if (active.includes('trends') && tapes.length >= 2) {
+    html += `<div class="card ow-card" style="grid-column:1/-1;">
+      <h3>Historic Trends Across Series</h3>
+      <div class="trends-table-wrap">${buildTrendsTable()}</div>
+      <div style="display:flex;gap:12px;margin-top:12px;">
+        <div style="flex:1;"><canvas id="ow-chart-trend-bal"></canvas></div>
+        <div style="flex:1;"><canvas id="ow-chart-trend-rate"></canvas></div>
+      </div>
+    </div>`;
+  }
+
   html += '</div>';
   container.innerHTML = html;
 
@@ -2296,6 +2391,35 @@ function renderOverviewWidgets() {
         type: 'bar', data: { labels: Object.keys(mBuckets), datasets: [{ data: Object.values(mBuckets), backgroundColor: '#00857c', borderRadius: 2, borderWidth: 0 }] },
         options: miniChartOpts
       });
+    }
+
+    // Trend charts
+    if (active.includes('trends') && tapes.length >= 2) {
+      const sorted = [...tapes].sort((a, b) => {
+        if (a.cutoffDate && b.cutoffDate) return a.cutoffDate.localeCompare(b.cutoffDate);
+        return 0;
+      });
+      const labels = sorted.map(t => t.cutoffDate ? formatCutoffDate(t.cutoffDate) : t.series);
+      const balData = sorted.map(t => t.loans.reduce((s, l) => s + l.outstanding_balance, 0));
+      const rateData = sorted.map(t => {
+        const tot = t.loans.reduce((s, l) => s + l.outstanding_balance, 0);
+        return tot > 0 ? t.loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / tot : 0;
+      });
+      const trendChartBase = { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } };
+      if (document.getElementById('ow-chart-trend-bal')) {
+        overviewCharts.trendBal = new Chart(document.getElementById('ow-chart-trend-bal'), {
+          type: 'line',
+          data: { labels, datasets: [{ label: 'Outstanding', data: balData, borderColor: '#003078', backgroundColor: 'rgba(0,48,120,0.08)', fill: true, tension: 0.3, pointRadius: 4 }] },
+          options: { ...trendChartBase, scales: { y: { ticks: { callback: v => fmtM(v) }, beginAtZero: false }, x: { ticks: { font: { size: 10 } } } } }
+        });
+      }
+      if (document.getElementById('ow-chart-trend-rate')) {
+        overviewCharts.trendRate = new Chart(document.getElementById('ow-chart-trend-rate'), {
+          type: 'line',
+          data: { labels, datasets: [{ label: 'WA Rate', data: rateData, borderColor: '#00857c', backgroundColor: 'rgba(0,133,124,0.08)', fill: true, tension: 0.3, pointRadius: 4 }] },
+          options: { ...trendChartBase, scales: { y: { ticks: { callback: v => v.toFixed(2) + '%' }, beginAtZero: false }, x: { ticks: { font: { size: 10 } } } } }
+        });
+      }
     }
   }, 0);
 }
@@ -2540,18 +2664,33 @@ function renderStratification() {
     }
   });
 
-  let html = '<div class="strat-grid">';
+  // Strat toggle controls
+  const hiddenKey = activeSeries || 'all';
+  const hidden = displaySettings.hiddenStrats[hiddenKey] || [];
+  let html = `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+    <span style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Show/Hide:</span>
+    ${stratFields.map(sf => {
+      const isHidden = hidden.includes(sf.key);
+      return `<button class="btn btn-sm ${isHidden ? 'btn-outline' : 'btn-primary'}" style="font-size:10px;padding:3px 8px;opacity:${isHidden ? '0.5' : '1'};" onclick="toggleStrat('${sf.key}')">${sf.title.replace('By ', '')}</button>`;
+    }).join('')}
+  </div>`;
+  html += '<div class="strat-grid">';
+
+  // Helper to build group with WA data
+  function addToGroup(groups, k, l) {
+    if (!groups[k]) groups[k] = { count: 0, balance: 0, rateWeightedBal: 0, termWeightedBal: 0 };
+    groups[k].count++;
+    groups[k].balance += l.outstanding_balance;
+    groups[k].rateWeightedBal += l.interest_rate * l.outstanding_balance;
+    groups[k].termWeightedBal += (l.remaining_term || 0) * l.outstanding_balance;
+  }
 
   // Categorical strats
   stratFields.forEach(sf => {
     if (!loans.some(l => l[sf.key])) return; // skip if all blank
+    if (hidden.includes(sf.key)) return; // user hidden
     const groups = {};
-    loans.forEach(l => {
-      const k = l[sf.key] || '(blank)';
-      if (!groups[k]) groups[k] = { count: 0, balance: 0 };
-      groups[k].count++;
-      groups[k].balance += l.outstanding_balance;
-    });
+    loans.forEach(l => addToGroup(groups, l[sf.key] || '(blank)', l));
     const sorted = Object.entries(groups).sort((a, b) => b[1].balance - a[1].balance);
     html += buildStratCard(sf.title, sorted, n, tot);
   });
@@ -2559,16 +2698,10 @@ function renderStratification() {
   // Banded strats
   bandedStrats.forEach(bs => {
     const groups = {};
-    loans.forEach(l => {
-      const k = bs.fn(l);
-      if (!groups[k]) groups[k] = { count: 0, balance: 0 };
-      groups[k].count++;
-      groups[k].balance += l.outstanding_balance;
-    });
+    loans.forEach(l => addToGroup(groups, bs.fn(l), l));
     let sorted;
     if (bs.order) {
       sorted = bs.order.filter(k => groups[k]).map(k => [k, groups[k]]);
-      // add any not in order
       Object.keys(groups).filter(k => !bs.order.includes(k)).forEach(k => sorted.push([k, groups[k]]));
     } else {
       sorted = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
@@ -2581,11 +2714,15 @@ function renderStratification() {
 }
 
 function buildStratCard(title, sortedEntries, totalCount, totalBalance) {
+  const hasRate = sortedEntries.some(([, d]) => d.rateWeightedBal > 0);
+  const hasTerm = sortedEntries.some(([, d]) => d.termWeightedBal > 0);
   let rows = '';
   sortedEntries.forEach(([label, data]) => {
     const pctCount = totalCount > 0 ? ((data.count / totalCount) * 100).toFixed(1) : '0.0';
     const pctBal = totalBalance > 0 ? ((data.balance / totalBalance) * 100).toFixed(1) : '0.0';
     const avgBal = data.count > 0 ? data.balance / data.count : 0;
+    const waRate = data.balance > 0 ? data.rateWeightedBal / data.balance : 0;
+    const waTerm = data.balance > 0 ? data.termWeightedBal / data.balance : 0;
     rows += `<tr>
       <td>${escapeHtml(label)}</td>
       <td class="mono right">${data.count}</td>
@@ -2593,15 +2730,23 @@ function buildStratCard(title, sortedEntries, totalCount, totalBalance) {
       <td class="mono right">${fmtFull(data.balance)}</td>
       <td class="mono right">${pctBal}%</td>
       <td class="mono right">${fmtM(avgBal)}</td>
+      ${hasRate ? `<td class="mono right">${fmtPct(waRate)}</td>` : ''}
+      ${hasTerm ? `<td class="mono right">${waTerm.toFixed(1)}m</td>` : ''}
     </tr>`;
   });
   const totBal = sortedEntries.reduce((s, e) => s + e[1].balance, 0);
   const totCnt = sortedEntries.reduce((s, e) => s + e[1].count, 0);
+  const totRateWB = sortedEntries.reduce((s, e) => s + (e[1].rateWeightedBal || 0), 0);
+  const totTermWB = sortedEntries.reduce((s, e) => s + (e[1].termWeightedBal || 0), 0);
+  const totWaRate = totBal > 0 ? totRateWB / totBal : 0;
+  const totWaTerm = totBal > 0 ? totTermWB / totBal : 0;
   return `<div class="card strat-card">
     <div class="strat-card-header">${escapeHtml(title)}</div>
     <div class="table-scroll"><table>
       <thead><tr>
         <th>Category</th><th class="right">#</th><th class="right">% #</th><th class="right">Balance</th><th class="right">% Bal</th><th class="right">Avg</th>
+        ${hasRate ? '<th class="right">WA Rate</th>' : ''}
+        ${hasTerm ? '<th class="right">WA Term</th>' : ''}
       </tr></thead>
       <tbody>${rows}</tbody>
       <tfoot><tr>
@@ -2611,6 +2756,8 @@ function buildStratCard(title, sortedEntries, totalCount, totalBalance) {
         <td class="mono right">${fmtFull(totBal)}</td>
         <td class="mono right">100.0%</td>
         <td class="mono right">${totCnt > 0 ? fmtM(totBal / totCnt) : '-'}</td>
+        ${hasRate ? `<td class="mono right">${fmtPct(totWaRate)}</td>` : ''}
+        ${hasTerm ? `<td class="mono right">${totWaTerm.toFixed(1)}m</td>` : ''}
       </tr></tfoot>
     </table></div>
   </div>`;
@@ -2931,6 +3078,30 @@ function exportCSV() {
   const fieldLabels = {};
   TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
   Object.values(customFieldDefs).forEach(cf => { fieldLabels[cf.key] = cf.label; });
+
+  // Build CSV with summary header
+  const st = computeStats();
+  const meta = getActiveTapeMeta();
+  const originators = [...new Set(meta.filter(m => m.originator).map(m => m.originator))];
+  const cutoffs = [...new Set(meta.filter(m => m.cutoffDate).map(m => formatCutoffDate(m.cutoffDate)))];
+  const csvParts = [];
+
+  // Summary section
+  csvParts.push('PORTFOLIO SUMMARY');
+  if (originators.length > 0) csvParts.push('Originator(s),' + originators.join(' | '));
+  if (cutoffs.length > 0) csvParts.push('Cut-Off Date(s),' + cutoffs.join(' | '));
+  csvParts.push('Portfolio Size,' + st.totalOriginal);
+  csvParts.push('Outstanding Balance,' + st.totalOutstanding);
+  csvParts.push('Utilisation,' + fmtPct(st.utilisation));
+  csvParts.push('WA Interest Rate,' + fmtPct(st.wair));
+  csvParts.push('WA Remaining Term,' + convertTerm(st.waRem, displaySettings.termUnit));
+  csvParts.push('90+ Arrears %,' + fmtPct(st.arrears90Pct));
+  csvParts.push('Unique Borrowers,' + st.uniqueBorrowers);
+  csvParts.push('Receivables,' + loans.length);
+  csvParts.push('Tapes,' + tapes.length);
+  csvParts.push('');
+  csvParts.push('TAPE DATA');
+
   const labelRow = fieldKeys.map(k => {
     const lbl = fieldLabels[k] || k;
     return lbl.includes(',') ? '"' + lbl + '"' : lbl;
@@ -2939,14 +3110,19 @@ function exportCSV() {
     const src = sourceColumnNames[k] || '';
     return src.includes(',') ? '"' + src + '"' : src;
   }).join(',');
-  const rows = loans.map(l => fieldKeys.map(h => {
-    const val = l[h];
-    if (typeof val === 'boolean') return val ? '1' : '0';
-    const s = String(val);
-    if (s.includes(',') || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"';
-    return s;
-  }).join(','));
-  const csv = labelRow + '\n' + sourceRow + '\n' + rows.join('\n');
+  csvParts.push(labelRow);
+  csvParts.push(sourceRow);
+  loans.forEach(l => {
+    csvParts.push(fieldKeys.map(h => {
+      const val = l[h];
+      if (typeof val === 'boolean') return val ? '1' : '0';
+      const s = String(val);
+      if (s.includes(',') || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"';
+      return s;
+    }).join(','));
+  });
+
+  const csv = csvParts.join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -2982,7 +3158,7 @@ function exportXLSX() {
   const stratRows = [];
   const tot = loans.reduce((s, l) => s + l.outstanding_balance, 0);
   const n = loans.length;
-  const stratFields = [
+  const xlsxStratFields = [
     { key: 'facility_type', title: 'By Type of Lease' }, { key: 'asset_type', title: 'By Asset Type' },
     { key: 'interest_rate_type', title: 'By Interest Rate Type' }, { key: 'repayment_method', title: 'By Repayment Method' },
     { key: 'amortisation_type', title: 'By Amortisation Type' }, { key: 'payment_frequency', title: 'By Payment Frequency' },
@@ -2990,27 +3166,30 @@ function exportXLSX() {
     { key: 'region', title: 'By Region' }, { key: 'bbb_guarantee', title: 'By BBB Guarantee' },
     { key: 'loan_status', title: 'By Status' }, { key: 'arrears_status', title: 'By Arrears Status' },
     { key: 'equipment_type', title: 'By Equipment Type' }, { key: 'asset_category', title: 'By Asset Category' },
-    { key: 'supplier', title: 'By Supplier' }, { key: 'vat_deferral', title: 'By VAT Deferral' }
+    { key: 'supplier', title: 'By Supplier' }, { key: 'vat_deferral', title: 'By VAT Deferral' },
+    { key: 'broker', title: 'By Broker' }, { key: 'originator', title: 'By Originator' }
   ];
-  stratFields.forEach(sf => {
+  xlsxStratFields.forEach(sf => {
     if (!loans.some(l => l[sf.key])) return;
     const groups = {};
     loans.forEach(l => {
       const k = l[sf.key] || '(blank)';
-      if (!groups[k]) groups[k] = { count: 0, balance: 0 };
+      if (!groups[k]) groups[k] = { count: 0, balance: 0, rateWB: 0 };
       groups[k].count++; groups[k].balance += l.outstanding_balance;
+      groups[k].rateWB += l.interest_rate * l.outstanding_balance;
     });
     const sorted = Object.entries(groups).sort((a, b) => b[1].balance - a[1].balance);
     stratRows.push([sf.title]);
-    stratRows.push(['Category', 'Count', '% Count', 'Balance', '% Balance', 'Average']);
+    stratRows.push(['Category', 'Count', '% Count', 'Balance', '% Balance', 'Average', 'WA Rate']);
     sorted.forEach(([label, data]) => {
-      stratRows.push([label, data.count, n > 0 ? ((data.count / n) * 100).toFixed(1) + '%' : '0%', data.balance, tot > 0 ? ((data.balance / tot) * 100).toFixed(1) + '%' : '0%', data.count > 0 ? data.balance / data.count : 0]);
+      const waRate = data.balance > 0 ? (data.rateWB / data.balance).toFixed(2) + '%' : '-';
+      stratRows.push([label, data.count, n > 0 ? ((data.count / n) * 100).toFixed(1) + '%' : '0%', data.balance, tot > 0 ? ((data.balance / tot) * 100).toFixed(1) + '%' : '0%', data.count > 0 ? data.balance / data.count : 0, waRate]);
     });
     stratRows.push([]);
   });
   if (stratRows.length > 0) {
     const stratSheet = XLSX.utils.aoa_to_sheet(stratRows);
-    stratSheet['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 10 }, { wch: 18 }];
+    stratSheet['!cols'] = [{ wch: 24 }, { wch: 10 }, { wch: 10 }, { wch: 18 }, { wch: 10 }, { wch: 18 }, { wch: 10 }];
     XLSX.utils.book_append_sheet(wb, stratSheet, 'Stratification');
   }
 
@@ -3030,14 +3209,20 @@ function exportXLSX() {
 
   // Sheet 4: Overview Summary
   const st = computeStats();
+  const xlsMeta = getActiveTapeMeta();
+  const xlsOriginators = [...new Set(xlsMeta.filter(m => m.originator).map(m => m.originator))];
+  const xlsCutoffs = [...new Set(xlsMeta.filter(m => m.cutoffDate).map(m => formatCutoffDate(m.cutoffDate)))];
   const summaryRows = [
     ['Metric', 'Value'],
+    ['Originator(s)', xlsOriginators.join(', ') || '-'],
+    ['Cut-Off Date(s)', xlsCutoffs.join(', ') || '-'],
     ['Portfolio Size', st.totalOriginal],
     ['Outstanding Balance', st.totalOutstanding],
     ['Utilisation', fmtPct(st.utilisation)],
     ['WA Interest Rate', fmtPct(st.wair)],
     ['WA Remaining Term', convertTerm(st.waRem, displaySettings.termUnit)],
     ['90+ Arrears %', fmtPct(st.arrears90Pct)],
+    ['Default Rate', fmtPct(st.defaultPct)],
     ['Unique Borrowers', st.uniqueBorrowers],
     ['Average Facility', st.avgFacility],
     ['Number of Receivables', loans.length],
@@ -3047,6 +3232,31 @@ function exportXLSX() {
   const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
   summarySheet['!cols'] = [{ wch: 24 }, { wch: 24 }];
   XLSX.utils.book_append_sheet(wb, summarySheet, 'Summary');
+
+  // Sheet 5: Per-Tape Breakdown (if multiple tapes)
+  if (tapes.length > 1) {
+    const tapeRows = [['Metric', ...tapes.map(t => t.series)]];
+    tapeRows.push(['Originator', ...tapes.map(t => t.originator || '-')]);
+    tapeRows.push(['Cut-Off Date', ...tapes.map(t => t.cutoffDate ? formatCutoffDate(t.cutoffDate) : '-')]);
+    tapeRows.push(['Receivables', ...tapes.map(t => t.loans.length)]);
+    tapeRows.push(['Original Balance', ...tapes.map(t => t.loans.reduce((s, l) => s + l.loan_amount, 0))]);
+    tapeRows.push(['Outstanding Balance', ...tapes.map(t => t.loans.reduce((s, l) => s + l.outstanding_balance, 0))]);
+    tapeRows.push(['WA Interest Rate', ...tapes.map(t => {
+      const tb = t.loans.reduce((s, l) => s + l.outstanding_balance, 0);
+      return tb > 0 ? (t.loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / tb).toFixed(2) + '%' : '-';
+    })]);
+    tapeRows.push(['90+ Arrears %', ...tapes.map(t => {
+      const tb = t.loans.reduce((s, l) => s + l.outstanding_balance, 0);
+      const ab = t.loans.filter(l => l.days_in_arrears > 90).reduce((s, l) => s + l.outstanding_balance, 0);
+      return tb > 0 ? ((ab / tb) * 100).toFixed(1) + '%' : '-';
+    })]);
+    tapeRows.push(['Default Rate', ...tapes.map(t => {
+      return t.loans.length > 0 ? ((t.loans.filter(l => l.default_flag).length / t.loans.length) * 100).toFixed(1) + '%' : '-';
+    })]);
+    const tapeSheet = XLSX.utils.aoa_to_sheet(tapeRows);
+    tapeSheet['!cols'] = [{ wch: 20 }, ...tapes.map(() => ({ wch: 18 }))];
+    XLSX.utils.book_append_sheet(wb, tapeSheet, 'Tape Comparison');
+  }
 
   const fileName = activeSeries !== 'all' ? 'tape_export_' + activeSeries.replace(/[^a-zA-Z0-9]/g, '_') + '.xlsx' : 'tape_export.xlsx';
   XLSX.writeFile(wb, fileName);
@@ -3086,7 +3296,8 @@ function renderSettingsBody() {
     { key: 'topExposures', label: 'Top 10 Lessee Exposures' },
     { key: 'facilityMix', label: 'Facility Type Mix Chart' },
     { key: 'maturityProfile', label: 'Maturity Profile Chart' },
-    { key: 'arrearsSnapshot', label: 'Arrears Snapshot' }
+    { key: 'arrearsSnapshot', label: 'Arrears Snapshot' },
+    { key: 'trends', label: 'Historic Trends (Multi-Tape)' }
   ];
   html += '<div class="settings-section"><div class="settings-section-title">Overview Page Widgets</div>';
   html += '<p style="font-size:12px;color:var(--text-muted);margin-bottom:10px;">Choose which widgets appear on the Overview tab.</p>';
@@ -3102,11 +3313,17 @@ function renderSettingsBody() {
   if (tapes.length > 0) {
     html += '<div class="settings-section"><div class="settings-section-title">Loaded Tapes</div>';
     tapes.forEach((t, i) => {
+      const cutoffStr = t.cutoffDate ? formatCutoffDate(t.cutoffDate) : '';
+      const origStr = t.originator || '';
       html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-light);">
         <span style="font-size:13px;font-weight:500;">${escapeHtml(t.name)}</span>
         <span class="badge badge-navy">${escapeHtml(t.series)}</span>
+        ${origStr ? `<span class="badge badge-green">${escapeHtml(origStr)}</span>` : ''}
+        ${cutoffStr ? `<span style="font-size:11px;color:var(--text-muted);font-style:italic;">${cutoffStr}</span>` : ''}
         <span style="font-size:11px;color:var(--text-muted);">${t.loans.length} records</span>
-        <button class="opt-tag-del" style="margin-left:auto;" onclick="renameTapeSeries(${i})" title="Rename series">&#9998;</button>
+        <button class="btn btn-outline btn-sm" style="margin-left:auto;font-size:10px;padding:2px 8px;" onclick="recategoriseTape(${i})" title="Edit field options for this tape">Edit Fields</button>
+        <button class="opt-tag-del" onclick="renameTapeSeries(${i})" title="Rename series">&#9998;</button>
+        <button class="opt-tag-del" onclick="editTapeOriginator(${i})" title="Edit originator">O</button>
         <button class="opt-tag-del" onclick="removeTape(${i})" title="Remove tape">&times;</button>
       </div>`;
     });
@@ -3218,6 +3435,16 @@ function addNewFieldCategory() {
 // ============================================================
 //  OVERVIEW WIDGET TOGGLES
 // ============================================================
+function toggleStrat(key) {
+  const hiddenKey = activeSeries || 'all';
+  if (!displaySettings.hiddenStrats[hiddenKey]) displaySettings.hiddenStrats[hiddenKey] = [];
+  const arr = displaySettings.hiddenStrats[hiddenKey];
+  const idx = arr.indexOf(key);
+  if (idx >= 0) arr.splice(idx, 1);
+  else arr.push(key);
+  renderStratification();
+}
+
 function toggleOverviewWidget(key, enabled) {
   if (enabled && !displaySettings.overviewWidgets.includes(key)) {
     displaySettings.overviewWidgets.push(key);
@@ -3233,6 +3460,79 @@ function renameTapeSeries(idx) {
     tape.series = newName.trim();
     renderSettingsBody();
   }
+}
+
+function editTapeOriginator(idx) {
+  const tape = tapes[idx];
+  const newOrig = prompt('Originator for "' + tape.name + '":', tape.originator || '');
+  if (newOrig !== null) {
+    tape.originator = newOrig.trim();
+    renderSettingsBody();
+  }
+}
+
+function recategoriseTape(idx) {
+  const tape = tapes[idx];
+  // Build a field editor for this tape — let user change categorical options inline
+  const overlay = document.getElementById('recat-overlay');
+  if (!overlay) return;
+  const body = document.getElementById('recat-body');
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+
+  // Find which categorical fields have data in this tape
+  const catFields = [];
+  const keys = tape.loans.length > 0 ? Object.keys(tape.loans[0]) : [];
+  keys.forEach(k => {
+    const vals = [...new Set(tape.loans.map(l => l[k]).filter(v => v != null && String(v).trim() !== '' && typeof v === 'string'))];
+    if (vals.length > 0 && vals.length <= 100) {
+      catFields.push({ key: k, label: fieldLabels[k] || k, values: vals.sort() });
+    }
+  });
+
+  let html = `<h3 style="margin-bottom:12px;">Edit Field Categorisation — ${escapeHtml(tape.series)}</h3>`;
+  html += `<p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Remap values for categorical fields. Changes apply to this tape only.</p>`;
+
+  catFields.forEach(cf => {
+    html += `<div class="opt-field-group">
+      <div class="opt-field-label">${escapeHtml(cf.label)} <span style="font-size:11px;color:var(--text-muted);">(${cf.values.length} values)</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:4px;">`;
+    cf.values.forEach(v => {
+      html += `<span class="opt-tag"><span class="opt-tag-text">${escapeHtml(v)}</span>
+        <button class="opt-tag-edit" onclick="recatRenameValue(${idx},'${cf.key.replace(/'/g, "\\'")}','${v.replace(/'/g, "\\'")}')" title="Rename">&#9998;</button></span>`;
+    });
+    html += `</div></div>`;
+  });
+
+  html += `<div style="margin-top:16px;text-align:right;">
+    <button class="btn btn-outline btn-sm" onclick="closeRecatOverlay()">Close</button>
+  </div>`;
+  body.innerHTML = html;
+  overlay.classList.add('active');
+}
+
+function recatRenameValue(tapeIdx, fieldKey, oldValue) {
+  const newValue = prompt('Rename "' + oldValue + '" to:', oldValue);
+  if (!newValue || newValue.trim() === oldValue || newValue.trim() === '') return;
+  const tape = tapes[tapeIdx];
+  tape.loans.forEach(l => {
+    if (l[fieldKey] === oldValue) l[fieldKey] = newValue.trim();
+  });
+  // Refresh global loans
+  refreshLoansFromTapes();
+  // Re-render the recat dialog
+  recategoriseTape(tapeIdx);
+  // Re-render dashboard in background
+  if (loans.length) {
+    renderStats();
+    renderStratification();
+  }
+}
+
+function closeRecatOverlay() {
+  const overlay = document.getElementById('recat-overlay');
+  if (overlay) overlay.classList.remove('active');
+  if (loans.length) renderDashboard();
 }
 
 function removeTape(idx) {
