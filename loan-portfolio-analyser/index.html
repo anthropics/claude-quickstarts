@@ -638,6 +638,7 @@ updateNav('home');
 // ============================================================
 const uploadArea = document.getElementById('upload-area');
 const fileInput = document.getElementById('file-input');
+fileInput.addEventListener('click', e => e.stopPropagation());
 uploadArea.addEventListener('click', () => fileInput.click());
 uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
 uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
