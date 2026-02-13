@@ -842,7 +842,6 @@
 
     <div class="tabs">
       <div class="tab active" data-tab="overview">Overview</div>
-      <div class="tab" data-tab="concentration">Key Concentrations</div>
       <div class="tab" data-tab="stratification">Stratification</div>
       <div class="tab" data-tab="anomalies">Anomalies</div>
       <div class="tab" data-tab="comparison" id="tab-comparison-link" style="display:none;">Comparison</div>
@@ -856,10 +855,6 @@
         <div class="stat-grid" id="stat-grid-container"></div>
       </div>
       <div id="overview-widgets"></div>
-    </div>
-
-    <!-- CONCENTRATION TAB -->
-    <div class="tab-content" id="tab-concentration">
       <div class="section">
         <div class="chart-grid-2">
           <div class="card chart-card"><h3>Sector Concentration</h3><div class="chart-wrap"><canvas id="chart-sector"></canvas></div></div>
@@ -869,7 +864,7 @@
       <div class="section">
         <div class="chart-grid-3">
           <div class="card chart-card"><h3>Loan Size Distribution</h3><div class="chart-wrap"><canvas id="chart-loansize"></canvas></div></div>
-          <div class="card chart-card"><h3>Maturity Profile</h3><div class="chart-wrap"><canvas id="chart-maturity"></canvas></div></div>
+          <div class="card chart-card"><h3>Original Term</h3><div class="chart-wrap"><canvas id="chart-maturity"></canvas></div></div>
           <div class="card chart-card"><h3>Regional Breakdown</h3><div class="chart-wrap"><canvas id="chart-region"></canvas></div></div>
         </div>
       </div>
@@ -974,7 +969,8 @@
     <div class="mapping-modal-body" id="valuemap-body" style="padding:12px 24px;overflow-y:auto;"></div>
     <div class="mapping-modal-footer">
       <div class="mapping-status" id="valuemap-status"></div>
-      <div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="goBackFromHarmonisation()">&#8592; Back</button>
         <button class="btn btn-outline btn-sm" onclick="closeValueMapping()">Skip</button>
         <button class="btn btn-primary btn-sm" onclick="applyValueMapping()">Apply & Continue</button>
       </div>
@@ -1002,6 +998,10 @@ let customTests = [];
 // Custom fields defined during mapping — persists across tapes
 // { key: { key, label, type ('categorical'|'numeric'|'text'|'date'), options: [], bands: [{label,min,max}] } }
 let customFieldDefs = {};
+
+// Column mapping memory — remembers previous source column -> template field mappings
+// so when the same column name appears in a new tape, it's auto-matched
+let columnMappingMemory = {}; // { normalised_source_col: template_field_key }
 
 // Configurable predefined options per field — users can add/edit/delete
 let fieldOptions = {
@@ -1455,6 +1455,14 @@ function showMappingModal(rawData) {
   columnMapping = {};
   const autoMatched = {};
   sourceColumns.forEach(col => {
+    // First check if we've seen this column name before (mapping memory)
+    const normCol = col.toLowerCase().trim();
+    const remembered = columnMappingMemory[normCol];
+    if (remembered && !Object.values(autoMatched).includes(remembered)) {
+      autoMatched[col] = remembered;
+      columnMapping[col] = remembered;
+      return;
+    }
     const match = autoMatchColumn(col);
     if (match && !Object.values(autoMatched).includes(match)) {
       autoMatched[col] = match;
@@ -1797,6 +1805,13 @@ function confirmMapping() {
       fieldOptions[cfKey] = [...cfDef.options];
     }
   });
+  // Save column mappings to memory for future tapes
+  for (const [source, target] of Object.entries(columnMapping)) {
+    if (target && !target.startsWith('__custom')) {
+      columnMappingMemory[source.toLowerCase().trim()] = target;
+    }
+  }
+
   const mappedLoans = applyMapping(pendingRawData, reverseMap, customReverseMap);
   document.getElementById('mapping-overlay').classList.remove('active');
 
@@ -2208,8 +2223,7 @@ function renderCutoffBanner() {
     if (originators.length === 1) {
       html += `<span class="cutoff-label">Originator:</span><span class="cutoff-value">${escapeHtml(originators[0])}</span>`;
     } else {
-      const items = meta.filter(m => m.originator).map(m => `<span>${escapeHtml(m.series)}: <span class="cutoff-value">${escapeHtml(m.originator)}</span></span>`).join('<span style="opacity:0.3;margin:0 4px;">|</span>');
-      html += `<span class="cutoff-label">Originators:</span>${items}`;
+      html += `<span class="cutoff-label">Originators:</span><span class="cutoff-value">${originators.map(o => escapeHtml(o)).join(', ')}</span>`;
     }
     if (hasCutoff) html += '<span style="opacity:0.2;margin:0 10px;">|</span>';
   }
@@ -2282,12 +2296,26 @@ function showValueMappingPrompt(tapeIdx) {
   TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
 
   let html = '';
+  let sectionIdx = 0;
   for (const [field, data] of Object.entries(mismatches)) {
     const label = fieldLabels[field] || field;
+    const totalMismatches = data.newOnly.length + data.existingOnly.length;
+    const secId = 'harm-sec-' + sectionIdx++;
+    // Each field is a collapsible section, minimised by default
+    html += `<div style="margin-bottom:8px;border:1px solid var(--border-light);border-radius:var(--radius);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);cursor:pointer;" onclick="(function(el){var body=el.nextElementSibling;var arrow=el.querySelector('.harm-arrow');if(body.style.display==='none'){body.style.display='';arrow.textContent='▾';}else{body.style.display='none';arrow.textContent='▸';}})(this)">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="harm-arrow" style="font-size:10px;color:var(--text-muted);width:12px;">▸</span>
+          <span style="font-size:13px;font-weight:600;">${escapeHtml(label)}</span>
+          <span class="badge badge-amber" style="font-size:10px;">${totalMismatches} to review</span>
+        </div>
+      </div>
+      <div style="display:none;padding:8px 14px;">`;
+
     // New tape values not in existing tapes
     if (data.newOnly.length > 0) {
-      html += `<div class="opt-field-group" style="margin-bottom:12px;">
-        <div class="opt-field-label">${escapeHtml(label)} <span class="badge badge-amber" style="font-size:10px;">${data.newOnly.length} in new tape only</span></div>`;
+      html += `<div style="margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">${data.newOnly.length} in new tape only</div>`;
       data.newOnly.forEach(val => {
         const bestMatch = findBestValueMatch(val, data.allExisting);
         const optionsHtml = `<option value="__keep__">Keep as "${escapeHtml(val)}"</option>` +
@@ -2306,14 +2334,14 @@ function showValueMappingPrompt(tapeIdx) {
       });
       html += `</div>`;
     }
-    // Existing tape values not in new tape — allow harmonising the other direction
+    // Existing tape values not in new tape — default: keep unchanged
     if (data.existingOnly.length > 0) {
-      html += `<div class="opt-field-group" style="margin-bottom:12px;">
-        <div class="opt-field-label">${escapeHtml(label)} <span class="badge badge-navy" style="font-size:10px;">${data.existingOnly.length} in existing tapes only</span></div>`;
+      html += `<div style="margin-bottom:4px;">
+        <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">${data.existingOnly.length} in existing tapes only</div>`;
       data.existingOnly.forEach(val => {
         const bestMatch = findBestValueMatch(val, data.allNew);
-        const optionsHtml = `<option value="__keep__">Keep as "${escapeHtml(val)}"</option>` +
-          data.allNew.map(nv => `<option value="${escapeHtml(nv)}" ${bestMatch === nv ? 'selected' : ''}>${escapeHtml(nv)}${bestMatch === nv ? ' (suggested)' : ''}</option>`).join('');
+        const optionsHtml = `<option value="__keep__" selected>Keep as "${escapeHtml(val)}"</option>` +
+          data.allNew.map(nv => `<option value="${escapeHtml(nv)}">${escapeHtml(nv)}${bestMatch === nv ? ' (suggested)' : ''}</option>`).join('');
         html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
           <span style="flex:0 0 180px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--navy-faint);border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(val)}">${escapeHtml(val)}</span>
           <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
@@ -2321,28 +2349,31 @@ function showValueMappingPrompt(tapeIdx) {
             ${optionsHtml}
           </select>
         </div>`;
-        if (bestMatch) {
-          if (!pendingValueMaps[field]) pendingValueMaps[field] = {};
-          pendingValueMaps[field]['existing:' + val] = bestMatch;
-        }
       });
       html += `</div>`;
     }
+    html += `</div></div>`;
   }
 
   const total = Object.values(mismatches).reduce((s, d) => s + d.newOnly.length + d.existingOnly.length, 0);
-  document.getElementById('valuemap-status').innerHTML = `<span class="count">${total}</span> values to review`;
+  document.getElementById('valuemap-status').innerHTML = `<span class="count">${total}</span> values to review — expand each category to harmonise`;
   body.innerHTML = html;
   document.getElementById('valuemap-overlay').classList.add('active');
 }
 
+function normalizeValueStr(s) {
+  // Normalise '&' to 'and' and strip non-alphanumeric for comparison
+  return String(s).toLowerCase().replace(/&/g, 'and').replace(/[^a-z0-9]/g, '');
+}
+
 function findBestValueMatch(val, existing) {
-  const lower = val.toLowerCase().replace(/[^a-z0-9]/g, '');
+  const lower = normalizeValueStr(val);
   const exact = existing.find(e => e.toLowerCase() === val.toLowerCase());
   if (exact) return exact;
-  const stripped = existing.find(e => e.toLowerCase().replace(/[^a-z0-9]/g, '') === lower);
+  // Match after normalising & to 'and' and stripping punctuation
+  const stripped = existing.find(e => normalizeValueStr(e) === lower);
   if (stripped) return stripped;
-  const contained = existing.find(e => e.toLowerCase().includes(lower) || lower.includes(e.toLowerCase().replace(/[^a-z0-9]/g, '')));
+  const contained = existing.find(e => normalizeValueStr(e).includes(lower) || lower.includes(normalizeValueStr(e)));
   if (contained && lower.length >= 2) return contained;
   return '';
 }
@@ -2390,6 +2421,33 @@ function closeValueMapping() {
   document.getElementById('valuemap-overlay').classList.remove('active');
   pendingValueMaps = {};
   pendingValueMapTapeIdx = -1;
+}
+
+function goBackFromHarmonisation() {
+  // Remove the last tape that was just added, go back to column mapping
+  if (pendingValueMapTapeIdx >= 0 && pendingValueMapTapeIdx < tapes.length) {
+    const tape = tapes[pendingValueMapTapeIdx];
+    // Restore pendingRawData from the tape's stored raw data
+    pendingRawData = tape._rawData;
+    // Restore column mapping
+    columnMapping = tape.columnMapping ? { ...tape.columnMapping } : {};
+    // Remove the tape
+    tapes.splice(pendingValueMapTapeIdx, 1);
+    // Refresh loans
+    loans = [];
+    tapes.forEach(t => loans.push(...t.loans));
+  }
+  document.getElementById('valuemap-overlay').classList.remove('active');
+  pendingValueMaps = {};
+  pendingValueMapTapeIdx = -1;
+  // Re-open column mapping modal
+  if (pendingRawData) {
+    const sourceColumns = Object.keys(pendingRawData[0]);
+    document.getElementById('mapping-col-count').textContent = sourceColumns.length;
+    renderMappingRows(sourceColumns, {});
+    updateMappingStatus();
+    document.getElementById('mapping-overlay').classList.add('active');
+  }
 }
 
 // ============================================================
@@ -2607,7 +2665,9 @@ function renderComparison() {
   </div>`;
 
   // ---- 5. FACILITY TYPE MIX COMPARISON ----
+  const facChartId = 'comp-chart-facility-' + Date.now();
   const hasFacility = seriesData.some(d => d.loans.some(l => l.facility_type && String(l.facility_type).trim()));
+  const topFacilities = [];
   if (hasFacility) {
     const allFacilities = {};
     seriesData.forEach(d => d.loans.forEach(l => { if (l.facility_type && String(l.facility_type).trim()) allFacilities[l.facility_type] = true; }));
@@ -2616,24 +2676,30 @@ function renderComparison() {
     facilityNames.forEach(f => {
       facTotals[f] = seriesData.reduce((sm, d) => sm + d.loans.filter(l => l.facility_type === f).reduce((s, l) => s + l.outstanding_balance, 0), 0);
     });
-    const topFacilities = Object.entries(facTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]);
+    topFacilities.push(...Object.entries(facTotals).sort((a, b) => b[1] - a[1]).slice(0, 10).map(e => e[0]));
 
+    // Build header: per series show % / Outstanding / # columns
+    const facHdrCells = seriesData.map(d => `<th class="right" colspan="3" style="border-bottom:2px solid var(--border);">${escapeHtml(d.name)}</th>`).join('');
+    const facSubHdr = seriesData.map(() => `<th class="right" style="font-size:10px;font-weight:500;color:var(--text-muted);">%</th><th class="right" style="font-size:10px;font-weight:500;color:var(--text-muted);">Outstanding</th><th class="right" style="font-size:10px;font-weight:500;color:var(--text-muted);">#</th>`).join('');
     let facRows = topFacilities.map(f => {
       const cells = seriesData.map(d => {
         const bal = d.loans.filter(l => l.facility_type === f).reduce((sm, l) => sm + l.outstanding_balance, 0);
         const cnt = d.loans.filter(l => l.facility_type === f).length;
         const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) : '0.0';
-        return `<td class="mono right">${pct}%<span style="font-size:10px;color:var(--text-muted);margin-left:4px;">(${cnt})</span></td>`;
+        return `<td class="mono right">${pct}%</td><td class="mono right" style="font-size:11px;">${fmtM(bal)}</td><td class="mono right" style="color:var(--text-muted);">${cnt}</td>`;
       }).join('');
       return `<tr><td style="font-size:12px;">${escapeHtml(f)}</td>${cells}</tr>`;
     }).join('');
 
     html += `<div class="card" style="margin-bottom:16px;">
       <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Facility Type Mix</h3>
-      <div class="table-scroll"><table>
-        <thead><tr><th>Type</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
-        <tbody>${facRows}</tbody>
-      </table></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
+        <div class="table-scroll"><table>
+          <thead><tr><th>Type</th>${facHdrCells}</tr><tr><th></th>${facSubHdr}</tr></thead>
+          <tbody>${facRows}</tbody>
+        </table></div>
+        <div style="position:relative;height:240px;"><canvas id="${facChartId}"></canvas></div>
+      </div>
     </div>`;
   }
 
@@ -2665,7 +2731,7 @@ function renderComparison() {
   }).join('');
 
   html += `<div class="card" style="margin-bottom:16px;">
-    <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Maturity Profile</h3>
+    <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Original Term</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start;">
       <div class="table-scroll"><table>
         <thead><tr><th>Band</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
@@ -2815,6 +2881,26 @@ function renderComparison() {
         }))
       },
       options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { boxWidth: 8, font: { size: 10 } } }, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + '%' } } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => v + '%', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
+    });
+  }
+
+  // Facility type chart — horizontal grouped bar
+  const facCtx = document.getElementById(facChartId);
+  if (facCtx && hasFacility && topFacilities.length > 0) {
+    comparisonCharts.facility = new Chart(facCtx, {
+      type: 'bar',
+      data: {
+        labels: topFacilities.map(f => f.length > 20 ? f.slice(0, 18) + '..' : f),
+        datasets: seriesData.map((d, i) => ({
+          label: d.name,
+          data: topFacilities.map(f => {
+            const bal = d.loans.filter(l => l.facility_type === f).reduce((sm, l) => sm + l.outstanding_balance, 0);
+            return d.outstanding > 0 ? ((bal / d.outstanding) * 100) : 0;
+          }),
+          backgroundColor: seriesColors[i], borderRadius: 2, borderWidth: 0
+        }))
+      },
+      options: { indexAxis: 'y', ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: true, labels: { boxWidth: 8, font: { size: 10 } } }, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.dataset.label + ': ' + ctx.raw.toFixed(1) + '%' } } }, scales: { x: { ticks: { color: '#8890a0', callback: v => v + '%', font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true }, y: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } } } }
     });
   }
 }
@@ -3303,7 +3389,7 @@ function renderOverviewWidgets() {
 
   // MATURITY PROFILE widget
   if (active.includes('maturityProfile')) {
-    html += `<div class="card ow-card"><h3>Maturity Profile</h3><div class="mini-chart-wrap"><canvas id="ow-chart-maturity"></canvas></div></div>`;
+    html += `<div class="card ow-card"><h3>Original Term</h3><div class="mini-chart-wrap"><canvas id="ow-chart-maturity"></canvas></div></div>`;
   }
 
   // ORIGINATION & MATURITY PROFILE widget
@@ -4164,62 +4250,109 @@ function renderDataTable() {
 // ============================================================
 //  EXPORT CSV — data tab only
 // ============================================================
+function csvEscape(val) {
+  if (val == null) return '';
+  const s = String(val);
+  if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
+  return s;
+}
+
 function exportCSV() {
   if (!loans.length) return;
   const fieldKeys = Object.keys(loans[0]);
-  const fieldLabels = {};
-  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
-  Object.values(customFieldDefs).forEach(cf => { fieldLabels[cf.key] = cf.label; });
+  const fieldLabelsMap = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabelsMap[f.key] = f.label; });
+  Object.values(customFieldDefs).forEach(cf => { fieldLabelsMap[cf.key] = cf.label; });
 
-  // Build CSV with summary header
   const st = computeStats();
   const meta = getActiveTapeMeta();
   const originators = [...new Set(meta.filter(m => m.originator).map(m => m.originator))];
   const cutoffs = [...new Set(meta.filter(m => m.cutoffDate).map(m => formatCutoffDate(m.cutoffDate)))];
+  const tot = st.totalOutstanding;
+  const n = loans.length;
   const csvParts = [];
 
-  // Summary section
+  // ---- SECTION 1: PORTFOLIO SUMMARY ----
   csvParts.push('PORTFOLIO SUMMARY');
-  if (originators.length > 0) csvParts.push('Originator(s),' + originators.join(' | '));
-  if (cutoffs.length > 0) csvParts.push('Cut-Off Date(s),' + cutoffs.join(' | '));
-  csvParts.push('Original Amount,' + st.totalOriginal);
-  csvParts.push('Outstanding Balance,' + st.totalOutstanding);
-  csvParts.push('Current Factor,' + fmtPct(st.utilisation));
-  csvParts.push('WA Interest Rate,' + fmtPct(st.wair));
-  csvParts.push('WA Remaining Term,' + convertTerm(st.waRem, displaySettings.termUnit));
-  csvParts.push('90+ Arrears %,' + fmtPct(st.arrears90Pct));
-  csvParts.push('Unique Borrowers,' + st.uniqueBorrowers);
-  csvParts.push('Receivables,' + loans.length);
-  csvParts.push('Tapes,' + tapes.length);
   csvParts.push('');
-  csvParts.push('TAPE DATA');
+  csvParts.push('Metric,Value');
+  if (originators.length > 0) csvParts.push('Originator(s),' + csvEscape(originators.join(', ')));
+  if (cutoffs.length > 0) csvParts.push('Cut-Off Date(s),' + csvEscape(cutoffs.join(', ')));
+  csvParts.push('Number of Receivables,' + n.toLocaleString());
+  csvParts.push('Original Amount,' + fmtFull(st.totalOriginal));
+  csvParts.push('Current Outstanding,' + fmtFull(st.totalOutstanding));
+  csvParts.push('Current Factor,' + (st.currentFactor * 100).toFixed(1) + '%');
+  csvParts.push('WA Interest Rate,' + fmtPct(st.wair));
+  csvParts.push('WA Original Term,' + convertTerm(st.waOrigTerm, displaySettings.termUnit));
+  csvParts.push('WA Remaining Term,' + convertTerm(st.waRem, displaySettings.termUnit));
+  csvParts.push('WA Seasoning,' + convertTerm(st.waSeasoning, displaySettings.termUnit));
+  csvParts.push('90+ DPD (% Bal),' + fmtPct(st.arrears90Pct));
+  csvParts.push('Default Rate,' + fmtPct(st.defaultPct));
+  csvParts.push('Unique Borrowers,' + st.uniqueBorrowers.toLocaleString());
+  csvParts.push('Average Facility Size,' + fmtFull(st.avgFacility));
+  csvParts.push('Number of Tapes,' + tapes.length);
+  csvParts.push('');
 
-  const labelRow = fieldKeys.map(k => {
-    const lbl = fieldLabels[k] || k;
-    return lbl.includes(',') ? '"' + lbl + '"' : lbl;
-  }).join(',');
-  const sourceRow = fieldKeys.map(k => {
-    const src = sourceColumnNames[k] || '';
-    return src.includes(',') ? '"' + src + '"' : src;
-  }).join(',');
+  // ---- SECTION 2: KEY STRATIFICATION ----
+  const stratFields = [
+    { key: 'facility_type', title: 'FACILITY TYPE BREAKDOWN' },
+    { key: 'sector', title: 'SECTOR BREAKDOWN' },
+    { key: 'region', title: 'REGIONAL BREAKDOWN' },
+    { key: 'credit_rating', title: 'CREDIT RATING BREAKDOWN' },
+    { key: 'lessee_type', title: 'LESSEE TYPE BREAKDOWN' }
+  ];
+  stratFields.forEach(sf => {
+    if (!loans.some(l => l[sf.key] && String(l[sf.key]).trim())) return;
+    const groups = {};
+    loans.forEach(l => {
+      const k = l[sf.key] || '(blank)';
+      if (k === '(blank)') return;
+      if (!groups[k]) groups[k] = { count: 0, balance: 0 };
+      groups[k].count++;
+      groups[k].balance += l.outstanding_balance;
+    });
+    const sorted = Object.entries(groups).sort((a, b) => b[1].balance - a[1].balance);
+    csvParts.push(sf.title);
+    csvParts.push('Category,# Loans,% Count,Balance,% Balance');
+    sorted.forEach(([label, data]) => {
+      csvParts.push([csvEscape(label), data.count.toLocaleString(), n > 0 ? ((data.count / n) * 100).toFixed(1) + '%' : '0%', fmtFull(data.balance), tot > 0 ? ((data.balance / tot) * 100).toFixed(1) + '%' : '0%'].join(','));
+    });
+    csvParts.push('');
+  });
+
+  // ---- SECTION 3: TOP 10 EXPOSURES ----
+  const bMap = {};
+  loans.forEach(l => { bMap[l.borrower_name || '(unknown)'] = (bMap[l.borrower_name || '(unknown)'] || 0) + l.outstanding_balance; });
+  const topBorrowers = Object.entries(bMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  csvParts.push('TOP 10 LESSEE EXPOSURES');
+  csvParts.push('#,Lessee,Balance,% Portfolio,Cumulative %');
+  let cumBal = 0;
+  topBorrowers.forEach(([name, bal], i) => {
+    cumBal += bal;
+    csvParts.push([(i + 1), csvEscape(name), fmtFull(bal), tot > 0 ? ((bal / tot) * 100).toFixed(2) + '%' : '0%', tot > 0 ? ((cumBal / tot) * 100).toFixed(1) + '%' : '0%'].join(','));
+  });
+  csvParts.push('');
+
+  // ---- SECTION 4: TAPE DATA ----
+  csvParts.push('TAPE DATA');
+  const labelRow = fieldKeys.map(k => csvEscape(fieldLabelsMap[k] || k)).join(',');
   csvParts.push(labelRow);
-  csvParts.push(sourceRow);
   loans.forEach(l => {
     csvParts.push(fieldKeys.map(h => {
       const val = l[h];
-      if (typeof val === 'boolean') return val ? '1' : '0';
-      const s = String(val);
-      if (s.includes(',') || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"';
-      return s;
+      if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+      if (typeof val === 'number') return val;
+      return csvEscape(val);
     }).join(','));
   });
 
   const csv = csvParts.join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'tape_export.csv';
+  const seriesLabel = activeSeries !== 'all' ? '_' + activeSeries.replace(/[^a-zA-Z0-9]/g, '_') : '';
+  a.download = 'tape_export' + seriesLabel + '.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -4308,16 +4441,18 @@ function exportXLSX() {
     ['Metric', 'Value'],
     ['Originator(s)', xlsOriginators.join(', ') || '-'],
     ['Cut-Off Date(s)', xlsCutoffs.join(', ') || '-'],
+    ['Number of Receivables', loans.length],
     ['Original Amount', st.totalOriginal],
-    ['Outstanding Balance', st.totalOutstanding],
-    ['Current Factor', fmtPct(st.utilisation)],
+    ['Current Outstanding', st.totalOutstanding],
+    ['Current Factor', (st.currentFactor * 100).toFixed(1) + '%'],
     ['WA Interest Rate', fmtPct(st.wair)],
+    ['WA Original Term', convertTerm(st.waOrigTerm, displaySettings.termUnit)],
     ['WA Remaining Term', convertTerm(st.waRem, displaySettings.termUnit)],
-    ['90+ Arrears %', fmtPct(st.arrears90Pct)],
+    ['WA Seasoning', convertTerm(st.waSeasoning, displaySettings.termUnit)],
+    ['90+ DPD (% Bal)', fmtPct(st.arrears90Pct)],
     ['Default Rate', fmtPct(st.defaultPct)],
     ['Unique Borrowers', st.uniqueBorrowers],
-    ['Average Facility', st.avgFacility],
-    ['Number of Receivables', loans.length],
+    ['Average Facility Size', st.avgFacility],
     ['Number of Tapes', tapes.length],
     ['Active Series', activeSeries]
   ];
@@ -4398,7 +4533,7 @@ function renderSettingsBody() {
     { key: 'keyRisks', label: 'Key Risk Metrics' },
     { key: 'topExposures', label: 'Top Lessee Exposures' },
     { key: 'facilityMix', label: 'Facility Type Mix Chart' },
-    { key: 'maturityProfile', label: 'Maturity Profile Chart' },
+    { key: 'maturityProfile', label: 'Original Term Chart' },
     { key: 'arrearsSnapshot', label: 'Arrears Snapshot' },
     { key: 'originationProfile', label: 'Origination & Maturity Profile' },
     { key: 'amortProfile', label: 'Amortisation Profile (French)' },
