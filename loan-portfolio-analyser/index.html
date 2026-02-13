@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loan Portfolio Analyser</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #131c31;
+      --surface-2: #1a2744;
+      --border: #243352;
+      --text: #e8edf5;
+      --text-muted: #7a8bb5;
+      --accent: #3b82f6;
+      --accent-light: #60a5fa;
+      --green: #22c55e;
+      --green-bg: rgba(34,197,94,0.1);
+      --red: #ef4444;
+      --red-bg: rgba(239,68,68,0.1);
+      --amber: #f59e0b;
+      --amber-bg: rgba(245,158,11,0.1);
+      --purple: #a855f7;
+      --radius: 10px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.3);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      line-height: 1.5;
+    }
+
+    /* --- NAV --- */
+    .nav {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 32px;
+      height: 56px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .nav-brand svg { width: 22px; height: 22px; }
+    .nav-actions { display: flex; gap: 10px; align-items: center; }
+
+    /* --- LAYOUT --- */
+    .container { max-width: 1400px; margin: 0 auto; padding: 24px 32px; }
+    .section { margin-bottom: 28px; }
+    .section-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 14px;
+    }
+
+    /* --- CARDS --- */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    /* --- STAT GRID --- */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 14px;
+    }
+    .stat-card { padding: 18px 16px; }
+    .stat-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 6px;
+    }
+    .stat-value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .stat-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+    .stat-value.green { color: var(--green); }
+    .stat-value.red { color: var(--red); }
+    .stat-value.amber { color: var(--amber); }
+    .stat-value.blue { color: var(--accent-light); }
+
+    /* --- UPLOAD --- */
+    .upload-area {
+      border: 2px dashed var(--border);
+      border-radius: var(--radius);
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      background: var(--surface);
+    }
+    .upload-area:hover, .upload-area.drag-over {
+      border-color: var(--accent);
+      background: rgba(59,130,246,0.05);
+    }
+    .upload-area svg { width: 40px; height: 40px; color: var(--text-muted); margin-bottom: 12px; }
+    .upload-title { font-size: 1rem; font-weight: 600; margin-bottom: 4px; }
+    .upload-sub { font-size: 0.85rem; color: var(--text-muted); }
+    .upload-area input { display: none; }
+
+    /* --- BUTTONS --- */
+    .btn {
+      padding: 8px 18px;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn-primary { background: var(--accent); color: #fff; }
+    .btn-outline { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-outline:hover { color: var(--text); border-color: var(--text-muted); }
+    .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+
+    /* --- CHART GRIDS --- */
+    .chart-grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .chart-grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 14px;
+    }
+    .chart-card { padding: 20px; }
+    .chart-card h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+    .chart-wrap { position: relative; height: 280px; }
+    .chart-wrap-sm { position: relative; height: 240px; }
+
+    /* --- RISK METRICS --- */
+    .risk-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+    .risk-card { text-align: center; padding: 24px 16px; }
+    .risk-value {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .risk-label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 8px;
+    }
+    .risk-bar {
+      height: 4px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 10px;
+    }
+    .risk-bar-fill {
+      height: 100%;
+      border-radius: 4px;
+      transition: width 0.5s;
+    }
+    .risk-desc {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+    }
+
+    /* --- TABLE --- */
+    .table-card { padding: 0; overflow: hidden; }
+    .table-header {
+      padding: 16px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .table-header h3 { font-size: 0.95rem; font-weight: 600; }
+    .table-scroll { max-height: 420px; overflow-y: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead th {
+      text-align: left;
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      background: var(--surface);
+    }
+    tbody td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.82rem;
+    }
+    tbody tr:hover { background: rgba(59,130,246,0.04); }
+    tbody tr:last-child td { border-bottom: none; }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.72rem;
+      font-weight: 600;
+    }
+    .badge-green { background: var(--green-bg); color: var(--green); }
+    .badge-red { background: var(--red-bg); color: var(--red); }
+    .badge-amber { background: var(--amber-bg); color: var(--amber); }
+
+    /* --- TABS --- */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); margin-bottom: 20px; }
+    .tab {
+      padding: 10px 20px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .tab:hover { color: var(--text); }
+    .tab.active { color: var(--accent-light); border-bottom-color: var(--accent); }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* --- HIDDEN UNTIL DATA --- */
+    .dashboard { display: none; }
+    .dashboard.active { display: block; }
+
+    /* --- RESPONSIVE --- */
+    @media (max-width: 1100px) {
+      .stat-grid { grid-template-columns: repeat(3, 1fr); }
+      .chart-grid-3 { grid-template-columns: 1fr 1fr; }
+      .risk-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 700px) {
+      .container { padding: 16px; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .chart-grid-2, .chart-grid-3 { grid-template-columns: 1fr; }
+      .risk-grid { grid-template-columns: 1fr; }
+    }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="M2 9h20"/><path d="M9 21V9"/></svg>
+    Loan Portfolio Analyser
+  </div>
+  <div class="nav-actions">
+    <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+    <button class="btn btn-primary btn-sm" onclick="loadSampleData()">Load Sample Data</button>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- UPLOAD -->
+  <div class="section" id="upload-section">
+    <div class="upload-area" id="upload-area">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      <div class="upload-title">Upload Loan Portfolio</div>
+      <div class="upload-sub">Drag &amp; drop a CSV or Excel file, or click to browse</div>
+      <div class="upload-sub" style="margin-top:8px; font-size:0.78rem;">Required fields: loan_id, borrower_name, sector, region, loan_amount, outstanding_balance, maturity_date, interest_rate, credit_rating, facility_type, default_flag</div>
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
+    </div>
+    <div style="text-align:center; margin-top:14px;">
+      <span style="color:var(--text-muted); font-size:0.85rem;">or</span>
+      <button class="btn btn-primary btn-sm" style="margin-left:8px;" onclick="loadSampleData()">Load Sample Dataset (200 loans)</button>
+    </div>
+  </div>
+
+  <!-- DASHBOARD -->
+  <div class="dashboard" id="dashboard">
+
+    <!-- TABS -->
+    <div class="tabs">
+      <div class="tab active" data-tab="overview">Overview</div>
+      <div class="tab" data-tab="concentration">Concentration Analysis</div>
+      <div class="tab" data-tab="risk">Risk Metrics</div>
+      <div class="tab" data-tab="data">Loan Data</div>
+    </div>
+
+    <!-- OVERVIEW TAB -->
+    <div class="tab-content active" id="tab-overview">
+      <div class="section">
+        <div class="stat-grid">
+          <div class="card stat-card">
+            <div class="stat-label">Portfolio Size</div>
+            <div class="stat-value blue" id="s-portfolio-size">-</div>
+            <div class="stat-sub" id="s-loan-count">-</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Outstanding Balance</div>
+            <div class="stat-value" id="s-outstanding">-</div>
+            <div class="stat-sub" id="s-utilisation">-</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Wtd Avg Interest Rate</div>
+            <div class="stat-value green" id="s-wair">-</div>
+            <div class="stat-sub">Weighted by balance</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Wtd Avg Maturity</div>
+            <div class="stat-value" id="s-wam">-</div>
+            <div class="stat-sub">Years to maturity</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Default Rate</div>
+            <div class="stat-value red" id="s-default-rate">-</div>
+            <div class="stat-sub" id="s-default-count">-</div>
+          </div>
+          <div class="card stat-card">
+            <div class="stat-label">Avg Loan Size</div>
+            <div class="stat-value" id="s-avg-loan">-</div>
+            <div class="stat-sub" id="s-median-loan">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Largest Exposures</div>
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th><th>Borrower</th><th>Sector</th><th>Outstanding</th><th>% of Portfolio</th><th>Rating</th><th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="top-exposures-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONCENTRATION TAB -->
+    <div class="tab-content" id="tab-concentration">
+      <div class="section">
+        <div class="chart-grid-2">
+          <div class="card chart-card">
+            <h3>Sector Concentration</h3>
+            <div class="chart-wrap"><canvas id="chart-sector"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h3>Regional Concentration</h3>
+            <div class="chart-wrap"><canvas id="chart-region"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="chart-grid-3">
+          <div class="card chart-card">
+            <h3>Credit Rating Distribution</h3>
+            <div class="chart-wrap"><canvas id="chart-rating"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h3>Top 10 Borrower Exposures</h3>
+            <div class="chart-wrap"><canvas id="chart-top10"></canvas></div>
+          </div>
+          <div class="card chart-card">
+            <h3>Maturity Profile</h3>
+            <div class="chart-wrap"><canvas id="chart-maturity"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RISK TAB -->
+    <div class="tab-content" id="tab-risk">
+      <div class="section">
+        <div class="section-title">Portfolio Risk Metrics</div>
+        <div class="risk-grid">
+          <div class="card risk-card">
+            <div class="risk-label">HHI (Name Concentration)</div>
+            <div class="risk-value blue" id="r-hhi">-</div>
+            <div class="risk-bar"><div class="risk-bar-fill" id="r-hhi-bar" style="width:0; background:var(--accent);"></div></div>
+            <div class="risk-desc" id="r-hhi-desc">-</div>
+          </div>
+          <div class="card risk-card">
+            <div class="risk-label">Largest Single Exposure</div>
+            <div class="risk-value amber" id="r-largest">-</div>
+            <div class="risk-bar"><div class="risk-bar-fill" id="r-largest-bar" style="width:0; background:var(--amber);"></div></div>
+            <div class="risk-desc" id="r-largest-desc">-</div>
+          </div>
+          <div class="card risk-card">
+            <div class="risk-label">Weighted Avg Life</div>
+            <div class="risk-value green" id="r-wal">-</div>
+            <div class="risk-bar"><div class="risk-bar-fill" id="r-wal-bar" style="width:0; background:var(--green);"></div></div>
+            <div class="risk-desc">Years, weighted by outstanding balance</div>
+          </div>
+          <div class="card risk-card">
+            <div class="risk-label">Expected Loss (PD x LGD x EAD)</div>
+            <div class="risk-value red" id="r-el">-</div>
+            <div class="risk-bar"><div class="risk-bar-fill" id="r-el-bar" style="width:0; background:var(--red);"></div></div>
+            <div class="risk-desc" id="r-el-desc">-</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="card" style="padding:24px;">
+          <h3 style="font-size:0.9rem; margin-bottom:12px;">Expected Loss Assumptions</h3>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:14px;">
+            <div>
+              <div class="stat-label">PD (Probability of Default)</div>
+              <div style="font-size:0.85rem; color:var(--text-muted);">Derived from historical default rate in portfolio</div>
+            </div>
+            <div>
+              <div class="stat-label">LGD (Loss Given Default)</div>
+              <div style="font-size:0.85rem; color:var(--text-muted);">Assumed 40% for senior unsecured</div>
+            </div>
+            <div>
+              <div class="stat-label">EAD (Exposure at Default)</div>
+              <div style="font-size:0.85rem; color:var(--text-muted);">Total outstanding balance of portfolio</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DATA TAB -->
+    <div class="tab-content" id="tab-data">
+      <div class="section">
+        <div class="card table-card">
+          <div class="table-header">
+            <h3 id="data-table-title">Loan Data</h3>
+            <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+          </div>
+          <div class="table-scroll" style="max-height:600px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Loan ID</th><th>Borrower</th><th>Sector</th><th>Region</th><th>Loan Amt</th><th>Outstanding</th><th>Maturity</th><th>Rate</th><th>Rating</th><th>Facility</th><th>Default</th>
+                </tr>
+              </thead>
+              <tbody id="data-table-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  STATE
+// ============================================================
+let loans = [];
+let charts = {};
+
+// ============================================================
+//  CHART COLORS
+// ============================================================
+const COLORS = [
+  '#3b82f6','#22c55e','#f59e0b','#ef4444','#a855f7',
+  '#06b6d4','#ec4899','#f97316','#14b8a6','#8b5cf6',
+  '#64748b','#e11d48','#0ea5e9','#84cc16','#d946ef'
+];
+
+// ============================================================
+//  FILE UPLOAD
+// ============================================================
+const uploadArea = document.getElementById('upload-area');
+const fileInput = document.getElementById('file-input');
+
+uploadArea.addEventListener('click', () => fileInput.click());
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadArea.classList.remove('drag-over');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (ext === 'csv') {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: r => { loans = normalizeData(r.data); renderDashboard(); }
+    });
+  } else if (ext === 'xlsx' || ext === 'xls') {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+      const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      loans = normalizeData(data);
+      renderDashboard();
+    };
+    reader.readAsArrayBuffer(file);
+  }
+}
+
+function normalizeData(data) {
+  return data.map((row, i) => ({
+    loan_id: row.loan_id || row.Loan_ID || row.LoanID || `L${i+1}`,
+    borrower_name: row.borrower_name || row.Borrower_Name || row.Borrower || '',
+    sector: row.sector || row.Sector || '',
+    region: row.region || row.Region || '',
+    loan_amount: parseNum(row.loan_amount || row.Loan_Amount || row.LoanAmount || 0),
+    outstanding_balance: parseNum(row.outstanding_balance || row.Outstanding_Balance || row.OutstandingBalance || 0),
+    maturity_date: row.maturity_date || row.Maturity_Date || row.MaturityDate || '',
+    interest_rate: parseNum(row.interest_rate || row.Interest_Rate || row.InterestRate || 0),
+    credit_rating: row.credit_rating || row.Credit_Rating || row.CreditRating || '',
+    facility_type: row.facility_type || row.Facility_Type || row.FacilityType || '',
+    default_flag: parseDefault(row.default_flag ?? row.Default_Flag ?? row.DefaultFlag ?? 0)
+  }));
+}
+
+function parseNum(v) { const n = parseFloat(String(v).replace(/[,$%]/g, '')); return isNaN(n) ? 0 : n; }
+function parseDefault(v) { return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'yes' || String(v).toLowerCase() === 'true'; }
+
+// ============================================================
+//  SAMPLE DATA GENERATOR
+// ============================================================
+function loadSampleData() {
+  const sectors = ['Technology','Healthcare','Energy','Real Estate','Manufacturing','Financial Services','Retail','Telecommunications','Infrastructure','Agriculture'];
+  const regions = ['North America','Europe','Asia Pacific','Latin America','Middle East & Africa','UK & Ireland'];
+  const ratings = ['AAA','AA','A','BBB','BB','B','CCC'];
+  const ratingWeights = [0.03, 0.08, 0.18, 0.30, 0.22, 0.13, 0.06];
+  const facilities = ['Term Loan','Revolving Credit','Bridge Loan','Mezzanine','Syndicated Loan','Bilateral Loan'];
+  const borrowers = [
+    'Apex Industries','Meridian Corp','Vanguard Holdings','Pinnacle Group','Summit Capital',
+    'Nova Technologies','Atlas Ventures','Horizon Partners','Sentinel Holdings','Crestview Capital',
+    'Quantum Systems','Orion Financial','Sterling Resources','Pacific Holdings','Continental Corp',
+    'Vertex Solutions','Cascade Enterprises','Phoenix Group','Titan Infrastructure','Polaris Energy',
+    'Aegis Healthcare','Northstar Retail','Keystone Manufacturing','Silverline Tech','Bridgewater Inc',
+    'Ascent Capital','Trident Corp','Eclipse Partners','Beacon Industries','Catalyst Holdings',
+    'Zenith Financial','Nexus Group','Paramount Resources','Fortis Energy','Emerald Holdings',
+    'Sapphire Corp','Cobalt Industries','Granite Partners','Ironwood Capital','Copper Ridge LLC',
+    'Highland Ventures','Redwood Group','Whitecap Energy','Blueshift Tech','Greenfield Agri',
+    'Stonebridge Capital','Lakeview Holdings','Ridgeline Corp','Windward Partners','Sunbelt Industries',
+    'Cloudpeak Tech','Riverbend Corp','Timberland Holdings','Goldcrest Capital','Deepwater Energy',
+    'Starlight Ventures','Falcon Group','Eagle Point Capital','Westfield Industries','Northwind Holdings',
+    'Bluestone Financial','Irongate Corp','Clearwater Partners','Silverpeak Energy','Maplewood Group',
+    'Oakmont Capital','Cedarwood Holdings','Pinecrest Corp','Willowbrook Partners','Elmwood Industries',
+    'Birchwood Group','Ashton Holdings','Hartwell Capital','Cromwell Partners','Lancaster Corp',
+    'Winchester Group','Stratford Holdings','Cambridge Capital','Ashford Partners','Harrington Corp',
+    'Kingsley Industries','Weston Group','Fairfield Holdings','Brookfield Capital','Eastwood Partners'
+  ];
+
+  function weightedRandom(weights) {
+    const r = Math.random();
+    let cum = 0;
+    for (let i = 0; i < weights.length; i++) {
+      cum += weights[i];
+      if (r <= cum) return i;
+    }
+    return weights.length - 1;
+  }
+
+  function randomDate(startYear, endYear) {
+    const y = startYear + Math.floor(Math.random() * (endYear - startYear + 1));
+    const m = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
+    const d = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  const data = [];
+  for (let i = 1; i <= 200; i++) {
+    const ratingIdx = weightedRandom(ratingWeights);
+    const rating = ratings[ratingIdx];
+    const loanAmt = Math.round((500000 + Math.random() * 49500000) / 10000) * 10000;
+    const util = 0.4 + Math.random() * 0.55;
+    const outstanding = Math.round(loanAmt * util / 1000) * 1000;
+    const baseRate = 2.5 + ratingIdx * 0.8;
+    const rate = Math.round((baseRate + (Math.random() - 0.5) * 1.5) * 100) / 100;
+    const defaultProb = [0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2][ratingIdx];
+    const isDefault = Math.random() < defaultProb;
+
+    data.push({
+      loan_id: `LN-${String(i).padStart(4, '0')}`,
+      borrower_name: borrowers[Math.floor(Math.random() * borrowers.length)],
+      sector: sectors[Math.floor(Math.random() * sectors.length)],
+      region: regions[Math.floor(Math.random() * regions.length)],
+      loan_amount: loanAmt,
+      outstanding_balance: outstanding,
+      maturity_date: randomDate(2025, 2032),
+      interest_rate: Math.max(1, rate),
+      credit_rating: rating,
+      facility_type: facilities[Math.floor(Math.random() * facilities.length)],
+      default_flag: isDefault
+    });
+  }
+
+  loans = data;
+  renderDashboard();
+}
+
+// ============================================================
+//  FORMATTING HELPERS
+// ============================================================
+function fmtM(v) {
+  if (v >= 1e9) return '$' + (v / 1e9).toFixed(2) + 'B';
+  if (v >= 1e6) return '$' + (v / 1e6).toFixed(1) + 'M';
+  if (v >= 1e3) return '$' + (v / 1e3).toFixed(0) + 'K';
+  return '$' + v.toFixed(0);
+}
+function fmtFull(v) { return '$' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function fmtPct(v) { return v.toFixed(2) + '%'; }
+function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ============================================================
+//  TABS
+// ============================================================
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// ============================================================
+//  RENDER DASHBOARD
+// ============================================================
+function renderDashboard() {
+  document.getElementById('upload-section').style.display = 'none';
+  document.getElementById('dashboard').classList.add('active');
+
+  renderStats();
+  renderTopExposures();
+  renderCharts();
+  renderRiskMetrics();
+  renderDataTable();
+}
+
+// ============================================================
+//  STATS
+// ============================================================
+function renderStats() {
+  const totalOriginal = loans.reduce((s, l) => s + l.loan_amount, 0);
+  const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const defaults = loans.filter(l => l.default_flag);
+  const defaultRate = (defaults.length / loans.length) * 100;
+
+  // Weighted average interest rate (by outstanding balance)
+  const wair = totalOutstanding > 0
+    ? loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / totalOutstanding
+    : 0;
+
+  // Weighted average maturity (years from now)
+  const now = new Date();
+  const wam = totalOutstanding > 0
+    ? loans.reduce((s, l) => {
+        const mat = new Date(l.maturity_date);
+        const years = Math.max(0, (mat - now) / (365.25 * 86400000));
+        return s + years * l.outstanding_balance;
+      }, 0) / totalOutstanding
+    : 0;
+
+  const avgLoan = totalOriginal / loans.length;
+  const sortedAmounts = loans.map(l => l.loan_amount).sort((a, b) => a - b);
+  const medianLoan = sortedAmounts[Math.floor(sortedAmounts.length / 2)];
+  const utilisation = totalOriginal > 0 ? (totalOutstanding / totalOriginal) * 100 : 0;
+
+  document.getElementById('s-portfolio-size').textContent = fmtM(totalOriginal);
+  document.getElementById('s-loan-count').textContent = loans.length + ' loans';
+  document.getElementById('s-outstanding').textContent = fmtM(totalOutstanding);
+  document.getElementById('s-utilisation').textContent = fmtPct(utilisation) + ' utilisation';
+  document.getElementById('s-wair').textContent = fmtPct(wair);
+  document.getElementById('s-wam').textContent = wam.toFixed(1) + ' yrs';
+  document.getElementById('s-default-rate').textContent = fmtPct(defaultRate);
+  document.getElementById('s-default-count').textContent = defaults.length + ' defaults';
+  document.getElementById('s-avg-loan').textContent = fmtM(avgLoan);
+  document.getElementById('s-median-loan').textContent = 'Median: ' + fmtM(medianLoan);
+}
+
+// ============================================================
+//  TOP EXPOSURES TABLE
+// ============================================================
+function renderTopExposures() {
+  const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const sorted = [...loans].sort((a, b) => b.outstanding_balance - a.outstanding_balance).slice(0, 10);
+
+  document.getElementById('top-exposures-body').innerHTML = sorted.map((l, i) => {
+    const pct = ((l.outstanding_balance / totalOutstanding) * 100).toFixed(2);
+    const statusClass = l.default_flag ? 'badge-red' : 'badge-green';
+    const statusText = l.default_flag ? 'Default' : 'Performing';
+    return `<tr>
+      <td>${i + 1}</td>
+      <td>${escapeHtml(l.borrower_name)}</td>
+      <td>${escapeHtml(l.sector)}</td>
+      <td>${fmtFull(l.outstanding_balance)}</td>
+      <td>${pct}%</td>
+      <td>${escapeHtml(l.credit_rating)}</td>
+      <td><span class="badge ${statusClass}">${statusText}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+//  CHARTS
+// ============================================================
+const chartDefaults = {
+  responsive: true,
+  maintainAspectRatio: false,
+  plugins: {
+    legend: { labels: { color: '#7a8bb5', font: { size: 11 }, padding: 12, boxWidth: 12 } },
+    tooltip: { backgroundColor: '#1a2744', titleColor: '#e8edf5', bodyColor: '#e8edf5', borderColor: '#243352', borderWidth: 1 }
+  }
+};
+
+function destroyCharts() {
+  Object.values(charts).forEach(c => c.destroy());
+  charts = {};
+}
+
+function renderCharts() {
+  destroyCharts();
+
+  const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+
+  // --- Sector Pie ---
+  const sectorMap = groupBy(loans, 'sector', 'outstanding_balance');
+  charts.sector = new Chart(document.getElementById('chart-sector'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(sectorMap),
+      datasets: [{ data: Object.values(sectorMap), backgroundColor: COLORS, borderWidth: 0 }]
+    },
+    options: {
+      ...chartDefaults,
+      cutout: '55%',
+      plugins: {
+        ...chartDefaults.plugins,
+        tooltip: {
+          ...chartDefaults.plugins.tooltip,
+          callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + ((ctx.raw / totalOutstanding) * 100).toFixed(1) + '%)' }
+        }
+      }
+    }
+  });
+
+  // --- Region Pie ---
+  const regionMap = groupBy(loans, 'region', 'outstanding_balance');
+  charts.region = new Chart(document.getElementById('chart-region'), {
+    type: 'doughnut',
+    data: {
+      labels: Object.keys(regionMap),
+      datasets: [{ data: Object.values(regionMap), backgroundColor: COLORS.slice(5).concat(COLORS.slice(0, 5)), borderWidth: 0 }]
+    },
+    options: {
+      ...chartDefaults,
+      cutout: '55%',
+      plugins: {
+        ...chartDefaults.plugins,
+        tooltip: {
+          ...chartDefaults.plugins.tooltip,
+          callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + ((ctx.raw / totalOutstanding) * 100).toFixed(1) + '%)' }
+        }
+      }
+    }
+  });
+
+  // --- Credit Rating Bar ---
+  const ratingOrder = ['AAA','AA+','AA','AA-','A+','A','A-','BBB+','BBB','BBB-','BB+','BB','BB-','B+','B','B-','CCC+','CCC','CCC-','CC','C','D'];
+  const ratingMap = groupBy(loans, 'credit_rating', 'outstanding_balance');
+  const ratingLabels = ratingOrder.filter(r => ratingMap[r]);
+  const ratingExtra = Object.keys(ratingMap).filter(r => !ratingOrder.includes(r)).sort();
+  const allRatings = ratingLabels.concat(ratingExtra);
+
+  charts.rating = new Chart(document.getElementById('chart-rating'), {
+    type: 'bar',
+    data: {
+      labels: allRatings,
+      datasets: [{
+        label: 'Outstanding Balance',
+        data: allRatings.map(r => ratingMap[r] || 0),
+        backgroundColor: allRatings.map((_, i) => COLORS[i % COLORS.length]),
+        borderRadius: 4,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: { ...chartDefaults.plugins, legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7a8bb5' }, grid: { display: false } },
+        y: { ticks: { color: '#7a8bb5', callback: v => fmtM(v) }, grid: { color: 'rgba(36,51,82,0.6)' }, beginAtZero: true }
+      }
+    }
+  });
+
+  // --- Top 10 Borrowers Bar ---
+  const borrowerMap = {};
+  loans.forEach(l => { borrowerMap[l.borrower_name] = (borrowerMap[l.borrower_name] || 0) + l.outstanding_balance; });
+  const top10 = Object.entries(borrowerMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+
+  charts.top10 = new Chart(document.getElementById('chart-top10'), {
+    type: 'bar',
+    data: {
+      labels: top10.map(b => b[0].length > 18 ? b[0].slice(0, 16) + '..' : b[0]),
+      datasets: [{
+        label: 'Exposure',
+        data: top10.map(b => b[1]),
+        backgroundColor: '#3b82f6',
+        borderRadius: 4,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      indexAxis: 'y',
+      plugins: { ...chartDefaults.plugins, legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7a8bb5', callback: v => fmtM(v) }, grid: { color: 'rgba(36,51,82,0.6)' }, beginAtZero: true },
+        y: { ticks: { color: '#7a8bb5', font: { size: 10 } }, grid: { display: false } }
+      }
+    }
+  });
+
+  // --- Maturity Profile Histogram ---
+  const now = new Date();
+  const buckets = { '< 1yr': 0, '1-2yr': 0, '2-3yr': 0, '3-5yr': 0, '5-7yr': 0, '7-10yr': 0, '10yr+': 0 };
+  loans.forEach(l => {
+    const years = Math.max(0, (new Date(l.maturity_date) - now) / (365.25 * 86400000));
+    if (years < 1) buckets['< 1yr'] += l.outstanding_balance;
+    else if (years < 2) buckets['1-2yr'] += l.outstanding_balance;
+    else if (years < 3) buckets['2-3yr'] += l.outstanding_balance;
+    else if (years < 5) buckets['3-5yr'] += l.outstanding_balance;
+    else if (years < 7) buckets['5-7yr'] += l.outstanding_balance;
+    else if (years < 10) buckets['7-10yr'] += l.outstanding_balance;
+    else buckets['10yr+'] += l.outstanding_balance;
+  });
+
+  charts.maturity = new Chart(document.getElementById('chart-maturity'), {
+    type: 'bar',
+    data: {
+      labels: Object.keys(buckets),
+      datasets: [{
+        label: 'Outstanding',
+        data: Object.values(buckets),
+        backgroundColor: '#22c55e',
+        borderRadius: 4,
+        borderWidth: 0
+      }]
+    },
+    options: {
+      ...chartDefaults,
+      plugins: { ...chartDefaults.plugins, legend: { display: false } },
+      scales: {
+        x: { ticks: { color: '#7a8bb5' }, grid: { display: false } },
+        y: { ticks: { color: '#7a8bb5', callback: v => fmtM(v) }, grid: { color: 'rgba(36,51,82,0.6)' }, beginAtZero: true }
+      }
+    }
+  });
+}
+
+function groupBy(arr, key, sumKey) {
+  const map = {};
+  arr.forEach(item => { map[item[key]] = (map[item[key]] || 0) + item[sumKey]; });
+  return Object.fromEntries(Object.entries(map).sort((a, b) => b[1] - a[1]));
+}
+
+// ============================================================
+//  RISK METRICS
+// ============================================================
+function renderRiskMetrics() {
+  const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const now = new Date();
+
+  // HHI (Name Concentration) - sum of squared market shares
+  const borrowerMap = {};
+  loans.forEach(l => { borrowerMap[l.borrower_name] = (borrowerMap[l.borrower_name] || 0) + l.outstanding_balance; });
+  const hhi = Object.values(borrowerMap).reduce((s, v) => s + Math.pow(v / totalOutstanding, 2), 0) * 10000;
+
+  let hhiLevel;
+  if (hhi < 1000) hhiLevel = 'Low concentration (well diversified)';
+  else if (hhi < 1800) hhiLevel = 'Moderate concentration';
+  else hhiLevel = 'High concentration';
+
+  document.getElementById('r-hhi').textContent = Math.round(hhi).toLocaleString();
+  document.getElementById('r-hhi-bar').style.width = Math.min(100, hhi / 100) + '%';
+  document.getElementById('r-hhi-desc').textContent = hhiLevel;
+
+  // Largest single exposure
+  const largestExposure = Math.max(...Object.values(borrowerMap));
+  const largestPct = (largestExposure / totalOutstanding) * 100;
+  const largestName = Object.entries(borrowerMap).find(([_, v]) => v === largestExposure)[0];
+
+  document.getElementById('r-largest').textContent = fmtPct(largestPct);
+  document.getElementById('r-largest-bar').style.width = Math.min(100, largestPct * 5) + '%';
+  document.getElementById('r-largest-desc').textContent = largestName + ' — ' + fmtM(largestExposure);
+
+  // Weighted Average Life
+  const wal = totalOutstanding > 0
+    ? loans.reduce((s, l) => {
+        const years = Math.max(0, (new Date(l.maturity_date) - now) / (365.25 * 86400000));
+        return s + years * l.outstanding_balance;
+      }, 0) / totalOutstanding
+    : 0;
+
+  document.getElementById('r-wal').textContent = wal.toFixed(2) + ' yrs';
+  document.getElementById('r-wal-bar').style.width = Math.min(100, wal * 10) + '%';
+
+  // Expected Loss = PD x LGD x EAD
+  const defaultCount = loans.filter(l => l.default_flag).length;
+  const pd = defaultCount / loans.length;
+  const lgd = 0.40; // 40% assumption
+  const ead = totalOutstanding;
+  const el = pd * lgd * ead;
+  const elPct = (el / totalOutstanding) * 100;
+
+  document.getElementById('r-el').textContent = fmtM(el);
+  document.getElementById('r-el-bar').style.width = Math.min(100, elPct * 10) + '%';
+  document.getElementById('r-el-desc').textContent = 'PD: ' + fmtPct(pd * 100) + ' | LGD: 40% | EL as % of portfolio: ' + fmtPct(elPct);
+}
+
+// ============================================================
+//  DATA TABLE
+// ============================================================
+function renderDataTable() {
+  document.getElementById('data-table-title').textContent = `Loan Data (${loans.length} records)`;
+  document.getElementById('data-table-body').innerHTML = loans.map(l => {
+    const statusClass = l.default_flag ? 'badge-red' : 'badge-green';
+    const statusText = l.default_flag ? 'Yes' : 'No';
+    return `<tr>
+      <td>${escapeHtml(l.loan_id)}</td>
+      <td>${escapeHtml(l.borrower_name)}</td>
+      <td>${escapeHtml(l.sector)}</td>
+      <td>${escapeHtml(l.region)}</td>
+      <td>${fmtFull(l.loan_amount)}</td>
+      <td>${fmtFull(l.outstanding_balance)}</td>
+      <td>${l.maturity_date}</td>
+      <td>${l.interest_rate.toFixed(2)}%</td>
+      <td>${escapeHtml(l.credit_rating)}</td>
+      <td>${escapeHtml(l.facility_type)}</td>
+      <td><span class="badge ${statusClass}">${statusText}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+// ============================================================
+//  EXPORT CSV
+// ============================================================
+function exportCSV() {
+  if (!loans.length) return;
+  const headers = ['loan_id','borrower_name','sector','region','loan_amount','outstanding_balance','maturity_date','interest_rate','credit_rating','facility_type','default_flag'];
+  const rows = loans.map(l => headers.map(h => {
+    const val = l[h];
+    if (typeof val === 'boolean') return val ? '1' : '0';
+    if (typeof val === 'string' && val.includes(',')) return '"' + val + '"';
+    return val;
+  }).join(','));
+  const csv = headers.join(',') + '\n' + rows.join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'loan_portfolio_export.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+</script>
+</body>
+</html>
