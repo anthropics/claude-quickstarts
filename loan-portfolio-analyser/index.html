@@ -1005,11 +1005,14 @@ let columnMappingMemory = {}; // { normalised_source_col: template_field_key }
 
 // Configurable predefined options per field — users can add/edit/delete
 let fieldOptions = {
-  facility_type:       ['Loan', 'Hire Purchase', 'Finance Lease', 'Operating Lease', 'Refinance'],
-  bbb_guarantee:       ['None', 'GGS', 'RLS'],
+  facility_type:       ['Loan', 'Hire Purchase', 'Finance Lease', 'Operating Lease', 'Refinance', 'Sale and Leaseback'],
   loan_status:         ['Live', 'Repaid', 'Defaulted', 'Written Off', 'Restructured', 'Settled Early'],
-  arrears_status:      ['Current', '1-30 days', '31-60 days', '61-90 days', '>90 days'],
-  customer_segment:    ['SME', 'Mid-Market', 'Large Corporate', 'Micro Enterprise', 'Sole Trader'],
+  legal_form:          ['Limited Company', 'Sole Trader', 'Partnership', 'LLP', 'PLC', 'Charity', 'Trust', 'Individual'],
+  cca_regulated:       ['Yes', 'No'],
+  prefunded:           ['Yes', 'No'],
+  refinancing:         ['Yes', 'No'],
+  other_schemes:       ['None', 'GGS', 'RLS', 'CBILS', 'BBLS', 'Other'],
+  payment_method:      ['Direct Debit', 'Standing Order', 'BACS', 'Cheque', 'Other'],
   // payment_frequency removed from defaults per user request
   interest_rate_type:  ['Fixed', 'Floating', 'Mixed'],
   repayment_method:    ['Level', 'Reducing', 'Balloon', 'Seasonal', 'Stepped'],
@@ -1159,6 +1162,7 @@ function updateNav(view) {
       <button class="btn btn-nav btn-sm" onclick="openSettings()">Settings</button>
       <button class="btn btn-nav btn-sm" onclick="addAnotherTape()">+ Add Tape</button>
       <button class="btn btn-nav btn-sm" onclick="exportXLSX()">Export XLSX</button>
+      <button class="btn btn-nav btn-sm" onclick="exportHarmonisedTape()">Export Tape</button>
       <button class="btn btn-nav btn-sm" onclick="goHome()">Reset</button>
     `;
   }
@@ -1316,42 +1320,39 @@ const TEMPLATE_FIELDS = [
   { key: 'loan_amount',         label: 'Original Balance',    required: true,  type: 'number' },
   { key: 'outstanding_balance', label: 'Current Outstanding', required: true,  type: 'number' },
   // Core (optional)
-  { key: 'sector',              label: 'Sector / SIC',        required: false, type: 'string' },
+  { key: 'sector',              label: 'Sector',              required: false, type: 'string' },
   { key: 'sic_code',            label: 'SIC Code',            required: false, type: 'string' },
-  { key: 'nace_code',           label: 'NACE Code',           required: false, type: 'string' },
+  { key: 'ons_code',            label: 'ONS Code',            required: false, type: 'string' },
   { key: 'region',              label: 'Region',              required: false, type: 'string' },
   { key: 'maturity_date',       label: 'Maturity Date',       required: false, type: 'string' },
   { key: 'interest_rate',       label: 'Margin / Coupon',     required: false, type: 'number' },
-  { key: 'credit_rating',       label: 'Credit Rating',       required: false, type: 'string' },
   { key: 'facility_type',       label: 'Facility Type',       required: false, type: 'string' },
   { key: 'default_flag',        label: 'Default Flag',        required: false, type: 'boolean' },
   { key: 'loan_status',         label: 'Status',              required: false, type: 'string' },
-  { key: 'arrears_status',      label: 'Arrears Status',      required: false, type: 'string' },
   // Lease tape extensions
   { key: 'origination_date',    label: 'Origination Date',    required: false, type: 'string' },
   { key: 'original_term',       label: 'Original Term (m)',   required: false, type: 'number' },
   { key: 'remaining_term',      label: 'Remaining Term (m)',  required: false, type: 'number' },
+  { key: 'average_life',        label: 'Average Life',        required: false, type: 'number' },
   { key: 'currency',            label: 'Currency',            required: false, type: 'string' },
   { key: 'repayment_method',    label: 'Repayment Method',    required: false, type: 'string' },
+  { key: 'payment_method',      label: 'Payment Method',      required: false, type: 'string' },
   { key: 'amortisation_type',   label: 'Amortisation Type',   required: false, type: 'string' },
   { key: 'payment_frequency',   label: 'Payment Frequency',   required: false, type: 'string' },
   { key: 'interest_rate_type',  label: 'Interest Rate Type',  required: false, type: 'string' },
   { key: 'days_in_arrears',     label: 'Days in Arrears',     required: false, type: 'number' },
   { key: 'equipment_type',      label: 'Equipment Type',      required: false, type: 'string' },
   { key: 'asset_category',      label: 'Asset Category',      required: false, type: 'string' },
-  { key: 'asset_type',          label: 'Asset Type',          required: false, type: 'string' },
   { key: 'supplier',            label: 'Supplier / Vendor',   required: false, type: 'string' },
-  { key: 'deposit_amount',      label: 'Deposit Amount',      required: false, type: 'number' },
-  { key: 'deposit_pct',         label: 'Deposit %',           required: false, type: 'number' },
-  { key: 'vat_deferral',        label: 'VAT Deferral',        required: false, type: 'string' },
-  { key: 'customer_segment',    label: 'Customer Segment',    required: false, type: 'string' },
+  { key: 'legal_form',          label: 'Legal Form / Business Type', required: false, type: 'string' },
+  { key: 'cca_regulated',       label: 'CCA Regulated',       required: false, type: 'string' },
+  { key: 'prefunded',           label: 'Prefunded Receivable', required: false, type: 'string' },
+  { key: 'refinancing',         label: 'Refinancing Receivable', required: false, type: 'string' },
+  { key: 'other_schemes',       label: 'Other Schemes',       required: false, type: 'string' },
   { key: 'origination_channel', label: 'Origination Channel', required: false, type: 'string' },
   { key: 'balloon_pct',         label: 'Balloon %',           required: false, type: 'number' },
-  { key: 'postcode',            label: 'Postcode',            required: false, type: 'string' },
-  { key: 'bbb_guarantee',       label: 'BBB Guarantee',       required: false, type: 'string' },
   { key: 'broker',              label: 'Broker',              required: false, type: 'string' },
-  { key: 'originator',          label: 'Originator',          required: false, type: 'string' },
-  { key: 'lessee_type',         label: 'Lessee Type',         required: false, type: 'string' }
+  { key: 'originator',          label: 'Originator',          required: false, type: 'string' }
 ];
 
 const FIELD_ALIASES = {
@@ -1359,41 +1360,38 @@ const FIELD_ALIASES = {
   borrower_name:       ['borrower_name','borrowername','borrower name','borrower','obligor','obligor_name','obligorname','counterparty','counterparty_name','client','client_name','company','company_name','entity','entity_name','name','customer','customer_name','lessee','lessee_name','lessee_identifier','lesseeidentifier','lessee identifier','group_company_identifier','group company identifier'],
   sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','industry_classification','industry_description','sector_description'],
   sic_code:            ['sic_code','siccode','sic code','sic','sic_industry_code','sicindustrycode','sic industry code','sic_number','standard_industrial_classification','sic_division','uk_sic','uk sic'],
-  nace_code:           ['nace_code','nacecode','nace code','nace','nace_rev2','nace_classification','nace_section','eu_nace','nace_industry'],
+  ons_code:            ['ons_code','onscode','ons code','ons','ons_industry','onsindustry','ons_classification'],
   region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile','country_of_risk','area','uk_region','ukregion','uk region','asset_location','assetlocation','asset location'],
   loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size','facility_size','facilitysize','limit','facility_limit','original_principal_balance','originalprincipalbalance','original principal balance','original_balance','originalbalance','advance','advance_amount','advanceamount','advance amount','original_advance','originaladvance','original advance','total_advance','totaladvance'],
   outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','current_drawn','currentdrawn','utilised','utilised_amount','current_prin_outstanding_bal','currentprinoutstandingbal','current prin outstanding bal','current_principal','currentprincipal','current_principal_outstanding','currentprincipaloutstanding','current principal outstanding','principal_outstanding','principaloutstanding','current_outstanding','currentoutstanding'],
   maturity_date:       ['maturity_date','maturitydate','maturity date','maturity','mat_date','matdate','final_maturity','finalmaturity','end_date','enddate','expiry','expiry_date','expirydate','termination_date','repayment_date'],
   interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing','current_rate','margin_coupon','margincoupon','margin / coupon','margin/coupon'],
-  credit_rating:       ['credit_rating','creditrating','credit rating','rating','internal_rating','internalrating','external_rating','externalrating','risk_rating','riskrating','grade','risk_grade','credit_grade','pd_grade'],
   facility_type:       ['facility_type','facilitytype','facility type','type','loan_type','loantype','loan type','product','product_type','producttype','instrument','instrument_type','tranche','deal_type','type_of_lease','typeoflease','type of lease','lease_type','leasetype'],
   default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','workout','impaired','npl_flag','nplflag'],
   loan_status:         ['loan_status','loanstatus','loan status','status','account_status','accountstatus','account status','facility_status','facilitystatus','performing_status','performingstatus','performing status','contract_status','contractstatus'],
-  arrears_status:      ['arrears_status','arrearsstatus','arrears status','arrears_band','arrearsband','arrears band','arrears_category','collection_status','collectionstatus','delinquency_status','delinquencystatus'],
   origination_date:    ['origination_date','originationdate','origination date','lease_origination_date','leaseoriginationdate','lease origination date','start_date','startdate','start date','drawdown_date','inception_date','commencement_date','orig_date'],
   original_term:       ['original_term','originalterm','original term','orig_term','origterm','original_term_months','term_months','contractual_term','initial_term','lease_term','orig_term_months'],
   remaining_term:      ['remaining_term','remainingterm','remaining term','rem_term','remterm','remaining_term_months','residual_term','rem_term_months','months_remaining','time_to_maturity'],
+  average_life:        ['average_life','averagelife','average life','avg_life','avglife','weighted_average_life','weightedaveragelife','wal','expected_life','expectedlife','remaining_life'],
   currency:            ['currency','ccy','curr','iso_currency','currency_code','currencycode','denomination'],
   repayment_method:    ['repayment_method','repaymentmethod','repayment method','repayment_type','repaymenttype','repay_method'],
+  payment_method:      ['payment_method','paymentmethod','payment method','pay_method','paymethod','method_of_payment','collection_method','direct_debit'],
   amortisation_type:   ['amortisation_type','amortisationtype','amortisation type','amortization_type','amortizationtype','amort_type','amorttype','amortisation','amortization','amort_profile'],
   payment_frequency:   ['payment_frequency','paymentfrequency','payment frequency','pay_frequency','payfrequency','pay_freq','frequency','installment_frequency'],
   interest_rate_type:  ['interest_rate_type','interestratetype','interest rate type','rate_type','ratetype','rate type','fixed_floating','fixedfloating','fixed_or_floating','interest_type','interesttype','interest_rate_basis','interestratebasis','interest rate basis'],
   days_in_arrears:     ['days_in_arrears','daysinarrears','days in arrears','arrears_days','arrearsdays','dpd','days_past_due','dayspastdue','number_of_days_in_arrears','numberofdaysinarrears','number of days in arrears','days_in_arrear','arrears_amount_days','no_of_days_in_arrears','noofdaysinarrears'],
   equipment_type:      ['equipment_type','equipmenttype','equipment type','equipment','equipment_description','equipmentdescription','equipment_class','make_model','makemodel'],
   asset_category:      ['asset_category','assetcategory','asset category','asset_class','assetclass','asset class','collateral_category','collateralcategory'],
-  asset_type:          ['asset_type','assettype','asset type','collateral_type','collateraltype','asset_description','assetdescription'],
   supplier:            ['supplier','supplier_name','suppliername','vendor','vendor_name','vendorname','dealer','dealer_name','dealername','introducer','manufacturer'],
-  deposit_amount:      ['deposit_amount','depositamount','deposit amount','deposit','advance_payment','advancepayment','advance payment','upfront_payment','initial_payment'],
-  deposit_pct:         ['deposit_pct','depositpct','deposit_percentage','depositpercentage','deposit percentage','deposit_percent','deposit_%','advance_pct'],
-  vat_deferral:        ['vat_deferral','vatdeferral','vat deferral','vat_deferred','vatdeferred','vat deferred','vat_treatment','vattreatment','vat treatment','vat_status','vatstatus'],
-  customer_segment:    ['customer_segment','customersegment','customer segment','cust_segment','client_segment'],
+  legal_form:          ['legal_form','legalform','legal form','business_type','businesstype','business type','legal_entity_type','legalentitytype','legal entity type','entity_type','entitytype','entity type','lessee_type','lesseetype','lessee type','borrower_type','borrowertype','borrower type','company_type','companytype','company type','obligor_type','obligortype','obligor type','customer_type','customertype','lessee_entity_type','lesseeentitytype'],
+  cca_regulated:       ['cca_regulated','ccaregulated','cca regulated','cca','consumer_credit_act','consumercreditact','regulated','cca_flag','ccaflag','regulated_flag'],
+  prefunded:           ['prefunded','prefunded_receivable','prefundedreceivable','prefunded receivable','pre_funded','prefund','prefund_flag','prefundflag','pre_funded_flag'],
+  refinancing:         ['refinancing','refinancing_receivable','refinancingreceivable','refinancing receivable','refinanced','refi','refinance_flag','refinanceflag','refinancing_flag'],
+  other_schemes:       ['other_schemes','otherschemes','other schemes','scheme','schemes','government_scheme','governmentscheme','guarantee_scheme','guaranteescheme','guarantee scheme','bbb_guarantee','bbbguarantee','bbb guarantee','bbb_program','bbbprogram','bbb program','ggs','rls','government_guarantee','govguarantee','bbb_scheme','bbb scheme','guarantee_program','guarantee program','recovery_loan_scheme','growth_guarantee_scheme'],
   origination_channel: ['origination_channel','originationchannel','origination channel','channel','source','distribution_channel','sales_channel','origination_source','orig_channel'],
   balloon_pct:         ['balloon_pct','balloonpct','balloon_percentage','balloonpercentage','balloon percentage','balloon','residual_value_pct','residual_pct','rv_pct','balloon_pct_of_original','balloon_percent'],
-  postcode:            ['postcode','post_code','post code','zip','zip_code','zipcode','postal_code','postalcode','postal code'],
-  bbb_guarantee:       ['bbb_guarantee','bbbguarantee','bbb guarantee','bbb_program','bbbprogram','bbb program','guarantee_scheme','guaranteescheme','guarantee scheme','ggs','rls','government_guarantee','govguarantee','bbb_scheme','bbb scheme','guarantee_program','guarantee program','recovery_loan_scheme','growth_guarantee_scheme'],
   broker:              ['broker','broker_name','brokername','broker name','intermediary','intermediary_name','introducing_broker','introducingbroker','ib','broker_firm','brokerfirm'],
-  originator:          ['originator','originator_name','originatorname','originator name','lending_entity','lendingentity','lending entity','originating_entity','originatingentity','originating entity','lender','lender_name','lending_institution'],
-  lessee_type:         ['lessee_type','lesseetype','lessee type','lessee_entity_type','lesseeentitytype','borrower_type','borrowertype','borrower type','entity_type','entitytype','entity type','legal_form','legalform','legal form','company_type','companytype','company type','obligor_type','obligortype','obligor type','legal_entity_type','legalentitytype','customer_type','customertype']
+  originator:          ['originator','originator_name','originatorname','originator name','lending_entity','lendingentity','lending entity','originating_entity','originatingentity','originating entity','lender','lender_name','lending_institution']
 };
 
 // ============================================================
@@ -1910,12 +1908,6 @@ function applyMapping(data, rm, customRm) {
     }
   }
 
-  // Same detection for deposit_pct and balloon_pct
-  let depositPctMultiplier = 1;
-  if (rm.deposit_pct) {
-    const sampleDep = data.slice(0, 200).map(r => parseNum(r[rm.deposit_pct])).filter(v => v > 0);
-    if (sampleDep.length > 0 && sampleDep.filter(r => r < 1).length / sampleDep.length > 0.8) depositPctMultiplier = 100;
-  }
   let balloonMultiplier = 1;
   if (rm.balloon_pct) {
     const sampleBal = data.slice(0, 200).map(r => parseNum(r[rm.balloon_pct])).filter(v => v > 0);
@@ -1923,65 +1915,50 @@ function applyMapping(data, rm, customRm) {
   }
 
   return data.map((row, i) => {
-    const pc = rm.postcode ? String(row[rm.postcode] || '') : '';
     const explicitRegion = rm.region ? String(row[rm.region] || '') : '';
-    const region = normaliseRegion(explicitRegion) || normaliseRegion(postcodeToRegion(pc));
+    const region = normaliseRegion(explicitRegion);
     const sicCode = rm.sic_code ? String(row[rm.sic_code] || '') : '';
-    const naceCode = rm.nace_code ? String(row[rm.nace_code] || '') : '';
+    const onsCode = rm.ons_code ? String(row[rm.ons_code] || '') : '';
     const explicitSector = rm.sector ? String(row[rm.sector] || '') : '';
-    const sector = explicitSector || sicToSector(sicCode) || naceToSector(naceCode);
+    const sector = explicitSector || sicToSector(sicCode);
     const obj = {
       loan_id:             rm.loan_id ? String(row[rm.loan_id] || '') || `L${i+1}` : `L${i+1}`,
       borrower_name:       rm.borrower_name ? String(row[rm.borrower_name] || '') : '',
       sector:              sector,
       sic_code:            sicCode,
-      nace_code:           naceCode,
+      ons_code:            onsCode,
       region:              region,
       loan_amount:         rm.loan_amount ? parseNum(row[rm.loan_amount]) : 0,
       outstanding_balance: rm.outstanding_balance ? parseNum(row[rm.outstanding_balance]) : 0,
       maturity_date:       rm.maturity_date ? String(row[rm.maturity_date] || '') : '',
       interest_rate:       rm.interest_rate ? parseNum(row[rm.interest_rate]) * rateMultiplier : 0,
-      credit_rating:       rm.credit_rating ? String(row[rm.credit_rating] || '') : '',
       facility_type:       rm.facility_type ? String(row[rm.facility_type] || '') : '',
       default_flag:        rm.default_flag ? parseDefault(row[rm.default_flag]) : false,
       loan_status:         rm.loan_status ? String(row[rm.loan_status] || '') : '',
-      arrears_status:      rm.arrears_status ? String(row[rm.arrears_status] || '') : '',
       origination_date:    rm.origination_date ? String(row[rm.origination_date] || '') : '',
       original_term:       rm.original_term ? parseNum(row[rm.original_term]) : 0,
       remaining_term:      rm.remaining_term ? parseNum(row[rm.remaining_term]) : 0,
+      average_life:        rm.average_life ? parseNum(row[rm.average_life]) : 0,
       currency:            rm.currency ? String(row[rm.currency] || '') : '',
       repayment_method:    rm.repayment_method ? String(row[rm.repayment_method] || '') : '',
+      payment_method:      rm.payment_method ? String(row[rm.payment_method] || '') : '',
       amortisation_type:   rm.amortisation_type ? String(row[rm.amortisation_type] || '') : '',
       payment_frequency:   rm.payment_frequency ? String(row[rm.payment_frequency] || '') : '',
       interest_rate_type:  rm.interest_rate_type ? String(row[rm.interest_rate_type] || '') : '',
       days_in_arrears:     rm.days_in_arrears ? parseNum(row[rm.days_in_arrears]) : 0,
       equipment_type:      rm.equipment_type ? String(row[rm.equipment_type] || '') : '',
       asset_category:      rm.asset_category ? String(row[rm.asset_category] || '') : '',
-      asset_type:          rm.asset_type ? String(row[rm.asset_type] || '') : '',
       supplier:            rm.supplier ? String(row[rm.supplier] || '') : '',
-      deposit_amount:      rm.deposit_amount ? parseNum(row[rm.deposit_amount]) : 0,
-      deposit_pct:         rm.deposit_pct ? parseNum(row[rm.deposit_pct]) * depositPctMultiplier : 0,
-      vat_deferral:        rm.vat_deferral ? String(row[rm.vat_deferral] || '') : '',
-      customer_segment:    rm.customer_segment ? String(row[rm.customer_segment] || '') : '',
+      legal_form:          rm.legal_form ? String(row[rm.legal_form] || '') : '',
+      cca_regulated:       rm.cca_regulated ? String(row[rm.cca_regulated] || '') : '',
+      prefunded:           rm.prefunded ? String(row[rm.prefunded] || '') : '',
+      refinancing:         rm.refinancing ? String(row[rm.refinancing] || '') : '',
+      other_schemes:       rm.other_schemes ? String(row[rm.other_schemes] || '') : '',
       origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '') : '',
       balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) * balloonMultiplier : 0,
-      postcode:            pc,
-      bbb_guarantee:       rm.bbb_guarantee ? String(row[rm.bbb_guarantee] || '') : '',
       broker:              rm.broker ? String(row[rm.broker] || '') : '',
-      originator:          rm.originator ? String(row[rm.originator] || '') : '',
-      lessee_type:         rm.lessee_type ? String(row[rm.lessee_type] || '') : ''
+      originator:          rm.originator ? String(row[rm.originator] || '') : ''
     };
-
-    // Derive days_in_arrears from arrears_status when not explicitly mapped
-    if (obj.days_in_arrears === 0 && obj.arrears_status) {
-      const as = obj.arrears_status.toLowerCase().trim();
-      // Only derive if the status clearly indicates arrears
-      if (as.includes('>90') || as.includes('90+') || as.includes('91+') || as.includes('90 day') || as.includes('90day')) obj.days_in_arrears = 91;
-      else if (as.includes('61-90') || as.includes('61 -90') || as.includes('60-90')) obj.days_in_arrears = 75;
-      else if (as.includes('31-60') || as.includes('31 -60') || as.includes('30-60')) obj.days_in_arrears = 45;
-      else if (as.includes('1-30') || as.includes('1 -30') || as.includes('0-30') || as === '1-30 days') obj.days_in_arrears = 15;
-      // Everything else (current, up to date, performing, n/a, 0, blank, etc.) stays at 0
-    }
 
     // Apply custom field mappings
     if (customRm) {
@@ -2254,9 +2231,9 @@ function showValueMappingPrompt(tapeIdx) {
   const otherTapes = tapes.filter((_, i) => i !== tapeIdx);
   if (otherTapes.length === 0) return;
 
-  const catFields = ['facility_type','asset_type','interest_rate_type','repayment_method','amortisation_type',
-    'lessee_type','origination_channel','credit_rating','region','loan_status',
-    'equipment_type','asset_category','supplier','broker','originator','sector'];
+  const catFields = ['facility_type','interest_rate_type','repayment_method','payment_method','amortisation_type',
+    'legal_form','origination_channel','region','loan_status','cca_regulated','prefunded','refinancing',
+    'other_schemes','equipment_type','asset_category','supplier','broker','originator','sector'];
 
   // Collect existing values from other tapes
   const existingValues = {};
@@ -3060,12 +3037,11 @@ function getTopExposuresData() {
   const lesseeMap = {};
   loans.forEach(l => {
     const name = l.borrower_name || '(unknown)';
-    if (!lesseeMap[name]) lesseeMap[name] = { name, totalBal: 0, loanCount: 0, sectors: new Set(), ratings: new Set(), loansInArrears: 0, totalArrearsBal: 0, maxArrearsDays: 0 };
+    if (!lesseeMap[name]) lesseeMap[name] = { name, totalBal: 0, loanCount: 0, sectors: new Set(), loansInArrears: 0, totalArrearsBal: 0, maxArrearsDays: 0 };
     const entry = lesseeMap[name];
     entry.totalBal += l.outstanding_balance;
     entry.loanCount++;
     if (l.sector) entry.sectors.add(l.sector);
-    if (l.credit_rating) entry.ratings.add(l.credit_rating);
     if (l.days_in_arrears > 0) {
       entry.loansInArrears++;
       entry.totalArrearsBal += l.outstanding_balance;
@@ -3078,19 +3054,29 @@ function getTopExposuresData() {
 
 function buildTopExposuresHtml() {
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  // Build a map from borrower_name -> tape series for originator tracking
+  const borrowerTapeMap = {};
+  tapes.forEach(t => {
+    t.loans.forEach(l => {
+      const name = l.borrower_name || '(unknown)';
+      if (!borrowerTapeMap[name]) borrowerTapeMap[name] = new Set();
+      borrowerTapeMap[name].add(t.series);
+    });
+  });
   const lesseeMap = {};
   loans.forEach(l => {
     const name = l.borrower_name || '(unknown)';
-    if (!lesseeMap[name]) lesseeMap[name] = { name, totalBal: 0, loanCount: 0, sectors: new Set(), ratings: new Set(), loansInArrears: 0, maxArrearsDays: 0 };
+    if (!lesseeMap[name]) lesseeMap[name] = { name, totalBal: 0, loanCount: 0, sectors: new Set(), originators: new Set(), loansInArrears: 0, maxArrearsDays: 0 };
     const entry = lesseeMap[name];
     entry.totalBal += l.outstanding_balance;
     entry.loanCount++;
     if (l.sector) entry.sectors.add(l.sector);
-    if (l.credit_rating) entry.ratings.add(l.credit_rating);
+    if (l.originator) entry.originators.add(l.originator);
     if (l.days_in_arrears > 0) { entry.loansInArrears++; entry.maxArrearsDays = Math.max(entry.maxArrearsDays, l.days_in_arrears); }
   });
   const allSorted = Object.values(lesseeMap).sort((a, b) => b.totalBal - a.totalBal);
   const top10 = allSorted.slice(0, 10);
+  const showTapeCol = tapes.length > 1;
   // Cumulative concentrations
   const cumTop5 = totalOutstanding > 0 ? (allSorted.slice(0, 5).reduce((s, e) => s + e.totalBal, 0) / totalOutstanding * 100) : 0;
   const cumTop10 = totalOutstanding > 0 ? (allSorted.slice(0, 10).reduce((s, e) => s + e.totalBal, 0) / totalOutstanding * 100) : 0;
@@ -3103,9 +3089,14 @@ function buildTopExposuresHtml() {
     if (e.loansInArrears === 0) { arrearsLabel = 'badge-green'; arrearsText = 'Current'; }
     else { arrearsLabel = e.maxArrearsDays > 90 ? 'badge-red' : 'badge-amber'; arrearsText = e.loansInArrears + '/' + e.loanCount + ' (' + e.maxArrearsDays + 'd)'; }
     const sectorText = [...e.sectors].slice(0, 2).join(', ') + (e.sectors.size > 2 ? '...' : '');
+    // Show originator or tape series
+    const tapeSeriesSet = borrowerTapeMap[e.name] || new Set();
+    const originatorText = e.originators.size > 0 ? [...e.originators].join(', ') : (tapeSeriesSet.size > 0 ? [...tapeSeriesSet].join(', ') : '-');
+    const tapeCol = showTapeCol ? `<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${escapeHtml(originatorText)}">${escapeHtml(originatorText)}</td>` : '';
     return `<tr>
       <td>${i + 1}</td>
       <td>${escapeHtml(e.name)}<span style="font-size:11px;color:var(--text-muted);margin-left:4px;">(${e.loanCount})</span></td>
+      ${tapeCol}
       <td>${escapeHtml(sectorText)}</td>
       <td class="mono right">${fmtFull(e.totalBal)}</td>
       <td class="mono right">${pct}%</td>
@@ -3114,6 +3105,7 @@ function buildTopExposuresHtml() {
     </tr>`;
   }).join('');
 
+  const tapeHeader = showTapeCol ? '<th>Originator</th>' : '';
   return `<div class="card table-card">
     <div class="table-header">
       <h3>Top 10 Lessee Exposures</h3>
@@ -3124,7 +3116,7 @@ function buildTopExposuresHtml() {
       </div>
     </div>
     <div class="table-scroll"><table class="ow-exposures-table">
-      <thead><tr><th>#</th><th>Lessee</th><th>Sector</th><th class="right">Balance</th><th class="right">% Port</th><th class="right">Cum %</th><th>Arrears</th></tr></thead>
+      <thead><tr><th>#</th><th>Lessee</th>${tapeHeader}<th>Sector</th><th class="right">Balance</th><th class="right">% Port</th><th class="right">Cum %</th><th>Arrears</th></tr></thead>
       <tbody>${rows}</tbody>
     </table></div>
   </div>`;
@@ -3684,25 +3676,29 @@ function renderStratification() {
 
   // Which strat tables to show (only if data exists for that field)
   const stratFields = [
+    // Primary strats at the top
     { key: 'facility_type',       title: 'By Type of Lease' },
-    { key: 'asset_type',          title: 'By Asset Type' },
-    { key: 'interest_rate_type',  title: 'By Interest Rate Type' },
-    { key: 'repayment_method',    title: 'By Repayment Method' },
-    { key: 'amortisation_type',   title: 'By Amortisation Type' },
-    { key: 'payment_frequency',   title: 'By Payment Frequency' },
-    { key: 'lessee_type',          title: 'By Lessee Type' },
-    { key: 'origination_channel', title: 'By Origination Channel' },
-    { key: 'credit_rating',       title: 'By Credit Rating' },
+    { key: 'legal_form',          title: 'By Legal Form / Business Type' },
+    { key: 'sector',              title: 'By Sector' },
     { key: 'region',              title: 'By Region' },
-    { key: 'bbb_guarantee',       title: 'By BBB Guarantee Programme' },
-    { key: 'loan_status',         title: 'By Status' },
-    { key: 'arrears_status',      title: 'By Arrears Status' },
+    { key: 'ons_code',            title: 'By ONS Code' },
     { key: 'equipment_type',      title: 'By Equipment Type' },
     { key: 'asset_category',      title: 'By Asset Category' },
-    { key: 'supplier',            title: 'By Supplier / Vendor' },
-    { key: 'vat_deferral',        title: 'By VAT Deferral' },
+    { key: 'loan_status',         title: 'By Status' },
+    { key: 'cca_regulated',       title: 'By CCA Regulated' },
+    { key: 'prefunded',           title: 'By Prefunded Receivable' },
+    { key: 'refinancing',         title: 'By Refinancing Receivable' },
+    { key: 'other_schemes',       title: 'By Other Schemes' },
+    { key: 'payment_method',      title: 'By Payment Method' },
+    { key: 'repayment_method',    title: 'By Repayment Method' },
     { key: 'broker',              title: 'By Broker' },
-    { key: 'originator',          title: 'By Originator' }
+    { key: 'originator',          title: 'By Originator' },
+    // Moved to the bottom per user request
+    { key: 'interest_rate_type',  title: 'By Interest Rate Type' },
+    { key: 'amortisation_type',   title: 'By Amortisation Type' },
+    { key: 'payment_frequency',   title: 'By Payment Frequency' },
+    { key: 'origination_channel', title: 'By Origination Channel' },
+    { key: 'supplier',            title: 'By Supplier / Vendor' }
   ];
 
   // Banded strats
@@ -4296,10 +4292,10 @@ function exportCSV() {
   // ---- SECTION 2: KEY STRATIFICATION ----
   const stratFields = [
     { key: 'facility_type', title: 'FACILITY TYPE BREAKDOWN' },
+    { key: 'legal_form', title: 'LEGAL FORM / BUSINESS TYPE BREAKDOWN' },
     { key: 'sector', title: 'SECTOR BREAKDOWN' },
     { key: 'region', title: 'REGIONAL BREAKDOWN' },
-    { key: 'credit_rating', title: 'CREDIT RATING BREAKDOWN' },
-    { key: 'lessee_type', title: 'LESSEE TYPE BREAKDOWN' }
+    { key: 'other_schemes', title: 'OTHER SCHEMES BREAKDOWN' }
   ];
   stratFields.forEach(sf => {
     if (!loans.some(l => l[sf.key] && String(l[sf.key]).trim())) return;
@@ -4358,6 +4354,69 @@ function exportCSV() {
 }
 
 // ============================================================
+//  EXPORT HARMONISED TAPE — individual or all tapes as XLSX
+// ============================================================
+function exportHarmonisedTape() {
+  if (!tapes.length) return;
+  if (tapes.length === 1) {
+    exportSingleTape(0);
+    return;
+  }
+  // Show choice: individual tapes or all combined
+  const choices = tapes.map((t, i) => `${i + 1}. ${t.series}`).join('\n');
+  const input = prompt('Export harmonised tape(s) to Excel:\n\n' + choices + '\n\nEnter a number for a single tape, or "all" for all tapes in one file:', 'all');
+  if (!input) return;
+  if (input.toLowerCase().trim() === 'all') {
+    exportAllTapesHarmonised();
+  } else {
+    const idx = parseInt(input) - 1;
+    if (idx >= 0 && idx < tapes.length) exportSingleTape(idx);
+  }
+}
+
+function exportSingleTape(tapeIdx) {
+  const tape = tapes[tapeIdx];
+  const wb = XLSX.utils.book_new();
+  const fieldLabelsMap = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabelsMap[f.key] = f.label; });
+  Object.values(customFieldDefs).forEach(cf => { fieldLabelsMap[cf.key] = cf.label; });
+  const fieldKeys = Object.keys(tape.loans[0] || {});
+  const visibleKeys = fieldKeys.filter(k => tape.loans.some(l => {
+    const v = l[k]; if (v == null) return false; if (typeof v === 'boolean') return v; if (typeof v === 'number') return v !== 0; return String(v).trim() !== '';
+  }));
+  const headers = visibleKeys.map(k => fieldLabelsMap[k] || k);
+  const rows = tape.loans.map(l => visibleKeys.map(k => {
+    const v = l[k]; return typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
+  }));
+  const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  sheet['!cols'] = visibleKeys.map(() => ({ wch: 18 }));
+  XLSX.utils.book_append_sheet(wb, sheet, 'Harmonised Data');
+  XLSX.writeFile(wb, 'tape_' + tape.series.replace(/[^a-zA-Z0-9]/g, '_') + '_harmonised.xlsx');
+}
+
+function exportAllTapesHarmonised() {
+  const wb = XLSX.utils.book_new();
+  const fieldLabelsMap = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabelsMap[f.key] = f.label; });
+  Object.values(customFieldDefs).forEach(cf => { fieldLabelsMap[cf.key] = cf.label; });
+  tapes.forEach((tape, i) => {
+    const fieldKeys = Object.keys(tape.loans[0] || {});
+    const visibleKeys = fieldKeys.filter(k => tape.loans.some(l => {
+      const v = l[k]; if (v == null) return false; if (typeof v === 'boolean') return v; if (typeof v === 'number') return v !== 0; return String(v).trim() !== '';
+    }));
+    const headers = visibleKeys.map(k => fieldLabelsMap[k] || k);
+    const rows = tape.loans.map(l => visibleKeys.map(k => {
+      const v = l[k]; return typeof v === 'boolean' ? (v ? 'Yes' : 'No') : v;
+    }));
+    const sheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    sheet['!cols'] = visibleKeys.map(() => ({ wch: 18 }));
+    const sheetName = (tape.series || 'Tape ' + (i + 1)).substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, sheet, sheetName);
+  });
+  XLSX.writeFile(wb, 'all_tapes_harmonised.xlsx');
+}
+
+// ============================================================
 //  EXPORT XLSX — all tabs as separate sheets
 // ============================================================
 function exportXLSX() {
@@ -4384,15 +4443,17 @@ function exportXLSX() {
   const tot = loans.reduce((s, l) => s + l.outstanding_balance, 0);
   const n = loans.length;
   const xlsxStratFields = [
-    { key: 'facility_type', title: 'By Type of Lease' }, { key: 'asset_type', title: 'By Asset Type' },
-    { key: 'interest_rate_type', title: 'By Interest Rate Type' }, { key: 'repayment_method', title: 'By Repayment Method' },
-    { key: 'amortisation_type', title: 'By Amortisation Type' }, { key: 'payment_frequency', title: 'By Payment Frequency' },
-    { key: 'lessee_type', title: 'By Lessee Type' }, { key: 'credit_rating', title: 'By Credit Rating' },
-    { key: 'region', title: 'By Region' }, { key: 'bbb_guarantee', title: 'By BBB Guarantee' },
-    { key: 'loan_status', title: 'By Status' }, { key: 'arrears_status', title: 'By Arrears Status' },
-    { key: 'equipment_type', title: 'By Equipment Type' }, { key: 'asset_category', title: 'By Asset Category' },
-    { key: 'supplier', title: 'By Supplier' }, { key: 'vat_deferral', title: 'By VAT Deferral' },
-    { key: 'broker', title: 'By Broker' }, { key: 'originator', title: 'By Originator' }
+    { key: 'facility_type', title: 'By Type of Lease' }, { key: 'legal_form', title: 'By Legal Form / Business Type' },
+    { key: 'sector', title: 'By Sector' }, { key: 'region', title: 'By Region' },
+    { key: 'ons_code', title: 'By ONS Code' }, { key: 'equipment_type', title: 'By Equipment Type' },
+    { key: 'asset_category', title: 'By Asset Category' }, { key: 'loan_status', title: 'By Status' },
+    { key: 'cca_regulated', title: 'By CCA Regulated' }, { key: 'prefunded', title: 'By Prefunded Receivable' },
+    { key: 'refinancing', title: 'By Refinancing Receivable' }, { key: 'other_schemes', title: 'By Other Schemes' },
+    { key: 'payment_method', title: 'By Payment Method' }, { key: 'repayment_method', title: 'By Repayment Method' },
+    { key: 'broker', title: 'By Broker' }, { key: 'originator', title: 'By Originator' },
+    { key: 'interest_rate_type', title: 'By Interest Rate Type' }, { key: 'amortisation_type', title: 'By Amortisation Type' },
+    { key: 'payment_frequency', title: 'By Payment Frequency' }, { key: 'origination_channel', title: 'By Origination Channel' },
+    { key: 'supplier', title: 'By Supplier / Vendor' }
   ];
   xlsxStratFields.forEach(sf => {
     if (!loans.some(l => l[sf.key])) return;
