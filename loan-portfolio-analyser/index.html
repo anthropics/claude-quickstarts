@@ -282,6 +282,143 @@
       .risk-grid { grid-template-columns: 1fr; }
     }
 
+    /* --- MAPPING MODAL --- */
+    .mapping-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .mapping-overlay.active { display: flex; }
+    .mapping-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      width: 720px;
+      max-width: 95vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .mapping-modal-header {
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .mapping-modal-header h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .mapping-modal-header p {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+    }
+    .mapping-modal-body {
+      padding: 16px 24px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .mapping-modal-footer {
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .mapping-status {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .mapping-status .count { color: var(--green); font-weight: 600; }
+    .mapping-status .warn { color: var(--amber); }
+    .mapping-row {
+      display: grid;
+      grid-template-columns: 1fr 40px 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(36,51,82,0.4);
+    }
+    .mapping-row:last-child { border-bottom: none; }
+    .mapping-row-header {
+      display: grid;
+      grid-template-columns: 1fr 40px 1fr;
+      gap: 12px;
+      padding: 6px 0 10px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .mapping-row-header span {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+    }
+    .mapping-col-name {
+      font-size: 0.85rem;
+      font-weight: 500;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border-radius: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mapping-col-name .sample {
+      display: block;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-weight: 400;
+      margin-top: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .mapping-arrow {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+    .mapping-select {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.82rem;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%237a8bb5' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+    .mapping-select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .mapping-select.mapped { border-color: var(--green); }
+    .mapping-select.unmapped { border-color: transparent; }
+    .mapping-badge {
+      display: inline-block;
+      font-size: 0.65rem;
+      padding: 1px 6px;
+      border-radius: 3px;
+      margin-left: 6px;
+      font-weight: 600;
+      vertical-align: middle;
+    }
+    .mapping-badge.required { background: var(--red-bg); color: var(--red); }
+    .mapping-badge.optional { background: var(--surface-2); color: var(--text-muted); }
+    .mapping-badge.auto { background: rgba(34,197,94,0.1); color: var(--green); }
+
     /* Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: transparent; }
@@ -310,7 +447,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
       <div class="upload-title">Upload Loan Portfolio</div>
       <div class="upload-sub">Drag &amp; drop a CSV or Excel file, or click to browse</div>
-      <div class="upload-sub" style="margin-top:8px; font-size:0.78rem;">Required fields: loan_id, borrower_name, sector, region, loan_amount, outstanding_balance, maturity_date, interest_rate, credit_rating, facility_type, default_flag</div>
+      <div class="upload-sub" style="margin-top:8px; font-size:0.78rem;">Any column layout accepted — you'll map columns to the template after upload</div>
       <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
     </div>
     <div style="text-align:center; margin-top:14px;">
@@ -494,12 +631,32 @@
   </div>
 </div>
 
+<!-- COLUMN MAPPING MODAL -->
+<div class="mapping-overlay" id="mapping-overlay">
+  <div class="mapping-modal">
+    <div class="mapping-modal-header">
+      <h2>Map Your Columns</h2>
+      <p>We detected <strong id="mapping-col-count">0</strong> columns in your file. Map each to a template field below — we've auto-matched what we could.</p>
+    </div>
+    <div class="mapping-modal-body" id="mapping-body"></div>
+    <div class="mapping-modal-footer">
+      <div class="mapping-status" id="mapping-status"></div>
+      <div style="display:flex; gap:8px;">
+        <button class="btn btn-outline btn-sm" onclick="cancelMapping()">Cancel</button>
+        <button class="btn btn-primary btn-sm" id="mapping-confirm-btn" onclick="confirmMapping()">Confirm &amp; Analyse</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 //  STATE
 // ============================================================
 let loans = [];
 let charts = {};
+let pendingRawData = null;  // raw parsed rows awaiting mapping
+let columnMapping = {};      // { sourceCol: templateField }
 
 // ============================================================
 //  CHART COLORS
@@ -532,33 +689,227 @@ function handleFile(file) {
     Papa.parse(file, {
       header: true,
       skipEmptyLines: true,
-      complete: r => { loans = normalizeData(r.data); renderDashboard(); }
+      complete: r => showMappingModal(r.data)
     });
   } else if (ext === 'xlsx' || ext === 'xls') {
     const reader = new FileReader();
     reader.onload = e => {
       const wb = XLSX.read(e.target.result, { type: 'array' });
       const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-      loans = normalizeData(data);
-      renderDashboard();
+      showMappingModal(data);
     };
     reader.readAsArrayBuffer(file);
   }
 }
 
-function normalizeData(data) {
+// ============================================================
+//  TEMPLATE FIELDS — the canonical schema
+// ============================================================
+const TEMPLATE_FIELDS = [
+  { key: 'loan_id',             label: 'Loan ID',             required: true,  type: 'string' },
+  { key: 'borrower_name',       label: 'Borrower Name',       required: true,  type: 'string' },
+  { key: 'sector',              label: 'Sector',              required: false, type: 'string' },
+  { key: 'region',              label: 'Region',              required: false, type: 'string' },
+  { key: 'loan_amount',         label: 'Loan Amount',         required: true,  type: 'number' },
+  { key: 'outstanding_balance', label: 'Outstanding Balance', required: true,  type: 'number' },
+  { key: 'maturity_date',       label: 'Maturity Date',       required: false, type: 'string' },
+  { key: 'interest_rate',       label: 'Interest Rate',       required: false, type: 'number' },
+  { key: 'credit_rating',       label: 'Credit Rating',       required: false, type: 'string' },
+  { key: 'facility_type',       label: 'Facility Type',       required: false, type: 'string' },
+  { key: 'default_flag',        label: 'Default Flag',        required: false, type: 'boolean' }
+];
+
+// Aliases for fuzzy auto-matching (lowercased, stripped)
+const FIELD_ALIASES = {
+  loan_id:             ['loan_id','loanid','loan id','loan #','loan_number','loannumber','loan number','id','loan_ref','loanref','deal_id','dealid'],
+  borrower_name:       ['borrower_name','borrowername','borrower name','borrower','obligor','obligor_name','obligorname','counterparty','counterparty_name','client','client_name','company','company_name','entity','entity_name','name'],
+  sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','sic','sic_code','naics'],
+  region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile'],
+  loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size'],
+  outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','par','par_amount'],
+  maturity_date:       ['maturity_date','maturitydate','maturity date','maturity','mat_date','matdate','final_maturity','finalmaturity','end_date','enddate','expiry','expiry_date','expirydate','termination_date'],
+  interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing'],
+  credit_rating:       ['credit_rating','creditrating','credit rating','rating','internal_rating','internalrating','external_rating','externalrating','sp_rating','moody_rating','fitch_rating','risk_rating','riskrating','grade','risk_grade'],
+  facility_type:       ['facility_type','facilitytype','facility type','facility','type','loan_type','loantype','loan type','product','product_type','producttype','instrument','instrument_type','tranche','deal_type'],
+  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','status','performing_status','workout']
+};
+
+// ============================================================
+//  FUZZY COLUMN MATCHING
+// ============================================================
+function normalizeStr(s) {
+  return String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function autoMatchColumn(colName) {
+  const norm = normalizeStr(colName);
+  // Exact alias match
+  for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
+    for (const alias of aliases) {
+      if (normalizeStr(alias) === norm) return field;
+    }
+  }
+  // Substring / contains match
+  for (const [field, aliases] of Object.entries(FIELD_ALIASES)) {
+    for (const alias of aliases) {
+      const normAlias = normalizeStr(alias);
+      if (norm.includes(normAlias) || normAlias.includes(norm)) {
+        if (normAlias.length >= 3 && norm.length >= 3) return field;
+      }
+    }
+  }
+  return '';
+}
+
+// ============================================================
+//  MAPPING MODAL
+// ============================================================
+function showMappingModal(rawData) {
+  pendingRawData = rawData;
+  if (!rawData.length) return;
+
+  const sourceColumns = Object.keys(rawData[0]);
+  document.getElementById('mapping-col-count').textContent = sourceColumns.length;
+
+  // Auto-match
+  columnMapping = {};
+  const autoMatched = {};
+  sourceColumns.forEach(col => {
+    const match = autoMatchColumn(col);
+    if (match && !Object.values(autoMatched).includes(match)) {
+      autoMatched[col] = match;
+      columnMapping[col] = match;
+    }
+  });
+
+  // Build rows
+  const body = document.getElementById('mapping-body');
+  body.innerHTML = '';
+
+  // Header row
+  const headerRow = document.createElement('div');
+  headerRow.className = 'mapping-row-header';
+  headerRow.innerHTML = '<span>Your Column</span><span></span><span>Maps To</span>';
+  body.appendChild(headerRow);
+
+  sourceColumns.forEach(col => {
+    const row = document.createElement('div');
+    row.className = 'mapping-row';
+
+    // Sample values (first 3 non-empty)
+    const samples = rawData.slice(0, 10).map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3);
+    const sampleText = samples.length ? samples.join(', ') : '(empty)';
+
+    const isAuto = !!autoMatched[col];
+
+    row.innerHTML = `
+      <div class="mapping-col-name">
+        ${escapeHtml(col)}${isAuto ? '<span class="mapping-badge auto">auto</span>' : ''}
+        <span class="sample">${escapeHtml(sampleText)}</span>
+      </div>
+      <div class="mapping-arrow">&rarr;</div>
+      <select class="mapping-select ${columnMapping[col] ? 'mapped' : 'unmapped'}" data-source="${escapeHtml(col)}" onchange="onMappingChange(this)">
+        <option value="">— Skip (don't import) —</option>
+        ${TEMPLATE_FIELDS.map(f =>
+          `<option value="${f.key}" ${columnMapping[col] === f.key ? 'selected' : ''}>${f.label}${f.required ? ' *' : ''}</option>`
+        ).join('')}
+      </select>
+    `;
+    body.appendChild(row);
+  });
+
+  updateMappingStatus();
+  document.getElementById('mapping-overlay').classList.add('active');
+}
+
+function onMappingChange(select) {
+  const sourceCol = select.getAttribute('data-source');
+  const newVal = select.value;
+
+  // If this template field is already mapped by another column, clear the old one
+  if (newVal) {
+    document.querySelectorAll('.mapping-select').forEach(s => {
+      if (s !== select && s.value === newVal) {
+        s.value = '';
+        s.classList.remove('mapped');
+        s.classList.add('unmapped');
+        const oldSource = s.getAttribute('data-source');
+        delete columnMapping[oldSource];
+      }
+    });
+  }
+
+  if (newVal) {
+    columnMapping[sourceCol] = newVal;
+    select.classList.add('mapped');
+    select.classList.remove('unmapped');
+  } else {
+    delete columnMapping[sourceCol];
+    select.classList.remove('mapped');
+    select.classList.add('unmapped');
+  }
+
+  updateMappingStatus();
+}
+
+function updateMappingStatus() {
+  const mapped = Object.values(columnMapping);
+  const total = TEMPLATE_FIELDS.length;
+  const mappedCount = mapped.length;
+  const requiredFields = TEMPLATE_FIELDS.filter(f => f.required);
+  const missingRequired = requiredFields.filter(f => !mapped.includes(f.key));
+
+  const statusEl = document.getElementById('mapping-status');
+  const confirmBtn = document.getElementById('mapping-confirm-btn');
+
+  if (missingRequired.length > 0) {
+    statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped &middot; <span class="warn">Missing required: ${missingRequired.map(f => f.label).join(', ')}</span>`;
+    confirmBtn.style.opacity = '0.5';
+    confirmBtn.disabled = true;
+  } else {
+    statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped &middot; Ready to analyse`;
+    confirmBtn.style.opacity = '1';
+    confirmBtn.disabled = false;
+  }
+}
+
+function cancelMapping() {
+  document.getElementById('mapping-overlay').classList.remove('active');
+  pendingRawData = null;
+  columnMapping = {};
+}
+
+function confirmMapping() {
+  if (!pendingRawData) return;
+
+  // Build reverse map: templateField -> sourceColumn
+  const reverseMap = {};
+  for (const [source, target] of Object.entries(columnMapping)) {
+    reverseMap[target] = source;
+  }
+
+  loans = applyMapping(pendingRawData, reverseMap);
+  document.getElementById('mapping-overlay').classList.remove('active');
+  pendingRawData = null;
+  renderDashboard();
+}
+
+// ============================================================
+//  APPLY MAPPING — convert raw data using user-defined mapping
+// ============================================================
+function applyMapping(data, reverseMap) {
   return data.map((row, i) => ({
-    loan_id: row.loan_id || row.Loan_ID || row.LoanID || `L${i+1}`,
-    borrower_name: row.borrower_name || row.Borrower_Name || row.Borrower || '',
-    sector: row.sector || row.Sector || '',
-    region: row.region || row.Region || '',
-    loan_amount: parseNum(row.loan_amount || row.Loan_Amount || row.LoanAmount || 0),
-    outstanding_balance: parseNum(row.outstanding_balance || row.Outstanding_Balance || row.OutstandingBalance || 0),
-    maturity_date: row.maturity_date || row.Maturity_Date || row.MaturityDate || '',
-    interest_rate: parseNum(row.interest_rate || row.Interest_Rate || row.InterestRate || 0),
-    credit_rating: row.credit_rating || row.Credit_Rating || row.CreditRating || '',
-    facility_type: row.facility_type || row.Facility_Type || row.FacilityType || '',
-    default_flag: parseDefault(row.default_flag ?? row.Default_Flag ?? row.DefaultFlag ?? 0)
+    loan_id:             reverseMap.loan_id ? String(row[reverseMap.loan_id] || '') || `L${i+1}` : `L${i+1}`,
+    borrower_name:       reverseMap.borrower_name ? String(row[reverseMap.borrower_name] || '') : '',
+    sector:              reverseMap.sector ? String(row[reverseMap.sector] || '') : '',
+    region:              reverseMap.region ? String(row[reverseMap.region] || '') : '',
+    loan_amount:         reverseMap.loan_amount ? parseNum(row[reverseMap.loan_amount]) : 0,
+    outstanding_balance: reverseMap.outstanding_balance ? parseNum(row[reverseMap.outstanding_balance]) : 0,
+    maturity_date:       reverseMap.maturity_date ? String(row[reverseMap.maturity_date] || '') : '',
+    interest_rate:       reverseMap.interest_rate ? parseNum(row[reverseMap.interest_rate]) : 0,
+    credit_rating:       reverseMap.credit_rating ? String(row[reverseMap.credit_rating] || '') : '',
+    facility_type:       reverseMap.facility_type ? String(row[reverseMap.facility_type] || '') : '',
+    default_flag:        reverseMap.default_flag ? parseDefault(row[reverseMap.default_flag]) : false
   }));
 }
 
