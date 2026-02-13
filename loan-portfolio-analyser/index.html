@@ -396,6 +396,7 @@
     }
     .mapping-select:focus { outline: none; border-color: var(--navy); }
     .mapping-select.mapped { border-color: var(--navy-light); }
+    .mapping-select option.option-in-use { color: var(--text-muted); font-style: italic; }
     .mapping-badge {
       display: inline-block;
       font-size: 10px;
@@ -689,6 +690,10 @@
     .series-pill:hover { background: var(--navy-faint); border-color: var(--navy-light); }
     .series-pill.active { background: var(--navy); color: #fff; border-color: var(--navy); }
     .series-pill .pill-count { font-size: 10px; opacity: 0.7; margin-left: 4px; }
+    .series-pill .pill-cutoff { font-size: 9px; opacity: 0.6; margin-left: 4px; font-style: italic; }
+    .cutoff-banner { display:flex; align-items:center; gap:8px; padding:6px 12px; background:var(--navy-faint); border:1px solid var(--border-light); border-radius:var(--radius); margin-bottom:12px; font-size:12px; color:var(--text-secondary); }
+    .cutoff-banner .cutoff-label { font-weight:600; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.04em; font-size:11px; }
+    .cutoff-banner .cutoff-value { font-family:var(--mono); font-weight:600; color:var(--navy); }
 
     /* OVERVIEW WIDGETS */
     .ow-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
@@ -821,6 +826,7 @@
 
     <!-- OVERVIEW TAB -->
     <div class="tab-content active" id="tab-overview">
+      <div id="cutoff-date-banner"></div>
       <div class="section">
         <div class="stat-grid" id="stat-grid-container"></div>
       </div>
@@ -900,7 +906,9 @@
     <div class="mapping-modal-body" id="mapping-body"></div>
     <div class="mapping-modal-footer">
       <div class="mapping-status" id="mapping-status"></div>
-      <div style="display:flex; gap:8px;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <label style="font-size:12px; font-weight:600; color:var(--text-muted); white-space:nowrap;">Cut-Off Date</label>
+        <input type="date" id="mapping-cutoff-date" style="font-size:12px; padding:4px 8px; border:1px solid var(--border); border-radius:var(--radius); font-family:inherit; background:var(--surface);">
         <button class="btn btn-outline btn-sm" onclick="cancelMapping()">Cancel</button>
         <button class="btn btn-primary btn-sm" id="mapping-confirm-btn" onclick="confirmMapping()">Confirm & Analyse</button>
       </div>
@@ -946,7 +954,10 @@ let fieldOptions = {
   amortisation_type:   ['Annuity', 'Linear', 'Bullet', 'Soft Bullet'],
   vat_deferral:        ['Yes', 'No', 'Partial'],
   equipment_type:      ['Vehicles', 'Plant & Machinery', 'IT Equipment', 'Office Equipment', 'Commercial Vehicles', 'Medical Equipment', 'Construction Equipment'],
-  asset_category:      ['Hard Asset', 'Soft Asset', 'Vehicle', 'Property', 'Technology']
+  asset_category:      ['Hard Asset', 'Soft Asset', 'Vehicle', 'Property', 'Technology'],
+  origination_channel: ['Direct', 'Broker', 'Vendor', 'Online', 'Branch'],
+  broker:              [],
+  originator:          []
 };
 
 // Display settings
@@ -1219,7 +1230,9 @@ const TEMPLATE_FIELDS = [
   { key: 'origination_channel', label: 'Origination Channel', required: false, type: 'string' },
   { key: 'balloon_pct',         label: 'Balloon %',           required: false, type: 'number' },
   { key: 'postcode',            label: 'Postcode',            required: false, type: 'string' },
-  { key: 'bbb_guarantee',       label: 'BBB Guarantee',       required: false, type: 'string' }
+  { key: 'bbb_guarantee',       label: 'BBB Guarantee',       required: false, type: 'string' },
+  { key: 'broker',              label: 'Broker',              required: false, type: 'string' },
+  { key: 'originator',          label: 'Originator',          required: false, type: 'string' }
 ];
 
 const FIELD_ALIASES = {
@@ -1258,7 +1271,9 @@ const FIELD_ALIASES = {
   origination_channel: ['origination_channel','originationchannel','origination channel','channel','source','distribution_channel','sales_channel','origination_source','orig_channel'],
   balloon_pct:         ['balloon_pct','balloonpct','balloon_percentage','balloonpercentage','balloon percentage','balloon','residual_value_pct','residual_pct','rv_pct','balloon_pct_of_original','balloon_percent'],
   postcode:            ['postcode','post_code','post code','zip','zip_code','zipcode','postal_code','postalcode','postal code'],
-  bbb_guarantee:       ['bbb_guarantee','bbbguarantee','bbb guarantee','bbb_program','bbbprogram','bbb program','guarantee_scheme','guaranteescheme','guarantee scheme','ggs','rls','government_guarantee','govguarantee','bbb_scheme','bbb scheme','guarantee_program','guarantee program','recovery_loan_scheme','growth_guarantee_scheme']
+  bbb_guarantee:       ['bbb_guarantee','bbbguarantee','bbb guarantee','bbb_program','bbbprogram','bbb program','guarantee_scheme','guaranteescheme','guarantee scheme','ggs','rls','government_guarantee','govguarantee','bbb_scheme','bbb scheme','guarantee_program','guarantee program','recovery_loan_scheme','growth_guarantee_scheme'],
+  broker:              ['broker','broker_name','brokername','broker name','intermediary','intermediary_name','introducing_broker','introducingbroker','ib','broker_firm','brokerfirm'],
+  originator:          ['originator','originator_name','originatorname','originator name','lending_entity','lendingentity','lending entity','originating_entity','originatingentity','originating entity','lender','lender_name','lending_institution']
 };
 
 // ============================================================
@@ -1305,6 +1320,9 @@ function showMappingModal(rawData) {
 
   renderMappingRows(sourceColumns, autoMatched);
   updateMappingStatus();
+  // Reset cut-off date input for new upload
+  const cutoffInput = document.getElementById('mapping-cutoff-date');
+  if (cutoffInput) cutoffInput.value = '';
   document.getElementById('mapping-overlay').classList.add('active');
 }
 
@@ -1328,6 +1346,12 @@ function renderMappingRows(sourceColumns, autoMatched) {
     }
   });
 
+  // Build set of fields already in use (mapped by another column)
+  const fieldsInUse = {};
+  for (const [src, tgt] of Object.entries(columnMapping)) {
+    if (tgt && !tgt.startsWith('__custom:')) fieldsInUse[tgt] = src;
+  }
+
   sourceColumns.forEach(col => {
     const wrapper = document.createElement('div');
     const isAuto = autoMatched && !!autoMatched[col];
@@ -1346,9 +1370,11 @@ function renderMappingRows(sourceColumns, autoMatched) {
       <div class="mapping-arrow">&rarr;</div>
       <select class="mapping-select ${currentVal && !isCustom ? 'mapped' : ''} ${isCustom ? 'mapped' : ''}" data-source="${escapeHtml(col)}" onchange="onMappingChange(this)">
         <option value="">-- skip --</option>
-        ${allOptions.map(f =>
-          `<option value="${f.key}" ${currentVal === f.key ? 'selected' : ''}>${f.label}${f.required ? ' *' : ''}</option>`
-        ).join('')}
+        ${allOptions.map(f => {
+          const inUse = fieldsInUse[f.key] && fieldsInUse[f.key] !== col;
+          const usedLabel = inUse ? ' (in use)' : '';
+          return `<option value="${f.key}" ${currentVal === f.key ? 'selected' : ''} ${inUse ? 'class="option-in-use"' : ''}>${f.label}${f.required ? ' *' : ''}${usedLabel}</option>`;
+        }).join('')}
         <option value="__custom_new" ${isCustom ? 'selected' : ''}>+ Custom Field...</option>
       </select>
     `;
@@ -1634,12 +1660,16 @@ function confirmMapping() {
   const seriesName = prompt('Enter a name/series label for this tape:', defaultName);
   const series = (seriesName && seriesName.trim()) ? seriesName.trim() : defaultName;
 
+  const cutoffInput = document.getElementById('mapping-cutoff-date');
+  const cutoffDate = cutoffInput ? cutoffInput.value : '';
+
   tapes.push({
     name: currentTapeName || series,
     series: series,
     loans: mappedLoans,
     sourceColumnNames: { ...sourceColumnNames },
-    columnMapping: { ...columnMapping }
+    columnMapping: { ...columnMapping },
+    cutoffDate: cutoffDate
   });
 
   loans = [];
@@ -1702,7 +1732,9 @@ function applyMapping(data, rm, customRm) {
       origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '') : '',
       balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) : 0,
       postcode:            pc,
-      bbb_guarantee:       rm.bbb_guarantee ? String(row[rm.bbb_guarantee] || '') : ''
+      bbb_guarantee:       rm.bbb_guarantee ? String(row[rm.bbb_guarantee] || '') : '',
+      broker:              rm.broker ? String(row[rm.broker] || '') : '',
+      originator:          rm.originator ? String(row[rm.originator] || '') : ''
     };
 
     // Apply custom field mappings
@@ -1756,6 +1788,8 @@ function generateSampleRows() {
   const assetCats = ['Hard Asset','Soft Asset','Vehicle','Hard Asset','Technology','Technology','Hard Asset','Hard Asset','Hard Asset','Soft Asset'];
   const sicCodes = ['45110','46900','47710','28110','62020','86101','41201','55100','01110','58110','74909','85310','49410','56101','35110'];
   const vatDeferrals = ['Yes','No','No','No','No','Partial','No','No','No','No'];
+  const brokers = ['Alpha Brokers Ltd','Capital Finance Partners','Meridian Business Finance','Direct','Sterling Asset Finance','Direct','Peak Commercial Finance','Direct','Lombard Street Partners','Direct'];
+  const originators = ['Enable Funding','Enable Funding','Enable Funding','Paragon Leasing','Enable Funding','Paragon Leasing','Enable Funding','Atlas Finance','Enable Funding','Enable Funding'];
   const postcodes = [
     'EC1A 1BB','SW1A 1AA','W1D 3QU','SE1 7PB','N1 9GU',
     'BN1 1AE','CT1 2EH','GU1 1AA','ME1 1QX','OX1 1BX',
@@ -1864,7 +1898,9 @@ function generateSampleRows() {
       'Supplier':            suppliers[Math.floor(Math.random() * suppliers.length)],
       'Deposit_Amount':      Math.round((origBal * (5 + Math.random() * 15) / 100) / 100) * 100,
       'Deposit_Percentage':  Math.round((5 + Math.random() * 15) * 100) / 100,
-      'VAT_Deferral':        vatDeferrals[Math.floor(Math.random() * vatDeferrals.length)]
+      'VAT_Deferral':        vatDeferrals[Math.floor(Math.random() * vatDeferrals.length)],
+      'Broker':              brokers[Math.floor(Math.random() * brokers.length)],
+      'Originator':          originators[Math.floor(Math.random() * originators.length)]
     });
   }
   return rows;
@@ -1873,7 +1909,7 @@ function generateSampleRows() {
 function downloadSampleTape() {
   const rows = generateSampleRows();
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = Array(24).fill({ wch: 18 });
+  ws['!cols'] = Array(Object.keys(rows[0]).length).fill({ wch: 18 });
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Lease Tape');
   XLSX.writeFile(wb, 'sample_lease_tape_enable_funding.xlsx');
@@ -1927,12 +1963,25 @@ document.querySelectorAll('.tab').forEach(tab => {
 // ============================================================
 //  RENDER DASHBOARD
 // ============================================================
+function renderCutoffBanner() {
+  const banner = document.getElementById('cutoff-date-banner');
+  const cutoffs = getActiveCutoffDates();
+  if (cutoffs.length === 0) { banner.innerHTML = ''; return; }
+  if (cutoffs.length === 1 || new Set(cutoffs.map(c => c.cutoffDate)).size === 1) {
+    banner.innerHTML = `<div class="cutoff-banner"><span class="cutoff-label">Cut-Off Date:</span><span class="cutoff-value">${formatCutoffDate(cutoffs[0].cutoffDate)}</span></div>`;
+  } else {
+    const items = cutoffs.map(c => `<span>${escapeHtml(c.series)}: <span class="cutoff-value">${formatCutoffDate(c.cutoffDate)}</span></span>`).join('<span style="opacity:0.3;margin:0 6px;">|</span>');
+    banner.innerHTML = `<div class="cutoff-banner"><span class="cutoff-label">Cut-Off Dates:</span>${items}</div>`;
+  }
+}
+
 function renderDashboard() {
   document.getElementById('upload-section').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
   updateNav('dashboard');
   refreshLoansFromTapes();
   renderSeriesBar();
+  renderCutoffBanner();
   renderStats();
   renderOverviewWidgets();
   renderCharts();
@@ -1965,10 +2014,27 @@ function renderSeriesBar() {
   let html = `<button class="series-pill ${activeSeries === 'all' ? 'active' : ''}" onclick="switchSeries('all')">All<span class="pill-count">(${tapes.reduce((s, t) => s + t.loans.length, 0)})</span></button>`;
   seriesNames.forEach((s, i) => {
     const count = tapes.filter(t => t.series === s).reduce((n, t) => n + t.loans.length, 0);
+    const tape = tapes.find(t => t.series === s);
+    const cutoff = tape && tape.cutoffDate ? tape.cutoffDate : '';
+    const cutoffLabel = cutoff ? `<span class="pill-cutoff">${formatCutoffDate(cutoff)}</span>` : '';
     const safeS = s.replace(/'/g, "\\'").replace(/"/g, '&quot;');
-    html += `<button class="series-pill ${activeSeries === s ? 'active' : ''}" onclick="switchSeries('${safeS}')">${escapeHtml(s)}<span class="pill-count">(${count})</span></button>`;
+    html += `<button class="series-pill ${activeSeries === s ? 'active' : ''}" onclick="switchSeries('${safeS}')">${escapeHtml(s)}<span class="pill-count">(${count})</span>${cutoffLabel}</button>`;
   });
   pills.innerHTML = html;
+}
+
+function formatCutoffDate(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr + 'T00:00:00');
+  if (isNaN(d.getTime())) return dateStr;
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function getActiveCutoffDates() {
+  if (activeSeries === 'all') {
+    return tapes.filter(t => t.cutoffDate).map(t => ({ series: t.series, cutoffDate: t.cutoffDate }));
+  }
+  return tapes.filter(t => t.series === activeSeries && t.cutoffDate).map(t => ({ series: t.series, cutoffDate: t.cutoffDate }));
 }
 
 function switchSeries(series) {
@@ -2339,7 +2405,9 @@ function renderStratification() {
     { key: 'equipment_type',      title: 'By Equipment Type' },
     { key: 'asset_category',      title: 'By Asset Category' },
     { key: 'supplier',            title: 'By Supplier / Vendor' },
-    { key: 'vat_deferral',        title: 'By VAT Deferral' }
+    { key: 'vat_deferral',        title: 'By VAT Deferral' },
+    { key: 'broker',              title: 'By Broker' },
+    { key: 'originator',          title: 'By Originator' }
   ];
 
   // Banded strats
