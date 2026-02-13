@@ -654,7 +654,9 @@ function findHeaderRow(rows) {
   const limit = Math.min(rows.length, 20);
   let bestIdx = 0, bestCount = 0;
   for (let i = 0; i < limit; i++) {
-    const count = (rows[i] || []).filter(c => c != null && String(c).trim() !== '').length;
+    const row = rows[i];
+    if (!Array.isArray(row)) continue;
+    const count = row.filter(c => c != null && String(c).trim() !== '').length;
     if (count > bestCount) { bestCount = count; bestIdx = i; }
   }
   return bestIdx;
@@ -662,36 +664,50 @@ function findHeaderRow(rows) {
 
 // Convert raw array-of-arrays into array-of-objects using the detected header row.
 function rowsToObjects(rows, headerIdx) {
-  const headers = rows[headerIdx].map(h => h != null ? String(h).trim() : '');
+  const headerRow = rows[headerIdx];
+  if (!Array.isArray(headerRow) || headerRow.length === 0) return [];
+  const headers = headerRow.map(h => h != null ? String(h).trim() : '');
   const data = [];
   for (let i = headerIdx + 1; i < rows.length; i++) {
     const row = rows[i];
-    if (!row || row.every(c => c == null || String(c).trim() === '')) continue;
+    if (!Array.isArray(row)) continue;
+    if (row.every(c => c == null || String(c).trim() === '')) continue;
     const obj = {};
-    headers.forEach((h, ci) => { if (h) obj[h] = row[ci] != null ? row[ci] : ''; });
+    headers.forEach((h, ci) => { if (h) obj[h] = ci < row.length && row[ci] != null ? row[ci] : ''; });
     data.push(obj);
   }
   return data;
 }
 
+function processRawRows(rows) {
+  if (!rows || rows.length === 0) { alert('File appears to be empty.'); return; }
+  const headerIdx = findHeaderRow(rows);
+  const data = rowsToObjects(rows, headerIdx);
+  if (data.length === 0) { alert('No data rows found below the detected header (row ' + (headerIdx + 1) + ').'); return; }
+  showMappingModal(data);
+}
+
 function handleFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'csv') {
-    Papa.parse(file, { header: false, skipEmptyLines: true, complete: r => {
-      const rows = r.data;
-      const headerIdx = findHeaderRow(rows);
-      showMappingModal(rowsToObjects(rows, headerIdx));
-    }});
+    Papa.parse(file, { header: false, skipEmptyLines: true,
+      complete: r => { try { processRawRows(r.data); } catch (err) { alert('CSV parse error: ' + err.message); } },
+      error: err => { alert('Could not read CSV: ' + err.message); }
+    });
   } else if (ext === 'xlsx' || ext === 'xls') {
     const reader = new FileReader();
     reader.onload = e => {
-      const wb = XLSX.read(e.target.result, { type: 'array' });
-      const sheet = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-      const headerIdx = findHeaderRow(rows);
-      showMappingModal(rowsToObjects(rows, headerIdx));
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        processRawRows(rows);
+      } catch (err) { alert('Excel parse error: ' + err.message); }
     };
+    reader.onerror = () => { alert('Could not read file.'); };
     reader.readAsArrayBuffer(file);
+  } else {
+    alert('Unsupported file type: .' + ext + '. Please use .csv, .xlsx, or .xls');
   }
 }
 
