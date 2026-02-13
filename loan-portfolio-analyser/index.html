@@ -25,6 +25,8 @@
       --red-faint: rgba(179,37,58,0.05);
       --green: #00703c;
       --green-faint: rgba(0,112,60,0.05);
+      --amber: #b58900;
+      --amber-faint: rgba(181,137,0,0.06);
       --radius: 4px;
       --mono: 'SF Mono', 'Consolas', 'Menlo', 'Monaco', monospace;
     }
@@ -40,7 +42,6 @@
       font-size: 14px;
     }
 
-    /* NAV */
     .nav {
       background: var(--navy);
       padding: 0 28px;
@@ -85,7 +86,6 @@
 
     .container { max-width: 1400px; margin: 0 auto; padding: 24px 28px; }
 
-    /* UPLOAD PAGE */
     .home-page { max-width: 640px; margin: 80px auto 0; text-align: center; }
     .home-title { font-size: 22px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
     .home-subtitle { font-size: 14px; color: var(--text-muted); margin-bottom: 32px; }
@@ -115,12 +115,9 @@
       border-radius: 8px;
     }
     .sample-section p { font-size: 13px; color: var(--text-secondary); margin-bottom: 12px; }
-    .sample-section .btn { font-size: 13px; }
 
-    /* DASHBOARD */
     .dashboard { display: none; }
     .dashboard.active { display: block; }
-
     .section { margin-bottom: 20px; }
     .section-title {
       font-size: 12px;
@@ -159,11 +156,7 @@
       color: var(--text);
       font-family: var(--mono);
     }
-    .stat-sub {
-      font-size: 12px;
-      color: var(--text-muted);
-      margin-top: 3px;
-    }
+    .stat-sub { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
 
     .tabs {
       display: flex;
@@ -220,6 +213,7 @@
       background: var(--surface);
       font-weight: 600;
     }
+    thead th.right, tbody td.right { text-align: right; }
     tbody td {
       padding: 8px 12px;
       border-bottom: 1px solid var(--border-light);
@@ -228,6 +222,13 @@
     tbody td.mono { font-family: var(--mono); font-size: 12px; }
     tbody tr:hover { background: var(--navy-faint); }
     tbody tr:last-child td { border-bottom: none; }
+    tfoot td {
+      padding: 10px 12px;
+      border-top: 2px solid var(--border);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    tfoot td.mono { font-family: var(--mono); font-size: 12px; }
 
     .badge {
       display: inline-block;
@@ -238,6 +239,64 @@
     }
     .badge-green { background: var(--green-faint); color: var(--green); }
     .badge-red { background: var(--red-faint); color: var(--red); }
+    .badge-amber { background: var(--amber-faint); color: var(--amber); }
+    .badge-navy { background: var(--navy-faint); color: var(--navy); }
+
+    /* STRATIFICATION */
+    .strat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .strat-card { padding: 0; overflow: hidden; }
+    .strat-card-header {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border-light);
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+    .strat-card .table-scroll { max-height: 340px; }
+
+    /* ANOMALIES */
+    .anomaly-summary {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .anomaly-summary-card {
+      padding: 14px;
+      text-align: center;
+    }
+    .anomaly-summary-card .stat-value { font-size: 1.5rem; }
+    .anomaly-list { display: flex; flex-direction: column; gap: 10px; }
+    .anomaly-card {
+      padding: 14px 16px;
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+    }
+    .anomaly-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+    .anomaly-icon.error { background: var(--red-faint); color: var(--red); }
+    .anomaly-icon.warning { background: var(--amber-faint); color: var(--amber); }
+    .anomaly-icon.info { background: var(--navy-faint); color: var(--navy); }
+    .anomaly-body { flex: 1; min-width: 0; }
+    .anomaly-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .anomaly-desc { font-size: 12px; color: var(--text-secondary); margin-bottom: 4px; }
+    .anomaly-examples { font-size: 11px; color: var(--text-muted); font-family: var(--mono); }
+    .anomaly-count {
+      font-size: 12px;
+      font-weight: 600;
+      font-family: var(--mono);
+      white-space: nowrap;
+    }
 
     /* MAPPING MODAL */
     .mapping-overlay {
@@ -261,25 +320,10 @@
       display: flex;
       flex-direction: column;
     }
-    .mapping-modal-header {
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border-light);
-    }
-    .mapping-modal-header h2 {
-      font-size: 16px;
-      font-weight: 600;
-      margin-bottom: 4px;
-      color: var(--text);
-    }
-    .mapping-modal-header p {
-      font-size: 13px;
-      color: var(--text-muted);
-    }
-    .mapping-modal-body {
-      padding: 12px 24px;
-      overflow-y: auto;
-      flex: 1;
-    }
+    .mapping-modal-header { padding: 20px 24px; border-bottom: 1px solid var(--border-light); }
+    .mapping-modal-header h2 { font-size: 16px; font-weight: 600; margin-bottom: 4px; color: var(--text); }
+    .mapping-modal-header p { font-size: 13px; color: var(--text-muted); }
+    .mapping-modal-body { padding: 12px 24px; overflow-y: auto; flex: 1; }
     .mapping-modal-footer {
       padding: 14px 24px;
       border-top: 1px solid var(--border-light);
@@ -366,12 +410,15 @@
     @media (max-width: 1100px) {
       .stat-grid { grid-template-columns: repeat(3, 1fr); }
       .chart-grid-3 { grid-template-columns: 1fr 1fr; }
+      .strat-grid { grid-template-columns: 1fr; }
+      .anomaly-summary { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 700px) {
       .container { padding: 12px; }
       .stat-grid { grid-template-columns: 1fr 1fr; }
       .chart-grid-2, .chart-grid-3 { grid-template-columns: 1fr; }
       .home-page { margin: 40px 16px 0; }
+      .anomaly-summary { grid-template-columns: 1fr 1fr; }
     }
 
     ::-webkit-scrollbar { width: 6px; }
@@ -386,9 +433,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="18" rx="1"/><path d="M2 9h20"/><path d="M9 21V9"/></svg>
     Tape Analyser<span class="nav-sub">Enable Funding</span>
   </div>
-  <div class="nav-actions" id="nav-actions">
-    <!-- Buttons injected dynamically based on view -->
-  </div>
+  <div class="nav-actions" id="nav-actions"></div>
 </nav>
 
 <div class="container">
@@ -397,7 +442,7 @@
   <div id="upload-section">
     <div class="home-page">
       <h1 class="home-title">Data Tape Analyser</h1>
-      <p class="home-subtitle">Upload a loan tape to analyse portfolio composition, concentration and exposures.</p>
+      <p class="home-subtitle">Upload a loan or lease tape to analyse portfolio composition, concentration, stratification and data quality.</p>
 
       <div class="upload-area" id="upload-area">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
@@ -408,7 +453,7 @@
       </div>
 
       <div class="sample-section">
-        <p>No tape to hand? Download a sample file with 150 UK facilities to test the upload flow.</p>
+        <p>No tape to hand? Download a sample file with 200 UK lease receivables (includes deliberate anomalies for testing).</p>
         <button class="btn btn-teal" onclick="downloadSampleTape()">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           Download Sample Tape (.xlsx)
@@ -423,6 +468,8 @@
     <div class="tabs">
       <div class="tab active" data-tab="overview">Overview</div>
       <div class="tab" data-tab="concentration">Concentration</div>
+      <div class="tab" data-tab="stratification">Stratification</div>
+      <div class="tab" data-tab="anomalies">Anomalies</div>
       <div class="tab" data-tab="data">Tape Data</div>
     </div>
 
@@ -441,38 +488,35 @@
             <div class="stat-sub" id="s-utilisation">-</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">WA Interest Rate</div>
+            <div class="stat-label">WA Coupon / Margin</div>
             <div class="stat-value" id="s-wair">-</div>
             <div class="stat-sub">Weighted by balance</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">WA Maturity</div>
+            <div class="stat-label">WA Remaining Term</div>
             <div class="stat-value" id="s-wam">-</div>
-            <div class="stat-sub">Years to maturity</div>
+            <div class="stat-sub" id="s-wam-sub">-</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Default Rate</div>
+            <div class="stat-label">Arrears &gt;90 Days</div>
             <div class="stat-value" id="s-default-rate">-</div>
             <div class="stat-sub" id="s-default-count">-</div>
           </div>
           <div class="card stat-card">
-            <div class="stat-label">Borrower Count</div>
+            <div class="stat-label">Lessee Count</div>
             <div class="stat-value" id="s-borrower-count">-</div>
             <div class="stat-sub" id="s-avg-facility">-</div>
           </div>
         </div>
       </div>
-
       <div class="section">
         <div class="section-title">Top Exposures</div>
         <div class="card table-card">
           <div class="table-scroll">
             <table>
-              <thead>
-                <tr>
-                  <th>#</th><th>Borrower</th><th>Sector</th><th>Outstanding</th><th>% of Book</th><th>Rating</th><th>Status</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>#</th><th>Lessee</th><th>Sector</th><th>Outstanding</th><th>% of Book</th><th>Rating</th><th>Arrears</th>
+              </tr></thead>
               <tbody id="top-exposures-body"></tbody>
             </table>
           </div>
@@ -484,32 +528,28 @@
     <div class="tab-content" id="tab-concentration">
       <div class="section">
         <div class="chart-grid-2">
-          <div class="card chart-card">
-            <h3>Sector Concentration</h3>
-            <div class="chart-wrap"><canvas id="chart-sector"></canvas></div>
-          </div>
-          <div class="card chart-card">
-            <h3>Regional Concentration</h3>
-            <div class="chart-wrap"><canvas id="chart-region"></canvas></div>
-          </div>
+          <div class="card chart-card"><h3>Sector Concentration</h3><div class="chart-wrap"><canvas id="chart-sector"></canvas></div></div>
+          <div class="card chart-card"><h3>Regional Concentration</h3><div class="chart-wrap"><canvas id="chart-region"></canvas></div></div>
         </div>
       </div>
       <div class="section">
         <div class="chart-grid-3">
-          <div class="card chart-card">
-            <h3>Rating Distribution</h3>
-            <div class="chart-wrap"><canvas id="chart-rating"></canvas></div>
-          </div>
-          <div class="card chart-card">
-            <h3>Top 10 Borrower Exposures</h3>
-            <div class="chart-wrap"><canvas id="chart-top10"></canvas></div>
-          </div>
-          <div class="card chart-card">
-            <h3>Maturity Profile</h3>
-            <div class="chart-wrap"><canvas id="chart-maturity"></canvas></div>
-          </div>
+          <div class="card chart-card"><h3>Rating Distribution</h3><div class="chart-wrap"><canvas id="chart-rating"></canvas></div></div>
+          <div class="card chart-card"><h3>Top 10 Lessee Exposures</h3><div class="chart-wrap"><canvas id="chart-top10"></canvas></div></div>
+          <div class="card chart-card"><h3>Maturity Profile</h3><div class="chart-wrap"><canvas id="chart-maturity"></canvas></div></div>
         </div>
       </div>
+    </div>
+
+    <!-- STRATIFICATION TAB -->
+    <div class="tab-content" id="tab-stratification">
+      <div class="section" id="strat-content"></div>
+    </div>
+
+    <!-- ANOMALIES TAB -->
+    <div class="tab-content" id="tab-anomalies">
+      <div class="section" id="anomaly-summary-section"></div>
+      <div class="section" id="anomaly-list-section"></div>
     </div>
 
     <!-- DATA TAB -->
@@ -522,11 +562,9 @@
           </div>
           <div class="table-scroll" style="max-height:600px;">
             <table>
-              <thead>
-                <tr>
-                  <th>Loan ID</th><th>Borrower</th><th>Sector</th><th>Region</th><th>Commitment</th><th>Outstanding</th><th>Maturity</th><th>Rate</th><th>Rating</th><th>Facility</th><th>Default</th>
-                </tr>
-              </thead>
+              <thead><tr>
+                <th>ID</th><th>Lessee</th><th>Sector</th><th>Region</th><th>Original Bal</th><th>Outstanding</th><th>Maturity</th><th>Rate</th><th>Rating</th><th>Type</th><th>Arrears</th>
+              </tr></thead>
               <tbody id="data-table-body"></tbody>
             </table>
           </div>
@@ -564,7 +602,6 @@ let charts = {};
 let pendingRawData = null;
 let columnMapping = {};
 
-// Muted palette for charts — low saturation, professional
 const COLORS = [
   '#003078','#00857c','#4a6fa5','#6d8c70','#8a7d5a',
   '#7a5a6a','#5a7a8a','#6a6a5a','#4a7a7a','#8a6a5a',
@@ -572,7 +609,7 @@ const COLORS = [
 ];
 
 // ============================================================
-//  NAV BUTTONS — dynamic based on view
+//  NAV
 // ============================================================
 function updateNav(view) {
   const el = document.getElementById('nav-actions');
@@ -585,18 +622,15 @@ function updateNav(view) {
     `;
   }
 }
-
 function goHome() {
   document.getElementById('upload-section').style.display = '';
   document.getElementById('dashboard').classList.remove('active');
-  // Reset tabs to Overview
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.querySelector('.tab[data-tab="overview"]').classList.add('active');
   document.getElementById('tab-overview').classList.add('active');
   updateNav('home');
 }
-
 updateNav('home');
 
 // ============================================================
@@ -604,7 +638,6 @@ updateNav('home');
 // ============================================================
 const uploadArea = document.getElementById('upload-area');
 const fileInput = document.getElementById('file-input');
-
 uploadArea.addEventListener('click', () => fileInput.click());
 uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
 uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
@@ -618,11 +651,7 @@ fileInput.addEventListener('change', e => { if (e.target.files.length) handleFil
 function handleFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'csv') {
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: r => showMappingModal(r.data)
-    });
+    Papa.parse(file, { header: true, skipEmptyLines: true, complete: r => showMappingModal(r.data) });
   } else if (ext === 'xlsx' || ext === 'xls') {
     const reader = new FileReader();
     reader.onload = e => {
@@ -635,42 +664,69 @@ function handleFile(file) {
 }
 
 // ============================================================
-//  TEMPLATE FIELDS
+//  TEMPLATE FIELDS — core + lease tape extensions
 // ============================================================
 const TEMPLATE_FIELDS = [
-  { key: 'loan_id',             label: 'Loan ID',             required: true,  type: 'string' },
-  { key: 'borrower_name',       label: 'Borrower Name',       required: true,  type: 'string' },
-  { key: 'sector',              label: 'Sector',              required: false, type: 'string' },
+  // Core (required)
+  { key: 'loan_id',             label: 'Lease / Loan ID',     required: true,  type: 'string' },
+  { key: 'borrower_name',       label: 'Lessee / Borrower',   required: true,  type: 'string' },
+  { key: 'loan_amount',         label: 'Original Balance',    required: true,  type: 'number' },
+  { key: 'outstanding_balance', label: 'Current Outstanding', required: true,  type: 'number' },
+  // Core (optional)
+  { key: 'sector',              label: 'Sector / SIC',        required: false, type: 'string' },
   { key: 'region',              label: 'Region',              required: false, type: 'string' },
-  { key: 'loan_amount',         label: 'Commitment',          required: true,  type: 'number' },
-  { key: 'outstanding_balance', label: 'Outstanding Balance', required: true,  type: 'number' },
   { key: 'maturity_date',       label: 'Maturity Date',       required: false, type: 'string' },
-  { key: 'interest_rate',       label: 'Interest Rate',       required: false, type: 'number' },
+  { key: 'interest_rate',       label: 'Margin / Coupon',     required: false, type: 'number' },
   { key: 'credit_rating',       label: 'Credit Rating',       required: false, type: 'string' },
-  { key: 'facility_type',       label: 'Facility Type',       required: false, type: 'string' },
-  { key: 'default_flag',        label: 'Default Flag',        required: false, type: 'boolean' }
+  { key: 'facility_type',       label: 'Type of Lease',       required: false, type: 'string' },
+  { key: 'default_flag',        label: 'Default Flag',        required: false, type: 'boolean' },
+  // Lease tape extensions
+  { key: 'origination_date',    label: 'Origination Date',    required: false, type: 'string' },
+  { key: 'original_term',       label: 'Original Term (m)',   required: false, type: 'number' },
+  { key: 'remaining_term',      label: 'Remaining Term (m)',  required: false, type: 'number' },
+  { key: 'currency',            label: 'Currency',            required: false, type: 'string' },
+  { key: 'repayment_method',    label: 'Repayment Method',    required: false, type: 'string' },
+  { key: 'amortisation_type',   label: 'Amortisation Type',   required: false, type: 'string' },
+  { key: 'payment_frequency',   label: 'Payment Frequency',   required: false, type: 'string' },
+  { key: 'interest_rate_type',  label: 'Interest Rate Type',  required: false, type: 'string' },
+  { key: 'days_in_arrears',     label: 'Days in Arrears',     required: false, type: 'number' },
+  { key: 'asset_type',          label: 'Asset Type',          required: false, type: 'string' },
+  { key: 'customer_segment',    label: 'Customer Segment',    required: false, type: 'string' },
+  { key: 'origination_channel', label: 'Origination Channel', required: false, type: 'string' },
+  { key: 'balloon_pct',         label: 'Balloon %',           required: false, type: 'number' }
 ];
 
 const FIELD_ALIASES = {
-  loan_id:             ['loan_id','loanid','loan id','loan #','loan_number','loannumber','loan number','id','loan_ref','loanref','deal_id','dealid','asset_id','assetid','facility_id','facilityid','reference','ref','facility_ref','facilityref'],
-  borrower_name:       ['borrower_name','borrowername','borrower name','borrower','obligor','obligor_name','obligorname','counterparty','counterparty_name','client','client_name','company','company_name','entity','entity_name','name','customer','customer_name'],
-  sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','sic','sic_code','naics','industry_classification'],
-  region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile','country_of_risk','area'],
-  loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size','facility_size','facilitysize','limit','facility_limit'],
-  outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','current_drawn','currentdrawn','utilised','utilised_amount'],
+  loan_id:             ['loan_id','loanid','loan id','loan #','loan_number','loannumber','loan number','id','loan_ref','loanref','deal_id','dealid','asset_id','assetid','facility_id','facilityid','reference','ref','facility_ref','facilityref','lease_identifier','leaseidentifier','lease identifier','lease_id','leaseid','lease id','lease_ref','leaseref','receivable_id'],
+  borrower_name:       ['borrower_name','borrowername','borrower name','borrower','obligor','obligor_name','obligorname','counterparty','counterparty_name','client','client_name','company','company_name','entity','entity_name','name','customer','customer_name','lessee','lessee_name','lessee_identifier','lesseeidentifier','lessee identifier','group_company_identifier','group company identifier'],
+  sector:              ['sector','industry','industry_sector','industrysector','segment','business_sector','sic','sic_code','naics','industry_classification','sic_industry_code','sicindustrycode','sic industry code'],
+  region:              ['region','geography','country','location','geo','market','territory','jurisdiction','domicile','country_of_risk','area','uk_region','ukregion','uk region','asset_location','assetlocation','asset location'],
+  loan_amount:         ['loan_amount','loanamount','loan amount','original_amount','originalamount','original amount','commitment','facility_amount','facilityamount','notional','principal','face_value','facevalue','committed_amount','committedamount','deal_size','dealsize','size','facility_size','facilitysize','limit','facility_limit','original_principal_balance','originalprincipalbalance','original principal balance','original_balance','originalbalance'],
+  outstanding_balance: ['outstanding_balance','outstandingbalance','outstanding balance','outstanding','current_balance','currentbalance','current balance','drawn','drawn_amount','drawnamount','exposure','current_exposure','net_exposure','balance','current_drawn','currentdrawn','utilised','utilised_amount','current_prin_outstanding_bal','currentprinoutstandingbal','current prin outstanding bal','current_principal','currentprincipal'],
   maturity_date:       ['maturity_date','maturitydate','maturity date','maturity','mat_date','matdate','final_maturity','finalmaturity','end_date','enddate','expiry','expiry_date','expirydate','termination_date','repayment_date'],
-  interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing','current_rate'],
+  interest_rate:       ['interest_rate','interestrate','interest rate','rate','coupon','spread','margin','yield','all_in_rate','allinrate','coupon_rate','couponrate','rate_pct','pricing','current_rate','margin_coupon','margincoupon','margin / coupon','margin/coupon'],
   credit_rating:       ['credit_rating','creditrating','credit rating','rating','internal_rating','internalrating','external_rating','externalrating','risk_rating','riskrating','grade','risk_grade','credit_grade','pd_grade'],
-  facility_type:       ['facility_type','facilitytype','facility type','facility','type','loan_type','loantype','loan type','product','product_type','producttype','instrument','instrument_type','tranche','deal_type','asset_type'],
-  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','status','performing_status','workout','impaired','arrears','npl_flag','nplflag']
+  facility_type:       ['facility_type','facilitytype','facility type','type','loan_type','loantype','loan type','product','product_type','producttype','instrument','instrument_type','tranche','deal_type','type_of_lease','typeoflease','type of lease','lease_type','leasetype'],
+  default_flag:        ['default_flag','defaultflag','default flag','default','defaulted','is_default','isdefault','in_default','npl','non_performing','nonperforming','status','performing_status','workout','impaired','npl_flag','nplflag'],
+  origination_date:    ['origination_date','originationdate','origination date','lease_origination_date','leaseoriginationdate','lease origination date','start_date','startdate','start date','drawdown_date','inception_date','commencement_date','orig_date'],
+  original_term:       ['original_term','originalterm','original term','orig_term','origterm','original_term_months','term_months','contractual_term','initial_term','lease_term','orig_term_months'],
+  remaining_term:      ['remaining_term','remainingterm','remaining term','rem_term','remterm','remaining_term_months','residual_term','rem_term_months','months_remaining','time_to_maturity'],
+  currency:            ['currency','ccy','curr','iso_currency','currency_code','currencycode','denomination'],
+  repayment_method:    ['repayment_method','repaymentmethod','repayment method','repayment_type','repaymenttype','repay_method'],
+  amortisation_type:   ['amortisation_type','amortisationtype','amortisation type','amortization_type','amortizationtype','amort_type','amorttype','amortisation','amortization','amort_profile'],
+  payment_frequency:   ['payment_frequency','paymentfrequency','payment frequency','pay_frequency','payfrequency','pay_freq','frequency','installment_frequency'],
+  interest_rate_type:  ['interest_rate_type','interestratetype','interest rate type','rate_type','ratetype','rate type','fixed_floating','fixedfloating','fixed_or_floating','interest_type','interesttype','interest_rate_basis','interestratebasis','interest rate basis'],
+  days_in_arrears:     ['days_in_arrears','daysinarrears','days in arrears','arrears_days','arrearsdays','dpd','days_past_due','dayspastdue','number_of_days_in_arrears','numberofdaysinarrears','number of days in arrears','arrears'],
+  asset_type:          ['asset_type','assettype','asset type','asset_class','assetclass','asset_category','collateral_type','equipment_type','asset_description'],
+  customer_segment:    ['customer_segment','customersegment','customer segment','cust_segment','segment','borrower_type','obligor_type','client_segment','legal_form_or_business_type','legalformorbusinesstype','legal form or business type','legal_form','business_type'],
+  origination_channel: ['origination_channel','originationchannel','origination channel','channel','source','distribution_channel','sales_channel','origination_source','orig_channel'],
+  balloon_pct:         ['balloon_pct','balloonpct','balloon_percentage','balloonpercentage','balloon percentage','balloon','residual_value_pct','residual_pct','rv_pct','balloon_pct_of_original','balloon_percent']
 };
 
 // ============================================================
 //  FUZZY COLUMN MATCHING
 // ============================================================
-function normalizeStr(s) {
-  return String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
-}
+function normalizeStr(s) { return String(s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
 
 function autoMatchColumn(colName) {
   const norm = normalizeStr(colName);
@@ -696,7 +752,6 @@ function autoMatchColumn(colName) {
 function showMappingModal(rawData) {
   pendingRawData = rawData;
   if (!rawData.length) return;
-
   const sourceColumns = Object.keys(rawData[0]);
   document.getElementById('mapping-col-count').textContent = sourceColumns.length;
 
@@ -712,7 +767,6 @@ function showMappingModal(rawData) {
 
   const body = document.getElementById('mapping-body');
   body.innerHTML = '';
-
   const headerRow = document.createElement('div');
   headerRow.className = 'mapping-row-header';
   headerRow.innerHTML = '<span>Source Column</span><span></span><span>Maps To</span>';
@@ -724,7 +778,6 @@ function showMappingModal(rawData) {
     const samples = rawData.slice(0, 10).map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3);
     const sampleText = samples.length ? samples.join(', ') : '(empty)';
     const isAuto = !!autoMatched[col];
-
     row.innerHTML = `
       <div class="mapping-col-name">
         ${escapeHtml(col)}${isAuto ? '<span class="mapping-badge auto">auto</span>' : ''}
@@ -740,7 +793,6 @@ function showMappingModal(rawData) {
     `;
     body.appendChild(row);
   });
-
   updateMappingStatus();
   document.getElementById('mapping-overlay').classList.add('active');
 }
@@ -748,7 +800,6 @@ function showMappingModal(rawData) {
 function onMappingChange(select) {
   const sourceCol = select.getAttribute('data-source');
   const newVal = select.value;
-
   if (newVal) {
     document.querySelectorAll('.mapping-select').forEach(s => {
       if (s !== select && s.value === newVal) {
@@ -758,14 +809,8 @@ function onMappingChange(select) {
       }
     });
   }
-
-  if (newVal) {
-    columnMapping[sourceCol] = newVal;
-    select.classList.add('mapped');
-  } else {
-    delete columnMapping[sourceCol];
-    select.classList.remove('mapped');
-  }
+  if (newVal) { columnMapping[sourceCol] = newVal; select.classList.add('mapped'); }
+  else { delete columnMapping[sourceCol]; select.classList.remove('mapped'); }
   updateMappingStatus();
 }
 
@@ -775,10 +820,8 @@ function updateMappingStatus() {
   const mappedCount = mapped.length;
   const requiredFields = TEMPLATE_FIELDS.filter(f => f.required);
   const missingRequired = requiredFields.filter(f => !mapped.includes(f.key));
-
   const statusEl = document.getElementById('mapping-status');
   const confirmBtn = document.getElementById('mapping-confirm-btn');
-
   if (missingRequired.length > 0) {
     statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped &middot; <span class="warn">Required: ${missingRequired.map(f => f.label).join(', ')}</span>`;
     confirmBtn.style.opacity = '0.4';
@@ -799,28 +842,39 @@ function cancelMapping() {
 function confirmMapping() {
   if (!pendingRawData) return;
   const reverseMap = {};
-  for (const [source, target] of Object.entries(columnMapping)) {
-    reverseMap[target] = source;
-  }
+  for (const [source, target] of Object.entries(columnMapping)) reverseMap[target] = source;
   loans = applyMapping(pendingRawData, reverseMap);
   document.getElementById('mapping-overlay').classList.remove('active');
   pendingRawData = null;
   renderDashboard();
 }
 
-function applyMapping(data, reverseMap) {
+function applyMapping(data, rm) {
   return data.map((row, i) => ({
-    loan_id:             reverseMap.loan_id ? String(row[reverseMap.loan_id] || '') || `L${i+1}` : `L${i+1}`,
-    borrower_name:       reverseMap.borrower_name ? String(row[reverseMap.borrower_name] || '') : '',
-    sector:              reverseMap.sector ? String(row[reverseMap.sector] || '') : '',
-    region:              reverseMap.region ? String(row[reverseMap.region] || '') : '',
-    loan_amount:         reverseMap.loan_amount ? parseNum(row[reverseMap.loan_amount]) : 0,
-    outstanding_balance: reverseMap.outstanding_balance ? parseNum(row[reverseMap.outstanding_balance]) : 0,
-    maturity_date:       reverseMap.maturity_date ? String(row[reverseMap.maturity_date] || '') : '',
-    interest_rate:       reverseMap.interest_rate ? parseNum(row[reverseMap.interest_rate]) : 0,
-    credit_rating:       reverseMap.credit_rating ? String(row[reverseMap.credit_rating] || '') : '',
-    facility_type:       reverseMap.facility_type ? String(row[reverseMap.facility_type] || '') : '',
-    default_flag:        reverseMap.default_flag ? parseDefault(row[reverseMap.default_flag]) : false
+    loan_id:             rm.loan_id ? String(row[rm.loan_id] || '') || `L${i+1}` : `L${i+1}`,
+    borrower_name:       rm.borrower_name ? String(row[rm.borrower_name] || '') : '',
+    sector:              rm.sector ? String(row[rm.sector] || '') : '',
+    region:              rm.region ? String(row[rm.region] || '') : '',
+    loan_amount:         rm.loan_amount ? parseNum(row[rm.loan_amount]) : 0,
+    outstanding_balance: rm.outstanding_balance ? parseNum(row[rm.outstanding_balance]) : 0,
+    maturity_date:       rm.maturity_date ? String(row[rm.maturity_date] || '') : '',
+    interest_rate:       rm.interest_rate ? parseNum(row[rm.interest_rate]) : 0,
+    credit_rating:       rm.credit_rating ? String(row[rm.credit_rating] || '') : '',
+    facility_type:       rm.facility_type ? String(row[rm.facility_type] || '') : '',
+    default_flag:        rm.default_flag ? parseDefault(row[rm.default_flag]) : false,
+    origination_date:    rm.origination_date ? String(row[rm.origination_date] || '') : '',
+    original_term:       rm.original_term ? parseNum(row[rm.original_term]) : 0,
+    remaining_term:      rm.remaining_term ? parseNum(row[rm.remaining_term]) : 0,
+    currency:            rm.currency ? String(row[rm.currency] || '') : '',
+    repayment_method:    rm.repayment_method ? String(row[rm.repayment_method] || '') : '',
+    amortisation_type:   rm.amortisation_type ? String(row[rm.amortisation_type] || '') : '',
+    payment_frequency:   rm.payment_frequency ? String(row[rm.payment_frequency] || '') : '',
+    interest_rate_type:  rm.interest_rate_type ? String(row[rm.interest_rate_type] || '') : '',
+    days_in_arrears:     rm.days_in_arrears ? parseNum(row[rm.days_in_arrears]) : 0,
+    asset_type:          rm.asset_type ? String(row[rm.asset_type] || '') : '',
+    customer_segment:    rm.customer_segment ? String(row[rm.customer_segment] || '') : '',
+    origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '') : '',
+    balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) : 0
   }));
 }
 
@@ -828,15 +882,29 @@ function parseNum(v) { const n = parseFloat(String(v).replace(/[\u00a3,$%]/g, ''
 function parseDefault(v) { return v === true || v === 1 || v === '1' || String(v).toLowerCase() === 'yes' || String(v).toLowerCase() === 'true'; }
 
 // ============================================================
-//  SAMPLE TAPE GENERATOR + DOWNLOAD
+//  SAMPLE TAPE GENERATOR — with deliberate anomalies
 // ============================================================
 function generateSampleRows() {
   const sectors = ['Healthcare','Technology','Business Services','Manufacturing','Professional Services','Retail & Consumer','Construction & Property','Energy & Infrastructure','Media & Entertainment','Financial Services','Education','Hospitality & Leisure','Transport & Logistics'];
   const regions = ['London','South East','Midlands','North West','North East','Scotland','Wales','South West','East of England','Yorkshire & Humber'];
   const grades = ['A','A-','B+','B','B-','C+','C','C-','D'];
   const gradeWeights = [0.04, 0.08, 0.14, 0.24, 0.20, 0.14, 0.10, 0.04, 0.02];
-  const products = ['Term Loan','Revolving Credit','Capex Facility','Acquisition Facility','Working Capital','Asset-Based Lending'];
-  const productWeights = [0.35, 0.22, 0.12, 0.10, 0.13, 0.08];
+  const leaseTypes = ['Finance Lease','Operating Lease','Hire Purchase','Conditional Sale','PCP'];
+  const leaseTypeWeights = [0.30, 0.20, 0.25, 0.15, 0.10];
+  const assetTypes = ['Vehicles','Plant & Machinery','IT Equipment','Office Equipment','Commercial Vehicles','Medical Equipment','Construction Equipment','Printing Equipment','Catering Equipment','Agricultural Equipment'];
+  const assetTypeWeights = [0.22, 0.18, 0.14, 0.08, 0.12, 0.06, 0.08, 0.04, 0.04, 0.04];
+  const repayMethods = ['Level','Reducing','Balloon','Seasonal','Stepped'];
+  const repayWeights = [0.35, 0.25, 0.20, 0.10, 0.10];
+  const amortTypes = ['Annuity','Linear','Bullet','Soft Bullet'];
+  const amortWeights = [0.40, 0.30, 0.15, 0.15];
+  const payFreqs = ['Monthly','Quarterly','Semi-Annual','Annual'];
+  const payFreqWeights = [0.65, 0.20, 0.10, 0.05];
+  const rateTypes = ['Fixed','Floating','Mixed'];
+  const rateTypeWeights = [0.55, 0.35, 0.10];
+  const custSegments = ['SME','Mid-Market','Large Corporate','Micro Enterprise','Sole Trader'];
+  const custSegWeights = [0.35, 0.25, 0.15, 0.15, 0.10];
+  const channels = ['Direct','Broker','Vendor','Online','Partnership'];
+  const channelWeights = [0.30, 0.25, 0.20, 0.15, 0.10];
   const borrowers = [
     'Acorn Manufacturing Ltd','Beacon Healthcare Group','Crestfield Properties Plc','Drummond Engineering Ltd','Evergreen Retail Holdings',
     'Foxbridge Capital Ltd','Glenmore Logistics Plc','Hartland Construction Ltd','Ironside Technologies Ltd','Jubilee Hotels Group',
@@ -853,45 +921,77 @@ function generateSampleRows() {
     'Taunton Warehousing Ltd','Uxbridge Engineering Plc','Warwick Plastics Ltd','Exeter Renewable Power','York Building Supplies'
   ];
 
-  function weightedRandom(weights) {
-    const r = Math.random();
-    let cum = 0;
-    for (let i = 0; i < weights.length; i++) { cum += weights[i]; if (r <= cum) return i; }
-    return weights.length - 1;
-  }
-
-  function randomDate(startYear, endYear) {
-    const y = startYear + Math.floor(Math.random() * (endYear - startYear + 1));
+  function wr(weights) { const r = Math.random(); let c = 0; for (let i = 0; i < weights.length; i++) { c += weights[i]; if (r <= c) return i; } return weights.length - 1; }
+  function randDate(sy, ey) {
+    const y = sy + Math.floor(Math.random() * (ey - sy + 1));
     const m = String(Math.floor(Math.random() * 12) + 1).padStart(2, '0');
     const d = String(Math.floor(Math.random() * 28) + 1).padStart(2, '0');
     return `${d}/${m}/${y}`;
   }
 
   const rows = [];
-  for (let i = 1; i <= 150; i++) {
-    const gradeIdx = weightedRandom(gradeWeights);
-    const prodIdx = weightedRandom(productWeights);
-    const facilitySize = Math.round((250000 + Math.random() * 9750000) / 25000) * 25000;
-    const isRevolver = prodIdx === 1 || prodIdx === 4;
-    const util = isRevolver ? (0.1 + Math.random() * 0.6) : (0.85 + Math.random() * 0.15);
-    const drawn = Math.round(facilitySize * util / 1000) * 1000;
+  for (let i = 1; i <= 200; i++) {
+    const gradeIdx = wr(gradeWeights);
+    const origBal = Math.round((15000 + Math.random() * 485000) / 1000) * 1000;
+    const origTerm = [12,18,24,36,48,60,72,84][Math.floor(Math.random() * 8)];
+    let remTerm = Math.max(1, Math.round(origTerm * (0.1 + Math.random() * 0.8)));
     const baseRate = [3.5, 4.2, 5.0, 5.8, 6.5, 7.5, 8.5, 10.0, 12.0][gradeIdx];
     const rate = Math.round((baseRate + (Math.random() - 0.5) * 1.2) * 100) / 100;
-    const defaultProb = [0.002, 0.005, 0.01, 0.02, 0.04, 0.07, 0.12, 0.18, 0.30][gradeIdx];
-    const isDefault = Math.random() < defaultProb;
+    const elapsed = origTerm - remTerm;
+    const util = Math.max(0.1, 1 - (elapsed / origTerm) * (0.7 + Math.random() * 0.3));
+    let outBal = Math.round(origBal * util / 100) * 100;
+    const repayIdx = wr(repayWeights);
+    const balloonPct = repayIdx === 2 ? Math.round(15 + Math.random() * 30) : 0;
+    const arrearsProb = [0.01, 0.02, 0.03, 0.05, 0.08, 0.12, 0.18, 0.25, 0.40][gradeIdx];
+    let arrearsDays = 0;
+    if (Math.random() < arrearsProb) arrearsDays = Math.floor(Math.random() * 180) + 1;
+    let ccy = 'GBP';
+
+    // --- DELIBERATE ANOMALIES ---
+    // Remaining term > original term (IDs 5, 42)
+    if (i === 5 || i === 42) remTerm = origTerm + 12;
+    // Non-GBP currency (IDs 11, 88)
+    if (i === 11) ccy = 'EUR';
+    if (i === 88) ccy = 'USD';
+    // Negative outstanding balance (ID 23)
+    if (i === 23) outBal = -15000;
+    // Outstanding > original (ID 67)
+    if (i === 67) outBal = origBal + 50000;
+    // Zero interest rate (IDs 33, 99)
+    if (i === 33 || i === 99) {}  // rate stays as generated; we'll override below
+    // Very high rate (ID 150)
+    if (i === 150) {}
+    // Balloon > 100% (ID 77)
+    // Future origination date (IDs 130, 180)
+    // Duplicate IDs (IDs 190, 191 both get same ref)
+
+    const leaseRef = (i === 191) ? 'EF-00190' : `EF-${String(i).padStart(5, '0')}`;
 
     rows.push({
-      'Facility_Ref':      `EF-${String(i).padStart(5, '0')}`,
-      'Counterparty':      borrowers[Math.floor(Math.random() * borrowers.length)],
-      'Industry':          sectors[Math.floor(Math.random() * sectors.length)],
-      'Geography':         regions[Math.floor(Math.random() * regions.length)],
-      'Facility_Limit':    facilitySize,
-      'Current_Drawn':     drawn,
-      'Final_Maturity':    randomDate(2026, 2032),
-      'All_In_Rate':       Math.max(2.5, rate),
-      'Risk_Grade':        grades[gradeIdx],
-      'Product_Type':      products[prodIdx],
-      'NPL_Flag':          isDefault ? 'Yes' : 'No'
+      'Lease_Identifier':    leaseRef,
+      'Lessee_Identifier':   borrowers[Math.floor(Math.random() * borrowers.length)],
+      'SIC_Industry_Code':   sectors[Math.floor(Math.random() * sectors.length)],
+      'UK_Region':           regions[Math.floor(Math.random() * regions.length)],
+      'Original_Principal_Balance': origBal,
+      'Current_Prin_Outstanding_Bal': outBal,
+      'Maturity_Date':       randDate(2026, 2033),
+      'Margin_Coupon':       i === 33 || i === 99 ? 0 : (i === 150 ? 35.5 : Math.max(2.0, rate)),
+      'Risk_Grade':          grades[gradeIdx],
+      'Type_of_Lease':       leaseTypes[wr(leaseTypeWeights)],
+      'NPL_Flag':            arrearsDays > 90 ? 'Yes' : 'No',
+      'Lease_Origination_Date': i === 130 || i === 180 ? randDate(2027, 2028) : randDate(2019, 2025),
+      'Original_Term':       origTerm,
+      'Remaining_Term':      remTerm,
+      'Currency':            ccy,
+      'Repayment_Method':    repayMethods[repayIdx],
+      'Amortisation_Type':   amortTypes[wr(amortWeights)],
+      'Payment_Frequency':   payFreqs[wr(payFreqWeights)],
+      'Interest_Rate_Type':  rateTypes[wr(rateTypeWeights)],
+      'Number_of_Days_in_Arrears': arrearsDays,
+      'Asset_Type':          assetTypes[wr(assetTypeWeights)],
+      'Customer_Segment':    custSegments[wr(custSegWeights)],
+      'Origination_Channel': channels[wr(channelWeights)],
+      'Balloon_Percentage':  i === 77 ? 115 : balloonPct
     });
   }
   return rows;
@@ -900,14 +1000,10 @@ function generateSampleRows() {
 function downloadSampleTape() {
   const rows = generateSampleRows();
   const ws = XLSX.utils.json_to_sheet(rows);
-  ws['!cols'] = [
-    { wch: 14 }, { wch: 30 }, { wch: 24 }, { wch: 20 },
-    { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 12 },
-    { wch: 12 }, { wch: 22 }, { wch: 10 }
-  ];
+  ws['!cols'] = Array(24).fill({ wch: 18 });
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Loan Tape');
-  XLSX.writeFile(wb, 'sample_tape_enable_funding.xlsx');
+  XLSX.utils.book_append_sheet(wb, ws, 'Lease Tape');
+  XLSX.writeFile(wb, 'sample_lease_tape_enable_funding.xlsx');
 }
 
 // ============================================================
@@ -922,6 +1018,26 @@ function fmtM(v) {
 function fmtFull(v) { return '\u00A3' + v.toFixed(0).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
 function fmtPct(v) { return v.toFixed(2) + '%'; }
 function escapeHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// ============================================================
+//  DATE PARSER — UK default DD/MM/YYYY
+// ============================================================
+function parseDate(s) {
+  if (!s) return null;
+  const dmy = String(s).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (dmy) {
+    const day = parseInt(dmy[1]), mon = parseInt(dmy[2]), yr = parseInt(dmy[3]);
+    if (day > 12) return new Date(yr, mon - 1, day);
+    if (mon > 12) return new Date(yr, day - 1, mon);
+    return new Date(yr, mon - 1, day);
+  }
+  const ymd = String(s).match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (ymd) return new Date(parseInt(ymd[1]), parseInt(ymd[2]) - 1, parseInt(ymd[3]));
+  const num = parseFloat(s);
+  if (!isNaN(num) && num > 30000 && num < 100000) return new Date((num - 25569) * 86400000);
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 // ============================================================
 //  TABS
@@ -945,6 +1061,8 @@ function renderDashboard() {
   renderStats();
   renderTopExposures();
   renderCharts();
+  renderStratification();
+  renderAnomalies();
   renderDataTable();
 }
 
@@ -954,56 +1072,43 @@ function renderDashboard() {
 function renderStats() {
   const totalOriginal = loans.reduce((s, l) => s + l.loan_amount, 0);
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
-  const defaults = loans.filter(l => l.default_flag);
-  const defaultRate = loans.length > 0 ? (defaults.length / loans.length) * 100 : 0;
-
-  const wair = totalOutstanding > 0
-    ? loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / totalOutstanding
-    : 0;
-
-  const now = new Date();
-  const wam = totalOutstanding > 0
-    ? loans.reduce((s, l) => {
-        const mat = parseDate(l.maturity_date);
-        const years = mat ? Math.max(0, (mat - now) / (365.25 * 86400000)) : 0;
-        return s + years * l.outstanding_balance;
-      }, 0) / totalOutstanding
-    : 0;
-
-  const uniqueBorrowers = new Set(loans.map(l => l.borrower_name)).size;
-  const avgFacility = loans.length > 0 ? totalOriginal / loans.length : 0;
   const utilisation = totalOriginal > 0 ? (totalOutstanding / totalOriginal) * 100 : 0;
 
-  document.getElementById('s-portfolio-size').textContent = fmtM(totalOriginal);
-  document.getElementById('s-loan-count').textContent = loans.length + ' facilities';
-  document.getElementById('s-outstanding').textContent = fmtM(totalOutstanding);
-  document.getElementById('s-utilisation').textContent = fmtPct(utilisation) + ' drawn';
-  document.getElementById('s-wair').textContent = fmtPct(wair);
-  document.getElementById('s-wam').textContent = wam.toFixed(2) + ' yrs';
-  document.getElementById('s-default-rate').textContent = fmtPct(defaultRate);
-  document.getElementById('s-default-count').textContent = defaults.length + ' defaults';
-  document.getElementById('s-borrower-count').textContent = uniqueBorrowers;
-  document.getElementById('s-avg-facility').textContent = 'Avg facility: ' + fmtM(avgFacility);
-}
+  const wair = totalOutstanding > 0
+    ? loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / totalOutstanding : 0;
 
-// Parse DD/MM/YYYY or YYYY-MM-DD or other common formats
-function parseDate(s) {
-  if (!s) return null;
-  const dmy = String(s).match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (dmy) {
-    const day = parseInt(dmy[1]), mon = parseInt(dmy[2]), yr = parseInt(dmy[3]);
-    if (day > 12) return new Date(yr, mon - 1, day);
-    if (mon > 12) return new Date(yr, day - 1, mon);
-    return new Date(yr, mon - 1, day); // UK default: DD/MM
+  // WA remaining term (months)
+  const hasRemTerm = loans.some(l => l.remaining_term > 0);
+  let waRem = 0;
+  if (hasRemTerm && totalOutstanding > 0) {
+    waRem = loans.reduce((s, l) => s + l.remaining_term * l.outstanding_balance, 0) / totalOutstanding;
+  } else {
+    const now = new Date();
+    waRem = totalOutstanding > 0
+      ? loans.reduce((s, l) => {
+          const mat = parseDate(l.maturity_date);
+          const mo = mat ? Math.max(0, (mat - now) / (30.44 * 86400000)) : 0;
+          return s + mo * l.outstanding_balance;
+        }, 0) / totalOutstanding : 0;
   }
-  const ymd = String(s).match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
-  if (ymd) return new Date(parseInt(ymd[1]), parseInt(ymd[2]) - 1, parseInt(ymd[3]));
-  const num = parseFloat(s);
-  if (!isNaN(num) && num > 30000 && num < 100000) {
-    return new Date((num - 25569) * 86400000);
-  }
-  const d = new Date(s);
-  return isNaN(d.getTime()) ? null : d;
+
+  const arrears90 = loans.filter(l => l.days_in_arrears > 90);
+  const arrears90Bal = arrears90.reduce((s, l) => s + l.outstanding_balance, 0);
+  const arrears90Pct = totalOutstanding > 0 ? (arrears90Bal / totalOutstanding) * 100 : 0;
+  const uniqueBorrowers = new Set(loans.map(l => l.borrower_name)).size;
+  const avgFacility = loans.length > 0 ? totalOriginal / loans.length : 0;
+
+  document.getElementById('s-portfolio-size').textContent = fmtM(totalOriginal);
+  document.getElementById('s-loan-count').textContent = loans.length + ' receivables';
+  document.getElementById('s-outstanding').textContent = fmtM(totalOutstanding);
+  document.getElementById('s-utilisation').textContent = fmtPct(utilisation) + ' of original';
+  document.getElementById('s-wair').textContent = fmtPct(wair);
+  document.getElementById('s-wam').textContent = waRem.toFixed(1) + 'm';
+  document.getElementById('s-wam-sub').textContent = hasRemTerm ? 'Weighted avg remaining' : 'From maturity dates';
+  document.getElementById('s-default-rate').textContent = fmtPct(arrears90Pct);
+  document.getElementById('s-default-count').textContent = arrears90.length + ' receivables';
+  document.getElementById('s-borrower-count').textContent = uniqueBorrowers;
+  document.getElementById('s-avg-facility').textContent = 'Avg: ' + fmtM(avgFacility);
 }
 
 // ============================================================
@@ -1012,11 +1117,10 @@ function parseDate(s) {
 function renderTopExposures() {
   const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
   const sorted = [...loans].sort((a, b) => b.outstanding_balance - a.outstanding_balance).slice(0, 10);
-
   document.getElementById('top-exposures-body').innerHTML = sorted.map((l, i) => {
     const pct = totalOutstanding > 0 ? ((l.outstanding_balance / totalOutstanding) * 100).toFixed(2) : '0.00';
-    const statusClass = l.default_flag ? 'badge-red' : 'badge-green';
-    const statusText = l.default_flag ? 'Default' : 'Current';
+    const arrearsLabel = l.days_in_arrears > 90 ? 'badge-red' : l.days_in_arrears > 0 ? 'badge-amber' : 'badge-green';
+    const arrearsText = l.days_in_arrears > 0 ? l.days_in_arrears + 'd' : 'Current';
     return `<tr>
       <td>${i + 1}</td>
       <td>${escapeHtml(l.borrower_name)}</td>
@@ -1024,7 +1128,7 @@ function renderTopExposures() {
       <td class="mono">${fmtFull(l.outstanding_balance)}</td>
       <td class="mono">${pct}%</td>
       <td>${escapeHtml(l.credit_rating)}</td>
-      <td><span class="badge ${statusClass}">${statusText}</span></td>
+      <td><span class="badge ${arrearsLabel}">${arrearsText}</span></td>
     </tr>`;
   }).join('');
 }
@@ -1038,51 +1142,45 @@ const chartDefaults = {
   plugins: {
     legend: { labels: { color: '#4a5068', font: { size: 11, family: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif" }, padding: 10, boxWidth: 10 } },
     tooltip: {
-      backgroundColor: '#1a1e2a',
-      titleColor: '#ffffff',
-      bodyColor: '#e2e5ea',
-      borderColor: '#4a5068',
-      borderWidth: 1,
+      backgroundColor: '#1a1e2a', titleColor: '#ffffff', bodyColor: '#e2e5ea',
+      borderColor: '#4a5068', borderWidth: 1,
       titleFont: { family: "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif", size: 12 },
       bodyFont: { family: "'SF Mono','Consolas',monospace", size: 12 }
     }
   }
 };
 
-function destroyCharts() {
-  Object.values(charts).forEach(c => c.destroy());
-  charts = {};
-}
+function destroyCharts() { Object.values(charts).forEach(c => c.destroy()); charts = {}; }
 
 function renderCharts() {
   destroyCharts();
-  const totalOutstanding = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const tot = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const ttipCb = { callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + (tot > 0 ? ((ctx.raw / tot) * 100).toFixed(1) : 0) + '%)' } };
 
   const sectorMap = groupBy(loans, 'sector', 'outstanding_balance');
   charts.sector = new Chart(document.getElementById('chart-sector'), {
     type: 'doughnut',
     data: { labels: Object.keys(sectorMap), datasets: [{ data: Object.values(sectorMap), backgroundColor: COLORS, borderWidth: 0 }] },
-    options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + (totalOutstanding > 0 ? ((ctx.raw / totalOutstanding) * 100).toFixed(1) : 0) + '%)' } } } }
+    options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, ...ttipCb } } }
   });
 
   const regionMap = groupBy(loans, 'region', 'outstanding_balance');
   charts.region = new Chart(document.getElementById('chart-region'), {
     type: 'doughnut',
     data: { labels: Object.keys(regionMap), datasets: [{ data: Object.values(regionMap), backgroundColor: COLORS.slice(5).concat(COLORS.slice(0, 5)), borderWidth: 0 }] },
-    options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, callbacks: { label: ctx => ctx.label + ': ' + fmtM(ctx.raw) + ' (' + (totalOutstanding > 0 ? ((ctx.raw / totalOutstanding) * 100).toFixed(1) : 0) + '%)' } } } }
+    options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, ...ttipCb } } }
   });
 
   const ratingMap = groupBy(loans, 'credit_rating', 'outstanding_balance');
-  const allRatings = Object.keys(ratingMap);
   charts.rating = new Chart(document.getElementById('chart-rating'), {
     type: 'bar',
-    data: { labels: allRatings, datasets: [{ label: 'Outstanding', data: allRatings.map(r => ratingMap[r] || 0), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
+    data: { labels: Object.keys(ratingMap), datasets: [{ label: 'Outstanding', data: Object.values(ratingMap), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
     options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 11 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
   });
 
-  const borrowerMap = {};
-  loans.forEach(l => { borrowerMap[l.borrower_name] = (borrowerMap[l.borrower_name] || 0) + l.outstanding_balance; });
-  const top10 = Object.entries(borrowerMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const bMap = {};
+  loans.forEach(l => { bMap[l.borrower_name] = (bMap[l.borrower_name] || 0) + l.outstanding_balance; });
+  const top10 = Object.entries(bMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
   charts.top10 = new Chart(document.getElementById('chart-top10'), {
     type: 'bar',
     data: { labels: top10.map(b => b[0].length > 24 ? b[0].slice(0, 22) + '..' : b[0]), datasets: [{ label: 'Exposure', data: top10.map(b => b[1]), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
@@ -1115,13 +1213,460 @@ function groupBy(arr, key, sumKey) {
 }
 
 // ============================================================
+//  STRATIFICATION — prospectus-style tables
+// ============================================================
+function renderStratification() {
+  const container = document.getElementById('strat-content');
+  const tot = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const n = loans.length;
+
+  // Which strat tables to show (only if data exists for that field)
+  const stratFields = [
+    { key: 'facility_type',       title: 'By Type of Lease' },
+    { key: 'asset_type',          title: 'By Asset Type' },
+    { key: 'interest_rate_type',  title: 'By Interest Rate Type' },
+    { key: 'repayment_method',    title: 'By Repayment Method' },
+    { key: 'amortisation_type',   title: 'By Amortisation Type' },
+    { key: 'payment_frequency',   title: 'By Payment Frequency' },
+    { key: 'customer_segment',    title: 'By Customer Segment' },
+    { key: 'origination_channel', title: 'By Origination Channel' },
+    { key: 'credit_rating',       title: 'By Credit Rating' },
+    { key: 'region',              title: 'By Region' }
+  ];
+
+  // Banded strats
+  const bandedStrats = [];
+
+  // Original term bands (if data present)
+  if (loans.some(l => l.original_term > 0)) {
+    bandedStrats.push({
+      title: 'By Original Term',
+      fn: l => {
+        const t = l.original_term;
+        if (t <= 12) return '0-12m';
+        if (t <= 24) return '13-24m';
+        if (t <= 36) return '25-36m';
+        if (t <= 48) return '37-48m';
+        if (t <= 60) return '49-60m';
+        if (t <= 84) return '61-84m';
+        return '85m+';
+      },
+      order: ['0-12m','13-24m','25-36m','37-48m','49-60m','61-84m','85m+']
+    });
+  }
+
+  // Remaining term bands
+  if (loans.some(l => l.remaining_term > 0)) {
+    bandedStrats.push({
+      title: 'By Remaining Term',
+      fn: l => {
+        const t = l.remaining_term;
+        if (t <= 12) return '0-12m';
+        if (t <= 24) return '13-24m';
+        if (t <= 36) return '25-36m';
+        if (t <= 48) return '37-48m';
+        if (t <= 60) return '49-60m';
+        return '61m+';
+      },
+      order: ['0-12m','13-24m','25-36m','37-48m','49-60m','61m+']
+    });
+  }
+
+  // Balance bands
+  bandedStrats.push({
+    title: 'By Current Balance Band',
+    fn: l => {
+      const b = l.outstanding_balance;
+      if (b <= 0) return '\u22640';
+      if (b <= 25000) return '0-25k';
+      if (b <= 50000) return '25-50k';
+      if (b <= 100000) return '50-100k';
+      if (b <= 250000) return '100-250k';
+      if (b <= 500000) return '250-500k';
+      return '500k+';
+    },
+    order: ['\u22640','0-25k','25-50k','50-100k','100-250k','250-500k','500k+']
+  });
+
+  // Origination vintage
+  if (loans.some(l => l.origination_date)) {
+    bandedStrats.push({
+      title: 'By Origination Vintage',
+      fn: l => {
+        const d = parseDate(l.origination_date);
+        return d ? String(d.getFullYear()) : '(blank)';
+      }
+    });
+  }
+
+  // Arrears bands
+  if (loans.some(l => l.days_in_arrears > 0)) {
+    bandedStrats.push({
+      title: 'By Arrears Status',
+      fn: l => {
+        const d = l.days_in_arrears;
+        if (d === 0) return 'Current';
+        if (d <= 30) return '1-30 days';
+        if (d <= 60) return '31-60 days';
+        if (d <= 90) return '61-90 days';
+        return '>90 days';
+      },
+      order: ['Current','1-30 days','31-60 days','61-90 days','>90 days']
+    });
+  }
+
+  // Balloon bands
+  if (loans.some(l => l.balloon_pct > 0)) {
+    bandedStrats.push({
+      title: 'By Balloon Percentage',
+      fn: l => {
+        const b = l.balloon_pct;
+        if (b === 0) return 'No balloon';
+        if (b <= 10) return '1-10%';
+        if (b <= 20) return '11-20%';
+        if (b <= 30) return '21-30%';
+        if (b <= 50) return '31-50%';
+        return '>50%';
+      },
+      order: ['No balloon','1-10%','11-20%','21-30%','31-50%','>50%']
+    });
+  }
+
+  let html = '<div class="strat-grid">';
+
+  // Categorical strats
+  stratFields.forEach(sf => {
+    if (!loans.some(l => l[sf.key])) return; // skip if all blank
+    const groups = {};
+    loans.forEach(l => {
+      const k = l[sf.key] || '(blank)';
+      if (!groups[k]) groups[k] = { count: 0, balance: 0 };
+      groups[k].count++;
+      groups[k].balance += l.outstanding_balance;
+    });
+    const sorted = Object.entries(groups).sort((a, b) => b[1].balance - a[1].balance);
+    html += buildStratCard(sf.title, sorted, n, tot);
+  });
+
+  // Banded strats
+  bandedStrats.forEach(bs => {
+    const groups = {};
+    loans.forEach(l => {
+      const k = bs.fn(l);
+      if (!groups[k]) groups[k] = { count: 0, balance: 0 };
+      groups[k].count++;
+      groups[k].balance += l.outstanding_balance;
+    });
+    let sorted;
+    if (bs.order) {
+      sorted = bs.order.filter(k => groups[k]).map(k => [k, groups[k]]);
+      // add any not in order
+      Object.keys(groups).filter(k => !bs.order.includes(k)).forEach(k => sorted.push([k, groups[k]]));
+    } else {
+      sorted = Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+    }
+    html += buildStratCard(bs.title, sorted, n, tot);
+  });
+
+  html += '</div>';
+  container.innerHTML = html;
+}
+
+function buildStratCard(title, sortedEntries, totalCount, totalBalance) {
+  let rows = '';
+  sortedEntries.forEach(([label, data]) => {
+    const pctCount = totalCount > 0 ? ((data.count / totalCount) * 100).toFixed(1) : '0.0';
+    const pctBal = totalBalance > 0 ? ((data.balance / totalBalance) * 100).toFixed(1) : '0.0';
+    const avgBal = data.count > 0 ? data.balance / data.count : 0;
+    rows += `<tr>
+      <td>${escapeHtml(label)}</td>
+      <td class="mono right">${data.count}</td>
+      <td class="mono right">${pctCount}%</td>
+      <td class="mono right">${fmtFull(data.balance)}</td>
+      <td class="mono right">${pctBal}%</td>
+      <td class="mono right">${fmtM(avgBal)}</td>
+    </tr>`;
+  });
+  const totBal = sortedEntries.reduce((s, e) => s + e[1].balance, 0);
+  const totCnt = sortedEntries.reduce((s, e) => s + e[1].count, 0);
+  return `<div class="card strat-card">
+    <div class="strat-card-header">${escapeHtml(title)}</div>
+    <div class="table-scroll"><table>
+      <thead><tr>
+        <th>Category</th><th class="right">#</th><th class="right">% #</th><th class="right">Balance</th><th class="right">% Bal</th><th class="right">Avg</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr>
+        <td>Total</td>
+        <td class="mono right">${totCnt}</td>
+        <td class="mono right">100.0%</td>
+        <td class="mono right">${fmtFull(totBal)}</td>
+        <td class="mono right">100.0%</td>
+        <td class="mono right">${totCnt > 0 ? fmtM(totBal / totCnt) : '-'}</td>
+      </tr></tfoot>
+    </table></div>
+  </div>`;
+}
+
+// ============================================================
+//  ANOMALIES — automated data quality checks
+// ============================================================
+function renderAnomalies() {
+  const anomalies = detectAnomalies();
+  const errors = anomalies.filter(a => a.severity === 'error');
+  const warnings = anomalies.filter(a => a.severity === 'warning');
+  const infos = anomalies.filter(a => a.severity === 'info');
+
+  // Summary cards
+  document.getElementById('anomaly-summary-section').innerHTML = `
+    <div class="anomaly-summary">
+      <div class="card anomaly-summary-card">
+        <div class="stat-label">Total Checks</div>
+        <div class="stat-value">${anomalies.length > 0 ? anomalies.length : 'All clear'}</div>
+        <div class="stat-sub">${anomalies.length === 0 ? 'No anomalies detected' : 'anomalies found'}</div>
+      </div>
+      <div class="card anomaly-summary-card">
+        <div class="stat-label">Errors</div>
+        <div class="stat-value" style="color:var(--red)">${errors.length}</div>
+        <div class="stat-sub">Data integrity issues</div>
+      </div>
+      <div class="card anomaly-summary-card">
+        <div class="stat-label">Warnings</div>
+        <div class="stat-value" style="color:var(--amber)">${warnings.length}</div>
+        <div class="stat-sub">Potential issues</div>
+      </div>
+      <div class="card anomaly-summary-card">
+        <div class="stat-label">Info</div>
+        <div class="stat-value" style="color:var(--navy)">${infos.length}</div>
+        <div class="stat-sub">Observations</div>
+      </div>
+    </div>
+  `;
+
+  // Anomaly list
+  if (anomalies.length === 0) {
+    document.getElementById('anomaly-list-section').innerHTML = '<div class="card" style="padding:32px;text-align:center;color:var(--text-muted);">No anomalies detected in this tape. All checks passed.</div>';
+    return;
+  }
+
+  const listHtml = anomalies.map(a => {
+    const iconClass = a.severity === 'error' ? 'error' : a.severity === 'warning' ? 'warning' : 'info';
+    const iconChar = a.severity === 'error' ? '!' : a.severity === 'warning' ? '?' : 'i';
+    const examplesHtml = a.examples && a.examples.length
+      ? `<div class="anomaly-examples">${a.examples.map(e => escapeHtml(e)).join(' &middot; ')}</div>` : '';
+    return `<div class="card anomaly-card">
+      <div class="anomaly-icon ${iconClass}">${iconChar}</div>
+      <div class="anomaly-body">
+        <div class="anomaly-title">${escapeHtml(a.title)}</div>
+        <div class="anomaly-desc">${escapeHtml(a.description)}</div>
+        ${examplesHtml}
+      </div>
+      <div class="anomaly-count"><span class="badge badge-${iconClass === 'error' ? 'red' : iconClass === 'warning' ? 'amber' : 'navy'}">${a.count}</span></div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('anomaly-list-section').innerHTML = `<div class="anomaly-list">${listHtml}</div>`;
+}
+
+function detectAnomalies() {
+  const results = [];
+  const now = new Date();
+
+  // 1. Duplicate IDs
+  const idCounts = {};
+  loans.forEach(l => { idCounts[l.loan_id] = (idCounts[l.loan_id] || 0) + 1; });
+  const dupes = Object.entries(idCounts).filter(([, c]) => c > 1);
+  if (dupes.length > 0) {
+    results.push({
+      severity: 'error', title: 'Duplicate Lease/Loan IDs',
+      description: `${dupes.length} ID(s) appear more than once. Each receivable should have a unique identifier.`,
+      count: dupes.reduce((s, d) => s + d[1], 0),
+      examples: dupes.slice(0, 5).map(d => d[0] + ' (\u00d7' + d[1] + ')')
+    });
+  }
+
+  // 2. Negative outstanding balance
+  const negBal = loans.filter(l => l.outstanding_balance < 0);
+  if (negBal.length > 0) {
+    results.push({
+      severity: 'error', title: 'Negative Outstanding Balance',
+      description: `${negBal.length} receivable(s) have a negative current outstanding balance.`,
+      count: negBal.length,
+      examples: negBal.slice(0, 5).map(l => l.loan_id + ': ' + fmtFull(l.outstanding_balance))
+    });
+  }
+
+  // 3. Outstanding > Original balance
+  const overdrawn = loans.filter(l => l.outstanding_balance > l.loan_amount && l.loan_amount > 0);
+  if (overdrawn.length > 0) {
+    results.push({
+      severity: 'error', title: 'Outstanding Exceeds Original Balance',
+      description: `${overdrawn.length} receivable(s) where current outstanding exceeds original principal.`,
+      count: overdrawn.length,
+      examples: overdrawn.slice(0, 5).map(l => l.loan_id + ': ' + fmtFull(l.outstanding_balance) + ' vs orig ' + fmtFull(l.loan_amount))
+    });
+  }
+
+  // 4. Remaining term > original term
+  if (loans.some(l => l.original_term > 0)) {
+    const termIssues = loans.filter(l => l.remaining_term > l.original_term && l.original_term > 0);
+    if (termIssues.length > 0) {
+      results.push({
+        severity: 'error', title: 'Remaining Term Exceeds Original Term',
+        description: `${termIssues.length} receivable(s) have remaining term greater than original term.`,
+        count: termIssues.length,
+        examples: termIssues.slice(0, 5).map(l => l.loan_id + ': ' + l.remaining_term + 'm rem vs ' + l.original_term + 'm orig')
+      });
+    }
+  }
+
+  // 5. Non-GBP currency
+  if (loans.some(l => l.currency)) {
+    const nonGBP = loans.filter(l => l.currency && l.currency.toUpperCase() !== 'GBP');
+    if (nonGBP.length > 0) {
+      const ccys = [...new Set(nonGBP.map(l => l.currency.toUpperCase()))];
+      results.push({
+        severity: 'warning', title: 'Non-GBP Currency',
+        description: `${nonGBP.length} receivable(s) denominated in non-GBP currencies: ${ccys.join(', ')}.`,
+        count: nonGBP.length,
+        examples: nonGBP.slice(0, 5).map(l => l.loan_id + ': ' + l.currency)
+      });
+    }
+  }
+
+  // 6. Maturity date in the past
+  const pastMaturity = loans.filter(l => {
+    const mat = parseDate(l.maturity_date);
+    return mat && mat < now;
+  });
+  if (pastMaturity.length > 0) {
+    results.push({
+      severity: 'warning', title: 'Maturity Date in the Past',
+      description: `${pastMaturity.length} receivable(s) have already passed their maturity date.`,
+      count: pastMaturity.length,
+      examples: pastMaturity.slice(0, 5).map(l => l.loan_id + ': ' + l.maturity_date)
+    });
+  }
+
+  // 7. Future origination date
+  if (loans.some(l => l.origination_date)) {
+    const futureOrig = loans.filter(l => {
+      const od = parseDate(l.origination_date);
+      return od && od > now;
+    });
+    if (futureOrig.length > 0) {
+      results.push({
+        severity: 'warning', title: 'Future Origination Date',
+        description: `${futureOrig.length} receivable(s) have an origination date in the future.`,
+        count: futureOrig.length,
+        examples: futureOrig.slice(0, 5).map(l => l.loan_id + ': ' + l.origination_date)
+      });
+    }
+  }
+
+  // 8. Interest rate = 0
+  const zeroRate = loans.filter(l => l.interest_rate === 0 && l.outstanding_balance > 0);
+  if (zeroRate.length > 0) {
+    results.push({
+      severity: 'warning', title: 'Zero Interest Rate',
+      description: `${zeroRate.length} receivable(s) with a 0% interest rate / margin.`,
+      count: zeroRate.length,
+      examples: zeroRate.slice(0, 5).map(l => l.loan_id)
+    });
+  }
+
+  // 9. Very high interest rate (>25%)
+  const highRate = loans.filter(l => l.interest_rate > 25);
+  if (highRate.length > 0) {
+    results.push({
+      severity: 'warning', title: 'Very High Interest Rate (>25%)',
+      description: `${highRate.length} receivable(s) with rate above 25%.`,
+      count: highRate.length,
+      examples: highRate.slice(0, 5).map(l => l.loan_id + ': ' + l.interest_rate.toFixed(2) + '%')
+    });
+  }
+
+  // 10. Balloon percentage > 100%
+  if (loans.some(l => l.balloon_pct > 0)) {
+    const badBalloon = loans.filter(l => l.balloon_pct > 100);
+    if (badBalloon.length > 0) {
+      results.push({
+        severity: 'error', title: 'Balloon Percentage >100%',
+        description: `${badBalloon.length} receivable(s) with balloon percentage exceeding 100%.`,
+        count: badBalloon.length,
+        examples: badBalloon.slice(0, 5).map(l => l.loan_id + ': ' + l.balloon_pct + '%')
+      });
+    }
+  }
+
+  // 11. High arrears (>90 days)
+  const highArrears = loans.filter(l => l.days_in_arrears > 90);
+  if (highArrears.length > 0) {
+    const arrearsBal = highArrears.reduce((s, l) => s + l.outstanding_balance, 0);
+    results.push({
+      severity: 'warning', title: 'Arrears >90 Days',
+      description: `${highArrears.length} receivable(s) in arrears for more than 90 days (${fmtM(arrearsBal)} balance).`,
+      count: highArrears.length,
+      examples: highArrears.slice(0, 5).map(l => l.loan_id + ': ' + l.days_in_arrears + ' days')
+    });
+  }
+
+  // 12. Balance outliers (>3 std dev from mean)
+  const balances = loans.map(l => l.outstanding_balance).filter(b => b > 0);
+  if (balances.length > 10) {
+    const mean = balances.reduce((s, b) => s + b, 0) / balances.length;
+    const stddev = Math.sqrt(balances.reduce((s, b) => s + (b - mean) ** 2, 0) / balances.length);
+    const threshold = mean + 3 * stddev;
+    const outliers = loans.filter(l => l.outstanding_balance > threshold);
+    if (outliers.length > 0) {
+      results.push({
+        severity: 'info', title: 'Balance Outliers (>3 Std Dev)',
+        description: `${outliers.length} receivable(s) with outstanding balance above ${fmtM(threshold)} (mean + 3\u03C3).`,
+        count: outliers.length,
+        examples: outliers.slice(0, 5).map(l => l.loan_id + ': ' + fmtFull(l.outstanding_balance))
+      });
+    }
+  }
+
+  // 13. Missing borrower name
+  const missingName = loans.filter(l => !l.borrower_name.trim());
+  if (missingName.length > 0) {
+    results.push({
+      severity: 'info', title: 'Missing Lessee / Borrower Name',
+      description: `${missingName.length} receivable(s) with blank borrower/lessee name.`,
+      count: missingName.length,
+      examples: missingName.slice(0, 5).map(l => l.loan_id)
+    });
+  }
+
+  // 14. Single-name concentration
+  const nameMap = {};
+  loans.forEach(l => { nameMap[l.borrower_name] = (nameMap[l.borrower_name] || 0) + l.outstanding_balance; });
+  const totalBal = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const bigNames = Object.entries(nameMap).filter(([, b]) => totalBal > 0 && (b / totalBal) > 0.05);
+  if (bigNames.length > 0) {
+    results.push({
+      severity: 'info', title: 'Single-Name Concentration >5%',
+      description: `${bigNames.length} lessee(s) account for more than 5% of total outstanding balance.`,
+      count: bigNames.length,
+      examples: bigNames.sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, bal]) => name + ': ' + fmtPct((bal / totalBal) * 100))
+    });
+  }
+
+  // Sort: errors first, then warnings, then info
+  const sevOrder = { error: 0, warning: 1, info: 2 };
+  results.sort((a, b) => sevOrder[a.severity] - sevOrder[b.severity]);
+  return results;
+}
+
+// ============================================================
 //  DATA TABLE
 // ============================================================
 function renderDataTable() {
   document.getElementById('data-table-title').textContent = `Tape Data \u2014 ${loans.length} records`;
   document.getElementById('data-table-body').innerHTML = loans.map(l => {
-    const statusClass = l.default_flag ? 'badge-red' : 'badge-green';
-    const statusText = l.default_flag ? 'Yes' : 'No';
+    const arrearsClass = l.days_in_arrears > 90 ? 'badge-red' : l.days_in_arrears > 0 ? 'badge-amber' : 'badge-green';
+    const arrearsText = l.days_in_arrears > 0 ? l.days_in_arrears + 'd' : 'Current';
     return `<tr>
       <td>${escapeHtml(l.loan_id)}</td>
       <td>${escapeHtml(l.borrower_name)}</td>
@@ -1133,22 +1678,23 @@ function renderDataTable() {
       <td class="mono">${l.interest_rate.toFixed(2)}%</td>
       <td>${escapeHtml(l.credit_rating)}</td>
       <td>${escapeHtml(l.facility_type)}</td>
-      <td><span class="badge ${statusClass}">${statusText}</span></td>
+      <td><span class="badge ${arrearsClass}">${arrearsText}</span></td>
     </tr>`;
   }).join('');
 }
 
 // ============================================================
-//  EXPORT CSV
+//  EXPORT CSV — includes all fields
 // ============================================================
 function exportCSV() {
   if (!loans.length) return;
-  const headers = ['loan_id','borrower_name','sector','region','loan_amount','outstanding_balance','maturity_date','interest_rate','credit_rating','facility_type','default_flag'];
+  const headers = Object.keys(loans[0]);
   const rows = loans.map(l => headers.map(h => {
     const val = l[h];
     if (typeof val === 'boolean') return val ? '1' : '0';
-    if (typeof val === 'string' && val.includes(',')) return '"' + val + '"';
-    return val;
+    const s = String(val);
+    if (s.includes(',') || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"';
+    return s;
   }).join(','));
   const csv = headers.join(',') + '\n' + rows.join('\n');
   const blob = new Blob([csv], { type: 'text/csv' });
