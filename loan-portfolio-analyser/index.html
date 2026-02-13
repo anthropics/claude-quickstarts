@@ -648,16 +648,48 @@ uploadArea.addEventListener('drop', e => {
 });
 fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
 
+// Find the actual header row by picking the row with the most non-empty cells.
+// Scans the first 20 rows (or fewer if the file is smaller).
+function findHeaderRow(rows) {
+  const limit = Math.min(rows.length, 20);
+  let bestIdx = 0, bestCount = 0;
+  for (let i = 0; i < limit; i++) {
+    const count = (rows[i] || []).filter(c => c != null && String(c).trim() !== '').length;
+    if (count > bestCount) { bestCount = count; bestIdx = i; }
+  }
+  return bestIdx;
+}
+
+// Convert raw array-of-arrays into array-of-objects using the detected header row.
+function rowsToObjects(rows, headerIdx) {
+  const headers = rows[headerIdx].map(h => h != null ? String(h).trim() : '');
+  const data = [];
+  for (let i = headerIdx + 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (!row || row.every(c => c == null || String(c).trim() === '')) continue;
+    const obj = {};
+    headers.forEach((h, ci) => { if (h) obj[h] = row[ci] != null ? row[ci] : ''; });
+    data.push(obj);
+  }
+  return data;
+}
+
 function handleFile(file) {
   const ext = file.name.split('.').pop().toLowerCase();
   if (ext === 'csv') {
-    Papa.parse(file, { header: true, skipEmptyLines: true, complete: r => showMappingModal(r.data) });
+    Papa.parse(file, { header: false, skipEmptyLines: true, complete: r => {
+      const rows = r.data;
+      const headerIdx = findHeaderRow(rows);
+      showMappingModal(rowsToObjects(rows, headerIdx));
+    }});
   } else if (ext === 'xlsx' || ext === 'xls') {
     const reader = new FileReader();
     reader.onload = e => {
       const wb = XLSX.read(e.target.result, { type: 'array' });
-      const data = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
-      showMappingModal(data);
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      const headerIdx = findHeaderRow(rows);
+      showMappingModal(rowsToObjects(rows, headerIdx));
     };
     reader.readAsArrayBuffer(file);
   }
