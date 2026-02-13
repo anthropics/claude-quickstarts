@@ -407,6 +407,87 @@
     }
     .mapping-badge.auto { background: var(--navy-faint); color: var(--navy); }
 
+    /* CUSTOM FIELD INLINE CONFIG */
+    .custom-field-config {
+      grid-column: 1 / -1;
+      background: var(--navy-faint);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .cf-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .cf-row label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      min-width: 60px;
+    }
+    .cf-row input, .cf-row select {
+      padding: 5px 8px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      font-size: 12px;
+      font-family: inherit;
+      background: var(--surface);
+    }
+    .cf-row input:focus, .cf-row select:focus { outline: none; border-color: var(--navy); }
+    .cf-row input.cf-label-input { flex: 1; }
+    .cf-bands-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .cf-band-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 3px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .cf-band-del {
+      cursor: pointer;
+      opacity: 0.5;
+      border: none;
+      background: none;
+      color: inherit;
+      font-size: 11px;
+      padding: 0 2px;
+    }
+    .cf-band-del:hover { opacity: 1; color: var(--red); }
+    .cf-hint {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-style: italic;
+    }
+    .cf-options-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .cf-option-tag {
+      display: inline-block;
+      padding: 2px 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
     @media (max-width: 1100px) {
       .stat-grid { grid-template-columns: repeat(3, 1fr); }
       .chart-grid-3 { grid-template-columns: 1fr 1fr; }
@@ -794,16 +875,13 @@
         <div class="card table-card">
           <div class="table-header">
             <h3 id="data-table-title">Tape Data</h3>
-            <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
-            <button class="btn btn-outline btn-sm" onclick="exportXLSX()">Export XLSX (All Tabs)</button>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-outline btn-sm" onclick="exportCSV()">Export CSV</button>
+              <button class="btn btn-outline btn-sm" onclick="exportXLSX()">Export XLSX (All Tabs)</button>
+            </div>
           </div>
           <div class="table-scroll" style="max-height:600px;">
-            <table>
-              <thead><tr>
-                <th>ID</th><th>Lessee</th><th>Sector</th><th>Region</th><th>Postcode</th><th>Original Bal</th><th>Outstanding</th><th>Rate</th><th>Type</th><th>Status</th><th>BBB</th><th>Arrears</th>
-              </tr></thead>
-              <tbody id="data-table-body"></tbody>
-            </table>
+            <div id="data-table-container"></div>
           </div>
         </div>
       </div>
@@ -850,6 +928,10 @@ let charts = {};
 let pendingRawData = null;
 let columnMapping = {};
 let customTests = [];
+
+// Custom fields defined during mapping — persists across tapes
+// { key: { key, label, type ('categorical'|'numeric'|'text'|'date'), options: [], bands: [{label,min,max}] } }
+let customFieldDefs = {};
 
 // Configurable predefined options per field — users can add/edit/delete
 let fieldOptions = {
@@ -1005,6 +1087,7 @@ function goHome() {
   tapes = [];
   loans = [];
   activeSeries = 'all';
+  customFieldDefs = {};
   document.getElementById('upload-section').style.display = '';
   document.getElementById('dashboard').classList.remove('active');
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -1220,6 +1303,16 @@ function showMappingModal(rawData) {
     }
   });
 
+  renderMappingRows(sourceColumns, autoMatched);
+  updateMappingStatus();
+  document.getElementById('mapping-overlay').classList.add('active');
+}
+
+function renderMappingRows(sourceColumns, autoMatched) {
+  if (!sourceColumns) {
+    sourceColumns = pendingRawData ? Object.keys(pendingRawData[0]) : [];
+    autoMatched = autoMatched || {};
+  }
   const body = document.getElementById('mapping-body');
   body.innerHTML = '';
   const headerRow = document.createElement('div');
@@ -1227,35 +1320,154 @@ function showMappingModal(rawData) {
   headerRow.innerHTML = '<span>Source Column</span><span></span><span>Maps To</span>';
   body.appendChild(headerRow);
 
+  // Build the full options list: predefined + any previously defined custom fields
+  const allOptions = [...TEMPLATE_FIELDS];
+  Object.values(customFieldDefs).forEach(cf => {
+    if (!allOptions.find(f => f.key === cf.key)) {
+      allOptions.push({ key: cf.key, label: cf.label, required: false, type: cf.type === 'numeric' ? 'number' : 'string' });
+    }
+  });
+
   sourceColumns.forEach(col => {
+    const wrapper = document.createElement('div');
+    const isAuto = autoMatched && !!autoMatched[col];
+    const samples = pendingRawData ? pendingRawData.slice(0, 10).map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3) : [];
+    const sampleText = samples.length ? samples.join(', ') : '(empty)';
+    const currentVal = columnMapping[col] || '';
+    const isCustom = currentVal.startsWith('__custom:');
+
     const row = document.createElement('div');
     row.className = 'mapping-row';
-    const samples = rawData.slice(0, 10).map(r => r[col]).filter(v => v != null && v !== '').slice(0, 3);
-    const sampleText = samples.length ? samples.join(', ') : '(empty)';
-    const isAuto = !!autoMatched[col];
     row.innerHTML = `
       <div class="mapping-col-name">
         ${escapeHtml(col)}${isAuto ? '<span class="mapping-badge auto">auto</span>' : ''}
         <span class="sample">${escapeHtml(sampleText)}</span>
       </div>
       <div class="mapping-arrow">&rarr;</div>
-      <select class="mapping-select ${columnMapping[col] ? 'mapped' : ''}" data-source="${escapeHtml(col)}" onchange="onMappingChange(this)">
+      <select class="mapping-select ${currentVal && !isCustom ? 'mapped' : ''} ${isCustom ? 'mapped' : ''}" data-source="${escapeHtml(col)}" onchange="onMappingChange(this)">
         <option value="">-- skip --</option>
-        ${TEMPLATE_FIELDS.map(f =>
-          `<option value="${f.key}" ${columnMapping[col] === f.key ? 'selected' : ''}>${f.label}${f.required ? ' *' : ''}</option>`
+        ${allOptions.map(f =>
+          `<option value="${f.key}" ${currentVal === f.key ? 'selected' : ''}>${f.label}${f.required ? ' *' : ''}</option>`
         ).join('')}
+        <option value="__custom_new" ${isCustom ? 'selected' : ''}>+ Custom Field...</option>
       </select>
     `;
-    body.appendChild(row);
+    wrapper.appendChild(row);
+
+    // If this column is mapped to a custom field, show the inline config
+    if (isCustom) {
+      const cfKey = currentVal.replace('__custom:', '');
+      const cfDef = customFieldDefs[cfKey] || { key: cfKey, label: col, type: 'categorical', options: [], bands: [] };
+      wrapper.appendChild(buildCustomFieldConfig(col, cfDef));
+    }
+
+    body.appendChild(wrapper);
   });
-  updateMappingStatus();
-  document.getElementById('mapping-overlay').classList.add('active');
+}
+
+function buildCustomFieldConfig(sourceCol, cfDef) {
+  const div = document.createElement('div');
+  div.className = 'custom-field-config';
+  div.setAttribute('data-source', sourceCol);
+
+  // Auto-detect unique values from data for this column
+  const uniqueVals = pendingRawData ? [...new Set(pendingRawData.slice(0, 500).map(r => r[sourceCol]).filter(v => v != null && String(v).trim() !== ''))].slice(0, 50) : [];
+  const allNumeric = uniqueVals.length > 0 && uniqueVals.every(v => !isNaN(parseFloat(String(v).replace(/[\u00a3,$%]/g, ''))));
+  const suggestedType = allNumeric ? 'numeric' : 'categorical';
+
+  // If this is a brand-new custom field, pre-fill type from data
+  if (!cfDef.type || (cfDef.options.length === 0 && cfDef.bands.length === 0)) {
+    cfDef.type = suggestedType;
+    if (suggestedType === 'categorical') cfDef.options = uniqueVals.map(v => String(v)).slice(0, 30);
+  }
+
+  const safeSrc = sourceCol.replace(/'/g, "\\'");
+
+  // Row 1: Label + Type
+  let html = `<div class="cf-row">
+    <label>Label</label>
+    <input type="text" class="cf-label-input" value="${escapeHtml(cfDef.label)}" onchange="updateCustomFieldLabel('${safeSrc}', this.value)" placeholder="Display name">
+    <label style="min-width:40px;margin-left:8px;">Type</label>
+    <select onchange="updateCustomFieldType('${safeSrc}', this.value)">
+      <option value="categorical" ${cfDef.type === 'categorical' ? 'selected' : ''}>Categorical</option>
+      <option value="numeric" ${cfDef.type === 'numeric' ? 'selected' : ''}>Numeric (banded)</option>
+      <option value="text" ${cfDef.type === 'text' ? 'selected' : ''}>Text (no strat)</option>
+      <option value="date" ${cfDef.type === 'date' ? 'selected' : ''}>Date</option>
+    </select>
+  </div>`;
+
+  // Row 2: Type-specific config
+  if (cfDef.type === 'categorical') {
+    const optTags = (cfDef.options || []).map((o, i) =>
+      `<span class="cf-option-tag">${escapeHtml(o)}<button class="cf-band-del" onclick="removeCustomFieldOption('${safeSrc}',${i})">&times;</button></span>`
+    ).join('');
+    html += `<div class="cf-row" style="flex-wrap:wrap;">
+      <label>Options</label>
+      <div class="cf-options-tags">${optTags}</div>
+    </div>
+    <div class="cf-row">
+      <label></label>
+      <input type="text" placeholder="Add option..." onkeydown="if(event.key==='Enter'){addCustomFieldOption('${safeSrc}',this.value);this.value='';}" style="flex:1;">
+      <span class="cf-hint">Press Enter to add. These drive stratification tables.</span>
+    </div>`;
+    if (uniqueVals.length > 0 && (cfDef.options || []).length === 0) {
+      html += `<div class="cf-row"><label></label><button class="btn btn-outline btn-sm" onclick="autoFillCustomFieldOptions('${safeSrc}')">Auto-detect ${uniqueVals.length} options from data</button></div>`;
+    }
+  } else if (cfDef.type === 'numeric') {
+    const bandTags = (cfDef.bands || []).map((b, i) =>
+      `<span class="cf-band-tag">${escapeHtml(b.label)}<button class="cf-band-del" onclick="removeCustomFieldBand('${safeSrc}',${i})">&times;</button></span>`
+    ).join('');
+    html += `<div class="cf-row" style="flex-wrap:wrap;">
+      <label>Bands</label>
+      <div class="cf-bands-list">${bandTags || '<span class="cf-hint">No bands defined. Add bands or use auto-detect.</span>'}</div>
+    </div>
+    <div class="cf-row">
+      <label></label>
+      <input type="text" placeholder="Label (e.g. 0-25k)" id="cf-band-label-${safeSrc}" style="width:100px;">
+      <input type="number" placeholder="Min" id="cf-band-min-${safeSrc}" style="width:80px;">
+      <input type="number" placeholder="Max" id="cf-band-max-${safeSrc}" style="width:80px;">
+      <button class="btn btn-outline btn-sm" onclick="addCustomFieldBand('${safeSrc}')">Add</button>
+    </div>`;
+    if (allNumeric && uniqueVals.length > 0) {
+      html += `<div class="cf-row"><label></label><button class="btn btn-outline btn-sm" onclick="autoDetectCustomFieldBands('${safeSrc}')">Auto-detect bands from data</button></div>`;
+    }
+  } else if (cfDef.type === 'date') {
+    html += `<div class="cf-row"><label></label><span class="cf-hint">Date fields will be auto-parsed and stratified by year.</span></div>`;
+  } else {
+    html += `<div class="cf-row"><label></label><span class="cf-hint">Text fields are included in the data table and export but not stratified.</span></div>`;
+  }
+
+  div.innerHTML = html;
+  return div;
 }
 
 function onMappingChange(select) {
   const sourceCol = select.getAttribute('data-source');
   const newVal = select.value;
-  if (newVal) {
+
+  // Handle "Custom Field" selection
+  if (newVal === '__custom_new') {
+    const safeKey = 'cf_' + sourceCol.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 30);
+    if (!customFieldDefs[safeKey]) {
+      customFieldDefs[safeKey] = { key: safeKey, label: sourceCol, type: 'categorical', options: [], bands: [] };
+    }
+    columnMapping[sourceCol] = '__custom:' + safeKey;
+    select.classList.add('mapped');
+    // Re-render to show config panel
+    renderMappingRows();
+    updateMappingStatus();
+    return;
+  }
+
+  // Remove old custom mapping if changing away from custom
+  const oldVal = columnMapping[sourceCol];
+  if (oldVal && oldVal.startsWith('__custom:')) {
+    const oldKey = oldVal.replace('__custom:', '');
+    // Don't delete the def — user might reuse it
+  }
+
+  if (newVal && !newVal.startsWith('__custom')) {
+    // De-duplicate: clear any other column mapped to same field
     document.querySelectorAll('.mapping-select').forEach(s => {
       if (s !== select && s.value === newVal) {
         s.value = '';
@@ -1265,24 +1477,117 @@ function onMappingChange(select) {
     });
   }
   if (newVal) { columnMapping[sourceCol] = newVal; select.classList.add('mapped'); }
-  else { delete columnMapping[sourceCol]; select.classList.remove('mapped'); }
+  else {
+    delete columnMapping[sourceCol];
+    select.classList.remove('mapped');
+    // If switching away from custom, re-render to remove config panel
+    if (oldVal && oldVal.startsWith('__custom:')) {
+      renderMappingRows();
+    }
+  }
   updateMappingStatus();
+}
+
+// --- Custom field config helpers ---
+function getCustomFieldDefForSource(sourceCol) {
+  const mapping = columnMapping[sourceCol];
+  if (!mapping || !mapping.startsWith('__custom:')) return null;
+  const key = mapping.replace('__custom:', '');
+  return customFieldDefs[key] || null;
+}
+
+function updateCustomFieldLabel(sourceCol, label) {
+  const def = getCustomFieldDefForSource(sourceCol);
+  if (def) def.label = label.trim() || sourceCol;
+}
+
+function updateCustomFieldType(sourceCol, type) {
+  const def = getCustomFieldDefForSource(sourceCol);
+  if (def) {
+    def.type = type;
+    renderMappingRows();
+    updateMappingStatus();
+  }
+}
+
+function addCustomFieldOption(sourceCol, val) {
+  if (!val || !val.trim()) return;
+  const def = getCustomFieldDefForSource(sourceCol);
+  if (def) {
+    if (!def.options) def.options = [];
+    const trimmed = val.trim();
+    if (!def.options.includes(trimmed)) def.options.push(trimmed);
+    renderMappingRows();
+  }
+}
+
+function removeCustomFieldOption(sourceCol, idx) {
+  const def = getCustomFieldDefForSource(sourceCol);
+  if (def && def.options) { def.options.splice(idx, 1); renderMappingRows(); }
+}
+
+function autoFillCustomFieldOptions(sourceCol) {
+  const def = getCustomFieldDefForSource(sourceCol);
+  if (!def || !pendingRawData) return;
+  const uniqueVals = [...new Set(pendingRawData.map(r => r[sourceCol]).filter(v => v != null && String(v).trim() !== ''))].map(v => String(v)).slice(0, 50);
+  def.options = uniqueVals;
+  renderMappingRows();
+}
+
+function addCustomFieldBand(sourceCol) {
+  const def = getCustomFieldDefForSource(sourceCol);
+  if (!def) return;
+  const safeSrc = sourceCol.replace(/'/g, "\\'");
+  const label = document.getElementById('cf-band-label-' + safeSrc);
+  const minEl = document.getElementById('cf-band-min-' + safeSrc);
+  const maxEl = document.getElementById('cf-band-max-' + safeSrc);
+  if (!label || !label.value.trim()) return;
+  if (!def.bands) def.bands = [];
+  def.bands.push({ label: label.value.trim(), min: parseFloat(minEl.value) || -Infinity, max: parseFloat(maxEl.value) || Infinity });
+  renderMappingRows();
+}
+
+function removeCustomFieldBand(sourceCol, idx) {
+  const def = getCustomFieldDefForSource(sourceCol);
+  if (def && def.bands) { def.bands.splice(idx, 1); renderMappingRows(); }
+}
+
+function autoDetectCustomFieldBands(sourceCol) {
+  const def = getCustomFieldDefForSource(sourceCol);
+  if (!def || !pendingRawData) return;
+  const vals = pendingRawData.map(r => parseFloat(String(r[sourceCol]).replace(/[\u00a3,$%]/g, ''))).filter(v => !isNaN(v));
+  if (vals.length === 0) return;
+  const min = Math.min(...vals);
+  const max = Math.max(...vals);
+  const range = max - min;
+  // Create ~5-6 evenly spaced bands
+  const step = range > 0 ? range / 5 : 1;
+  def.bands = [];
+  for (let i = 0; i < 5; i++) {
+    const lo = Math.round(min + step * i);
+    const hi = Math.round(min + step * (i + 1));
+    const label = i === 4 ? lo + '+' : lo + '-' + hi;
+    def.bands.push({ label, min: lo, max: i === 4 ? Infinity : hi });
+  }
+  renderMappingRows();
 }
 
 function updateMappingStatus() {
   const mapped = Object.values(columnMapping);
+  const mappedCount = mapped.filter(v => v && v !== '').length;
   const total = TEMPLATE_FIELDS.length;
-  const mappedCount = mapped.length;
+  const customCount = mapped.filter(v => v && v.startsWith('__custom:')).length;
   const requiredFields = TEMPLATE_FIELDS.filter(f => f.required);
   const missingRequired = requiredFields.filter(f => !mapped.includes(f.key));
   const statusEl = document.getElementById('mapping-status');
   const confirmBtn = document.getElementById('mapping-confirm-btn');
+  const customLabel = customCount > 0 ? ` + ${customCount} custom` : '';
   if (missingRequired.length > 0) {
-    statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped &middot; <span class="warn">Required: ${missingRequired.map(f => f.label).join(', ')}</span>`;
+    statusEl.innerHTML = `<span class="count">${mappedCount - customCount}/${total}</span> mapped${customLabel} &middot; <span class="warn">Required: ${missingRequired.map(f => f.label).join(', ')}</span>`;
     confirmBtn.style.opacity = '0.4';
     confirmBtn.disabled = true;
   } else {
-    statusEl.innerHTML = `<span class="count">${mappedCount}/${total}</span> mapped &middot; Ready`;
+    statusEl.innerHTML = `<span class="count">${mappedCount - customCount}/${total}</span> mapped${customLabel} &middot; Ready`;
     confirmBtn.style.opacity = '1';
     confirmBtn.disabled = false;
   }
@@ -1297,8 +1602,30 @@ function cancelMapping() {
 function confirmMapping() {
   if (!pendingRawData) return;
   const reverseMap = {};
-  for (const [source, target] of Object.entries(columnMapping)) reverseMap[target] = source;
-  const mappedLoans = applyMapping(pendingRawData, reverseMap);
+  const customReverseMap = {}; // cfKey -> sourceCol
+  for (const [source, target] of Object.entries(columnMapping)) {
+    if (target.startsWith('__custom:')) {
+      const cfKey = target.replace('__custom:', '');
+      customReverseMap[cfKey] = source;
+    } else {
+      reverseMap[target] = source;
+    }
+  }
+  // Register any new custom fields into TEMPLATE_FIELDS so strats/exports pick them up
+  Object.entries(customReverseMap).forEach(([cfKey, srcCol]) => {
+    const cfDef = customFieldDefs[cfKey];
+    if (cfDef && !TEMPLATE_FIELDS.find(f => f.key === cfKey)) {
+      TEMPLATE_FIELDS.push({ key: cfKey, label: cfDef.label, required: false, type: cfDef.type === 'numeric' ? 'number' : 'string' });
+    }
+    if (cfDef && !FIELD_ALIASES[cfKey]) {
+      FIELD_ALIASES[cfKey] = [cfKey, cfKey.replace(/_/g, ''), cfKey.replace(/_/g, ' ')];
+    }
+    // If categorical, add to fieldOptions for the strat editor
+    if (cfDef && cfDef.type === 'categorical' && cfDef.options && cfDef.options.length > 0 && !fieldOptions[cfKey]) {
+      fieldOptions[cfKey] = [...cfDef.options];
+    }
+  });
+  const mappedLoans = applyMapping(pendingRawData, reverseMap, customReverseMap);
   document.getElementById('mapping-overlay').classList.remove('active');
   pendingRawData = null;
 
@@ -1323,10 +1650,13 @@ function confirmMapping() {
 // Store the original source column names for CSV export
 let sourceColumnNames = {};
 
-function applyMapping(data, rm) {
+function applyMapping(data, rm, customRm) {
   // Remember which source column maps to which internal field
   sourceColumnNames = {};
   for (const [field, source] of Object.entries(rm)) sourceColumnNames[field] = source;
+  if (customRm) {
+    for (const [cfKey, source] of Object.entries(customRm)) sourceColumnNames[cfKey] = source;
+  }
 
   return data.map((row, i) => {
     const pc = rm.postcode ? String(row[rm.postcode] || '') : '';
@@ -1335,9 +1665,8 @@ function applyMapping(data, rm) {
     const sicCode = rm.sic_code ? String(row[rm.sic_code] || '') : '';
     const naceCode = rm.nace_code ? String(row[rm.nace_code] || '') : '';
     const explicitSector = rm.sector ? String(row[rm.sector] || '') : '';
-    // Derive sector from SIC or NACE code if not explicitly mapped
     const sector = explicitSector || sicToSector(sicCode) || naceToSector(naceCode);
-    return {
+    const obj = {
       loan_id:             rm.loan_id ? String(row[rm.loan_id] || '') || `L${i+1}` : `L${i+1}`,
       borrower_name:       rm.borrower_name ? String(row[rm.borrower_name] || '') : '',
       sector:              sector,
@@ -1375,6 +1704,21 @@ function applyMapping(data, rm) {
       postcode:            pc,
       bbb_guarantee:       rm.bbb_guarantee ? String(row[rm.bbb_guarantee] || '') : ''
     };
+
+    // Apply custom field mappings
+    if (customRm) {
+      for (const [cfKey, srcCol] of Object.entries(customRm)) {
+        const cfDef = customFieldDefs[cfKey];
+        const rawVal = row[srcCol];
+        if (cfDef && cfDef.type === 'numeric') {
+          obj[cfKey] = parseNum(rawVal);
+        } else {
+          obj[cfKey] = rawVal != null ? String(rawVal) : '';
+        }
+      }
+    }
+
+    return obj;
   });
 }
 
@@ -2096,6 +2440,38 @@ function renderStratification() {
     });
   }
 
+  // Add custom field strats
+  Object.values(customFieldDefs).forEach(cfDef => {
+    if (!loans.some(l => l[cfDef.key] != null && l[cfDef.key] !== '' && l[cfDef.key] !== 0)) return;
+    if (cfDef.type === 'categorical') {
+      stratFields.push({ key: cfDef.key, title: 'By ' + cfDef.label });
+    } else if (cfDef.type === 'numeric' && cfDef.bands && cfDef.bands.length > 0) {
+      bandedStrats.push({
+        title: 'By ' + cfDef.label,
+        fn: l => {
+          const v = parseFloat(l[cfDef.key]);
+          if (isNaN(v)) return '(blank)';
+          for (const b of cfDef.bands) {
+            if (v >= b.min && v < b.max) return b.label;
+          }
+          // Check last band with inclusive max
+          const last = cfDef.bands[cfDef.bands.length - 1];
+          if (v >= last.min) return last.label;
+          return '(other)';
+        },
+        order: cfDef.bands.map(b => b.label)
+      });
+    } else if (cfDef.type === 'date') {
+      bandedStrats.push({
+        title: 'By ' + cfDef.label + ' (Year)',
+        fn: l => {
+          const d = parseDate(l[cfDef.key]);
+          return d ? String(d.getFullYear()) : '(blank)';
+        }
+      });
+    }
+  });
+
   let html = '<div class="strat-grid">';
 
   // Categorical strats
@@ -2428,24 +2804,54 @@ function detectAnomalies() {
 // ============================================================
 function renderDataTable() {
   document.getElementById('data-table-title').textContent = `Tape Data \u2014 ${loans.length} records`;
-  document.getElementById('data-table-body').innerHTML = loans.map(l => {
-    const arrearsClass = l.days_in_arrears > 90 ? 'badge-red' : l.days_in_arrears > 0 ? 'badge-amber' : 'badge-green';
-    const arrearsText = l.days_in_arrears > 0 ? l.days_in_arrears + 'd' : 'Current';
-    return `<tr>
-      <td>${escapeHtml(l.loan_id)}</td>
-      <td>${escapeHtml(l.borrower_name)}</td>
-      <td>${escapeHtml(l.sector)}</td>
-      <td>${escapeHtml(l.region)}</td>
-      <td>${escapeHtml(l.postcode || '')}</td>
-      <td class="mono">${fmtFull(l.loan_amount)}</td>
-      <td class="mono">${fmtFull(l.outstanding_balance)}</td>
-      <td class="mono">${l.interest_rate.toFixed(2)}%</td>
-      <td>${escapeHtml(l.facility_type)}</td>
-      <td>${escapeHtml(l.loan_status || '')}</td>
-      <td>${escapeHtml(l.bbb_guarantee || '')}</td>
-      <td><span class="badge ${arrearsClass}">${arrearsText}</span></td>
-    </tr>`;
+  if (!loans.length) { document.getElementById('data-table-container').innerHTML = ''; return; }
+
+  // Build columns dynamically from the fields that have data
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+  // Also label custom fields
+  Object.values(customFieldDefs).forEach(cf => { fieldLabels[cf.key] = cf.label; });
+
+  const allKeys = Object.keys(loans[0]);
+  // Determine which columns to show — skip if all values are empty/zero
+  const numericFields = new Set(TEMPLATE_FIELDS.filter(f => f.type === 'number').map(f => f.key));
+  Object.values(customFieldDefs).forEach(cf => { if (cf.type === 'numeric') numericFields.add(cf.key); });
+
+  const visibleCols = allKeys.filter(k => {
+    if (['loan_id', 'borrower_name', 'loan_amount', 'outstanding_balance'].includes(k)) return true; // always show core
+    return loans.some(l => {
+      const v = l[k];
+      if (v == null) return false;
+      if (typeof v === 'boolean') return v;
+      if (typeof v === 'number') return v !== 0;
+      return String(v).trim() !== '';
+    });
+  });
+
+  const thead = visibleCols.map(k => `<th>${escapeHtml(fieldLabels[k] || k)}</th>`).join('');
+  const tbody = loans.map(l => {
+    const cells = visibleCols.map(k => {
+      const v = l[k];
+      if (k === 'days_in_arrears') {
+        const cls = v > 90 ? 'badge-red' : v > 0 ? 'badge-amber' : 'badge-green';
+        const txt = v > 0 ? v + 'd' : 'Current';
+        return `<td><span class="badge ${cls}">${txt}</span></td>`;
+      }
+      if (numericFields.has(k) && typeof v === 'number') {
+        if (k === 'interest_rate' || k === 'deposit_pct' || k === 'balloon_pct') return `<td class="mono">${v.toFixed(2)}%</td>`;
+        if (k === 'loan_amount' || k === 'outstanding_balance' || k === 'deposit_amount') return `<td class="mono">${fmtFull(v)}</td>`;
+        return `<td class="mono">${v}</td>`;
+      }
+      if (typeof v === 'boolean') return `<td>${v ? 'Yes' : 'No'}</td>`;
+      return `<td>${escapeHtml(String(v || ''))}</td>`;
+    }).join('');
+    return `<tr>${cells}</tr>`;
   }).join('');
+
+  document.getElementById('data-table-container').innerHTML = `<table>
+    <thead><tr>${thead}</tr></thead>
+    <tbody>${tbody}</tbody>
+  </table>`;
 }
 
 // ============================================================
@@ -2456,6 +2862,7 @@ function exportCSV() {
   const fieldKeys = Object.keys(loans[0]);
   const fieldLabels = {};
   TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+  Object.values(customFieldDefs).forEach(cf => { fieldLabels[cf.key] = cf.label; });
   const labelRow = fieldKeys.map(k => {
     const lbl = fieldLabels[k] || k;
     return lbl.includes(',') ? '"' + lbl + '"' : lbl;
@@ -2489,6 +2896,7 @@ function exportXLSX() {
   const wb = XLSX.utils.book_new();
   const fieldLabels = {};
   TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+  Object.values(customFieldDefs).forEach(cf => { fieldLabels[cf.key] = cf.label; });
 
   // Sheet 1: Tape Data
   const fieldKeys = Object.keys(loans[0]);
