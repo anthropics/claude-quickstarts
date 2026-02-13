@@ -970,6 +970,7 @@ let fieldOptions = {
 // Display settings
 let displaySettings = {
   termUnit: 'months', // 'months', 'years', 'days'
+  rateFormat: 'auto', // 'auto', 'percentage' (5 = 5%), 'decimal' (0.05 = 5%)
   overviewWidgets: ['stats', 'keyRisks', 'topExposures', 'facilityMix', 'maturityProfile', 'arrearsSnapshot', 'originationProfile', 'amortProfile', 'seriesComparison', 'trends'],
   topObligorCount: 10, // adjustable top X
   // Per-series hidden strats: { 'all': ['field_key',...], 'Series 1': [...] }
@@ -1684,7 +1685,10 @@ function confirmMapping() {
     sourceColumnNames: { ...sourceColumnNames },
     columnMapping: { ...columnMapping },
     cutoffDate: cutoffDate,
-    originator: tapeOriginator
+    originator: tapeOriginator,
+    _rawData: pendingRawData,
+    _reverseMap: { ...reverseMap },
+    _customReverseMap: { ...customReverseMap }
   });
 
   loans = [];
@@ -1727,6 +1731,37 @@ function applyMapping(data, rm, customRm) {
     for (const [cfKey, source] of Object.entries(customRm)) sourceColumnNames[cfKey] = source;
   }
 
+  // Smart interest rate detection: scan sample to determine if rates are decimals (0.05 = 5%) or percentages (5 = 5%)
+  let rateMultiplier = 1;
+  if (rm.interest_rate) {
+    const sampleRates = data.slice(0, Math.min(200, data.length))
+      .map(r => parseNum(r[rm.interest_rate]))
+      .filter(v => v > 0);
+    if (sampleRates.length > 0) {
+      if (displaySettings.rateFormat === 'decimal') {
+        rateMultiplier = 100;
+      } else if (displaySettings.rateFormat === 'percentage') {
+        rateMultiplier = 1;
+      } else {
+        // Auto-detect: if >80% of non-zero rates are < 1, they're likely decimals
+        const belowOne = sampleRates.filter(r => r < 1).length;
+        if (belowOne / sampleRates.length > 0.8) rateMultiplier = 100;
+      }
+    }
+  }
+
+  // Same detection for deposit_pct and balloon_pct
+  let depositPctMultiplier = 1;
+  if (rm.deposit_pct) {
+    const sampleDep = data.slice(0, 200).map(r => parseNum(r[rm.deposit_pct])).filter(v => v > 0);
+    if (sampleDep.length > 0 && sampleDep.filter(r => r < 1).length / sampleDep.length > 0.8) depositPctMultiplier = 100;
+  }
+  let balloonMultiplier = 1;
+  if (rm.balloon_pct) {
+    const sampleBal = data.slice(0, 200).map(r => parseNum(r[rm.balloon_pct])).filter(v => v > 0);
+    if (sampleBal.length > 0 && sampleBal.filter(r => r < 1).length / sampleBal.length > 0.8) balloonMultiplier = 100;
+  }
+
   return data.map((row, i) => {
     const pc = rm.postcode ? String(row[rm.postcode] || '') : '';
     const explicitRegion = rm.region ? String(row[rm.region] || '') : '';
@@ -1745,7 +1780,7 @@ function applyMapping(data, rm, customRm) {
       loan_amount:         rm.loan_amount ? parseNum(row[rm.loan_amount]) : 0,
       outstanding_balance: rm.outstanding_balance ? parseNum(row[rm.outstanding_balance]) : 0,
       maturity_date:       rm.maturity_date ? String(row[rm.maturity_date] || '') : '',
-      interest_rate:       rm.interest_rate ? parseNum(row[rm.interest_rate]) : 0,
+      interest_rate:       rm.interest_rate ? parseNum(row[rm.interest_rate]) * rateMultiplier : 0,
       credit_rating:       rm.credit_rating ? String(row[rm.credit_rating] || '') : '',
       facility_type:       rm.facility_type ? String(row[rm.facility_type] || '') : '',
       default_flag:        rm.default_flag ? parseDefault(row[rm.default_flag]) : false,
@@ -1765,11 +1800,11 @@ function applyMapping(data, rm, customRm) {
       asset_type:          rm.asset_type ? String(row[rm.asset_type] || '') : '',
       supplier:            rm.supplier ? String(row[rm.supplier] || '') : '',
       deposit_amount:      rm.deposit_amount ? parseNum(row[rm.deposit_amount]) : 0,
-      deposit_pct:         rm.deposit_pct ? parseNum(row[rm.deposit_pct]) : 0,
+      deposit_pct:         rm.deposit_pct ? parseNum(row[rm.deposit_pct]) * depositPctMultiplier : 0,
       vat_deferral:        rm.vat_deferral ? String(row[rm.vat_deferral] || '') : '',
       customer_segment:    rm.customer_segment ? String(row[rm.customer_segment] || '') : '',
       origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '') : '',
-      balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) : 0,
+      balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) * balloonMultiplier : 0,
       postcode:            pc,
       bbb_guarantee:       rm.bbb_guarantee ? String(row[rm.bbb_guarantee] || '') : '',
       broker:              rm.broker ? String(row[rm.broker] || '') : '',
@@ -2157,14 +2192,14 @@ function renderStats() {
   if (!displaySettings.overviewWidgets.includes('stats')) { container.innerHTML = ''; return; }
   container.innerHTML = `
     <div class="card stat-card">
-      <div class="stat-label">Portfolio Size</div>
+      <div class="stat-label">Original Amount</div>
       <div class="stat-value">${fmtM(s.totalOriginal)}</div>
       <div class="stat-sub">${loans.length} receivables</div>
     </div>
     <div class="card stat-card">
-      <div class="stat-label">Outstanding</div>
+      <div class="stat-label">Current Outstanding</div>
       <div class="stat-value">${fmtM(s.totalOutstanding)}</div>
-      <div class="stat-sub">${fmtPct(s.utilisation)} of original</div>
+      <div class="stat-sub">${fmtPct(s.utilisation)} drawn</div>
     </div>
     <div class="card stat-card">
       <div class="stat-label">WA Interest Rate</div>
@@ -2769,32 +2804,24 @@ function renderStratification() {
   })();
   const avgBal = n > 0 ? tot / n : 0;
 
-  let waHtml = `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px;">
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">WA Rate</div>
-      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${fmtPct(waRate)}</div>
-    </div>
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">WA Orig Term</div>
-      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${convertTerm(waOrigTerm, displaySettings.termUnit)}</div>
-    </div>
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">WA Rem Term</div>
-      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${convertTerm(waRemTerm, displaySettings.termUnit)}</div>
-    </div>
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">WA Seasoning</div>
-      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${convertTerm(waSeasoning, displaySettings.termUnit)}</div>
-    </div>
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">Current Factor</div>
-      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${waLTV.toFixed(1)}%</div>
-    </div>
-    <div class="card" style="padding:12px;text-align:center;">
-      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">Avg Balance</div>
-      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${fmtM(avgBal)}</div>
-    </div>
-  </div>`;
+  // Build dynamic WA metrics — only show what we have data for
+  const waMetrics = [];
+  if (waRate > 0) waMetrics.push({ label: 'WA Rate', value: fmtPct(waRate) });
+  if (waOrigTerm > 0) waMetrics.push({ label: 'WA Orig Term', value: convertTerm(waOrigTerm, displaySettings.termUnit) });
+  if (waRemTerm > 0) waMetrics.push({ label: 'WA Rem Term', value: convertTerm(waRemTerm, displaySettings.termUnit) });
+  if (waSeasoning > 0) waMetrics.push({ label: 'WA Seasoning', value: convertTerm(waSeasoning, displaySettings.termUnit) });
+  waMetrics.push({ label: 'Current Factor', value: waLTV.toFixed(1) + '%' });
+  waMetrics.push({ label: 'Avg Balance', value: fmtM(avgBal) });
+
+  const cols = Math.min(waMetrics.length, 6);
+  let waHtml = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:10px;margin-bottom:16px;">`;
+  waMetrics.forEach(m => {
+    waHtml += `<div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">${m.label}</div>
+      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${m.value}</div>
+    </div>`;
+  });
+  waHtml += '</div>';
 
   // Which strat tables to show (only if data exists for that field)
   const stratFields = [
@@ -3014,7 +3041,7 @@ function buildStratCard(title, sortedEntries, totalCount, totalBalance) {
     const pctBal = totalBalance > 0 ? ((data.balance / totalBalance) * 100).toFixed(1) : '0.0';
     const avgBal = data.count > 0 ? data.balance / data.count : 0;
     const waRate = data.balance > 0 ? data.rateWeightedBal / data.balance : 0;
-    const waTerm = data.balance > 0 ? data.termWeightedBal / data.balance : 0;
+    const waTermMonths = data.balance > 0 ? data.termWeightedBal / data.balance : 0;
     rows += `<tr>
       <td>${escapeHtml(label)}</td>
       <td class="mono right">${data.count}</td>
@@ -3023,7 +3050,7 @@ function buildStratCard(title, sortedEntries, totalCount, totalBalance) {
       <td class="mono right">${pctBal}%</td>
       <td class="mono right">${fmtM(avgBal)}</td>
       ${hasRate ? `<td class="mono right">${fmtPct(waRate)}</td>` : ''}
-      ${hasTerm ? `<td class="mono right">${waTerm.toFixed(1)}m</td>` : ''}
+      ${hasTerm ? `<td class="mono right">${convertTerm(waTermMonths, displaySettings.termUnit)}</td>` : ''}
     </tr>`;
   });
   const totBal = sortedEntries.reduce((s, e) => s + e[1].balance, 0);
@@ -3049,7 +3076,7 @@ function buildStratCard(title, sortedEntries, totalCount, totalBalance) {
         <td class="mono right">100.0%</td>
         <td class="mono right">${totCnt > 0 ? fmtM(totBal / totCnt) : '-'}</td>
         ${hasRate ? `<td class="mono right">${fmtPct(totWaRate)}</td>` : ''}
-        ${hasTerm ? `<td class="mono right">${totWaTerm.toFixed(1)}m</td>` : ''}
+        ${hasTerm ? `<td class="mono right">${convertTerm(totWaTerm, displaySettings.termUnit)}</td>` : ''}
       </tr></tfoot>
     </table></div>
   </div>`;
@@ -3222,12 +3249,12 @@ function detectAnomalies() {
     });
   }
 
-  // 9. Very high interest rate (>25%)
-  const highRate = loans.filter(l => l.interest_rate > 25);
+  // 9. Very high interest rate (>50%)
+  const highRate = loans.filter(l => l.interest_rate > 50);
   if (highRate.length > 0) {
     results.push({
-      severity: 'warning', title: 'Very High Interest Rate (>25%)',
-      description: `${highRate.length} receivable(s) with rate above 25%.`,
+      severity: 'warning', title: 'Very High Interest Rate (>50%)',
+      description: `${highRate.length} receivable(s) with rate above 50%. Check rate format is correct (percentage vs decimal).`,
       count: highRate.length,
       examples: highRate.slice(0, 5).map(l => l.loan_id + ': ' + l.interest_rate.toFixed(2) + '%')
     });
@@ -3382,9 +3409,9 @@ function exportCSV() {
   csvParts.push('PORTFOLIO SUMMARY');
   if (originators.length > 0) csvParts.push('Originator(s),' + originators.join(' | '));
   if (cutoffs.length > 0) csvParts.push('Cut-Off Date(s),' + cutoffs.join(' | '));
-  csvParts.push('Portfolio Size,' + st.totalOriginal);
+  csvParts.push('Original Amount,' + st.totalOriginal);
   csvParts.push('Outstanding Balance,' + st.totalOutstanding);
-  csvParts.push('Utilisation,' + fmtPct(st.utilisation));
+  csvParts.push('Current Factor,' + fmtPct(st.utilisation));
   csvParts.push('WA Interest Rate,' + fmtPct(st.wair));
   csvParts.push('WA Remaining Term,' + convertTerm(st.waRem, displaySettings.termUnit));
   csvParts.push('90+ Arrears %,' + fmtPct(st.arrears90Pct));
@@ -3508,9 +3535,9 @@ function exportXLSX() {
     ['Metric', 'Value'],
     ['Originator(s)', xlsOriginators.join(', ') || '-'],
     ['Cut-Off Date(s)', xlsCutoffs.join(', ') || '-'],
-    ['Portfolio Size', st.totalOriginal],
+    ['Original Amount', st.totalOriginal],
     ['Outstanding Balance', st.totalOutstanding],
-    ['Utilisation', fmtPct(st.utilisation)],
+    ['Current Factor', fmtPct(st.utilisation)],
     ['WA Interest Rate', fmtPct(st.wair)],
     ['WA Remaining Term', convertTerm(st.waRem, displaySettings.termUnit)],
     ['90+ Arrears %', fmtPct(st.arrears90Pct)],
@@ -3578,6 +3605,17 @@ function renderSettingsBody() {
   ['months','years','days'].forEach(u => {
     const sel = displaySettings.termUnit === u ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '';
     html += `<button class="btn btn-outline btn-sm" style="${sel}" onclick="displaySettings.termUnit='${u}';renderSettingsBody();if(loans.length)renderDashboard();">${u.charAt(0).toUpperCase()+u.slice(1)}</button>`;
+  });
+  html += '</div></div>';
+
+  // Interest rate format setting
+  html += '<div class="opt-field-group"><div class="opt-field-label">Interest Rate Format</div>';
+  html += '<p style="font-size:11px;color:var(--text-muted);margin-bottom:6px;">How rates are coded in your data. Auto-detect converts decimals (0.05) to percentages (5%) when most values are &lt; 1.</p>';
+  html += '<div style="display:flex;gap:6px;">';
+  ['auto','percentage','decimal'].forEach(f => {
+    const labels = { auto: 'Auto-detect', percentage: 'Already % (5 = 5%)', decimal: 'Decimal (0.05 = 5%)' };
+    const sel = displaySettings.rateFormat === f ? 'background:var(--navy);color:#fff;border-color:var(--navy);' : '';
+    html += `<button class="btn btn-outline btn-sm" style="${sel}" onclick="changeRateFormat('${f}')">${labels[f]}</button>`;
   });
   html += '</div></div></div>';
 
@@ -3746,6 +3784,20 @@ function toggleOverviewWidget(key, enabled) {
   } else if (!enabled) {
     displaySettings.overviewWidgets = displaySettings.overviewWidgets.filter(k => k !== key);
   }
+}
+
+function changeRateFormat(fmt) {
+  displaySettings.rateFormat = fmt;
+  // Re-apply mapping to all tapes to recalculate rates
+  tapes.forEach(t => {
+    if (t._rawData && t._reverseMap) {
+      t.loans = applyMapping(t._rawData, t._reverseMap, t._customReverseMap || {});
+    }
+  });
+  loans = [];
+  tapes.forEach(t => loans.push(...t.loans));
+  renderSettingsBody();
+  if (loans.length) renderDashboard();
 }
 
 function renameTapeSeries(idx) {
