@@ -1813,17 +1813,26 @@ function confirmMapping() {
   const mappedLoans = applyMapping(pendingRawData, reverseMap, customReverseMap);
   document.getElementById('mapping-overlay').classList.remove('active');
 
-  // Prompt for series name and originator
-  const defaultName = 'Series ' + (tapes.length + 1);
-  const seriesName = prompt('Enter a name/series label for this tape:', defaultName);
-  const series = (seriesName && seriesName.trim()) ? seriesName.trim() : defaultName;
+  // If returning from harmonisation, reuse saved metadata; otherwise prompt
+  let series, tapeOriginator, cutoffDate;
+  if (pendingHarmonisationState) {
+    series = pendingHarmonisationState.series;
+    tapeOriginator = pendingHarmonisationState.originator;
+    cutoffDate = pendingHarmonisationState.cutoffDate;
+    currentTapeName = pendingHarmonisationState.tapeName;
+    pendingHarmonisationState = null;
+  } else {
+    const defaultName = 'Series ' + (tapes.length + 1);
+    const seriesName = prompt('Enter a name/series label for this tape:', defaultName);
+    series = (seriesName && seriesName.trim()) ? seriesName.trim() : defaultName;
 
-  const defaultOriginator = mappedLoans.length > 0 && mappedLoans[0].originator ? mappedLoans[0].originator : '';
-  const originatorName = prompt('Originator for this tape (leave blank if N/A):', defaultOriginator);
-  const tapeOriginator = (originatorName && originatorName.trim()) ? originatorName.trim() : '';
+    const defaultOriginator = mappedLoans.length > 0 && mappedLoans[0].originator ? mappedLoans[0].originator : '';
+    const originatorName = prompt('Originator for this tape (leave blank if N/A):', defaultOriginator);
+    tapeOriginator = (originatorName && originatorName.trim()) ? originatorName.trim() : '';
 
-  const cutoffInput = document.getElementById('mapping-cutoff-date');
-  const cutoffDate = cutoffInput ? cutoffInput.value : '';
+    const cutoffInput = document.getElementById('mapping-cutoff-date');
+    cutoffDate = cutoffInput ? cutoffInput.value : '';
+  }
 
   tapes.push({
     name: currentTapeName || series,
@@ -1839,15 +1848,20 @@ function confirmMapping() {
   });
 
   // Show value mapping step if there are existing tapes (for cross-tape harmonisation)
+  let harmonisationShown = false;
   if (tapes.length > 1) {
     const newTapeIdx = tapes.length - 1;
     showValueMappingPrompt(newTapeIdx);
+    harmonisationShown = document.getElementById('valuemap-overlay').classList.contains('active');
   }
 
   pendingRawData = null;
   loans = [];
   tapes.forEach(t => loans.push(...t.loans));
-  renderDashboard();
+  // Render dashboard now unless harmonisation overlay is shown (it will render after apply/skip)
+  if (!harmonisationShown) {
+    renderDashboard();
+  }
   // Process next file in queue if multi-file upload
   if (pendingFileQueue.length > 0) {
     setTimeout(() => processNextFile(), 300);
@@ -2223,6 +2237,7 @@ function renderCutoffBanner() {
 // ============================================================
 let pendingValueMaps = {}; // { fieldKey: { oldVal: newVal, ... } }
 let pendingValueMapTapeIdx = -1;
+let pendingHarmonisationState = null; // Saved tape metadata when going back from harmonisation to calibration
 
 function showValueMappingPrompt(tapeIdx) {
   pendingValueMapTapeIdx = tapeIdx;
@@ -2295,12 +2310,14 @@ function showValueMappingPrompt(tapeIdx) {
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">${data.newOnly.length} in new tape only</div>`;
       data.newOnly.forEach(val => {
         const bestMatch = findBestValueMatch(val, data.allExisting);
+        const escVal = val.replace(/'/g, "\\'").replace(/\\/g, '\\\\');
         const optionsHtml = `<option value="__keep__">Keep as "${escapeHtml(val)}"</option>` +
-          data.allExisting.map(ev => `<option value="${escapeHtml(ev)}" ${bestMatch === ev ? 'selected' : ''}>${escapeHtml(ev)}${bestMatch === ev ? ' (suggested)' : ''}</option>`).join('');
+          data.allExisting.map(ev => `<option value="${escapeHtml(ev)}" ${bestMatch === ev ? 'selected' : ''}>${escapeHtml(ev)}${bestMatch === ev ? ' (suggested)' : ''}</option>`).join('') +
+          `<option value="__custom__">Custom name...</option>`;
         html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
           <span style="flex:0 0 180px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--amber-faint);border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(val)}">${escapeHtml(val)}</span>
           <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
-          <select class="mapping-select" style="flex:1;" onchange="setValueMap('new','${field}','${val.replace(/'/g, "\\'")}',this.value)">
+          <select class="mapping-select" style="flex:1;" onchange="onValueMapChange(this,'new','${field}','${escVal}')">
             ${optionsHtml}
           </select>
         </div>`;
@@ -2317,12 +2334,14 @@ function showValueMappingPrompt(tapeIdx) {
         <div style="font-size:11px;font-weight:600;color:var(--text-muted);margin-bottom:4px;">${data.existingOnly.length} in existing tapes only</div>`;
       data.existingOnly.forEach(val => {
         const bestMatch = findBestValueMatch(val, data.allNew);
+        const escVal = val.replace(/'/g, "\\'").replace(/\\/g, '\\\\');
         const optionsHtml = `<option value="__keep__" selected>Keep as "${escapeHtml(val)}"</option>` +
-          data.allNew.map(nv => `<option value="${escapeHtml(nv)}">${escapeHtml(nv)}${bestMatch === nv ? ' (suggested)' : ''}</option>`).join('');
+          data.allNew.map(nv => `<option value="${escapeHtml(nv)}">${escapeHtml(nv)}${bestMatch === nv ? ' (suggested)' : ''}</option>`).join('') +
+          `<option value="__custom__">Custom name...</option>`;
         html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
           <span style="flex:0 0 180px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--navy-faint);border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(val)}">${escapeHtml(val)}</span>
           <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
-          <select class="mapping-select" style="flex:1;" onchange="setValueMap('existing','${field}','${val.replace(/'/g, "\\'")}',this.value)">
+          <select class="mapping-select" style="flex:1;" onchange="onValueMapChange(this,'existing','${field}','${escVal}')">
             ${optionsHtml}
           </select>
         </div>`;
@@ -2352,6 +2371,22 @@ function findBestValueMatch(val, existing) {
   if (stripped) return stripped;
   const contained = existing.find(e => normalizeValueStr(e).includes(lower) || lower.includes(normalizeValueStr(e)));
   if (contained && lower.length >= 2) return contained;
+  // Check abbreviation matching: "HP" ↔ "Hire Purchase", "FL" ↔ "Finance Lease"
+  const abbrMatch = existing.find(e => {
+    const words = e.split(/[\s\-\/]+/).filter(w => w.length > 0);
+    if (words.length >= 2) {
+      const abbr = words.map(w => w[0]).join('').toLowerCase();
+      if (abbr === lower) return true;
+    }
+    // Reverse: existing is abbreviation of val
+    const valWords = val.split(/[\s\-\/]+/).filter(w => w.length > 0);
+    if (valWords.length >= 2) {
+      const valAbbr = valWords.map(w => w[0]).join('').toLowerCase();
+      if (valAbbr === normalizeValueStr(e)) return true;
+    }
+    return false;
+  });
+  if (abbrMatch) return abbrMatch;
   return '';
 }
 
@@ -2365,17 +2400,36 @@ function setValueMap(direction, field, oldVal, newVal) {
   }
 }
 
+function onValueMapChange(select, direction, field, oldVal) {
+  if (select.value === '__custom__') {
+    const cv = prompt('Enter custom value name:');
+    if (cv && cv.trim()) {
+      const opt = document.createElement('option');
+      opt.value = cv.trim();
+      opt.textContent = cv.trim() + ' (custom)';
+      select.insertBefore(opt, select.querySelector('option[value="__custom__"]'));
+      select.value = cv.trim();
+      setValueMap(direction, field, oldVal, cv.trim());
+    } else {
+      select.value = '__keep__';
+      setValueMap(direction, field, oldVal, '__keep__');
+    }
+  } else {
+    setValueMap(direction, field, oldVal, select.value);
+  }
+}
+
 function applyValueMapping() {
   if (pendingValueMapTapeIdx < 0) return;
-  const newTape = tapes[pendingValueMapTapeIdx];
+  const targetTape = tapes[pendingValueMapTapeIdx];
   const otherTapes = tapes.filter((_, i) => i !== pendingValueMapTapeIdx);
   for (const [field, maps] of Object.entries(pendingValueMaps)) {
     for (const [key, newVal] of Object.entries(maps)) {
       if (!newVal || newVal === '__keep__') continue;
       const [direction, ...rest] = key.split(':');
       const oldVal = rest.join(':');
-      if (direction === 'new') {
-        newTape.loans.forEach(l => {
+      if (direction === 'new' || direction === 'intra') {
+        targetTape.loans.forEach(l => {
           if (String(l[field]).trim() === oldVal) l[field] = newVal;
         });
       } else if (direction === 'existing') {
@@ -2385,7 +2439,14 @@ function applyValueMapping() {
       }
     }
   }
-  document.getElementById('valuemap-overlay').classList.remove('active');
+  const overlay = document.getElementById('valuemap-overlay');
+  overlay.classList.remove('active');
+  // Restore overlay defaults for next use
+  overlay.querySelector('h2').textContent = 'Harmonise Field Values';
+  overlay.querySelector('p').textContent = 'Values in this tape that don\'t match existing tapes are highlighted. Map them to a standard value or keep as-is.';
+  const backBtn = overlay.querySelector('button[onclick="goBackFromHarmonisation()"]');
+  if (backBtn) backBtn.style.display = '';
+  harmonisationMode = 'cross';
   pendingValueMaps = {};
   pendingValueMapTapeIdx = -1;
   // Refresh loans and dashboard
@@ -2395,36 +2456,160 @@ function applyValueMapping() {
 }
 
 function closeValueMapping() {
-  document.getElementById('valuemap-overlay').classList.remove('active');
+  const overlay = document.getElementById('valuemap-overlay');
+  overlay.classList.remove('active');
+  overlay.querySelector('h2').textContent = 'Harmonise Field Values';
+  overlay.querySelector('p').textContent = 'Values in this tape that don\'t match existing tapes are highlighted. Map them to a standard value or keep as-is.';
+  const backBtn = overlay.querySelector('button[onclick="goBackFromHarmonisation()"]');
+  if (backBtn) backBtn.style.display = '';
+  harmonisationMode = 'cross';
   pendingValueMaps = {};
   pendingValueMapTapeIdx = -1;
+  // Ensure dashboard is rendered with current data
+  loans = [];
+  tapes.forEach(t => loans.push(...t.loans));
+  if (loans.length) renderDashboard();
 }
 
 function goBackFromHarmonisation() {
-  // Remove the last tape that was just added, go back to column mapping
+  // Save tape metadata so we don't re-prompt for series/originator on return
   if (pendingValueMapTapeIdx >= 0 && pendingValueMapTapeIdx < tapes.length) {
     const tape = tapes[pendingValueMapTapeIdx];
-    // Restore pendingRawData from the tape's stored raw data
+    pendingHarmonisationState = {
+      series: tape.series,
+      originator: tape.originator,
+      cutoffDate: tape.cutoffDate,
+      tapeName: tape.name
+    };
     pendingRawData = tape._rawData;
-    // Restore column mapping
     columnMapping = tape.columnMapping ? { ...tape.columnMapping } : {};
-    // Remove the tape
     tapes.splice(pendingValueMapTapeIdx, 1);
-    // Refresh loans
     loans = [];
     tapes.forEach(t => loans.push(...t.loans));
   }
   document.getElementById('valuemap-overlay').classList.remove('active');
   pendingValueMaps = {};
   pendingValueMapTapeIdx = -1;
-  // Re-open column mapping modal
+  // Re-open column mapping modal with previous selections preserved
   if (pendingRawData) {
     const sourceColumns = Object.keys(pendingRawData[0]);
     document.getElementById('mapping-col-count').textContent = sourceColumns.length;
-    renderMappingRows(sourceColumns, {});
+    renderMappingRows(sourceColumns, columnMapping);
     updateMappingStatus();
     document.getElementById('mapping-overlay').classList.add('active');
   }
+}
+
+// ============================================================
+//  TAPE HARMONISATION — intra-tape & existing tape harmonisation
+// ============================================================
+let harmonisationMode = 'cross'; // 'cross' (new vs existing), 'intra' (within tape), 'existing' (re-harmonise loaded tape)
+
+function showTapeHarmonisation(tapeIdx) {
+  if (tapeIdx < 0 || tapeIdx >= tapes.length) return;
+  harmonisationMode = 'intra';
+  pendingValueMapTapeIdx = tapeIdx;
+  pendingValueMaps = {};
+  const tape = tapes[tapeIdx];
+
+  const catFields = ['facility_type','interest_rate_type','repayment_method','payment_method','amortisation_type',
+    'legal_form','origination_channel','region','loan_status','cca_regulated','prefunded','refinancing',
+    'other_schemes','equipment_type','asset_category','supplier','broker','originator','sector'];
+
+  // Collect unique values per field with counts
+  const fieldData = {};
+  catFields.forEach(f => {
+    const valCounts = {};
+    tape.loans.forEach(l => {
+      const v = l[f];
+      if (v && String(v).trim()) {
+        const sv = String(v).trim();
+        valCounts[sv] = (valCounts[sv] || 0) + 1;
+      }
+    });
+    if (Object.keys(valCounts).length > 1) fieldData[f] = valCounts;
+  });
+
+  // Also gather values from other tapes for cross-reference
+  const otherTapes = tapes.filter((_, i) => i !== tapeIdx);
+  const otherValues = {};
+  catFields.forEach(f => {
+    otherValues[f] = new Set();
+    otherTapes.forEach(t => t.loans.forEach(l => {
+      const v = l[f];
+      if (v && String(v).trim()) otherValues[f].add(String(v).trim());
+    }));
+  });
+
+  if (Object.keys(fieldData).length === 0) {
+    alert('No categorical fields with multiple values found in this tape.');
+    harmonisationMode = 'cross';
+    pendingValueMapTapeIdx = -1;
+    return;
+  }
+
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+
+  let html = '';
+  let sectionIdx = 0;
+  for (const [field, valCounts] of Object.entries(fieldData)) {
+    const label = fieldLabels[field] || field;
+    const vals = Object.keys(valCounts).sort();
+    html += `<div style="margin-bottom:8px;border:1px solid var(--border-light);border-radius:var(--radius);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);cursor:pointer;" onclick="(function(el){var body=el.nextElementSibling;var arrow=el.querySelector('.harm-arrow');if(body.style.display==='none'){body.style.display='';arrow.textContent='\\u25BE';}else{body.style.display='none';arrow.textContent='\\u25B8';}})(this)">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="harm-arrow" style="font-size:10px;color:var(--text-muted);width:12px;">&#9656;</span>
+          <span style="font-size:13px;font-weight:600;">${escapeHtml(label)}</span>
+          <span class="badge badge-navy" style="font-size:10px;">${vals.length} values</span>
+        </div>
+      </div>
+      <div style="display:none;padding:8px 14px;">`;
+
+    vals.forEach(val => {
+      const count = valCounts[val];
+      const otherChoices = vals.filter(v => v !== val);
+      const extChoices = [...(otherValues[field] || [])].filter(v => !vals.includes(v));
+      const allChoices = [...otherChoices, ...extChoices].sort();
+      const escVal = val.replace(/'/g, "\\'").replace(/\\/g, '\\\\');
+      const optionsHtml = `<option value="__keep__" selected>Keep as "${escapeHtml(val)}"</option>` +
+        allChoices.map(cv => {
+          const isExt = extChoices.includes(cv);
+          return `<option value="${escapeHtml(cv)}">${escapeHtml(cv)}${isExt ? ' (other tape)' : ''}</option>`;
+        }).join('') +
+        `<option value="__custom__">Custom name...</option>`;
+      html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
+        <span style="flex:0 0 200px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--navy-faint);border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(val)}">${escapeHtml(val)} <span style="color:var(--text-muted);font-size:10px;">(${count})</span></span>
+        <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
+        <select class="mapping-select" style="flex:1;" onchange="onValueMapChange(this,'intra','${field}','${escVal}')">
+          ${optionsHtml}
+        </select>
+      </div>`;
+    });
+    html += `</div></div>`;
+  }
+
+  const overlay = document.getElementById('valuemap-overlay');
+  overlay.querySelector('h2').textContent = 'Harmonise Tape Values';
+  overlay.querySelector('p').textContent = 'Merge duplicate or similar values within this tape. Select values to remap or keep as-is.';
+  document.getElementById('valuemap-status').innerHTML = `Harmonising <strong>${escapeHtml(tape.name)}</strong> — expand categories to review`;
+  document.getElementById('valuemap-body').innerHTML = html;
+  // Hide back button for intra-tape mode
+  const backBtn = overlay.querySelector('button[onclick="goBackFromHarmonisation()"]');
+  if (backBtn) backBtn.style.display = 'none';
+  overlay.classList.add('active');
+}
+
+function showExistingTapeCrossHarmonise(tapeIdx) {
+  if (tapeIdx < 0 || tapeIdx >= tapes.length) return;
+  if (tapes.length < 2) { alert('Need at least 2 tapes for cross-tape harmonisation.'); return; }
+  harmonisationMode = 'existing';
+  // Close settings if open
+  document.getElementById('settings-overlay').classList.remove('active');
+  showValueMappingPrompt(tapeIdx);
+  // Hide back button — not in upload flow
+  const backBtn = document.getElementById('valuemap-overlay').querySelector('button[onclick="goBackFromHarmonisation()"]');
+  if (backBtn) backBtn.style.display = 'none';
 }
 
 // ============================================================
@@ -3426,7 +3611,10 @@ function renderOverviewWidgets() {
       const fMap = capChartData(groupBy(loans, 'facility_type', 'outstanding_balance', { excludeBlanks: true }), 8);
       overviewCharts.facility = new Chart(document.getElementById('ow-chart-facility'), {
         type: 'bar', data: { labels: Object.keys(fMap), datasets: [{ data: Object.values(fMap), backgroundColor: COLORS, borderRadius: 2, borderWidth: 0 }] },
-        options: { ...miniChartOpts, indexAxis: 'y' }
+        options: { ...miniChartOpts, indexAxis: 'y', scales: {
+          x: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 9, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true },
+          y: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } }
+        }}
       });
     }
 
@@ -4617,13 +4805,15 @@ function renderSettingsBody() {
     tapes.forEach((t, i) => {
       const cutoffStr = t.cutoffDate ? formatCutoffDate(t.cutoffDate) : '';
       const origStr = t.originator || '';
-      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-light);">
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap;">
         <span style="font-size:13px;font-weight:500;">${escapeHtml(t.name)}</span>
         <span class="badge badge-navy">${escapeHtml(t.series)}</span>
         ${origStr ? `<span class="badge badge-green">${escapeHtml(origStr)}</span>` : ''}
         ${cutoffStr ? `<span style="font-size:11px;color:var(--text-muted);font-style:italic;">${cutoffStr}</span>` : ''}
         <span style="font-size:11px;color:var(--text-muted);">${t.loans.length} records</span>
         <button class="btn btn-outline btn-sm" style="margin-left:auto;font-size:10px;padding:2px 8px;" onclick="recategoriseTape(${i})" title="Edit field options for this tape">Edit Fields</button>
+        <button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px;" onclick="closeSettings();showTapeHarmonisation(${i})" title="Harmonise values within this tape">Harmonise</button>
+        ${tapes.length > 1 ? `<button class="btn btn-outline btn-sm" style="font-size:10px;padding:2px 8px;" onclick="showExistingTapeCrossHarmonise(${i})" title="Cross-tape harmonisation for this tape">Cross-Harmonise</button>` : ''}
         <button class="opt-tag-del" onclick="renameTapeSeries(${i})" title="Rename series">&#9998;</button>
         <button class="opt-tag-del" onclick="editTapeOriginator(${i})" title="Edit originator">O</button>
         <button class="opt-tag-del" onclick="removeTape(${i})" title="Remove tape">&times;</button>
