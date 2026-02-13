@@ -843,8 +843,8 @@
       </div>
       <div class="section">
         <div class="chart-grid-3">
-          <div class="card chart-card"><h3>Rating Distribution</h3><div class="chart-wrap"><canvas id="chart-rating"></canvas></div></div>
-          <div class="card chart-card"><h3>Top 10 Lessee Exposures</h3><div class="chart-wrap"><canvas id="chart-top10"></canvas></div></div>
+          <div class="card chart-card"><h3>Loan Size Distribution</h3><div class="chart-wrap"><canvas id="chart-loansize"></canvas></div></div>
+          <div class="card chart-card"><h3 id="chart-top-title">Top 10 Lessee Exposures</h3><div class="chart-wrap"><canvas id="chart-top10"></canvas></div></div>
           <div class="card chart-card"><h3>Maturity Profile</h3><div class="chart-wrap"><canvas id="chart-maturity"></canvas></div></div>
         </div>
       </div>
@@ -955,7 +955,7 @@ let fieldOptions = {
   loan_status:         ['Live', 'Repaid', 'Defaulted', 'Written Off', 'Restructured', 'Settled Early'],
   arrears_status:      ['Current', '1-30 days', '31-60 days', '61-90 days', '>90 days'],
   customer_segment:    ['SME', 'Mid-Market', 'Large Corporate', 'Micro Enterprise', 'Sole Trader'],
-  payment_frequency:   ['Monthly', 'Quarterly', 'Semi-Annual', 'Annual'],
+  // payment_frequency removed from defaults per user request
   interest_rate_type:  ['Fixed', 'Floating', 'Mixed'],
   repayment_method:    ['Level', 'Reducing', 'Balloon', 'Seasonal', 'Stepped'],
   amortisation_type:   ['Annuity', 'Linear', 'Bullet', 'Soft Bullet'],
@@ -970,7 +970,8 @@ let fieldOptions = {
 // Display settings
 let displaySettings = {
   termUnit: 'months', // 'months', 'years', 'days'
-  overviewWidgets: ['stats', 'health', 'topExposures', 'facilityMix', 'maturityProfile', 'arrearsSnapshot', 'trends'],
+  overviewWidgets: ['stats', 'keyRisks', 'topExposures', 'facilityMix', 'maturityProfile', 'arrearsSnapshot', 'originationProfile', 'amortProfile', 'seriesComparison', 'trends'],
+  topObligorCount: 10, // adjustable top X
   // Per-series hidden strats: { 'all': ['field_key',...], 'Series 1': [...] }
   hiddenStrats: {},
   // Per-series hidden concentration charts: { 'all': ['sector','region',...], 'Series 1': [...] }
@@ -2208,7 +2209,8 @@ function getTopExposuresData() {
       entry.maxArrearsDays = Math.max(entry.maxArrearsDays, l.days_in_arrears);
     }
   });
-  return { totalOutstanding, sorted: Object.values(lesseeMap).sort((a, b) => b.totalBal - a.totalBal).slice(0, 10) };
+  const topX = displaySettings.topObligorCount || 10;
+  return { totalOutstanding, sorted: Object.values(lesseeMap).sort((a, b) => b.totalBal - a.totalBal).slice(0, topX) };
 }
 
 function buildTopExposuresHtml() {
@@ -2237,8 +2239,17 @@ function buildTopExposuresHtml() {
       <td><span class="badge ${arrearsLabel}">${arrearsText}</span></td>
     </tr>`;
   }).join('');
+  const topX = displaySettings.topObligorCount || 10;
   return `<div class="card table-card">
-    <div class="table-header"><h3>Top 10 Lessee Exposures</h3></div>
+    <div class="table-header">
+      <h3>Top ${topX} Lessee Exposures</h3>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label style="font-size:11px;color:var(--text-muted);">Top</label>
+        <select style="font-size:12px;padding:2px 6px;border:1px solid var(--border);border-radius:var(--radius);font-family:inherit;background:var(--surface);" onchange="displaySettings.topObligorCount=parseInt(this.value);renderOverviewWidgets();">
+          ${[5,10,15,20,25].map(n => `<option value="${n}" ${topX===n?'selected':''}>${n}</option>`).join('')}
+        </select>
+      </div>
+    </div>
     <div class="table-scroll"><table class="ow-exposures-table">
       <thead><tr><th>#</th><th>Lessee</th><th>Sector</th><th class="right">Balance</th><th class="right">% Port</th><th>Rating</th><th>Arrears</th></tr></thead>
       <tbody>${rows}</tbody>
@@ -2289,41 +2300,162 @@ function buildTrendsTable() {
   </table>`;
 }
 
+function buildAmortProfile() {
+  // French (constant payment) amortisation: PMT = PV * r / (1 - (1+r)^-n)
+  // Aggregate across all loans; project monthly from cut-off date
+  const totalBal = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  if (totalBal === 0) return { labels: [], balances: [], cumPrincipal: [] };
+
+  const totWBal = loans.reduce((s, l) => s + l.outstanding_balance, 0);
+  const waRate = totWBal > 0 ? loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / totWBal : 5;
+  const waRemTerm = totWBal > 0 ? loans.reduce((s, l) => s + (l.remaining_term || 0) * l.outstanding_balance, 0) / totWBal : 36;
+  const remMonths = Math.max(6, Math.round(waRemTerm));
+  const r = (waRate / 100) / 12; // monthly rate
+
+  const labels = [];
+  const balances = [];
+  const cumPrincipal = [];
+  let bal = totalBal;
+  let cumPrin = 0;
+
+  // Calculate PMT
+  let pmt;
+  if (r > 0) {
+    pmt = bal * r / (1 - Math.pow(1 + r, -remMonths));
+  } else {
+    pmt = bal / remMonths;
+  }
+
+  // Quarter-by-quarter projection for readability
+  const stepSize = remMonths <= 24 ? 1 : remMonths <= 60 ? 3 : 6;
+  for (let m = 0; m <= remMonths; m++) {
+    if (m % stepSize === 0 || m === remMonths) {
+      const label = m === 0 ? 'Now' : m + 'm';
+      labels.push(label);
+      balances.push(Math.max(0, Math.round(bal)));
+      cumPrincipal.push(Math.round(cumPrin));
+    }
+    if (m < remMonths && bal > 0) {
+      const interest = bal * r;
+      const principal = Math.min(pmt - interest, bal);
+      bal -= principal;
+      cumPrin += principal;
+    }
+  }
+  return { labels, balances, cumPrincipal };
+}
+
+function buildSeriesComparisonHtml() {
+  if (tapes.length < 2) return '';
+  const seriesNames = [...new Set(tapes.map(t => t.series))];
+  if (seriesNames.length < 2) return '';
+
+  // Compute metrics per series
+  const seriesData = seriesNames.map(s => {
+    const sloans = [];
+    tapes.filter(t => t.series === s).forEach(t => sloans.push(...t.loans));
+    const tape = tapes.find(t => t.series === s);
+    const tot = sloans.reduce((sum, l) => sum + l.outstanding_balance, 0);
+    const orig = sloans.reduce((sum, l) => sum + l.loan_amount, 0);
+    const waRate = tot > 0 ? sloans.reduce((sum, l) => sum + l.interest_rate * l.outstanding_balance, 0) / tot : 0;
+    const waRemTerm = tot > 0 ? sloans.reduce((sum, l) => sum + (l.remaining_term || 0) * l.outstanding_balance, 0) / tot : 0;
+    const arrBal = sloans.filter(l => l.days_in_arrears > 0).reduce((sum, l) => sum + l.outstanding_balance, 0);
+    const arrPct = tot > 0 ? (arrBal / tot) * 100 : 0;
+    const arr90Bal = sloans.filter(l => l.days_in_arrears > 90).reduce((sum, l) => sum + l.outstanding_balance, 0);
+    const arr90Pct = tot > 0 ? (arr90Bal / tot) * 100 : 0;
+    const defPct = sloans.length > 0 ? (sloans.filter(l => l.default_flag).length / sloans.length * 100) : 0;
+    const uniqueB = new Set(sloans.map(l => l.borrower_name)).size;
+    const avgFac = sloans.length > 0 ? orig / sloans.length : 0;
+    const bMap = {};
+    sloans.forEach(l => { bMap[l.borrower_name] = (bMap[l.borrower_name] || 0) + l.outstanding_balance; });
+    const top5Vals = Object.values(bMap).sort((a, b) => b - a).slice(0, 5);
+    const top5Pct = tot > 0 ? (top5Vals.reduce((sum, v) => sum + v, 0) / tot * 100) : 0;
+    return { name: s, count: sloans.length, originator: tape ? tape.originator || '' : '', cutoff: tape ? tape.cutoffDate || '' : '', outstanding: tot, original: orig, waRate, waRemTerm, arrPct, arr90Pct, defPct, uniqueB, avgFac, top5Pct };
+  });
+
+  const metrics = [
+    { label: 'Receivables', fn: d => d.count, fmt: v => v.toLocaleString() },
+    { label: 'Outstanding', fn: d => d.outstanding, fmt: v => fmtM(v) },
+    { label: 'Original', fn: d => d.original, fmt: v => fmtM(v) },
+    { label: 'WA Rate', fn: d => d.waRate, fmt: v => fmtPct(v) },
+    { label: 'WA Rem. Term', fn: d => d.waRemTerm, fmt: v => v.toFixed(1) + 'm' },
+    { label: 'Arrears %', fn: d => d.arrPct, fmt: v => fmtPct(v), warn: v => v > 5 ? 'var(--red)' : v > 2 ? 'var(--amber)' : 'var(--green)' },
+    { label: '90+ Arrears %', fn: d => d.arr90Pct, fmt: v => fmtPct(v), warn: v => v > 5 ? 'var(--red)' : v > 2 ? 'var(--amber)' : 'var(--green)' },
+    { label: 'Default %', fn: d => d.defPct, fmt: v => fmtPct(v), warn: v => v > 3 ? 'var(--red)' : v > 1 ? 'var(--amber)' : 'var(--green)' },
+    { label: 'Borrowers', fn: d => d.uniqueB, fmt: v => v.toLocaleString() },
+    { label: 'Avg Facility', fn: d => d.avgFac, fmt: v => fmtM(v) },
+    { label: 'Top 5 Conc.', fn: d => d.top5Pct, fmt: v => v.toFixed(1) + '%', warn: v => v > 40 ? 'var(--red)' : v > 25 ? 'var(--amber)' : 'var(--green)' }
+  ];
+
+  const headerCells = seriesData.map(d => `<th class="right" style="min-width:100px;">${escapeHtml(d.name)}</th>`).join('');
+  const rows = metrics.map(m => {
+    const cells = seriesData.map(d => {
+      const v = m.fn(d);
+      const color = m.warn ? m.warn(v) : '';
+      return `<td class="mono right" ${color ? 'style="color:'+color+'"' : ''}>${m.fmt(v)}</td>`;
+    }).join('');
+    return `<tr><td style="font-weight:500;">${m.label}</td>${cells}</tr>`;
+  }).join('');
+
+  return `<div class="card ow-card" style="grid-column:1/-1;">
+    <h3>Series Comparison</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Metric</th>${headerCells}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+}
+
 function renderOverviewWidgets() {
   destroyOverviewCharts();
   const container = document.getElementById('overview-widgets');
   const active = displaySettings.overviewWidgets;
   let html = '<div class="ow-grid">';
 
-  // HEALTH widget
-  if (active.includes('health')) {
+  // KEY RISKS widget (replaces health score)
+  if (active.includes('keyRisks')) {
     const st = computeStats();
     const tot = st.totalOutstanding;
     const arrearsBal = loans.filter(l => l.days_in_arrears > 0).reduce((s, l) => s + l.outstanding_balance, 0);
     const arrearsPct = tot > 0 ? (arrearsBal / tot) * 100 : 0;
     const defaultBal = loans.filter(l => l.default_flag).reduce((s, l) => s + l.outstanding_balance, 0);
     const defaultPct = tot > 0 ? (defaultBal / tot) * 100 : 0;
-    const concentrationTop5 = (() => {
+    const topX = displaySettings.topObligorCount || 10;
+    const concentrationTopN = (() => {
       const bMap = {};
       loans.forEach(l => { bMap[l.borrower_name] = (bMap[l.borrower_name] || 0) + l.outstanding_balance; });
-      const top5 = Object.values(bMap).sort((a, b) => b - a).slice(0, 5);
-      return tot > 0 ? (top5.reduce((s, v) => s + v, 0) / tot) * 100 : 0;
+      const topN = Object.values(bMap).sort((a, b) => b - a).slice(0, 5);
+      return tot > 0 ? (topN.reduce((s, v) => s + v, 0) / tot) * 100 : 0;
     })();
-    // Simple health score: 100 minus penalty for arrears, defaults, concentration
-    const healthScore = Math.max(0, Math.min(100, Math.round(100 - arrearsPct * 2 - defaultPct * 5 - Math.max(0, concentrationTop5 - 30) * 0.5)));
-    const healthColor = healthScore >= 75 ? 'var(--green)' : healthScore >= 50 ? 'var(--amber)' : 'var(--red)';
-    const healthLabel = healthScore >= 75 ? 'Good' : healthScore >= 50 ? 'Fair' : 'Needs Attention';
+    const singleNameMax = (() => {
+      const bMap = {};
+      loans.forEach(l => { bMap[l.borrower_name] = (bMap[l.borrower_name] || 0) + l.outstanding_balance; });
+      const max = Math.max(...Object.values(bMap), 0);
+      return tot > 0 ? (max / tot) * 100 : 0;
+    })();
     html += `<div class="card ow-card">
-      <h3>Portfolio Health</h3>
-      <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px;">
-        <span style="font-size:2rem;font-weight:700;font-family:var(--mono);color:${healthColor};">${healthScore}</span>
-        <span style="font-size:13px;color:${healthColor};font-weight:600;">${healthLabel}</span>
-      </div>
-      <div class="health-bar-track"><div class="health-bar-fill" style="width:${healthScore}%;background:${healthColor};"></div></div>
-      <div class="health-metrics">
-        <div class="health-metric"><div class="health-metric-val" style="color:${arrearsPct > 5 ? 'var(--red)' : arrearsPct > 2 ? 'var(--amber)' : 'var(--green)'}">${fmtPct(arrearsPct)}</div><div class="health-metric-label">Arrears %</div></div>
-        <div class="health-metric"><div class="health-metric-val" style="color:${defaultPct > 3 ? 'var(--red)' : defaultPct > 1 ? 'var(--amber)' : 'var(--green)'}">${fmtPct(defaultPct)}</div><div class="health-metric-label">Default %</div></div>
-        <div class="health-metric"><div class="health-metric-val" style="color:${concentrationTop5 > 40 ? 'var(--red)' : concentrationTop5 > 25 ? 'var(--amber)' : 'var(--green)'}">${concentrationTop5.toFixed(1)}%</div><div class="health-metric-label">Top 5 Conc.</div></div>
+      <h3>Key Risk Metrics</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="padding:10px;background:var(--bg);border-radius:var(--radius);">
+          <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">Arrears (% Bal)</div>
+          <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:${arrearsPct > 5 ? 'var(--red)' : arrearsPct > 2 ? 'var(--amber)' : 'var(--green)'}">${fmtPct(arrearsPct)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${fmtM(arrearsBal)} across ${loans.filter(l => l.days_in_arrears > 0).length} loans</div>
+        </div>
+        <div style="padding:10px;background:var(--bg);border-radius:var(--radius);">
+          <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">Default Rate</div>
+          <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:${defaultPct > 3 ? 'var(--red)' : defaultPct > 1 ? 'var(--amber)' : 'var(--green)'}">${fmtPct(defaultPct)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">${fmtM(defaultBal)} across ${loans.filter(l => l.default_flag).length} loans</div>
+        </div>
+        <div style="padding:10px;background:var(--bg);border-radius:var(--radius);">
+          <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">Top 5 Concentration</div>
+          <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:${concentrationTopN > 40 ? 'var(--red)' : concentrationTopN > 25 ? 'var(--amber)' : 'var(--green)'}">${concentrationTopN.toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text-muted);">of outstanding balance</div>
+        </div>
+        <div style="padding:10px;background:var(--bg);border-radius:var(--radius);">
+          <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">Largest Obligor</div>
+          <div style="font-size:1.4rem;font-weight:700;font-family:var(--mono);color:${singleNameMax > 10 ? 'var(--red)' : singleNameMax > 5 ? 'var(--amber)' : 'var(--green)'}">${singleNameMax.toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text-muted);">single-name exposure</div>
+        </div>
       </div>
     </div>`;
   }
@@ -2367,6 +2499,21 @@ function renderOverviewWidgets() {
     html += `<div class="card ow-card"><h3>Maturity Profile</h3><div class="mini-chart-wrap"><canvas id="ow-chart-maturity"></canvas></div></div>`;
   }
 
+  // ORIGINATION & MATURITY PROFILE widget
+  if (active.includes('originationProfile')) {
+    html += `<div class="card ow-card"><h3>Origination & Maturity Profile</h3><div style="display:flex;gap:12px;"><div style="flex:1;height:180px;"><canvas id="ow-chart-origination"></canvas></div><div style="flex:1;height:180px;"><canvas id="ow-chart-maturity-profile"></canvas></div></div></div>`;
+  }
+
+  // AMORTISATION PROFILE widget
+  if (active.includes('amortProfile')) {
+    html += `<div class="card ow-card"><h3>Amortisation Profile (French)</h3><div class="mini-chart-wrap" style="height:200px;"><canvas id="ow-chart-amort"></canvas></div><div style="font-size:10px;color:var(--text-muted);margin-top:4px;">Projected based on current balance, WA rate, and remaining term using standard French (constant payment) amortisation.</div></div>`;
+  }
+
+  // SERIES COMPARISON widget (only if 2+ tapes)
+  if (active.includes('seriesComparison') && tapes.length >= 2) {
+    html += buildSeriesComparisonHtml();
+  }
+
   // HISTORIC TRENDS widget (only if 2+ tapes)
   if (active.includes('trends') && tapes.length >= 2) {
     html += `<div class="card ow-card" style="grid-column:1/-1;">
@@ -2396,6 +2543,50 @@ function renderOverviewWidgets() {
         type: 'bar', data: { labels: Object.keys(fMap), datasets: [{ data: Object.values(fMap), backgroundColor: COLORS, borderRadius: 2, borderWidth: 0 }] },
         options: { ...miniChartOpts, indexAxis: 'y' }
       });
+    }
+
+    // Origination & maturity profile charts
+    if (active.includes('originationProfile') && document.getElementById('ow-chart-origination')) {
+      const origBuckets = {};
+      const matBuckets = {};
+      loans.forEach(l => {
+        const od = parseDate(l.origination_date);
+        if (od) { const y = String(od.getFullYear()); origBuckets[y] = (origBuckets[y] || 0) + l.outstanding_balance; }
+        const md = parseDate(l.maturity_date);
+        if (md) { const y = String(md.getFullYear()); matBuckets[y] = (matBuckets[y] || 0) + l.outstanding_balance; }
+      });
+      const origLabels = Object.keys(origBuckets).sort();
+      const matLabels = Object.keys(matBuckets).sort();
+      if (origLabels.length > 0) {
+        overviewCharts.origination = new Chart(document.getElementById('ow-chart-origination'), {
+          type: 'bar', data: { labels: origLabels, datasets: [{ label: 'Originated', data: origLabels.map(y => origBuckets[y] || 0), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
+          options: { ...miniChartOpts, plugins: { ...miniChartOpts.plugins, title: { display: true, text: 'By Origination Year', font: { size: 11, weight: '600' }, color: '#4a5068', padding: { bottom: 4 } } } }
+        });
+      }
+      if (matLabels.length > 0) {
+        overviewCharts.maturityProfile = new Chart(document.getElementById('ow-chart-maturity-profile'), {
+          type: 'bar', data: { labels: matLabels, datasets: [{ label: 'Maturing', data: matLabels.map(y => matBuckets[y] || 0), backgroundColor: '#00857c', borderRadius: 2, borderWidth: 0 }] },
+          options: { ...miniChartOpts, plugins: { ...miniChartOpts.plugins, title: { display: true, text: 'By Maturity Year', font: { size: 11, weight: '600' }, color: '#4a5068', padding: { bottom: 4 } } } }
+        });
+      }
+    }
+
+    // Amortisation profile chart (French amortisation)
+    if (active.includes('amortProfile') && document.getElementById('ow-chart-amort')) {
+      const amortData = buildAmortProfile();
+      if (amortData.labels.length > 0) {
+        overviewCharts.amort = new Chart(document.getElementById('ow-chart-amort'), {
+          type: 'line',
+          data: {
+            labels: amortData.labels,
+            datasets: [
+              { label: 'Outstanding Balance', data: amortData.balances, borderColor: '#003078', backgroundColor: 'rgba(0,48,120,0.06)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 },
+              { label: 'Cumulative Principal', data: amortData.cumPrincipal, borderColor: '#00857c', backgroundColor: 'rgba(0,133,124,0.06)', fill: true, tension: 0.3, pointRadius: 0, borderWidth: 2 }
+            ]
+          },
+          options: { ...miniChartOpts, plugins: { ...miniChartOpts.plugins, legend: { display: true, labels: { font: { size: 10 }, boxWidth: 8, padding: 6 } } }, scales: { ...miniChartOpts.scales, y: { ...miniChartOpts.scales.y, beginAtZero: true } } }
+        });
+      }
     }
 
     if (active.includes('maturityProfile') && document.getElementById('ow-chart-maturity')) {
@@ -2498,19 +2689,32 @@ function renderCharts() {
     options: { ...chartDefaults, cutout: '60%', plugins: { ...chartDefaults.plugins, tooltip: { ...chartDefaults.plugins.tooltip, ...ttipCb } } }
   });
 
-  const ratingMap = groupBy(loans, 'credit_rating', 'outstanding_balance', { excludeBlanks: true });
-  charts.rating = new Chart(document.getElementById('chart-rating'), {
+  // Loan size distribution — more useful for SME portfolio analysis than rating
+  const sizeBands = { '0-25k': 0, '25-50k': 0, '50-100k': 0, '100-250k': 0, '250-500k': 0, '500k+': 0 };
+  loans.forEach(l => {
+    const b = l.outstanding_balance;
+    if (b <= 25000) sizeBands['0-25k'] += b;
+    else if (b <= 50000) sizeBands['25-50k'] += b;
+    else if (b <= 100000) sizeBands['50-100k'] += b;
+    else if (b <= 250000) sizeBands['100-250k'] += b;
+    else if (b <= 500000) sizeBands['250-500k'] += b;
+    else sizeBands['500k+'] += b;
+  });
+  charts.loansize = new Chart(document.getElementById('chart-loansize'), {
     type: 'bar',
-    data: { labels: Object.keys(ratingMap), datasets: [{ label: 'Outstanding', data: Object.values(ratingMap), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
-    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 11 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
+    data: { labels: Object.keys(sizeBands), datasets: [{ label: 'Outstanding', data: Object.values(sizeBands), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
+    options: { ...chartDefaults, plugins: { ...chartDefaults.plugins, legend: { display: false }, tooltip: { ...chartDefaults.plugins.tooltip, ...ttipCb } }, scales: { x: { ticks: { color: '#4a5068', font: { size: 11 } }, grid: { display: false } }, y: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true } } }
   });
 
   const bMap = {};
   loans.forEach(l => { bMap[l.borrower_name] = (bMap[l.borrower_name] || 0) + l.outstanding_balance; });
-  const top10 = Object.entries(bMap).sort((a, b) => b[1] - a[1]).slice(0, 10);
+  const topX = displaySettings.topObligorCount || 10;
+  const topN = Object.entries(bMap).sort((a, b) => b[1] - a[1]).slice(0, topX);
+  const topTitleEl = document.getElementById('chart-top-title');
+  if (topTitleEl) topTitleEl.textContent = 'Top ' + topX + ' Lessee Exposures';
   charts.top10 = new Chart(document.getElementById('chart-top10'), {
     type: 'bar',
-    data: { labels: top10.map(b => b[0].length > 24 ? b[0].slice(0, 22) + '..' : b[0]), datasets: [{ label: 'Exposure', data: top10.map(b => b[1]), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
+    data: { labels: topN.map(b => b[0].length > 24 ? b[0].slice(0, 22) + '..' : b[0]), datasets: [{ label: 'Exposure', data: topN.map(b => b[1]), backgroundColor: '#003078', borderRadius: 2, borderWidth: 0 }] },
     options: { ...chartDefaults, indexAxis: 'y', plugins: { ...chartDefaults.plugins, legend: { display: false } }, scales: { x: { ticks: { color: '#8890a0', callback: v => fmtM(v), font: { size: 10, family: "'SF Mono','Consolas',monospace" } }, grid: { color: '#eef0f3' }, beginAtZero: true }, y: { ticks: { color: '#4a5068', font: { size: 10 } }, grid: { display: false } } } }
   });
 
@@ -2552,6 +2756,45 @@ function renderStratification() {
   const container = document.getElementById('strat-content');
   const tot = loans.reduce((s, l) => s + l.outstanding_balance, 0);
   const n = loans.length;
+
+  // Key WA summary at the top
+  const waRate = tot > 0 ? loans.reduce((s, l) => s + l.interest_rate * l.outstanding_balance, 0) / tot : 0;
+  const waOrigTerm = tot > 0 ? loans.reduce((s, l) => s + (l.original_term || 0) * l.outstanding_balance, 0) / tot : 0;
+  const waRemTerm = tot > 0 ? loans.reduce((s, l) => s + (l.remaining_term || 0) * l.outstanding_balance, 0) / tot : 0;
+  const waSeasoning = waOrigTerm > 0 ? waOrigTerm - waRemTerm : 0;
+  const waLTV = (() => {
+    const withLoan = loans.filter(l => l.loan_amount > 0);
+    const totalOrig = withLoan.reduce((s, l) => s + l.loan_amount, 0);
+    return totalOrig > 0 ? (withLoan.reduce((s, l) => s + l.outstanding_balance, 0) / totalOrig * 100) : 0;
+  })();
+  const avgBal = n > 0 ? tot / n : 0;
+
+  let waHtml = `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-bottom:16px;">
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">WA Rate</div>
+      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${fmtPct(waRate)}</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">WA Orig Term</div>
+      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${convertTerm(waOrigTerm, displaySettings.termUnit)}</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">WA Rem Term</div>
+      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${convertTerm(waRemTerm, displaySettings.termUnit)}</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">WA Seasoning</div>
+      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${convertTerm(waSeasoning, displaySettings.termUnit)}</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">Current Factor</div>
+      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${waLTV.toFixed(1)}%</div>
+    </div>
+    <div class="card" style="padding:12px;text-align:center;">
+      <div style="font-size:10px;text-transform:uppercase;color:var(--text-muted);font-weight:600;letter-spacing:0.04em;">Avg Balance</div>
+      <div style="font-size:1.2rem;font-weight:700;font-family:var(--mono);color:var(--navy);">${fmtM(avgBal)}</div>
+    </div>
+  </div>`;
 
   // Which strat tables to show (only if data exists for that field)
   const stratFields = [
@@ -2709,7 +2952,8 @@ function renderStratification() {
   // Strat toggle controls
   const hiddenKey = activeSeries || 'all';
   const hidden = displaySettings.hiddenStrats[hiddenKey] || [];
-  let html = `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+  let html = waHtml;
+  html += `<div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
     <span style="font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;">Show/Hide:</span>
     ${stratFields.map(sf => {
       const isHidden = hidden.includes(sf.key);
@@ -3340,11 +3584,14 @@ function renderSettingsBody() {
   // Overview widgets section
   const widgetDefs = [
     { key: 'stats', label: 'Key Metrics (stats bar)' },
-    { key: 'health', label: 'Portfolio Health Score' },
-    { key: 'topExposures', label: 'Top 10 Lessee Exposures' },
+    { key: 'keyRisks', label: 'Key Risk Metrics' },
+    { key: 'topExposures', label: 'Top Lessee Exposures' },
     { key: 'facilityMix', label: 'Facility Type Mix Chart' },
     { key: 'maturityProfile', label: 'Maturity Profile Chart' },
     { key: 'arrearsSnapshot', label: 'Arrears Snapshot' },
+    { key: 'originationProfile', label: 'Origination & Maturity Profile' },
+    { key: 'amortProfile', label: 'Amortisation Profile (French)' },
+    { key: 'seriesComparison', label: 'Series Comparison (Multi-Tape)' },
     { key: 'trends', label: 'Historic Trends (Multi-Tape)' }
   ];
   html += '<div class="settings-section"><div class="settings-section-title">Overview Page Widgets</div>';
