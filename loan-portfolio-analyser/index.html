@@ -444,12 +444,12 @@
       <h1 class="home-title">Data Tape Analyser</h1>
       <p class="home-subtitle">Upload a loan or lease tape to analyse portfolio composition, concentration, stratification and data quality.</p>
 
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display:none">
       <div class="upload-area" id="upload-area">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <div class="upload-title">Upload Data Tape</div>
         <div class="upload-sub">Drag & drop a CSV or Excel file, or click to browse</div>
         <div class="upload-sub" style="margin-top:6px; font-size:12px;">Any column layout accepted — you'll map columns after upload</div>
-        <input type="file" id="file-input" accept=".csv,.xlsx,.xls">
       </div>
 
       <div class="sample-section">
@@ -638,7 +638,6 @@ updateNav('home');
 // ============================================================
 const uploadArea = document.getElementById('upload-area');
 const fileInput = document.getElementById('file-input');
-fileInput.addEventListener('click', e => e.stopPropagation());
 uploadArea.addEventListener('click', () => fileInput.click());
 uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
 uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
