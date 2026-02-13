@@ -397,6 +397,30 @@
     .mapping-select:focus { outline: none; border-color: var(--navy); }
     .mapping-select.mapped { border-color: var(--navy-light); }
     .mapping-select option.option-in-use { color: var(--text-muted); font-style: italic; }
+
+    /* LOADING OVERLAY */
+    .loading-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(255,255,255,0.85);
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .loading-overlay.active { display: flex; }
+    .loading-spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--navy);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 14px; color: var(--text-secondary); font-weight: 500; }
+    .loading-sub { font-size: 12px; color: var(--text-muted); }
     .mapping-badge {
       display: inline-block;
       font-size: 10px;
@@ -789,7 +813,7 @@
       <h1 class="home-title">Data Tape Analyser</h1>
       <p class="home-subtitle">Upload a loan or lease tape to analyse portfolio composition, concentration, stratification and data quality.</p>
 
-      <input type="file" id="file-input" accept=".csv,.xlsx,.xls" style="display:none">
+      <input type="file" id="file-input" accept=".csv,.xlsx,.xls" multiple style="display:none">
       <div class="upload-area" id="upload-area">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
         <div class="upload-title">Upload Data Tape</div>
@@ -821,6 +845,7 @@
       <div class="tab" data-tab="concentration">Concentration</div>
       <div class="tab" data-tab="stratification">Stratification</div>
       <div class="tab" data-tab="anomalies">Anomalies</div>
+      <div class="tab" data-tab="comparison" id="tab-comparison-link" style="display:none;">Comparison</div>
       <div class="tab" data-tab="data">Tape Data</div>
     </div>
 
@@ -873,6 +898,11 @@
           </div>
         </div>
       </div>
+    </div>
+
+    <!-- COMPARISON TAB -->
+    <div class="tab-content" id="tab-comparison">
+      <div class="section" id="comparison-content"></div>
     </div>
 
     <!-- DATA TAB -->
@@ -932,6 +962,31 @@
   <div class="mapping-modal" style="max-height:80vh;">
     <div class="mapping-modal-body" id="recat-body" style="padding:20px 24px;overflow-y:auto;"></div>
   </div>
+</div>
+
+<!-- VALUE MAPPING MODAL -->
+<div class="mapping-overlay" id="valuemap-overlay">
+  <div class="mapping-modal" style="max-height:85vh;">
+    <div class="mapping-modal-header">
+      <h2>Harmonise Field Values</h2>
+      <p>Values in this tape that don't match existing tapes are highlighted. Map them to a standard value or keep as-is.</p>
+    </div>
+    <div class="mapping-modal-body" id="valuemap-body" style="padding:12px 24px;overflow-y:auto;"></div>
+    <div class="mapping-modal-footer">
+      <div class="mapping-status" id="valuemap-status"></div>
+      <div>
+        <button class="btn btn-outline btn-sm" onclick="closeValueMapping()">Skip</button>
+        <button class="btn btn-primary btn-sm" onclick="applyValueMapping()">Apply & Continue</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loading-overlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-text" id="loading-text">Loading...</div>
+  <div class="loading-sub" id="loading-sub"></div>
 </div>
 
 <script>
@@ -1133,9 +1188,31 @@ uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag
 uploadArea.addEventListener('drop', e => {
   e.preventDefault();
   uploadArea.classList.remove('drag-over');
-  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+  if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
 });
-fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFiles(e.target.files); });
+
+let pendingFileQueue = [];
+function handleFiles(fileList) {
+  pendingFileQueue = Array.from(fileList);
+  if (pendingFileQueue.length === 0) return;
+  processNextFile();
+}
+
+function processNextFile() {
+  if (pendingFileQueue.length === 0) return;
+  const file = pendingFileQueue.shift();
+  handleFile(file);
+}
+
+function showLoading(text, sub) {
+  document.getElementById('loading-text').textContent = text || 'Loading...';
+  document.getElementById('loading-sub').textContent = sub || '';
+  document.getElementById('loading-overlay').classList.add('active');
+}
+function hideLoading() {
+  document.getElementById('loading-overlay').classList.remove('active');
+}
 
 // Find the actual header row by picking the row with the most non-empty cells.
 // Scans the first 20 rows (or fewer if the file is smaller).
@@ -1179,10 +1256,13 @@ function processRawRows(rows) {
 function handleFile(file) {
   currentTapeName = file.name;
   const ext = file.name.split('.').pop().toLowerCase();
+  const remaining = pendingFileQueue.length;
+  const queueLabel = remaining > 0 ? ` (${remaining} more queued)` : '';
+  showLoading('Reading ' + file.name + '...', 'Parsing data' + queueLabel);
   if (ext === 'csv') {
     Papa.parse(file, { header: false, skipEmptyLines: true,
-      complete: r => { try { processRawRows(r.data); } catch (err) { alert('CSV parse error: ' + err.message); } },
-      error: err => { alert('Could not read CSV: ' + err.message); }
+      complete: r => { try { hideLoading(); processRawRows(r.data); } catch (err) { hideLoading(); alert('CSV parse error: ' + err.message); } },
+      error: err => { hideLoading(); alert('Could not read CSV: ' + err.message); }
     });
   } else if (ext === 'xlsx' || ext === 'xls') {
     const reader = new FileReader();
@@ -1191,12 +1271,14 @@ function handleFile(file) {
         const wb = XLSX.read(e.target.result, { type: 'array' });
         const sheet = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        hideLoading();
         processRawRows(rows);
-      } catch (err) { alert('Excel parse error: ' + err.message); }
+      } catch (err) { hideLoading(); alert('Excel parse error: ' + err.message); }
     };
-    reader.onerror = () => { alert('Could not read file.'); };
+    reader.onerror = () => { hideLoading(); alert('Could not read file.'); };
     reader.readAsArrayBuffer(file);
   } else {
+    hideLoading();
     alert('Unsupported file type: .' + ext + '. Please use .csv, .xlsx, or .xls');
   }
 }
@@ -1634,6 +1716,10 @@ function cancelMapping() {
   document.getElementById('mapping-overlay').classList.remove('active');
   pendingRawData = null;
   columnMapping = {};
+  // Process next file in queue if multi-file upload
+  if (pendingFileQueue.length > 0) {
+    setTimeout(() => processNextFile(), 300);
+  }
 }
 
 function confirmMapping() {
@@ -1664,7 +1750,6 @@ function confirmMapping() {
   });
   const mappedLoans = applyMapping(pendingRawData, reverseMap, customReverseMap);
   document.getElementById('mapping-overlay').classList.remove('active');
-  pendingRawData = null;
 
   // Prompt for series name and originator
   const defaultName = 'Series ' + (tapes.length + 1);
@@ -1691,9 +1776,20 @@ function confirmMapping() {
     _customReverseMap: { ...customReverseMap }
   });
 
+  // Show value mapping step if there are existing tapes (for cross-tape harmonisation)
+  if (tapes.length > 1) {
+    const newTapeIdx = tapes.length - 1;
+    showValueMappingPrompt(newTapeIdx);
+  }
+
+  pendingRawData = null;
   loans = [];
   tapes.forEach(t => loans.push(...t.loans));
   renderDashboard();
+  // Process next file in queue if multi-file upload
+  if (pendingFileQueue.length > 0) {
+    setTimeout(() => processNextFile(), 300);
+  }
 }
 
 // Store the original source column names for CSV export
@@ -2081,6 +2177,286 @@ function renderCutoffBanner() {
   banner.innerHTML = html;
 }
 
+// ============================================================
+//  VALUE MAPPING — cross-tape harmonisation
+// ============================================================
+let pendingValueMaps = {}; // { fieldKey: { oldVal: newVal, ... } }
+let pendingValueMapTapeIdx = -1;
+
+function showValueMappingPrompt(tapeIdx) {
+  pendingValueMapTapeIdx = tapeIdx;
+  pendingValueMaps = {};
+  const tape = tapes[tapeIdx];
+  const otherTapes = tapes.filter((_, i) => i !== tapeIdx);
+  if (otherTapes.length === 0) return;
+
+  // Find categorical fields with data in the new tape
+  const catFields = ['facility_type','asset_type','interest_rate_type','repayment_method','amortisation_type',
+    'payment_frequency','customer_segment','origination_channel','credit_rating','region','loan_status',
+    'equipment_type','asset_category','supplier','broker','originator','sector'];
+
+  // Collect existing values from other tapes
+  const existingValues = {};
+  catFields.forEach(f => {
+    existingValues[f] = new Set();
+    otherTapes.forEach(t => t.loans.forEach(l => {
+      const v = l[f];
+      if (v && String(v).trim()) existingValues[f].add(String(v).trim());
+    }));
+  });
+
+  // Find new tape values that don't exist in other tapes
+  const mismatches = {};
+  catFields.forEach(f => {
+    if (existingValues[f].size === 0) return;
+    const newVals = new Set();
+    tape.loans.forEach(l => {
+      const v = l[f];
+      if (v && String(v).trim()) newVals.add(String(v).trim());
+    });
+    const unmatched = [...newVals].filter(v => !existingValues[f].has(v));
+    if (unmatched.length > 0) {
+      mismatches[f] = { unmatched, existing: [...existingValues[f]].sort() };
+    }
+  });
+
+  if (Object.keys(mismatches).length === 0) return; // all values match
+
+  const body = document.getElementById('valuemap-body');
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+
+  let html = '';
+  for (const [field, data] of Object.entries(mismatches)) {
+    const label = fieldLabels[field] || field;
+    html += `<div class="opt-field-group" style="margin-bottom:16px;">
+      <div class="opt-field-label">${escapeHtml(label)} <span class="badge badge-amber" style="font-size:10px;">${data.unmatched.length} new</span></div>`;
+    data.unmatched.forEach(val => {
+      // Find best fuzzy match
+      const bestMatch = findBestValueMatch(val, data.existing);
+      const optionsHtml = `<option value="">Keep as "${escapeHtml(val)}"</option>` +
+        data.existing.map(ev => `<option value="${escapeHtml(ev)}" ${bestMatch === ev ? 'selected' : ''}>${escapeHtml(ev)}${bestMatch === ev ? ' (suggested)' : ''}</option>`).join('');
+      const mapId = `vmap-${field}-${val.replace(/[^a-zA-Z0-9]/g, '_')}`;
+      html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
+        <span style="flex:0 0 140px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--amber-faint);border-radius:var(--radius);">${escapeHtml(val)}</span>
+        <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
+        <select id="${mapId}" class="mapping-select" style="flex:1;" onchange="setValueMap('${field}','${val.replace(/'/g, "\\'")}',this.value)">
+          ${optionsHtml}
+        </select>
+      </div>`;
+      // Pre-set suggested match
+      if (bestMatch) {
+        if (!pendingValueMaps[field]) pendingValueMaps[field] = {};
+        pendingValueMaps[field][val] = bestMatch;
+      }
+    });
+    html += `</div>`;
+  }
+
+  const total = Object.values(mismatches).reduce((s, d) => s + d.unmatched.length, 0);
+  document.getElementById('valuemap-status').innerHTML = `<span class="count">${total}</span> values to review`;
+  body.innerHTML = html;
+  document.getElementById('valuemap-overlay').classList.add('active');
+}
+
+function findBestValueMatch(val, existing) {
+  const lower = val.toLowerCase().replace(/[^a-z0-9]/g, '');
+  // Exact case-insensitive
+  const exact = existing.find(e => e.toLowerCase() === val.toLowerCase());
+  if (exact) return exact;
+  // Stripped match
+  const stripped = existing.find(e => e.toLowerCase().replace(/[^a-z0-9]/g, '') === lower);
+  if (stripped) return stripped;
+  // Abbreviation / containment check
+  const contained = existing.find(e => e.toLowerCase().includes(lower) || lower.includes(e.toLowerCase().replace(/[^a-z0-9]/g, '')));
+  if (contained && lower.length >= 2) return contained;
+  return '';
+}
+
+function setValueMap(field, oldVal, newVal) {
+  if (!pendingValueMaps[field]) pendingValueMaps[field] = {};
+  if (newVal) {
+    pendingValueMaps[field][oldVal] = newVal;
+  } else {
+    delete pendingValueMaps[field][oldVal];
+  }
+}
+
+function applyValueMapping() {
+  if (pendingValueMapTapeIdx < 0) return;
+  const tape = tapes[pendingValueMapTapeIdx];
+  for (const [field, maps] of Object.entries(pendingValueMaps)) {
+    for (const [oldVal, newVal] of Object.entries(maps)) {
+      if (!newVal) continue;
+      tape.loans.forEach(l => {
+        if (String(l[field]).trim() === oldVal) l[field] = newVal;
+      });
+    }
+  }
+  closeValueMapping();
+}
+
+function closeValueMapping() {
+  document.getElementById('valuemap-overlay').classList.remove('active');
+  pendingValueMaps = {};
+  pendingValueMapTapeIdx = -1;
+}
+
+// ============================================================
+//  COMPARISON TAB — detailed series comparison
+// ============================================================
+function renderComparison() {
+  const container = document.getElementById('comparison-content');
+  const link = document.getElementById('tab-comparison-link');
+  if (tapes.length < 2) {
+    if (link) link.style.display = 'none';
+    if (container) container.innerHTML = '';
+    return;
+  }
+  if (link) link.style.display = '';
+
+  const seriesNames = [...new Set(tapes.map(t => t.series))];
+  if (seriesNames.length < 2) { container.innerHTML = ''; return; }
+
+  // Series data
+  const seriesData = seriesNames.map(s => {
+    const sloans = [];
+    tapes.filter(t => t.series === s).forEach(t => sloans.push(...t.loans));
+    const tape = tapes.find(t => t.series === s);
+    const tot = sloans.reduce((sm, l) => sm + l.outstanding_balance, 0);
+    const orig = sloans.reduce((sm, l) => sm + l.loan_amount, 0);
+    const waRate = tot > 0 ? sloans.reduce((sm, l) => sm + l.interest_rate * l.outstanding_balance, 0) / tot : 0;
+    const waRemTerm = tot > 0 ? sloans.reduce((sm, l) => sm + (l.remaining_term || 0) * l.outstanding_balance, 0) / tot : 0;
+    const waOrigTerm = tot > 0 ? sloans.reduce((sm, l) => sm + (l.original_term || 0) * l.outstanding_balance, 0) / tot : 0;
+    const arrBal = sloans.filter(l => l.days_in_arrears > 0).reduce((sm, l) => sm + l.outstanding_balance, 0);
+    const arrPct = tot > 0 ? (arrBal / tot) * 100 : 0;
+    const arr90Bal = sloans.filter(l => l.days_in_arrears > 90).reduce((sm, l) => sm + l.outstanding_balance, 0);
+    const arr90Pct = tot > 0 ? (arr90Bal / tot) * 100 : 0;
+    const defPct = sloans.length > 0 ? (sloans.filter(l => l.default_flag).length / sloans.length * 100) : 0;
+    const uniqueB = new Set(sloans.map(l => l.borrower_name)).size;
+    const avgFac = sloans.length > 0 ? orig / sloans.length : 0;
+    const bMap = {};
+    sloans.forEach(l => { bMap[l.borrower_name] = (bMap[l.borrower_name] || 0) + l.outstanding_balance; });
+    const top5Vals = Object.values(bMap).sort((a, b) => b - a).slice(0, 5);
+    const top5Pct = tot > 0 ? (top5Vals.reduce((sm, v) => sm + v, 0) / tot * 100) : 0;
+    return { name: s, loans: sloans, count: sloans.length, originator: tape ? tape.originator || '' : '', cutoff: tape ? tape.cutoffDate || '' : '', outstanding: tot, original: orig, waRate, waRemTerm, waOrigTerm, arrPct, arr90Pct, defPct, uniqueB, avgFac, top5Pct };
+  });
+
+  let html = '';
+
+  // Key metrics comparison table
+  const metrics = [
+    { label: 'Originator', fn: d => d.originator || '-', raw: true },
+    { label: 'Cut-Off Date', fn: d => d.cutoff ? formatCutoffDate(d.cutoff) : '-', raw: true },
+    { label: 'Receivables', fn: d => d.count, fmt: v => v.toLocaleString() },
+    { label: 'Original Amount', fn: d => d.original, fmt: v => fmtM(v) },
+    { label: 'Current Outstanding', fn: d => d.outstanding, fmt: v => fmtM(v) },
+    { label: 'WA Rate', fn: d => d.waRate, fmt: v => fmtPct(v) },
+    { label: 'WA Orig. Term', fn: d => d.waOrigTerm, fmt: v => convertTerm(v, displaySettings.termUnit) },
+    { label: 'WA Rem. Term', fn: d => d.waRemTerm, fmt: v => convertTerm(v, displaySettings.termUnit) },
+    { label: 'Avg Facility', fn: d => d.avgFac, fmt: v => fmtM(v) },
+    { label: 'Borrowers', fn: d => d.uniqueB, fmt: v => v.toLocaleString() },
+    { label: 'Arrears %', fn: d => d.arrPct, fmt: v => fmtPct(v), warn: v => v > 5 ? 'var(--red)' : v > 2 ? 'var(--amber)' : '' },
+    { label: '90+ Arrears %', fn: d => d.arr90Pct, fmt: v => fmtPct(v), warn: v => v > 5 ? 'var(--red)' : v > 2 ? 'var(--amber)' : '' },
+    { label: 'Default %', fn: d => d.defPct, fmt: v => fmtPct(v), warn: v => v > 3 ? 'var(--red)' : v > 1 ? 'var(--amber)' : '' },
+    { label: 'Top 5 Concentration', fn: d => d.top5Pct, fmt: v => v.toFixed(1) + '%', warn: v => v > 40 ? 'var(--red)' : v > 25 ? 'var(--amber)' : '' }
+  ];
+
+  const headerCells = seriesData.map(d => `<th class="right" style="min-width:120px;">${escapeHtml(d.name)}</th>`).join('');
+  const rows = metrics.map(m => {
+    const cells = seriesData.map(d => {
+      const v = m.fn(d);
+      if (m.raw) return `<td class="mono right">${escapeHtml(String(v))}</td>`;
+      const color = m.warn ? m.warn(v) : '';
+      return `<td class="mono right" ${color ? 'style="color:'+color+'"' : ''}>${m.fmt(v)}</td>`;
+    }).join('');
+    return `<tr><td style="font-weight:500;">${m.label}</td>${cells}</tr>`;
+  }).join('');
+
+  html += `<div class="card" style="margin-bottom:16px;">
+    <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:12px;">Key Metrics Comparison</h3>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Metric</th>${headerCells}</tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>
+  </div>`;
+
+  // Field value mismatches — flag where values don't exist in all tapes
+  const catFields = ['facility_type','asset_type','interest_rate_type','repayment_method','customer_segment',
+    'credit_rating','region','loan_status','equipment_type','asset_category','broker','originator','sector'];
+  const fieldLabels = {};
+  TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
+
+  let mismatchHtml = '';
+  let mismatchCount = 0;
+  catFields.forEach(f => {
+    const perSeries = {};
+    seriesData.forEach(sd => {
+      perSeries[sd.name] = new Set(sd.loans.map(l => l[f]).filter(v => v && String(v).trim()));
+    });
+    const allVals = new Set();
+    Object.values(perSeries).forEach(s => s.forEach(v => allVals.add(v)));
+    if (allVals.size === 0) return;
+    // Find values not present in all series
+    const mismatched = [...allVals].filter(v => {
+      return !seriesData.every(sd => perSeries[sd.name].has(v));
+    });
+    if (mismatched.length === 0) return;
+    mismatchCount += mismatched.length;
+    const label = fieldLabels[f] || f;
+    mismatchHtml += `<div style="margin-bottom:12px;">
+      <div style="font-size:12px;font-weight:600;color:var(--text-secondary);margin-bottom:6px;">${escapeHtml(label)}</div>
+      <div class="table-scroll" style="max-height:200px;"><table>
+        <thead><tr><th>Value</th>${seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('')}</tr></thead>
+        <tbody>${mismatched.sort().map(v => {
+          const cells = seriesData.map(d => {
+            const has = perSeries[d.name].has(v);
+            return `<td class="mono right" style="color:${has ? 'var(--green)' : 'var(--red)'};">${has ? 'Yes' : 'No'}</td>`;
+          }).join('');
+          return `<tr><td style="font-size:12px;">${escapeHtml(v)}</td>${cells}</tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>`;
+  });
+
+  if (mismatchHtml) {
+    html += `<div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:4px;">Field Value Mismatches <span class="badge badge-amber">${mismatchCount}</span></h3>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">Values that appear in some tapes but not others. Use Settings > Edit Fields to harmonise.</p>
+      ${mismatchHtml}
+    </div>`;
+  }
+
+  // Per-field side-by-side strat comparison
+  const compareFields = ['facility_type','region','credit_rating','sector','customer_segment','asset_type'];
+  compareFields.forEach(f => {
+    if (!seriesData.some(sd => sd.loans.some(l => l[f] && String(l[f]).trim()))) return;
+    const label = fieldLabels[f] || f;
+    const allVals = new Set();
+    seriesData.forEach(sd => sd.loans.forEach(l => { if (l[f] && String(l[f]).trim()) allVals.add(l[f]); }));
+    if (allVals.size === 0 || allVals.size > 30) return;
+    const sortedVals = [...allVals].sort();
+    const hdr = seriesData.map(d => `<th class="right">${escapeHtml(d.name)}</th>`).join('');
+    const bodyRows = sortedVals.map(v => {
+      const cells = seriesData.map(d => {
+        const bal = d.loans.filter(l => l[f] === v).reduce((sm, l) => sm + l.outstanding_balance, 0);
+        const pct = d.outstanding > 0 ? ((bal / d.outstanding) * 100).toFixed(1) + '%' : '-';
+        return `<td class="mono right">${pct}</td>`;
+      }).join('');
+      return `<tr><td style="font-size:12px;">${escapeHtml(v)}</td>${cells}</tr>`;
+    }).join('');
+    html += `<div class="card strat-card" style="margin-bottom:12px;">
+      <div class="strat-card-header">${escapeHtml(label)} — % of Outstanding by Series</div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Category</th>${hdr}</tr></thead>
+        <tbody>${bodyRows}</tbody>
+      </table></div>
+    </div>`;
+  });
+
+  container.innerHTML = html;
+}
+
 function renderDashboard() {
   document.getElementById('upload-section').style.display = 'none';
   document.getElementById('dashboard').classList.add('active');
@@ -2093,6 +2469,7 @@ function renderDashboard() {
   renderCharts();
   renderStratification();
   renderAnomalies();
+  renderComparison();
   renderDataTable();
 }
 
@@ -2810,8 +3187,9 @@ function renderStratification() {
   if (waOrigTerm > 0) waMetrics.push({ label: 'WA Orig Term', value: convertTerm(waOrigTerm, displaySettings.termUnit) });
   if (waRemTerm > 0) waMetrics.push({ label: 'WA Rem Term', value: convertTerm(waRemTerm, displaySettings.termUnit) });
   if (waSeasoning > 0) waMetrics.push({ label: 'WA Seasoning', value: convertTerm(waSeasoning, displaySettings.termUnit) });
-  waMetrics.push({ label: 'Current Factor', value: waLTV.toFixed(1) + '%' });
   waMetrics.push({ label: 'Avg Balance', value: fmtM(avgBal) });
+  const uniqueB = new Set(loans.map(l => l.borrower_name).filter(Boolean)).size;
+  waMetrics.push({ label: 'Borrowers', value: uniqueB.toLocaleString() });
 
   const cols = Math.min(waMetrics.length, 6);
   let waHtml = `<div style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:10px;margin-bottom:16px;">`;
