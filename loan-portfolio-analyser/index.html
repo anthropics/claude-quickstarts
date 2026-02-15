@@ -1887,12 +1887,40 @@ const REGION_ALIASES = {
   'channel islands': 'Channel Islands', 'isle of man': 'Isle of Man'
 };
 
+// UK NUTS region code mapping (NUTS level 1 prefix → standard region name)
+const NUTS_REGION_MAP = {
+  'UKC': 'North East',
+  'UKD': 'North West',
+  'UKE': 'Yorkshire & Humber',
+  'UKF': 'Midlands',          // East Midlands
+  'UKG': 'Midlands',          // West Midlands
+  'UKH': 'East of England',
+  'UKI': 'London',
+  'UKJ': 'South East',
+  'UKK': 'South West',
+  'UKL': 'Wales',
+  'UKM': 'Scotland',
+  'UKN': 'Northern Ireland'
+};
+
+function nutsToRegion(code) {
+  if (!code || typeof code !== 'string') return '';
+  const upper = code.toUpperCase().trim();
+  if (upper.length < 3 || !upper.startsWith('UK')) return '';
+  const prefix = upper.substring(0, 3);
+  return NUTS_REGION_MAP[prefix] || '';
+}
+
 function normaliseRegion(region) {
   if (!region) return '';
   const trimmed = String(region).trim();
   if (!trimmed) return '';
   const lower = trimmed.toLowerCase();
-  return REGION_ALIASES[lower] || trimmed;
+  if (REGION_ALIASES[lower]) return REGION_ALIASES[lower];
+  // Try NUTS code mapping (e.g. UKI31 → London)
+  const nutsRegion = nutsToRegion(trimmed);
+  if (nutsRegion) return nutsRegion;
+  return trimmed;
 }
 
 function applyMapping(data, rm, customRm) {
@@ -1928,50 +1956,55 @@ function applyMapping(data, rm, customRm) {
     if (sampleBal.length > 0 && sampleBal.filter(r => r < 1).length / sampleBal.length > 0.8) balloonMultiplier = 100;
   }
 
+  // Helper to extract and trim string values from raw data
+  function strVal(col) { return col ? String(row[col] || '').trim() : ''; }
+
   return data.map((row, i) => {
-    const explicitRegion = rm.region ? String(row[rm.region] || '') : '';
-    const region = normaliseRegion(explicitRegion);
-    const sicCode = rm.sic_code ? String(row[rm.sic_code] || '') : '';
-    const onsCode = rm.ons_code ? String(row[rm.ons_code] || '') : '';
-    const explicitSector = rm.sector ? String(row[rm.sector] || '') : '';
+    const explicitRegion = rm.region ? String(row[rm.region] || '').trim() : '';
+    const onsCode = rm.ons_code ? String(row[rm.ons_code] || '').trim() : '';
+    // Derive region: try explicit region first, then fall back to NUTS code from ons_code
+    let region = normaliseRegion(explicitRegion);
+    if (!region && onsCode) region = nutsToRegion(onsCode);
+    const sicCode = rm.sic_code ? String(row[rm.sic_code] || '').trim() : '';
+    const explicitSector = rm.sector ? String(row[rm.sector] || '').trim() : '';
     const sector = explicitSector || sicToSector(sicCode);
     const obj = {
-      loan_id:             rm.loan_id ? String(row[rm.loan_id] || '') || `L${i+1}` : `L${i+1}`,
-      borrower_name:       rm.borrower_name ? String(row[rm.borrower_name] || '') : '',
+      loan_id:             rm.loan_id ? String(row[rm.loan_id] || '').trim() || `L${i+1}` : `L${i+1}`,
+      borrower_name:       rm.borrower_name ? String(row[rm.borrower_name] || '').trim() : '',
       sector:              sector,
       sic_code:            sicCode,
       ons_code:            onsCode,
       region:              region,
       loan_amount:         rm.loan_amount ? parseNum(row[rm.loan_amount]) : 0,
       outstanding_balance: rm.outstanding_balance ? parseNum(row[rm.outstanding_balance]) : 0,
-      maturity_date:       rm.maturity_date ? String(row[rm.maturity_date] || '') : '',
+      maturity_date:       rm.maturity_date ? String(row[rm.maturity_date] || '').trim() : '',
       interest_rate:       rm.interest_rate ? parseNum(row[rm.interest_rate]) * rateMultiplier : 0,
-      facility_type:       rm.facility_type ? String(row[rm.facility_type] || '') : '',
+      facility_type:       rm.facility_type ? String(row[rm.facility_type] || '').trim() : '',
       default_flag:        rm.default_flag ? parseDefault(row[rm.default_flag]) : false,
-      loan_status:         rm.loan_status ? String(row[rm.loan_status] || '') : '',
-      origination_date:    rm.origination_date ? String(row[rm.origination_date] || '') : '',
+      loan_status:         rm.loan_status ? String(row[rm.loan_status] || '').trim() : '',
+      origination_date:    rm.origination_date ? String(row[rm.origination_date] || '').trim() : '',
       original_term:       rm.original_term ? parseNum(row[rm.original_term]) : 0,
       remaining_term:      rm.remaining_term ? parseNum(row[rm.remaining_term]) : 0,
       average_life:        rm.average_life ? parseNum(row[rm.average_life]) : 0,
-      currency:            rm.currency ? String(row[rm.currency] || '') : '',
-      repayment_method:    rm.repayment_method ? String(row[rm.repayment_method] || '') : '',
-      payment_method:      rm.payment_method ? String(row[rm.payment_method] || '') : '',
-      amortisation_type:   rm.amortisation_type ? String(row[rm.amortisation_type] || '') : '',
-      payment_frequency:   rm.payment_frequency ? String(row[rm.payment_frequency] || '') : '',
-      interest_rate_type:  rm.interest_rate_type ? String(row[rm.interest_rate_type] || '') : '',
+      currency:            rm.currency ? String(row[rm.currency] || '').trim() : '',
+      repayment_method:    rm.repayment_method ? String(row[rm.repayment_method] || '').trim() : '',
+      payment_method:      rm.payment_method ? String(row[rm.payment_method] || '').trim() : '',
+      amortisation_type:   rm.amortisation_type ? String(row[rm.amortisation_type] || '').trim() : '',
+      payment_frequency:   rm.payment_frequency ? String(row[rm.payment_frequency] || '').trim() : '',
+      interest_rate_type:  rm.interest_rate_type ? String(row[rm.interest_rate_type] || '').trim() : '',
       days_in_arrears:     rm.days_in_arrears ? parseNum(row[rm.days_in_arrears]) : 0,
-      equipment_type:      rm.equipment_type ? String(row[rm.equipment_type] || '') : '',
-      asset_category:      rm.asset_category ? String(row[rm.asset_category] || '') : '',
-      supplier:            rm.supplier ? String(row[rm.supplier] || '') : '',
-      legal_form:          rm.legal_form ? String(row[rm.legal_form] || '') : '',
-      cca_regulated:       rm.cca_regulated ? String(row[rm.cca_regulated] || '') : '',
-      prefunded:           rm.prefunded ? String(row[rm.prefunded] || '') : '',
-      refinancing:         rm.refinancing ? String(row[rm.refinancing] || '') : '',
-      other_schemes:       rm.other_schemes ? String(row[rm.other_schemes] || '') : '',
-      origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '') : '',
+      equipment_type:      rm.equipment_type ? String(row[rm.equipment_type] || '').trim() : '',
+      asset_category:      rm.asset_category ? String(row[rm.asset_category] || '').trim() : '',
+      supplier:            rm.supplier ? String(row[rm.supplier] || '').trim() : '',
+      legal_form:          rm.legal_form ? String(row[rm.legal_form] || '').trim() : '',
+      cca_regulated:       rm.cca_regulated ? String(row[rm.cca_regulated] || '').trim() : '',
+      prefunded:           rm.prefunded ? String(row[rm.prefunded] || '').trim() : '',
+      refinancing:         rm.refinancing ? String(row[rm.refinancing] || '').trim() : '',
+      other_schemes:       rm.other_schemes ? String(row[rm.other_schemes] || '').trim() : '',
+      origination_channel: rm.origination_channel ? String(row[rm.origination_channel] || '').trim() : '',
       balloon_pct:         rm.balloon_pct ? parseNum(row[rm.balloon_pct]) * balloonMultiplier : 0,
-      broker:              rm.broker ? String(row[rm.broker] || '') : '',
-      originator:          rm.originator ? String(row[rm.originator] || '') : ''
+      broker:              rm.broker ? String(row[rm.broker] || '').trim() : '',
+      originator:          rm.originator ? String(row[rm.originator] || '').trim() : ''
     };
 
     // Apply custom field mappings
@@ -2548,6 +2581,46 @@ function showTapeHarmonisation(tapeIdx) {
     return;
   }
 
+  // Detect near-duplicate groups using normalizeValueStr — values that look
+  // different but mean the same thing (e.g. "Sale & Leaseback" / "Sale and Leaseback")
+  const fieldDuplicates = {};
+  for (const [field, valCounts] of Object.entries(fieldData)) {
+    const vals = Object.keys(valCounts);
+    const normGroups = {};
+    vals.forEach(v => {
+      const norm = normalizeValueStr(v);
+      if (!normGroups[norm]) normGroups[norm] = [];
+      normGroups[norm].push(v);
+    });
+    // Also check abbreviation matches
+    vals.forEach(v => {
+      const bestMatch = findBestValueMatch(v, vals.filter(x => x !== v));
+      if (bestMatch) {
+        const normV = normalizeValueStr(v);
+        const normM = normalizeValueStr(bestMatch);
+        if (normV !== normM) {
+          // Merge the two groups
+          const groupKey = normGroups[normV] ? normV : Object.keys(normGroups).find(k => normGroups[k].includes(v));
+          const matchKey = normGroups[normM] ? normM : Object.keys(normGroups).find(k => normGroups[k].includes(bestMatch));
+          if (groupKey && matchKey && groupKey !== matchKey) {
+            normGroups[groupKey].push(...normGroups[matchKey]);
+            delete normGroups[matchKey];
+          }
+        }
+      }
+    });
+    // Groups with >1 member are potential duplicates
+    const dupes = {};
+    for (const [, members] of Object.entries(normGroups)) {
+      if (members.length > 1) {
+        // Pick the member with highest count as the "canonical" value
+        const canonical = members.reduce((a, b) => valCounts[a] >= valCounts[b] ? a : b);
+        members.forEach(m => { if (m !== canonical) dupes[m] = canonical; });
+      }
+    }
+    if (Object.keys(dupes).length > 0) fieldDuplicates[field] = dupes;
+  }
+
   const fieldLabels = {};
   TEMPLATE_FIELDS.forEach(f => { fieldLabels[f.key] = f.label; });
 
@@ -2556,35 +2629,46 @@ function showTapeHarmonisation(tapeIdx) {
   for (const [field, valCounts] of Object.entries(fieldData)) {
     const label = fieldLabels[field] || field;
     const vals = Object.keys(valCounts).sort();
-    html += `<div style="margin-bottom:8px;border:1px solid var(--border-light);border-radius:var(--radius);overflow:hidden;">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:var(--bg);cursor:pointer;" onclick="(function(el){var body=el.nextElementSibling;var arrow=el.querySelector('.harm-arrow');if(body.style.display==='none'){body.style.display='';arrow.textContent='\\u25BE';}else{body.style.display='none';arrow.textContent='\\u25B8';}})(this)">
+    const dupes = fieldDuplicates[field] || {};
+    const dupeCount = Object.keys(dupes).length;
+    const hasDupes = dupeCount > 0;
+    // Auto-expand sections with detected duplicates
+    html += `<div style="margin-bottom:8px;border:1px solid ${hasDupes ? 'var(--amber)' : 'var(--border-light)'};border-radius:var(--radius);overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:${hasDupes ? 'var(--amber-faint)' : 'var(--bg)'};cursor:pointer;" onclick="(function(el){var body=el.nextElementSibling;var arrow=el.querySelector('.harm-arrow');if(body.style.display==='none'){body.style.display='';arrow.textContent='\\u25BE';}else{body.style.display='none';arrow.textContent='\\u25B8';}})(this)">
         <div style="display:flex;align-items:center;gap:8px;">
-          <span class="harm-arrow" style="font-size:10px;color:var(--text-muted);width:12px;">&#9656;</span>
+          <span class="harm-arrow" style="font-size:10px;color:var(--text-muted);width:12px;">${hasDupes ? '&#9662;' : '&#9656;'}</span>
           <span style="font-size:13px;font-weight:600;">${escapeHtml(label)}</span>
           <span class="badge badge-navy" style="font-size:10px;">${vals.length} values</span>
+          ${hasDupes ? `<span class="badge" style="font-size:10px;background:var(--amber);color:#fff;">${dupeCount} possible duplicate${dupeCount > 1 ? 's' : ''}</span>` : ''}
         </div>
       </div>
-      <div style="display:none;padding:8px 14px;">`;
+      <div style="${hasDupes ? '' : 'display:none;'}padding:8px 14px;">`;
 
     vals.forEach(val => {
       const count = valCounts[val];
+      const suggestedTarget = dupes[val] || '';
       const otherChoices = vals.filter(v => v !== val);
       const extChoices = [...(otherValues[field] || [])].filter(v => !vals.includes(v));
       const allChoices = [...otherChoices, ...extChoices].sort();
       const escVal = val.replace(/'/g, "\\'").replace(/\\/g, '\\\\');
-      const optionsHtml = `<option value="__keep__" selected>Keep as "${escapeHtml(val)}"</option>` +
+      const optionsHtml = `<option value="__keep__"${suggestedTarget ? '' : ' selected'}>Keep as "${escapeHtml(val)}"</option>` +
         allChoices.map(cv => {
           const isExt = extChoices.includes(cv);
-          return `<option value="${escapeHtml(cv)}">${escapeHtml(cv)}${isExt ? ' (other tape)' : ''}</option>`;
+          const isSuggested = cv === suggestedTarget;
+          return `<option value="${escapeHtml(cv)}"${isSuggested ? ' selected' : ''}>${escapeHtml(cv)}${isExt ? ' (other tape)' : ''}</option>`;
         }).join('') +
         `<option value="__custom__">Custom name...</option>`;
-      html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;">
-        <span style="flex:0 0 200px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:var(--navy-faint);border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(val)}">${escapeHtml(val)} <span style="color:var(--text-muted);font-size:10px;">(${count})</span></span>
+      const isDupe = !!suggestedTarget;
+      html += `<div style="display:flex;gap:8px;align-items:center;padding:4px 0;${isDupe ? 'background:var(--amber-faint);border-radius:var(--radius);padding:4px 8px;margin:2px -8px;' : ''}">
+        <span style="flex:0 0 200px;font-size:12px;font-family:var(--mono);padding:4px 8px;background:${isDupe ? 'rgba(181,137,0,0.12)' : 'var(--navy-faint)'};border-radius:var(--radius);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${escapeHtml(val)}">${escapeHtml(val)} <span style="color:var(--text-muted);font-size:10px;">(${count})</span></span>
         <span style="color:var(--text-muted);font-size:12px;">&#8594;</span>
-        <select class="mapping-select" style="flex:1;" onchange="onValueMapChange(this,'intra','${field}','${escVal}')">
+        <select class="mapping-select" style="flex:1;${isDupe ? 'border-color:var(--amber);' : ''}" onchange="onValueMapChange(this,'intra','${field}','${escVal}')">
           ${optionsHtml}
         </select>
+        ${isDupe ? '<span style="font-size:10px;color:var(--amber);white-space:nowrap;" title="Possible duplicate detected">&#9888; similar</span>' : ''}
       </div>`;
+      // Auto-register suggested merge in pendingValueMaps
+      if (suggestedTarget) setValueMap('intra', field, val, suggestedTarget);
     });
     html += `</div></div>`;
   }
@@ -3088,6 +3172,21 @@ function renderDashboard() {
 // ============================================================
 function refreshLoansFromTapes() {
   if (tapes.length === 0) return;
+  // Normalize all string fields (trim whitespace) to ensure consistent grouping/aggregation
+  const stringFields = TEMPLATE_FIELDS.filter(f => f.type === 'string').map(f => f.key);
+  tapes.forEach(t => t.loans.forEach(l => {
+    stringFields.forEach(f => {
+      if (l[f] && typeof l[f] === 'string') l[f] = l[f].trim();
+    });
+    // Also normalise region from NUTS codes if not already done
+    if (l.region && !REGION_ALIASES[l.region.toLowerCase()] && nutsToRegion(l.region)) {
+      l.region = nutsToRegion(l.region);
+    }
+    if (!l.region && l.ons_code) {
+      const derived = nutsToRegion(l.ons_code);
+      if (derived) l.region = derived;
+    }
+  }));
   if (activeSeries === 'all') {
     loans = [];
     tapes.forEach(t => loans.push(...t.loans));
@@ -4047,7 +4146,10 @@ function renderStratification() {
     if (!loans.some(l => l[sf.key] && String(l[sf.key]).trim() !== '')) return;
     if (hidden.includes(sf.key)) return; // user hidden
     const groups = {};
-    loans.forEach(l => addToGroup(groups, l[sf.key] || '(blank)', l));
+    loans.forEach(l => {
+      const key = (l[sf.key] ? String(l[sf.key]).trim() : '') || '(blank)';
+      addToGroup(groups, key, l);
+    });
     // Sort: blanks to bottom, rest by balance descending
     const sorted = Object.entries(groups).sort((a, b) => {
       if (a[0] === '(blank)') return 1;
