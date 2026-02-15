@@ -1,0 +1,93 @@
+@import url("https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400..700;1,400..700&family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&display=swap");
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: #1a1a2e;
+  --color-background-card: #222244;
+  --color-background-elevated: #2a2a4a;
+  --color-foreground: #e8e6f0;
+  --color-foreground-muted: #9896a8;
+  --color-foreground-subtle: #6b6980;
+  --color-border: #3a3860;
+  --color-border-subtle: #2e2c50;
+  --color-primary: #7c6bf0;
+  --color-primary-hover: #9485f5;
+  --color-accent-book: #d97706;
+  --color-accent-film: #dc2626;
+  --color-accent-tv: #4f46e5;
+  --color-accent-podcast: #16a34a;
+  --color-accent-music: #7c3aed;
+  --color-accent-youtube: #f97316;
+  --color-accent-article: #0d9488;
+  --color-accent-live: #eab308;
+  --font-serif: "Lora", Georgia, serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-foreground-subtle);
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.3s ease-out forwards;
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out forwards;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
