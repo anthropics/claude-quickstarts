@@ -828,6 +828,14 @@
           Download Sample Tape (.xlsx)
         </button>
       </div>
+
+      <div class="sample-section" style="margin-top:12px;">
+        <p>Have a saved session? Load it to pick up exactly where you left off.</p>
+        <button class="btn btn-outline" onclick="triggerLoadSession()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Load Previous Session (.json)
+        </button>
+      </div>
     </div>
   </div>
 
@@ -1163,6 +1171,7 @@ function updateNav(view) {
       <button class="btn btn-nav btn-sm" onclick="addAnotherTape()">+ Add Tape</button>
       <button class="btn btn-nav btn-sm" onclick="exportXLSX()">Export XLSX</button>
       <button class="btn btn-nav btn-sm" onclick="exportHarmonisedTape()">Export Tape</button>
+      <button class="btn btn-nav btn-sm" onclick="saveSession()">Save Session</button>
       <button class="btn btn-nav btn-sm" onclick="goHome()">Reset</button>
     `;
   }
@@ -4541,6 +4550,93 @@ function csvEscape(val) {
   const s = String(val);
   if (s.includes(',') || s.includes('"') || s.includes('\n')) return '"' + s.replace(/"/g, '""') + '"';
   return s;
+}
+
+// ============================================================
+//  SESSION SAVE / LOAD (JSON)
+// ============================================================
+function saveSession() {
+  if (!tapes.length) return;
+  const session = {
+    _format: 'tape-analyser-session',
+    _version: 1,
+    savedAt: new Date().toISOString(),
+    tapes: tapes.map(t => ({
+      name: t.name,
+      series: t.series,
+      loans: t.loans,
+      sourceColumnNames: t.sourceColumnNames,
+      columnMapping: t.columnMapping,
+      cutoffDate: t.cutoffDate || '',
+      originator: t.originator || '',
+      _rawData: t._rawData,
+      _reverseMap: t._reverseMap || {},
+      _customReverseMap: t._customReverseMap || {}
+    })),
+    activeSeries: activeSeries,
+    customFieldDefs: customFieldDefs,
+    customTests: customTests,
+    columnMappingMemory: columnMappingMemory,
+    fieldOptions: fieldOptions,
+    displaySettings: displaySettings
+  };
+  const json = JSON.stringify(session);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const datePart = new Date().toISOString().slice(0, 10);
+  const seriesNames = tapes.map(t => t.series).join('_').replace(/[^a-zA-Z0-9_-]/g, '');
+  a.href = url;
+  a.download = `tape-session_${seriesNames || 'portfolio'}_${datePart}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function loadSession(file) {
+  if (!file) return;
+  showLoading('Restoring session…', file.name);
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const session = JSON.parse(e.target.result);
+      if (!session._format || session._format !== 'tape-analyser-session') {
+        hideLoading();
+        alert('This file is not a valid Tape Analyser session file.');
+        return;
+      }
+      // Restore state
+      tapes = session.tapes || [];
+      activeSeries = session.activeSeries || 'all';
+      customFieldDefs = session.customFieldDefs || {};
+      customTests = session.customTests || [];
+      columnMappingMemory = session.columnMappingMemory || {};
+      if (session.fieldOptions) fieldOptions = session.fieldOptions;
+      if (session.displaySettings) displaySettings = session.displaySettings;
+      // Rebuild loans array
+      loans = [];
+      tapes.forEach(t => loans.push(...t.loans));
+      hideLoading();
+      if (tapes.length > 0) {
+        renderDashboard();
+      } else {
+        alert('Session file contains no tape data.');
+      }
+    } catch (err) {
+      hideLoading();
+      alert('Failed to load session: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function triggerLoadSession() {
+  const inp = document.createElement('input');
+  inp.type = 'file';
+  inp.accept = '.json';
+  inp.onchange = function() { if (inp.files.length) loadSession(inp.files[0]); };
+  inp.click();
 }
 
 function exportCSV() {
