@@ -14,10 +14,12 @@ import {
   Cell,
 } from "recharts";
 import {
-  BookOpen,
   Flame,
   Calendar,
   TrendingUp,
+  Star,
+  Lightbulb,
+  CalendarDays,
 } from "lucide-react";
 import { MEDIA_TYPE_CONFIG, MediaType, Entry } from "@/lib/types";
 import { MediaTypeBadge } from "@/components/media-type-badge";
@@ -26,10 +28,13 @@ import { format } from "date-fns";
 interface Stats {
   total_count: number;
   year_count: number;
+  month_count: number;
   by_type: { media_type: MediaType; count: number }[];
   monthly: { month: string; count: number }[];
   on_this_day: Entry[];
   current_streak: number;
+  top_rated: { id: string; title: string; media_type: MediaType; rating: number }[];
+  insights: string[];
 }
 
 export function StatsView() {
@@ -111,16 +116,31 @@ export function StatsView() {
           label="This year"
         />
         <StatCard
-          icon={<Flame size={18} />}
-          value={stats.current_streak}
-          label={stats.current_streak === 1 ? "Day streak" : "Day streak"}
+          icon={<CalendarDays size={18} />}
+          value={stats.month_count}
+          label="This month"
         />
         <StatCard
-          icon={<BookOpen size={18} />}
-          value={stats.by_type.length}
-          label="Media types"
+          icon={<Flame size={18} />}
+          value={stats.current_streak}
+          label="Day streak"
         />
       </div>
+
+      {/* Insights */}
+      {stats.insights.length > 0 && (
+        <section className="space-y-2">
+          {stats.insights.map((insight, idx) => (
+            <div
+              key={idx}
+              className="flex items-start gap-3 rounded-xl bg-background-card border border-border-subtle p-4"
+            >
+              <Lightbulb size={16} className="text-primary flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-foreground-muted">{insight}</p>
+            </div>
+          ))}
+        </section>
+      )}
 
       {/* Type breakdown */}
       {stats.by_type.length > 0 && (
@@ -207,12 +227,46 @@ export function StatsView() {
                 />
                 <Bar
                   dataKey="count"
-                  fill="#7c6bf0"
+                  fill="#c9a052"
                   radius={[4, 4, 0, 0]}
                   maxBarSize={40}
                 />
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        </section>
+      )}
+
+      {/* Top rated */}
+      {stats.top_rated.length > 0 && (
+        <section className="rounded-xl bg-background-card border border-border-subtle p-5">
+          <h3 className="font-serif font-semibold mb-4 flex items-center gap-2">
+            <Star size={16} className="text-primary" />
+            Top Rated
+          </h3>
+          <div className="space-y-2">
+            {stats.top_rated.map((entry) => (
+              <div
+                key={entry.id}
+                className="flex items-center gap-3 rounded-lg bg-background-elevated px-3 py-2"
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="font-serif text-sm font-medium truncate">
+                    {entry.title}
+                  </p>
+                </div>
+                <MediaTypeBadge type={entry.media_type} size="sm" />
+                <div className="flex gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      size={12}
+                      className="fill-primary text-primary"
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </section>
       )}

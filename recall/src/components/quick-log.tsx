@@ -2,23 +2,63 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import Image from "next/image";
-import { Search, Plus, Check, X, Link as LinkIcon } from "lucide-react";
-import { MediaTypeBadge } from "@/components/media-type-badge";
+import {
+  Search,
+  Plus,
+  Check,
+  X,
+  Link as LinkIcon,
+  Loader2,
+  Clipboard,
+} from "lucide-react";
+import { toast } from "sonner";
 import { StarRating } from "@/components/star-rating";
 import {
   SearchResult,
   MediaType,
   MEDIA_TYPE_CONFIG,
+  Entry,
 } from "@/lib/types";
 
-type View = "search" | "confirm" | "manual";
+type View = "search" | "manual" | "enrich";
+
+const NOTE_PLACEHOLDERS: Record<string, string> = {
+  book: "What's the one idea you'll remember?",
+  film: "How did it make you feel?",
+  podcast: "What surprised you?",
+  album: "When/where did you listen?",
+  song: "When/where did you listen?",
+  youtube: "Why was this worth watching?",
+  tv_series: "How did it make you feel?",
+  tv_episode: "How did it make you feel?",
+  article: "What's the key takeaway?",
+  live_event: "What was the highlight?",
+  other: "What will you want to remember?",
+};
 
 interface QuickLogProps {
-  onEntryCreated: () => void;
+  onEntryCreated: (entry: Entry) => void;
 }
 
 function isUrl(value: string): boolean {
   return /^https?:\/\//i.test(value.trim());
+}
+
+function groupResultsByType(
+  results: SearchResult[]
+): Map<string, SearchResult[]> {
+  const groups = new Map<string, SearchResult[]>();
+  for (const result of results) {
+    const label =
+      MEDIA_TYPE_CONFIG[result.media_type]?.label || result.media_type;
+    const existing = groups.get(label);
+    if (existing) {
+      existing.push(result);
+    } else {
+      groups.set(label, [result]);
+    }
+  }
+  return groups;
 }
 
 export function QuickLog({ onEntryCreated }: QuickLogProps) {
@@ -28,15 +68,21 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
   const [view, setView] = useState<View>("search");
   const [showDropdown, setShowDropdown] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
-  const [successFlash, setSuccessFlash] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [submitting, setSubmitting] = useState<string | null>(null);
+  const [hasGlowed, setHasGlowed] = useState(false);
 
-  // Confirm log state
-  const [selectedResult, setSelectedResult] = useState<SearchResult | null>(
-    null,
+  // URL paste detection
+  const [clipboardUrl, setClipboardUrl] = useState<string | null>(null);
+  const [clipboardResult, setClipboardResult] = useState<SearchResult | null>(
+    null
   );
-  const [note, setNote] = useState("");
-  const [rating, setRating] = useState<number | null>(null);
+  const [clipboardLoading, setClipboardLoading] = useState(false);
+
+  // Enrich state (post-log note/rating prompt)
+  const [enrichEntry, setEnrichEntry] = useState<Entry | null>(null);
+  const [enrichNote, setEnrichNote] = useState("");
+  const [enrichRating, setEnrichRating] = useState<number | null>(null);
+  const [enrichSaving, setEnrichSaving] = useState(false);
 
   // Manual entry state
   const [manualTitle, setManualTitle] = useState("");
@@ -51,11 +97,16 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const mediaTypes = Object.entries(MEDIA_TYPE_CONFIG) as [
+    MediaType,
+    (typeof MEDIA_TYPE_CONFIG)[MediaType],
+  ][];
+
   const resetToSearch = useCallback(() => {
     setView("search");
-    setSelectedResult(null);
-    setNote("");
-    setRating(null);
+    setEnrichEntry(null);
+    setEnrichNote("");
+    setEnrichRating(null);
     setManualTitle("");
     setManualType("other");
     setManualAuthor("");
@@ -63,6 +114,12 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
     setManualNote("");
     setManualRating(null);
     setManualUrl("");
+  }, []);
+
+  // Mark that glow has played after first render
+  useEffect(() => {
+    const timer = setTimeout(() => setHasGlowed(true), 8000);
+    return () => clearTimeout(timer);
   }, []);
 
   // Click outside to close
@@ -73,7 +130,9 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
         !containerRef.current.contains(e.target as Node)
       ) {
         setShowDropdown(false);
-        if (view !== "search") {
+        setClipboardUrl(null);
+        setClipboardResult(null);
+        if (view === "manual") {
           resetToSearch();
         }
       }
@@ -109,7 +168,6 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
         const res = await fetch(fetchUrl);
         if (res.ok) {
           const data = await res.json();
-          // URL endpoint returns a single result, search returns an array
           if (Array.isArray(data)) {
             setResults(data);
           } else {
@@ -133,11 +191,92 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
     };
   }, [query]);
 
-  const handleSelectResult = (result: SearchResult) => {
-    setSelectedResult(result);
-    setNote("");
-    setRating(null);
-    setView("confirm");
+  // URL paste detection on focus
+  const handleFocus = useCallback(async () => {
+    if (query.trim() && (results.length > 0 || hasSearched)) {
+      setShowDropdown(true);
+    }
+
+    // Check clipboard for URL
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text && /^https?:\/\//i.test(text.trim()) && text.trim() !== query.trim()) {
+        setClipboardUrl(text.trim());
+        setClipboardLoading(true);
+        // Fetch metadata
+        const res = await fetch(
+          `/api/search/url?url=${encodeURIComponent(text.trim())}`
+        );
+        if (res.ok) {
+          const data = await res.json();
+          setClipboardResult(data);
+        }
+        setClipboardLoading(false);
+      }
+    } catch {
+      // Clipboard access denied — that's fine
+    }
+  }, [query, results.length, hasSearched]);
+
+  // One-tap log a search result
+  const handleQuickLog = async (result: SearchResult) => {
+    const logKey = `${result.source_api}-${result.source_api_id}-${result.title}`;
+    if (submitting) return;
+    setSubmitting(logKey);
+
+    try {
+      const res = await fetch("/api/entries", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: result.title,
+          media_type: result.media_type,
+          thumbnail_url: result.thumbnail_url,
+          note: null,
+          rating: null,
+          source_url: result.source_url,
+          source_api: result.source_api,
+          source_api_id: result.source_api_id,
+          author_or_creator: result.author_or_creator,
+          year: result.year,
+        }),
+      });
+
+      if (res.ok) {
+        const entry: Entry = await res.json();
+        toast.success("Logged!", {
+          icon: <Check size={16} className="text-green-400" />,
+          duration: 2000,
+        });
+        setQuery("");
+        setResults([]);
+        setHasSearched(false);
+        setShowDropdown(false);
+        setClipboardUrl(null);
+        setClipboardResult(null);
+        onEntryCreated(entry);
+
+        // Show enrich prompt
+        setEnrichEntry(entry);
+        setView("enrich");
+      }
+    } catch {
+      toast.error("Failed to log. Try again.");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
+  // Log from clipboard detection
+  const handleClipboardLog = () => {
+    if (clipboardResult) {
+      handleQuickLog(clipboardResult);
+    }
+  };
+
+  const dismissClipboard = () => {
+    setClipboardUrl(null);
+    setClipboardResult(null);
   };
 
   const handleManualEntry = () => {
@@ -151,41 +290,9 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
     setView("manual");
   };
 
-  const handleLogConfirm = async () => {
-    if (!selectedResult || submitting) return;
-    setSubmitting(true);
-
-    try {
-      const res = await fetch("/api/entries", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: selectedResult.title,
-          media_type: selectedResult.media_type,
-          thumbnail_url: selectedResult.thumbnail_url,
-          note: note.trim() || null,
-          rating: rating,
-          source_url: selectedResult.source_url,
-          source_api: selectedResult.source_api,
-          source_api_id: selectedResult.source_api_id,
-          author_or_creator: selectedResult.author_or_creator,
-          year: selectedResult.year,
-        }),
-      });
-
-      if (res.ok) {
-        showSuccess();
-      }
-    } catch {
-      // Silently fail - user can retry
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const handleLogManual = async () => {
     if (!manualTitle.trim() || submitting) return;
-    setSubmitting(true);
+    setSubmitting("manual");
 
     const parsedYear = manualYear ? parseInt(manualYear, 10) : null;
 
@@ -208,45 +315,78 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
       });
 
       if (res.ok) {
-        showSuccess();
+        const entry: Entry = await res.json();
+        toast.success("Logged!", {
+          icon: <Check size={16} className="text-green-400" />,
+          duration: 2000,
+        });
+        setQuery("");
+        setResults([]);
+        setHasSearched(false);
+        setShowDropdown(false);
+        resetToSearch();
+        onEntryCreated(entry);
       }
     } catch {
-      // Silently fail - user can retry
+      toast.error("Failed to log. Try again.");
     } finally {
-      setSubmitting(false);
+      setSubmitting(null);
     }
   };
 
-  const showSuccess = () => {
-    setSuccessFlash(true);
-    setTimeout(() => {
-      setSuccessFlash(false);
-      setQuery("");
-      setResults([]);
-      setHasSearched(false);
-      setShowDropdown(false);
-      resetToSearch();
-      onEntryCreated();
-    }, 600);
+  // Save enrichment (note + rating) to an already-logged entry
+  const handleSaveEnrich = async () => {
+    if (!enrichEntry || enrichSaving) return;
+    setEnrichSaving(true);
+
+    const updates: Record<string, unknown> = {};
+    if (enrichNote.trim()) updates.note = enrichNote.trim();
+    if (enrichRating !== null) updates.rating = enrichRating;
+
+    if (Object.keys(updates).length === 0) {
+      setView("search");
+      setEnrichEntry(null);
+      setEnrichSaving(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/entries/${enrichEntry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+
+      if (res.ok) {
+        toast.success("Note saved!");
+        onEntryCreated(enrichEntry); // Refresh timeline
+      }
+    } catch {
+      toast.error("Failed to save note.");
+    } finally {
+      setEnrichSaving(false);
+      setView("search");
+      setEnrichEntry(null);
+      setEnrichNote("");
+      setEnrichRating(null);
+    }
   };
 
-  const mediaTypes = Object.entries(MEDIA_TYPE_CONFIG) as [
-    MediaType,
-    (typeof MEDIA_TYPE_CONFIG)[MediaType],
-  ][];
+  const dismissEnrich = () => {
+    setView("search");
+    setEnrichEntry(null);
+    setEnrichNote("");
+    setEnrichRating(null);
+  };
+
+  const groupedResults = groupResultsByType(results);
 
   return (
     <div ref={containerRef} className="relative w-full">
       {/* Search input - Spotlight style */}
-      <div
-        className={`relative transition-transform duration-300 ${successFlash ? "scale-105" : "scale-100"}`}
-      >
+      <div className="relative">
         <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
-          {successFlash ? (
-            <Check size={20} className="text-green-400" />
-          ) : (
-            <Search size={20} className="text-foreground-muted" />
-          )}
+          <Search size={20} className="text-foreground-muted" />
         </div>
         <input
           ref={inputRef}
@@ -258,33 +398,158 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
               resetToSearch();
             }
           }}
-          onFocus={() => {
-            if (query.trim() && (results.length > 0 || hasSearched)) {
-              setShowDropdown(true);
-            }
-          }}
+          onFocus={handleFocus}
           placeholder="What did you watch, read, or listen to?"
           className={`w-full rounded-xl bg-background-elevated py-4 pl-12 pr-4 text-lg text-foreground placeholder:text-foreground-subtle transition-all duration-200 ${
-            successFlash
-              ? "ring-2 ring-green-400/60"
-              : showDropdown
-                ? "ring-2 ring-primary/40"
+            showDropdown
+              ? "ring-2 ring-primary/40"
+              : !hasGlowed
+                ? "animate-subtle-glow"
                 : ""
           }`}
         />
         {loading && (
           <div className="absolute inset-y-0 right-0 flex items-center pr-4">
-            <div className="h-5 w-5 animate-pulse rounded-full bg-primary/40" />
+            <Loader2 size={18} className="animate-spin text-primary" />
           </div>
         )}
       </div>
 
+      {/* Clipboard URL detection banner */}
+      {clipboardUrl && !showDropdown && (
+        <div className="mt-2 flex items-center gap-3 rounded-xl border border-border bg-background-card p-3 animate-scale-in">
+          <Clipboard size={16} className="text-primary flex-shrink-0" />
+          {clipboardLoading ? (
+            <div className="flex-1 flex items-center gap-2 text-sm text-foreground-muted">
+              <Loader2 size={14} className="animate-spin" />
+              Checking clipboard link...
+            </div>
+          ) : clipboardResult ? (
+            <>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate">
+                  {clipboardResult.title}
+                </p>
+                <p className="text-xs text-foreground-muted truncate">
+                  {clipboardResult.author_or_creator || clipboardUrl}
+                </p>
+              </div>
+              <button
+                onClick={handleClipboardLog}
+                disabled={submitting !== null}
+                className="flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+              >
+                <Plus size={14} />
+                Log this
+              </button>
+              <button
+                onClick={dismissClipboard}
+                className="p-1 text-foreground-subtle hover:text-foreground"
+              >
+                <X size={14} />
+              </button>
+            </>
+          ) : null}
+        </div>
+      )}
+
+      {/* Post-log enrich prompt */}
+      {view === "enrich" && enrichEntry && (
+        <div className="mt-2 rounded-xl border border-border bg-background-card p-4 animate-scale-in">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-medium text-foreground">
+              Add a note?{" "}
+              <span className="text-foreground-subtle font-normal">
+                (optional)
+              </span>
+            </p>
+            <button
+              onClick={dismissEnrich}
+              className="p-1 text-foreground-subtle hover:text-foreground"
+            >
+              <X size={14} />
+            </button>
+          </div>
+
+          <div className="mb-3">
+            <StarRating rating={enrichRating} onRate={setEnrichRating} size={22} />
+          </div>
+
+          <div className="relative mb-3">
+            <textarea
+              value={enrichNote}
+              onChange={(e) => setEnrichNote(e.target.value.slice(0, 280))}
+              placeholder={
+                NOTE_PLACEHOLDERS[enrichEntry.media_type] ||
+                NOTE_PLACEHOLDERS.other
+              }
+              rows={2}
+              className="w-full resize-none rounded-lg bg-background-elevated p-3 text-sm text-foreground placeholder:text-foreground-subtle"
+              autoFocus
+            />
+            <span className="absolute bottom-2 right-2 text-xs text-foreground-subtle">
+              {enrichNote.length}/280
+            </span>
+          </div>
+
+          <button
+            onClick={handleSaveEnrich}
+            disabled={enrichSaving}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+          >
+            {enrichSaving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      )}
+
       {/* Dropdown */}
-      {showDropdown && !successFlash && (
+      {showDropdown && view !== "enrich" && (
         <div className="absolute left-0 right-0 z-50 mt-2 animate-scale-in overflow-hidden rounded-xl border border-border bg-background-card shadow-xl">
           {/* Search view */}
           {view === "search" && (
-            <div className="max-h-[420px] overflow-y-auto">
+            <div className="max-h-[480px] overflow-y-auto">
+              {/* Clipboard URL banner inside dropdown */}
+              {clipboardUrl && clipboardResult && (
+                <div className="border-b border-border p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clipboard size={14} className="text-primary" />
+                    <span className="text-xs font-medium text-foreground-muted uppercase tracking-wider">
+                      From clipboard
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {clipboardResult.thumbnail_url ? (
+                      <Image
+                        src={clipboardResult.thumbnail_url}
+                        alt={clipboardResult.title}
+                        width={40}
+                        height={40}
+                        className="h-10 w-10 rounded-md object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-10 w-10 items-center justify-center rounded-md bg-background-elevated text-foreground-subtle">
+                        <LinkIcon size={14} />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {clipboardResult.title}
+                      </p>
+                      <p className="text-xs text-foreground-muted truncate">
+                        {clipboardResult.author_or_creator}
+                      </p>
+                    </div>
+                    <button
+                      onClick={handleClipboardLog}
+                      disabled={submitting !== null}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
+                    >
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Loading skeleton */}
               {loading && results.length === 0 && (
                 <div className="space-y-1 p-2">
@@ -293,7 +558,7 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
                       key={i}
                       className="flex animate-pulse items-center gap-3 rounded-lg p-3"
                     >
-                      <div className="h-16 w-12 rounded-md bg-background-elevated" />
+                      <div className="h-12 w-12 rounded-md bg-background-elevated" />
                       <div className="flex-1 space-y-2">
                         <div className="h-4 w-3/4 rounded bg-background-elevated" />
                         <div className="h-3 w-1/2 rounded bg-background-elevated" />
@@ -303,43 +568,74 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
                 </div>
               )}
 
-              {/* Results list */}
+              {/* Grouped results */}
               {!loading && results.length > 0 && (
-                <div className="p-2">
-                  {results.map((result, idx) => (
-                    <button
-                      key={`${result.source_api}-${result.source_api_id}-${idx}`}
-                      onClick={() => handleSelectResult(result)}
-                      className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-background-elevated"
-                    >
-                      {result.thumbnail_url ? (
-                        <Image
-                          src={result.thumbnail_url}
-                          alt={result.title}
-                          width={48}
-                          height={64}
-                          className="h-16 w-12 rounded-md object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-16 w-12 items-center justify-center rounded-md bg-background-elevated text-foreground-subtle">
-                          <Search size={16} />
+                <div className="p-1">
+                  {Array.from(groupedResults.entries()).map(
+                    ([groupLabel, groupResults]) => (
+                      <div key={groupLabel}>
+                        <div className="px-3 pt-3 pb-1">
+                          <span className="text-xs font-medium text-foreground-subtle uppercase tracking-wider">
+                            {groupLabel}s
+                          </span>
                         </div>
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate font-medium text-foreground">
-                          {result.title}
-                        </p>
-                        <p className="truncate text-sm text-foreground-muted">
-                          {[result.author_or_creator, result.year]
-                            .filter(Boolean)
-                            .join(" · ") || "\u00A0"}
-                        </p>
-                        <div className="mt-1">
-                          <MediaTypeBadge type={result.media_type} />
-                        </div>
+                        {groupResults.map((result, idx) => {
+                          const logKey = `${result.source_api}-${result.source_api_id}-${result.title}`;
+                          const isLogging = submitting === logKey;
+
+                          return (
+                            <div
+                              key={`${result.source_api}-${result.source_api_id}-${idx}`}
+                              className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-background-elevated group"
+                            >
+                              {result.thumbnail_url ? (
+                                <Image
+                                  src={result.thumbnail_url}
+                                  alt={result.title}
+                                  width={44}
+                                  height={44}
+                                  className="h-11 w-11 rounded-md object-cover flex-shrink-0"
+                                />
+                              ) : (
+                                <div className="flex h-11 w-11 items-center justify-center rounded-md bg-background-elevated text-foreground-subtle flex-shrink-0">
+                                  <Search size={14} />
+                                </div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="truncate text-sm font-medium text-foreground">
+                                  {result.title}
+                                </p>
+                                <p className="truncate text-xs text-foreground-muted">
+                                  {[result.author_or_creator, result.year]
+                                    .filter(Boolean)
+                                    .join(" \u00B7 ") || "\u00A0"}
+                                </p>
+                              </div>
+                              <button
+                                onClick={() => handleQuickLog(result)}
+                                disabled={submitting !== null}
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg transition-all flex-shrink-0 ${
+                                  isLogging
+                                    ? "bg-green-500/20 text-green-400"
+                                    : "bg-primary/10 text-primary opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-white"
+                                } disabled:opacity-50`}
+                                title="Log this"
+                              >
+                                {isLogging ? (
+                                  <Loader2
+                                    size={14}
+                                    className="animate-spin"
+                                  />
+                                ) : (
+                                  <Plus size={16} />
+                                )}
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
-                    </button>
-                  ))}
+                    )
+                  )}
                 </div>
               )}
 
@@ -357,100 +653,20 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
                     onClick={handleManualEntry}
                     className="flex w-full items-center gap-3 rounded-lg p-3 text-left transition-colors hover:bg-background-elevated"
                   >
-                    <div className="flex h-16 w-12 items-center justify-center rounded-md bg-background-elevated text-primary">
-                      <Plus size={20} />
+                    <div className="flex h-11 w-11 items-center justify-center rounded-md bg-background-elevated text-primary flex-shrink-0">
+                      <Plus size={18} />
                     </div>
                     <div>
-                      <p className="font-medium text-foreground">
+                      <p className="text-sm font-medium text-foreground">
                         Manual entry
                       </p>
-                      <p className="text-sm text-foreground-muted">
+                      <p className="text-xs text-foreground-muted">
                         Add &quot;{query.trim()}&quot; yourself
                       </p>
                     </div>
                   </button>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* Confirm log view */}
-          {view === "confirm" && selectedResult && (
-            <div className="animate-scale-in p-4">
-              <div className="mb-4 flex items-start gap-3">
-                {selectedResult.thumbnail_url ? (
-                  <Image
-                    src={selectedResult.thumbnail_url}
-                    alt={selectedResult.title}
-                    width={48}
-                    height={64}
-                    className="h-16 w-12 rounded-md object-cover"
-                  />
-                ) : (
-                  <div className="flex h-16 w-12 items-center justify-center rounded-md bg-background-elevated text-foreground-subtle">
-                    <Search size={16} />
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground">
-                    {selectedResult.title}
-                  </p>
-                  <p className="text-sm text-foreground-muted">
-                    {[selectedResult.author_or_creator, selectedResult.year]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                  <div className="mt-1">
-                    <MediaTypeBadge type={selectedResult.media_type} />
-                  </div>
-                </div>
-              </div>
-
-              {/* Rating */}
-              <div className="mb-3">
-                <label className="mb-1.5 block text-sm text-foreground-muted">
-                  Rating (optional)
-                </label>
-                <StarRating rating={rating} onRate={setRating} size={24} />
-              </div>
-
-              {/* Note */}
-              <div className="mb-4">
-                <label className="mb-1.5 block text-sm text-foreground-muted">
-                  Quick note (optional)
-                </label>
-                <div className="relative">
-                  <textarea
-                    value={note}
-                    onChange={(e) =>
-                      setNote(e.target.value.slice(0, 280))
-                    }
-                    placeholder="Any thoughts?"
-                    rows={2}
-                    className="w-full resize-none rounded-lg bg-background-elevated p-3 text-sm text-foreground placeholder:text-foreground-subtle"
-                  />
-                  <span className="absolute bottom-2 right-2 text-xs text-foreground-subtle">
-                    {note.length}/280
-                  </span>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={handleLogConfirm}
-                  disabled={submitting}
-                  className="flex-1 rounded-lg bg-primary px-4 py-2 font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
-                >
-                  {submitting ? "Logging..." : "Log it"}
-                </button>
-                <button
-                  onClick={resetToSearch}
-                  className="rounded-lg px-4 py-2 text-foreground-muted transition-colors hover:bg-background-elevated hover:text-foreground"
-                >
-                  Cancel
-                </button>
-              </div>
             </div>
           )}
 
@@ -564,7 +780,9 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
                     onChange={(e) =>
                       setManualNote(e.target.value.slice(0, 280))
                     }
-                    placeholder="Any thoughts?"
+                    placeholder={
+                      NOTE_PLACEHOLDERS[manualType] || NOTE_PLACEHOLDERS.other
+                    }
                     rows={2}
                     className="w-full resize-none rounded-lg bg-background-elevated p-3 text-sm text-foreground placeholder:text-foreground-subtle"
                   />
@@ -595,10 +813,10 @@ export function QuickLog({ onEntryCreated }: QuickLogProps) {
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleLogManual}
-                  disabled={!manualTitle.trim() || submitting}
+                  disabled={!manualTitle.trim() || submitting !== null}
                   className="flex-1 rounded-lg bg-primary px-4 py-2 font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50"
                 >
-                  {submitting ? "Logging..." : "Log it"}
+                  {submitting === "manual" ? "Logging..." : "Log it"}
                 </button>
                 <button
                   onClick={resetToSearch}

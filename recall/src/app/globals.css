@@ -10,8 +10,10 @@
   --color-foreground-subtle: #6b6980;
   --color-border: #3a3860;
   --color-border-subtle: #2e2c50;
-  --color-primary: #7c6bf0;
-  --color-primary-hover: #9485f5;
+  --color-primary: #c9a052;
+  --color-primary-hover: #dab56a;
+  --color-primary-muted: #c9a05240;
+  --color-accent-warm: #c9a052;
   --color-accent-book: #d97706;
   --color-accent-film: #dc2626;
   --color-accent-tv: #4f46e5;
@@ -87,7 +89,51 @@ h1, h2, h3, h4 {
   animation: scaleIn 0.2s ease-out forwards;
 }
 
+@keyframes subtleGlow {
+  0%, 100% {
+    box-shadow: 0 0 8px var(--color-primary-muted);
+  }
+  50% {
+    box-shadow: 0 0 20px var(--color-primary-muted), 0 0 40px var(--color-primary-muted);
+  }
+}
+
+.animate-subtle-glow {
+  animation: subtleGlow 2.5s ease-in-out 3;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-slide-up {
+  animation: slideUp 0.3s ease-out forwards;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.2s ease-out forwards;
+}
+
 input:focus, textarea:focus, select:focus {
   outline: none;
   box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+/* Sonner toast overrides for dark theme */
+[data-sonner-toaster] {
+  --normal-bg: #222244 !important;
+  --normal-border: #3a3860 !important;
+  --normal-text: #e8e6f0 !important;
 }

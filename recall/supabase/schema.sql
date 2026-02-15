@@ -44,10 +44,16 @@ create policy "Users can update own entries" on entries
 create policy "Users can delete own entries" on entries
   for delete using (auth.uid() = user_id);
 
--- User settings (API keys, preferences)
+-- User settings (API keys, preferences, OAuth tokens)
 create table if not exists user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   tmdb_api_key text,
+  spotify_access_token text,
+  spotify_refresh_token text,
+  spotify_token_expires_at timestamp with time zone,
+  youtube_access_token text,
+  youtube_refresh_token text,
+  youtube_token_expires_at timestamp with time zone,
   updated_at timestamp with time zone default now()
 );
 
