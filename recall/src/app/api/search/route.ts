@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@/lib/supabase/server";
 import type { SearchResult, MediaType } from "@/lib/types";
 
 interface TMDBResult {
@@ -33,10 +34,29 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Get TMDB key from user settings (falls back to env var)
+  let tmdbApiKey = process.env.TMDB_API_KEY || "";
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (user) {
+    const { data: settings } = await supabase
+      .from("user_settings")
+      .select("tmdb_api_key")
+      .eq("user_id", user.id)
+      .single();
+
+    if (settings?.tmdb_api_key) {
+      tmdbApiKey = settings.tmdb_api_key;
+    }
+  }
+
   const encodedQuery = encodeURIComponent(q);
 
   const [tmdbResults, openLibraryResults] = await Promise.allSettled([
-    searchTMDB(encodedQuery),
+    searchTMDB(encodedQuery, tmdbApiKey),
     searchOpenLibrary(encodedQuery),
   ]);
 
@@ -53,8 +73,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(results);
 }
 
-async function searchTMDB(encodedQuery: string): Promise<SearchResult[]> {
-  const apiKey = process.env.TMDB_API_KEY;
+async function searchTMDB(encodedQuery: string, apiKey: string): Promise<SearchResult[]> {
   if (!apiKey) return [];
 
   const response = await fetch(

@@ -8,6 +8,7 @@ import {
   Home,
   Search,
   BarChart3,
+  Settings,
   LogOut,
   Menu,
   X,
@@ -18,6 +19,7 @@ const NAV_ITEMS = [
   { href: "/", label: "Timeline", icon: Home },
   { href: "/search", label: "Search", icon: Search },
   { href: "/stats", label: "Stats", icon: BarChart3 },
+  { href: "/settings", label: "Settings", icon: Settings },
 ];
 
 export function AppShell({
