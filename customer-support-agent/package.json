@@ -39,7 +39,8 @@
     "rehype-highlight": "^7.0.0",
     "rehype-raw": "^7.0.0",
     "tailwind-merge": "^2.4.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20",
