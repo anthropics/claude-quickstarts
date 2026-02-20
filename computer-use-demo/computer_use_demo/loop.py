@@ -277,13 +277,39 @@ def _inject_prompt_caching(
         ):
             if breakpoints_remaining:
                 breakpoints_remaining -= 1
-                # Use type ignore to bypass TypedDict check until SDK types are updated
-                content[-1]["cache_control"] = BetaCacheControlEphemeralParam(  # type: ignore
-                    {"type": "ephemeral"}
-                )
+                # Find the last cacheable block, preferring images in tool results
+                # since they are the largest and most beneficial to cache
+                last_block = content[-1]
+                if isinstance(last_block, dict) and last_block.get("type") == "tool_result":
+                    # For tool results, set cache_control on the last content block
+                    # (typically an image) within the tool result
+                    tool_content = last_block.get("content", [])
+                    if isinstance(tool_content, list) and tool_content:
+                        # Use type ignore to bypass TypedDict check until SDK types are updated
+                        tool_content[-1]["cache_control"] = BetaCacheControlEphemeralParam(  # type: ignore
+                            {"type": "ephemeral"}
+                        )
+                    else:
+                        # Fallback to setting on the tool_result block itself
+                        last_block["cache_control"] = BetaCacheControlEphemeralParam(  # type: ignore
+                            {"type": "ephemeral"}
+                        )
+                else:
+                    # Use type ignore to bypass TypedDict check until SDK types are updated
+                    last_block["cache_control"] = BetaCacheControlEphemeralParam(  # type: ignore
+                        {"type": "ephemeral"}
+                    )
             else:
-                if isinstance(content[-1], dict) and "cache_control" in content[-1]:
-                    del content[-1]["cache_control"]  # type: ignore
+                last_block = content[-1]
+                if isinstance(last_block, dict):
+                    if last_block.get("type") == "tool_result":
+                        # Remove cache_control from within tool result content
+                        tool_content = last_block.get("content", [])
+                        if isinstance(tool_content, list) and tool_content:
+                            if isinstance(tool_content[-1], dict) and "cache_control" in tool_content[-1]:
+                                del tool_content[-1]["cache_control"]  # type: ignore
+                    if "cache_control" in last_block:
+                        del last_block["cache_control"]  # type: ignore
                 # we'll only every have one extra turn per loop
                 break
 
