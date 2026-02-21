@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { FileIcon, MessageCircleIcon } from "lucide-react";
 import FullSourceModal from "./FullSourceModal";
+import FilePreview from "@/components/FilePreview";
 
 interface RAGSource {
   id: string;
@@ -47,6 +48,7 @@ const RightSidebar: React.FC = () => {
   const [shouldShowSources, setShouldShowSources] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedSource, setSelectedSource] = useState<RAGSource | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<any[]>([]);
 
   useEffect(() => {
     const updateRAGSources = (
@@ -99,6 +101,11 @@ const RightSidebar: React.FC = () => {
       setShouldShowSources(shouldShow);
     };
 
+    const handleFileUpload = (event: CustomEvent<any>) => {
+      const file = event.detail;
+      setUploadedFiles((prevFiles) => [...prevFiles, file]);
+    };
+
     window.addEventListener(
       "updateRagSources" as any,
       updateRAGSources as EventListener,
@@ -106,6 +113,10 @@ const RightSidebar: React.FC = () => {
     window.addEventListener(
       "updateSidebar" as any,
       updateDebug as EventListener,
+    );
+    window.addEventListener(
+      "fileUpload" as any,
+      handleFileUpload as EventListener,
     );
 
     return () => {
@@ -116,6 +127,10 @@ const RightSidebar: React.FC = () => {
       window.removeEventListener(
         "updateSidebar" as any,
         updateDebug as EventListener,
+      );
+      window.removeEventListener(
+        "fileUpload" as any,
+        handleFileUpload as EventListener,
       );
     };
   }, []);
@@ -144,7 +159,7 @@ const RightSidebar: React.FC = () => {
           </CardTitle>
         </CardHeader>
         <CardContent className="overflow-y-auto h-[calc(100%-45px)]">
-          {ragHistory.length === 0 && (
+          {ragHistory.length === 0 && uploadedFiles.length === 0 && (
             <div className="text-sm text-muted-foreground">
               The assistant will display sources here once finding them
             </div>
@@ -196,6 +211,18 @@ const RightSidebar: React.FC = () => {
               ))}
             </div>
           ))}
+          {uploadedFiles.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium leading-none mb-2">
+                Uploaded Files
+              </h3>
+              {uploadedFiles.map((file, index) => (
+                <div key={index} className="mb-2">
+                  <FilePreview file={file} size="small" />
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
       <FullSourceModal
