@@ -1,0 +1,70 @@
+services:
+
+  # ── Virtual desktop (existing image) ──────────────────────────────────────
+  desktop:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: computer-use-demo:local
+    container_name: computer-use-desktop
+    environment:
+      DISPLAY_NUM: 1
+      HEIGHT: ${HEIGHT:-768}
+      WIDTH: ${WIDTH:-1024}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      - ./computer_use_demo:/home/computeruse/computer_use_demo
+      - ${HOME}/.anthropic:/home/computeruse/.anthropic
+    ports:
+      - "5900:5900"    # x11vnc RFB (used by API VNC proxy)
+      - "6080:6080"    # noVNC web UI (direct browser fallback)
+    networks:
+      - demo-net
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "5900"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 15s
+
+  # ── FastAPI backend ────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    image: computer-use-demo-api:local
+    container_name: computer-use-api
+    environment:
+      # Required: generate with:
+      #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+      API_SECRET_KEY: ${API_SECRET_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      WIDTH: ${WIDTH:-1024}
+      HEIGHT: ${HEIGHT:-768}
+      DATABASE_URL: sqlite+aiosqlite:////data/sessions.db
+      # Points to the desktop service over the internal docker network
+      VNC_WS_URL: ws://desktop:5900
+      # Cloud provider credentials (optional)
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION:-us-east-1}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      CLOUD_ML_REGION: ${CLOUD_ML_REGION:-}
+      ANTHROPIC_VERTEX_PROJECT_ID: ${ANTHROPIC_VERTEX_PROJECT_ID:-}
+    volumes:
+      - api-data:/data
+      - ./computer_use_demo:/app/computer_use_demo   # hot-reload source
+    ports:
+      - "8000:8000"    # FastAPI (REST + SSE + WS + static frontend)
+    networks:
+      - demo-net
+    depends_on:
+      desktop:
+        condition: service_healthy
+
+networks:
+  demo-net:
+    driver: bridge
+
+volumes:
+  api-data:
+    driver: local

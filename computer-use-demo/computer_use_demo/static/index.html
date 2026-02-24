@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Computer Use Demo</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ── Sidebar ── -->
+  <aside id="sidebar">
+    <h2>Computer Use</h2>
+    <div id="sidebar-scroll">
+
+      <!-- Session creation form -->
+      <form id="session-form">
+
+        <div class="form-group">
+          <label for="provider">Provider</label>
+          <select id="provider">
+            <option value="anthropic">Anthropic</option>
+            <option value="bedrock">Bedrock</option>
+            <option value="vertex">Vertex</option>
+          </select>
+        </div>
+
+        <div class="form-group" id="api-key-group">
+          <label for="api-key">API Key</label>
+          <input type="password" id="api-key" placeholder="sk-ant-...">
+        </div>
+
+        <div class="form-group">
+          <label for="model">Model</label>
+          <input type="text" id="model" value="claude-sonnet-4-5-20250929">
+        </div>
+
+        <div class="form-group">
+          <label for="tool-version">Tool Version</label>
+          <select id="tool-version">
+            <option value="computer_use_20250124">20250124 (recommended)</option>
+            <option value="computer_use_20251124">20251124</option>
+            <option value="computer_use_20250429">20250429</option>
+            <option value="computer_use_20241022">20241022</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="max-tokens">Max Tokens</label>
+          <input type="number" id="max-tokens" value="4096" min="1" max="128000">
+        </div>
+
+        <div class="form-group">
+          <label for="recent-images">Recent Images (0 = all)</label>
+          <input type="number" id="recent-images" value="3" min="0">
+        </div>
+
+        <div class="form-group">
+          <label for="system-prompt">System Prompt Suffix</label>
+          <textarea id="system-prompt" rows="2" placeholder="Optional extra instructions..."></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-full" id="new-session-btn">
+          Create Session
+        </button>
+      </form>
+
+      <!-- Active session info -->
+      <div id="session-info" class="hidden">
+        <span id="session-id-display"></span>
+        <div class="status-row">
+          <span id="session-status" class="status-badge idle">idle</span>
+          <button id="cancel-btn" class="btn btn-danger hidden" style="padding:0.2rem 0.5rem;font-size:0.75rem;">
+            Cancel
+          </button>
+          <button id="reset-btn" class="btn btn-ghost" style="padding:0.2rem 0.5rem;font-size:0.75rem;margin-left:auto;">
+            New
+          </button>
+        </div>
+      </div>
+
+      <!-- Recent sessions list -->
+      <div id="sessions-section">
+        <h3>Recent Sessions</h3>
+        <ul id="sessions-ul"></ul>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- ── Chat panel ── -->
+  <main id="chat-panel">
+    <div id="chat-header">Chat</div>
+    <div id="messages-container">
+      <div id="empty-state">Create a session to get started.</div>
+      <div id="typing-indicator">
+        <div class="dot-flashing">
+          <span></span><span></span><span></span>
+        </div>
+      </div>
+    </div>
+    <div id="chat-input-row">
+      <textarea
+        id="chat-input"
+        placeholder="Type a message… (Enter to send, Shift+Enter for newline)"
+        disabled
+        rows="2"
+      ></textarea>
+      <button id="send-btn" class="btn btn-primary" disabled>Send</button>
+    </div>
+  </main>
+
+  <!-- ── Right panel: Desktop + API Logs ── -->
+  <section id="right-panel">
+    <div id="tab-bar">
+      <button class="tab active" data-tab="desktop">Desktop</button>
+      <button class="tab" data-tab="api-logs">API Logs</button>
+    </div>
+
+    <div id="tab-desktop" class="tab-content active">
+      <iframe id="vnc-frame" src="about:blank" allow="fullscreen" title="Virtual Desktop"></iframe>
+    </div>
+
+    <div id="tab-api-logs" class="tab-content">
+      <div id="api-log-container">
+        <div id="api-log-empty">API requests will appear here during a run.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Lightbox for screenshots -->
+<div id="lightbox" role="dialog" aria-label="Screenshot preview">
+  <img id="lightbox-img" src="" alt="Screenshot">
+</div>
+
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
