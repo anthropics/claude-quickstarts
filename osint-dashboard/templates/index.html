@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSINT Dashboard | Intelligence Monitoring</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+</head>
+<body>
+    <div id="app">
+        <!-- Login Screen -->
+        <div id="login-screen" class="screen active">
+            <div class="login-container">
+                <div class="login-header">
+                    <div class="logo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <h1>OSINT DASHBOARD</h1>
+                    <p class="subtitle">Intelligence Monitoring System</p>
+                </div>
+                <form id="login-form" class="login-form">
+                    <div class="input-group">
+                        <label for="username">Username</label>
+                        <input type="text" id="username" required autocomplete="off">
+                    </div>
+                    <div class="input-group">
+                        <label for="password">Password</label>
+                        <input type="password" id="password" required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        <span class="btn-text">ACCESS SYSTEM</span>
+                        <span class="btn-loader hidden">⟳</span>
+                    </button>
+                    <div id="login-error" class="error-message hidden"></div>
+                </form>
+                <div class="login-footer">
+                    <span class="status-indicator"></span>
+                    <span>System Online</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Dashboard -->
+        <div id="dashboard-screen" class="screen">
+            <!-- Header -->
+            <header class="dashboard-header">
+                <div class="header-left">
+                    <div class="logo-small">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                        </svg>
+                    </div>
+                    <h1>OSINT Dashboard</h1>
+                    <span class="version">v2.0</span>
+                </div>
+                <div class="header-center">
+                    <div class="search-bar">
+                        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="11" cy="11" r="8"/>
+                            <path d="m21 21-4.35-4.35"/>
+                        </svg>
+                        <input type="text" id="search-input" placeholder="Search intelligence...">
+                        <kbd class="shortcut">F</kbd>
+                    </div>
+                </div>
+                <div class="header-right">
+                    <button id="refresh-btn" class="btn btn-icon" title="Refresh Feeds (R)">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/>
+                        </svg>
+                    </button>
+                    <button id="export-btn" class="btn btn-icon" title="Export Data">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                        </svg>
+                    </button>
+                    <button id="logout-btn" class="btn btn-icon" title="Logout">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/>
+                        </svg>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Main Layout -->
+            <div class="dashboard-layout">
+                <!-- Sidebar -->
+                <aside class="sidebar">
+                    <nav class="nav-menu">
+                        <div class="nav-section">
+                            <h3>Categories</h3>
+                            <ul class="nav-list">
+                                <li><a href="#" class="nav-link active" data-category="all">
+                                    <span class="nav-icon">⊞</span>
+                                    <span>All Feeds</span>
+                                    <span class="nav-count" id="count-all">0</span>
+                                </a></li>
+                                <li><a href="#" class="nav-link" data-category="cybersecurity">
+                                    <span class="nav-icon">🛡</span>
+                                    <span>Cybersecurity</span>
+                                    <span class="nav-count" id="count-cybersecurity">0</span>
+                                </a></li>
+                                <li><a href="#" class="nav-link" data-category="technology">
+                                    <span class="nav-icon">💻</span>
+                                    <span>Technology</span>
+                                    <span class="nav-count" id="count-technology">0</span>
+                                </a></li>
+                                <li><a href="#" class="nav-link" data-category="world">
+                                    <span class="nav-icon">🌍</span>
+                                    <span>World News</span>
+                                    <span class="nav-count" id="count-world">0</span>
+                                </a></li>
+                                <li><a href="#" class="nav-link" data-category="business">
+                                    <span class="nav-icon">📈</span>
+                                    <span>Business</span>
+                                    <span class="nav-count" id="count-business">0</span>
+                                </a></li>
+                            </ul>
+                        </div>
+                        <div class="nav-section">
+                            <h3>System</h3>
+                            <ul class="nav-list">
+                                <li><a href="#" class="nav-link" data-view="analytics">
+                                    <span class="nav-icon">📊</span>
+                                    <span>Analytics</span>
+                                </a></li>
+                                <li><a href="#" class="nav-link" data-view="feeds">
+                                    <span class="nav-icon">📡</span>
+                                    <span>Feed Manager</span>
+                                </a></li>
+                                <li><a href="#" class="nav-link" data-view="settings">
+                                    <span class="nav-icon">⚙</span>
+                                    <span>Settings</span>
+                                </a></li>
+                            </ul>
+                        </div>
+                    </nav>
+                    <div class="sidebar-footer">
+                        <div class="connection-status">
+                            <span class="status-dot connected"></span>
+                            <span id="connection-text">Live</span>
+                        </div>
+                        <div class="last-update">
+                            Last update: <span id="last-update-time">--:--</span>
+                        </div>
+                    </div>
+                </aside>
+
+                <!-- Main Content -->
+                <main class="main-content">
+                    <!-- Stats Bar -->
+                    <div class="stats-bar">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-total">0</div>
+                            <div class="stat-label">Total Articles</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-recent">0</div>
+                            <div class="stat-label">Last 24h</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-feeds">0</div>
+                            <div class="stat-label">Active Feeds</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-sources">0</div>
+                            <div class="stat-label">Sources</div>
+                        </div>
+                    </div>
+
+                    <!-- Articles Feed -->
+                    <div class="feed-container">
+                        <div class="feed-header">
+                            <h2 id="feed-title">All Feeds</h2>
+                            <div class="feed-controls">
+                                <button id="clear-filters" class="btn btn-text hidden">Clear Filters</button>
+                                <select id="sort-select" class="select">
+                                    <option value="newest">Newest First</option>
+                                    <option value="oldest">Oldest First</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div id="articles-list" class="articles-list">
+                            <div class="loading-state">
+                                <div class="spinner"></div>
+                                <p>Loading intelligence feeds...</p>
+                            </div>
+                        </div>
+                        <div id="load-more" class="load-more hidden">
+                            <button class="btn btn-secondary">Load More</button>
+                        </div>
+                    </div>
+                </main>
+            </div>
+        </div>
+
+        <!-- Export Modal -->
+        <div id="export-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3>Export Intelligence Data</h3>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label>Format</label>
+                        <div class="radio-group">
+                            <label class="radio-label">
+                                <input type="radio" name="export-format" value="json" checked>
+                                <span>JSON</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="export-format" value="csv">
+                                <span>CSV</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Time Range</label>
+                        <select id="export-time" class="select">
+                            <option value="24h">Last 24 Hours</option>
+                            <option value="7d">Last 7 Days</option>
+                            <option value="30d">Last 30 Days</option>
+                            <option value="all">All Time</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select id="export-category" class="select">
+                            <option value="">All Categories</option>
+                            <option value="cybersecurity">Cybersecurity</option>
+                            <option value="technology">Technology</option>
+                            <option value="world">World News</option>
+                            <option value="business">Business</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-text modal-cancel">Cancel</button>
+                    <button id="confirm-export" class="btn btn-primary">Export</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Article Detail Modal -->
+        <div id="article-modal" class="modal hidden">
+            <div class="modal-overlay"></div>
+            <div class="modal-content modal-lg">
+                <div class="modal-header">
+                    <div class="article-meta-header">
+                        <span class="category-badge" id="article-category">Category</span>
+                        <span class="source-badge" id="article-source">Source</span>
+                    </div>
+                    <button class="modal-close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <h2 id="article-title" class="article-detail-title"></h2>
+                    <div class="article-meta">
+                        <span id="article-date"></span>
+                        <a id="article-link" href="#" target="_blank" class="btn btn-sm btn-secondary">
+                            Read Original ↗
+                        </a>
+                    </div>
+                    <div id="article-content" class="article-content"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Toast Notifications -->
+        <div id="toast-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
