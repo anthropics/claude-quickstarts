@@ -41,6 +41,10 @@ def ok(message: str) -> None:
     print(f"  OK    {message}")
 
 
+def warn(message: str) -> None:
+    print(f"  WARN  {message}")
+
+
 def section(title: str) -> None:
     print(f"\n[{title}]")
 
@@ -105,6 +109,9 @@ def validate_fields(quickstarts: list) -> list[str]:
                 msg = f"'{name}' field '{list_field}' must be a list"
                 fail(msg)
                 errors.append(msg)
+            elif isinstance(value, list):
+                if len(value) == 0:
+                    errors.append(f"Quickstart '{name}': '{list_field}' must not be empty")
 
     return errors
 
@@ -123,6 +130,9 @@ def validate_paths(quickstarts: list) -> list[str]:
         full_path = os.path.join(REPO_ROOT, path)
         if os.path.isdir(full_path):
             ok(f"'{name}' -> {path}/")
+            readme_path = os.path.join(full_path, "README.md")
+            if not os.path.isfile(readme_path):
+                warn(f"Quickstart '{name}': missing README.md in {entry['path']}")
         else:
             msg = f"'{name}' path '{path}' does not exist at {full_path}"
             fail(msg)

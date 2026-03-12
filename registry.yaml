@@ -95,6 +95,7 @@ quickstarts:
       - Anthropic API key
       - AWS account with Bedrock access
       - Node.js 18+
+      - AWS IAM credentials with Bedrock Knowledge Base access
 
   - name: Financial Data Analyst
     path: financial-data-analyst
@@ -109,7 +110,7 @@ quickstarts:
       - Chat
       - Finance
     language: TypeScript
-    difficulty: beginner
+    difficulty: intermediate
     requires:
       - Anthropic API key
       - Node.js 18+
