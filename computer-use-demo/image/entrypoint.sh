@@ -100,7 +100,7 @@ cat > static_content/index.html << HTMLEOF
 </html>
 HTMLEOF
 
-HTTP_PORT=$HTTP_PORT python http_server.py > /tmp/server_logs.txt 2>&1 &
+python http_server.py > /tmp/server_logs.txt 2>&1 &
 
 STREAMLIT_SERVER_PORT=$STREAMLIT_PORT python -m streamlit run computer_use_demo/streamlit.py > /tmp/streamlit_stdout.log &
 
