@@ -258,7 +258,7 @@ def _response_to_params(
                 res.append(cast(BetaContentBlockParam, thinking_block))
         else:
             # Handle tool use blocks normally
-            res.append(cast(BetaToolUseBlockParam, block.model_dump()))
+            res.append(cast(BetaToolUseBlockParam, block.model_dump(exclude_none=True)))
     return res
 
 
@@ -282,7 +282,7 @@ def _inject_prompt_caching(
                 # TextBlock objects do not support item assignment, only dicts do.
                 last_block = content[-1]
                 if not isinstance(last_block, dict):
-                    last_block = last_block.model_dump()
+                    last_block = last_block.model_dump(exclude_none=True)
                     content[-1] = last_block
                 # Use type ignore to bypass TypedDict check until SDK types are updated
                 last_block["cache_control"] = BetaCacheControlEphemeralParam(  # type: ignore
