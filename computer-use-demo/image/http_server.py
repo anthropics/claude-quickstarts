@@ -8,10 +8,11 @@ class HTTPServerV6(HTTPServer):
 
 
 def run_server():
+    port = int(os.environ.get("HTTP_PORT", 8080))
     os.chdir(os.path.dirname(__file__) + "/static_content")
-    server_address = ("::", 8080)
+    server_address = ("::", port)
     httpd = HTTPServerV6(server_address, SimpleHTTPRequestHandler)
-    print("Starting HTTP server on port 8080...")  # noqa: T201
+    print(f"Starting HTTP server on port {port}...")  # noqa: T201
     httpd.serve_forever()
 
 
