@@ -1,0 +1,115 @@
+version: "1.0"
+description: >
+  Central registry of all Claude Quickstarts. Machine-readable manifest for
+  discoverability by external tools, GUIs, and scripts.
+
+quickstarts:
+  - name: Agents
+    path: agents
+    description: >
+      A minimal educational reference implementation of LLM agents using the
+      Claude API. Demonstrates how sophisticated AI behaviors emerge from a simple
+      foundation of LLMs using tools in a loop. Core logic is under 300 lines and
+      supports both native tools and MCP server tools.
+    categories:
+      - Agents
+      - MCP
+      - Tools
+    language: Python
+    difficulty: beginner
+    requires:
+      - Anthropic API key
+      - Python 3.8+
+      - anthropic Python library
+      - mcp Python library
+
+  - name: Autonomous Coding Agent
+    path: autonomous-coding
+    description: >
+      A minimal harness demonstrating long-running autonomous coding with the
+      Claude Agent SDK. Implements a two-agent pattern (initializer + coding agent)
+      that builds complete applications over multiple sessions with progress
+      persisted via git.
+    categories:
+      - Agents
+      - Autonomous
+      - Code Generation
+    language: Python
+    difficulty: advanced
+    requires:
+      - Anthropic API key
+      - Python 3.8+
+      - Claude Code CLI (npm install -g @anthropic-ai/claude-code)
+      - claude-code-sdk Python library
+
+  - name: Browser Automation Demo
+    path: browser-use-demo
+    description: >
+      A complete reference implementation for browser automation powered by
+      Claude using Playwright. Provides a containerized Streamlit interface with
+      DOM-aware features including navigation, element targeting by reference,
+      form manipulation, page reading, and screenshot capture.
+    categories:
+      - Browser Automation
+      - Computer Use
+      - Tools
+    language: Python
+    difficulty: intermediate
+    requires:
+      - Anthropic API key
+      - Docker
+      - Docker Compose
+
+  - name: Computer Use Demo
+    path: computer-use-demo
+    description: >
+      A reference environment and tools that Claude can use to control a full
+      desktop computer. Includes a Docker container with all dependencies, a
+      Claude-powered agent loop supporting the Anthropic API, Bedrock, and
+      Vertex, and a Streamlit interface for interacting with the agent.
+    categories:
+      - Computer Use
+      - Agents
+      - Desktop Automation
+    language: Python
+    difficulty: intermediate
+    requires:
+      - Anthropic API key (or AWS/GCP credentials for Bedrock/Vertex)
+      - Docker
+
+  - name: Customer Support Agent
+    path: customer-support-agent
+    description: >
+      An advanced, fully customizable customer support chat interface powered
+      by Claude with Amazon Bedrock Knowledge Base integration for RAG-based
+      context retrieval. Features real-time thinking display, knowledge base
+      source visualization, and user mood detection.
+    categories:
+      - Agents
+      - RAG
+      - Customer Support
+      - Chat
+    language: TypeScript
+    difficulty: intermediate
+    requires:
+      - Anthropic API key
+      - AWS account with Bedrock access
+      - Node.js 18+
+
+  - name: Financial Data Analyst
+    path: financial-data-analyst
+    description: >
+      A Next.js application combining Claude's capabilities with interactive
+      data visualization to analyze financial data via chat. Supports CSV, PDF,
+      image, and text file uploads and can generate line, bar, area, and pie
+      charts based on analyzed data.
+    categories:
+      - Data Analysis
+      - Visualization
+      - Chat
+      - Finance
+    language: TypeScript
+    difficulty: beginner
+    requires:
+      - Anthropic API key
+      - Node.js 18+
