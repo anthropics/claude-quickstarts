@@ -192,7 +192,7 @@ async def sampling_loop(
 
 def _maybe_filter_to_n_most_recent_images(
     messages: list[BetaMessageParam],
-    images_to_keep: int,
+    images_to_keep: int | None,
     min_removal_threshold: int,
 ):
     """
