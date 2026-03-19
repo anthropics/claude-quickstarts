@@ -1,0 +1,3 @@
+anthropic>=0.18.0
+cross-validated-search>=14.0.0
+mcp>=1.0.0
