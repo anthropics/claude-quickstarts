@@ -115,7 +115,10 @@ class BaseComputerTool:
 
         self.width = int(os.getenv("WIDTH") or 0)
         self.height = int(os.getenv("HEIGHT") or 0)
-        assert self.width and self.height, "WIDTH, HEIGHT must be set"
+        if not self.width or not self.height:
+            raise ValueError(
+                "WIDTH and HEIGHT environment variables must be set to non-zero values"
+            )
         if (display_num := os.getenv("DISPLAY_NUM")) is not None:
             self.display_num = int(display_num)
             self._display_prefix = f"DISPLAY=:{self.display_num} "

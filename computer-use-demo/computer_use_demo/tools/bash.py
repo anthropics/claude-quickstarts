@@ -59,9 +59,14 @@ class _BashSession:
             )
 
         # we know these are not None because we created the process with PIPEs
-        assert self._process.stdin
-        assert self._process.stdout
-        assert self._process.stderr
+        if (
+            not self._process.stdin
+            or not self._process.stdout
+            or not self._process.stderr
+        ):
+            raise ToolError(
+                "bash process streams are unexpectedly None; the process may not have started correctly"
+            )
 
         # send command to the process
         self._process.stdin.write(
