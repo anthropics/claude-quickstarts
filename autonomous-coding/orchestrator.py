@@ -146,7 +146,7 @@ class Orchestrator:
         if continuous_session:
             model = self.model_config.builder_model
             print(f"[V3.1] Continuous session mode enabled with model={model}")
-            shared_client = self.client_factory(self.project_dir, model, "orchestrator")
+            shared_client = self.client_factory(self.project_dir, model, "evaluator")
         else:
             print(
                 "[V3.1] Compatibility mode enabled: per-phase model overrides require phase-scoped sessions; "
