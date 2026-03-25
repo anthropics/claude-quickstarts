@@ -1,35 +1,41 @@
-"""
-Prompt Loading Utilities
-========================
+"""Prompt loading utilities for V1 and V2 harness flows."""
 
-Functions for loading prompt templates from the prompts directory.
-"""
+from __future__ import annotations
 
 import shutil
 from pathlib import Path
 
-
 PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 
-def load_prompt(name: str) -> str:
-    """Load a prompt template from the prompts directory."""
-    prompt_path = PROMPTS_DIR / f"{name}.md"
-    return prompt_path.read_text()
+def load_prompt_file(filename: str) -> str:
+    path = PROMPTS_DIR / filename
+    if not path.exists():
+        raise FileNotFoundError(f"Prompt file not found: {path}")
+    return path.read_text()
 
 
 def get_initializer_prompt() -> str:
-    """Load the initializer prompt."""
-    return load_prompt("initializer_prompt")
+    return load_prompt_file("initializer_prompt.md")
 
 
 def get_coding_prompt() -> str:
-    """Load the coding agent prompt."""
-    return load_prompt("coding_prompt")
+    return load_prompt_file("coding_prompt.md")
+
+
+def get_planner_prompt() -> str:
+    return load_prompt_file("planner_prompt.md")
+
+
+def get_builder_prompt() -> str:
+    return load_prompt_file("builder_prompt.md")
+
+
+def get_evaluator_prompt() -> str:
+    return load_prompt_file("evaluator_prompt.md")
 
 
 def copy_spec_to_project(project_dir: Path) -> None:
-    """Copy the app spec file into the project directory for the agent to read."""
     spec_source = PROMPTS_DIR / "app_spec.txt"
     spec_dest = project_dir / "app_spec.txt"
     if not spec_dest.exists():

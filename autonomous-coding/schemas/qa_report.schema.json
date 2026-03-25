@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["round", "result", "blocking_findings", "summary"],
+  "properties": {
+    "round": {"type": "integer", "minimum": 1},
+    "result": {"type": "string", "enum": ["pass", "fail", "blocked"]},
+    "summary": {"type": "string"},
+    "blocking_findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "severity", "description", "repro_steps"],
+        "properties": {
+          "id": {"type": "string"},
+          "severity": {"type": "string", "enum": ["critical", "high", "medium"]},
+          "description": {"type": "string"},
+          "repro_steps": {"type": "array", "items": {"type": "string"}}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

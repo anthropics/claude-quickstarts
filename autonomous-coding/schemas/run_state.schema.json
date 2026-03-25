@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["status", "planner_complete", "current_round", "max_rounds", "completed", "latest_summary", "created_at", "updated_at"],
+  "properties": {
+    "status": {"type": "string", "enum": ["not_started", "planning", "building", "evaluating", "completed", "blocked"]},
+    "planner_complete": {"type": "boolean"},
+    "current_round": {"type": "integer", "minimum": 0},
+    "max_rounds": {"type": "integer", "minimum": 1},
+    "completed": {"type": "boolean"},
+    "latest_summary": {"type": "string"},
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"}
+  },
+  "additionalProperties": false
+}

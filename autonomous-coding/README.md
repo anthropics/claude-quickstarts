@@ -1,163 +1,165 @@
-# Autonomous Coding Agent Demo
+# Autonomous Coding Harness (V2)
 
-A minimal harness demonstrating long-running autonomous coding with the Claude Agent SDK. This demo implements a two-agent pattern (initializer + coding agent) that can build complete applications over multiple sessions.
+V2 is a long-running, resumable autonomous coding harness with explicit phases and durable artifacts.
 
-## Prerequisites
+## What V2 is
 
-**Required:** Install the latest versions of both Claude Code and the Claude Agent SDK:
+V2 replaces the old two-agent default with a three-phase loop:
+1. **Planner**: Converts spec + backlog into explicit plan artifacts.
+2. **Builder**: Implements prioritized work and writes a build report.
+3. **Evaluator/QA**: Verifies behavior with browser QA and writes structured findings.
 
-```bash
-# Install Claude Code CLI (latest version required)
-npm install -g @anthropic-ai/claude-code
+The default run cycle is:
+- planner pass
+- builder pass
+- evaluator pass
+- repeat builder/evaluator up to bounded max rounds when QA finds blockers
 
-# Install Python dependencies
-pip install -r requirements.txt
-```
+## V1 vs V2
 
-Verify your installations:
-```bash
-claude --version  # Should be latest version
-pip show claude-code-sdk  # Check SDK is installed
-```
+- **V1**: initializer + coding loop, mostly prompt-driven handoff.
+- **V2**: planner/builder/evaluator with schema-validated artifact handoff and persisted run state.
+- **V1 compatibility** remains available via `--mode v1`.
 
-**API Key:** Set your Anthropic API key:
-```bash
-export ANTHROPIC_API_KEY='your-api-key-here'
-```
+## Directory structure
 
-## Quick Start
-
-```bash
-python autonomous_agent_demo.py --project-dir ./my_project
-```
-
-For testing with limited iterations:
-```bash
-python autonomous_agent_demo.py --project-dir ./my_project --max-iterations 3
-```
-
-## Important Timing Expectations
-
-> **Warning: This demo takes a long time to run!**
-
-- **First session (initialization):** The agent generates a `feature_list.json` with 200 test cases. This takes several minutes and may appear to hang - this is normal. The agent is writing out all the features.
-
-- **Subsequent sessions:** Each coding iteration can take **5-15 minutes** depending on complexity.
-
-- **Full app:** Building all 200 features typically requires **many hours** of total runtime across multiple sessions.
-
-**Tip:** The 200 features parameter in the prompts is designed for comprehensive coverage. If you want faster demos, you can modify `prompts/initializer_prompt.md` to reduce the feature count (e.g., 20-50 features for a quicker demo).
-
-## How It Works
-
-### Two-Agent Pattern
-
-1. **Initializer Agent (Session 1):** Reads `app_spec.txt`, creates `feature_list.json` with 200 test cases, sets up project structure, and initializes git.
-
-2. **Coding Agent (Sessions 2+):** Picks up where the previous session left off, implements features one by one, and marks them as passing in `feature_list.json`.
-
-### Session Management
-
-- Each session runs with a fresh context window
-- Progress is persisted via `feature_list.json` and git commits
-- The agent auto-continues between sessions (3 second delay)
-- Press `Ctrl+C` to pause; run the same command to resume
-
-## Security Model
-
-This demo uses a defense-in-depth security approach (see `security.py` and `client.py`):
-
-1. **OS-level Sandbox:** Bash commands run in an isolated environment
-2. **Filesystem Restrictions:** File operations restricted to the project directory only
-3. **Bash Allowlist:** Only specific commands are permitted:
-   - File inspection: `ls`, `cat`, `head`, `tail`, `wc`, `grep`
-   - Node.js: `npm`, `node`
-   - Version control: `git`
-   - Process management: `ps`, `lsof`, `sleep`, `pkill` (dev processes only)
-
-Commands not in the allowlist are blocked by the security hook.
-
-## Project Structure
-
-```
+```text
 autonomous-coding/
-├── autonomous_agent_demo.py  # Main entry point
-├── agent.py                  # Agent session logic
-├── client.py                 # Claude SDK client configuration
-├── security.py               # Bash command allowlist and validation
-├── progress.py               # Progress tracking utilities
-├── prompts.py                # Prompt loading utilities
+├── autonomous_agent_demo.py
+├── orchestrator.py
+├── planner.py
+├── builder.py
+├── evaluator.py
+├── artifacts.py
+├── state_models.py
+├── client.py
+├── security.py
+├── prompts.py
 ├── prompts/
-│   ├── app_spec.txt          # Application specification
-│   ├── initializer_prompt.md # First session prompt
-│   └── coding_prompt.md      # Continuation session prompt
-└── requirements.txt          # Python dependencies
+│   ├── app_spec.txt
+│   ├── planner_prompt.md
+│   ├── builder_prompt.md
+│   ├── evaluator_prompt.md
+│   ├── initializer_prompt.md
+│   └── coding_prompt.md
+├── schemas/
+│   ├── run_state.schema.json
+│   ├── round_state.schema.json
+│   ├── acceptance_criteria.schema.json
+│   ├── work_backlog.schema.json
+│   └── qa_report.schema.json
+└── tests/
 ```
 
-## Generated Project Structure
-
-After running, your project directory will contain:
-
-```
-my_project/
-├── feature_list.json         # Test cases (source of truth)
-├── app_spec.txt              # Copied specification
-├── init.sh                   # Environment setup script
-├── claude-progress.txt       # Session progress notes
-├── .claude_settings.json     # Security settings
-└── [application files]       # Generated application code
-```
-
-## Running the Generated Application
-
-After the agent completes (or pauses), you can run the generated application:
+## Installation
 
 ```bash
-cd generations/my_project
-
-# Run the setup script created by the agent
-./init.sh
-
-# Or manually (typical for Node.js apps):
-npm install
-npm run dev
+pip install -r autonomous-coding/requirements.txt
+npm install -g @anthropic-ai/claude-code
 ```
 
-The application will typically be available at `http://localhost:3000` or similar (check the agent's output or `init.sh` for the exact URL).
+Set API key for non-dry-run execution:
 
-## Command Line Options
+```bash
+export ANTHROPIC_API_KEY='your-key'
+```
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--project-dir` | Directory for the project | `./autonomous_demo_project` |
-| `--max-iterations` | Max agent iterations | Unlimited |
-| `--model` | Claude model to use | `claude-sonnet-4-5-20250929` |
+## Model configuration (4.6-oriented)
 
-## Customization
+Defaults use `claude-sonnet-4-6` for all phases.
 
-### Changing the Application
+Override all phases at once:
 
-Edit `prompts/app_spec.txt` to specify a different application to build.
+```bash
+python autonomous-coding/autonomous_agent_demo.py --model claude-sonnet-4-6
+```
 
-### Adjusting Feature Count
+Or configure per phase:
 
-Edit `prompts/initializer_prompt.md` and change the "200 features" requirement to a smaller number for faster demos.
+```bash
+python autonomous-coding/autonomous_agent_demo.py \
+  --planner-model claude-sonnet-4-6 \
+  --builder-model claude-sonnet-4-6 \
+  --evaluator-model claude-sonnet-4-6
+```
 
-### Modifying Allowed Commands
+## Start a fresh run
 
-Edit `security.py` to add or remove commands from `ALLOWED_COMMANDS`.
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
+```
+
+## Resume an existing run
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --resume
+```
+
+## Useful flags
+
+- `--max-rounds N`: bound builder/evaluator retry rounds.
+- `--planner-only`: run planner and stop.
+- `--qa-only`: run evaluator only for next round.
+- `--dry-run`: deterministic non-network execution.
+- `--mode v1`: run legacy two-agent flow.
+
+## Artifact contract
+
+Planner outputs:
+- `planning/expanded_spec.md`
+- `planning/architecture.md`
+- `planning/acceptance_criteria.json`
+- `planning/work_backlog.json`
+
+State outputs:
+- `state/run_state.json`
+- `state/round_state_XX.json`
+
+Builder outputs:
+- `builder/build_report_round_XX.md`
+
+Evaluator outputs:
+- `qa/qa_report_round_XX.json`
+- `qa/qa_report_round_XX.md`
+
+All structured JSON artifacts are validated against `schemas/`.
+
+## Browser QA
+
+Evaluator is expected to perform browser-based QA via **Playwright MCP** (preferred). Puppeteer is retained as fallback if required by environment compatibility.
+
+If browser QA cannot start, evaluator must emit a blocker (`result: blocked`) instead of passing.
+
+## Security model
+
+Defense in depth remains enabled:
+- Sandbox enabled in SDK settings.
+- Filesystem permissions constrained to project directory.
+- Bash pre-tool hook allowlists commands and validates risky commands (`pkill`, `chmod`, `init.sh`).
+
+## Dry-run/test mode
+
+Use dry-run to validate orchestration and artifact generation without model/network calls:
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --dry-run
+```
 
 ## Troubleshooting
 
-**"Appears to hang on first run"**
-This is normal. The initializer agent is generating 200 detailed test cases, which takes significant time. Watch for `[Tool: ...]` output to confirm the agent is working.
+- **Missing API key**: set `ANTHROPIC_API_KEY` unless using `--dry-run`.
+- **Run appears stuck**: inspect `state/run_state.json` and latest round artifacts.
+- **Schema validation failures**: inspect malformed JSON and corresponding schema in `schemas/`.
+- **Browser tooling issues**: check local `npx` availability and Playwright MCP startup.
 
-**"Command blocked by security hook"**
-The agent tried to run a command not in the allowlist. This is the security system working as intended. If needed, add the command to `ALLOWED_COMMANDS` in `security.py`.
+## Limitations
 
-**"API key not set"**
-Ensure `ANTHROPIC_API_KEY` is exported in your shell environment.
+- V2 relies on model compliance with prompt artifact contracts.
+- Browser MCP startup depends on host Node/npm environment.
+- Legacy V1 prompt flow is kept only for compatibility, not as primary architecture.
 
-## License
+## Maintainer notes
 
-Internal Anthropic use.
+- Keep planner and evaluator first-class phases.
+- Keep all important transitions represented in persisted state.
+- Add tests for every new state transition and schema.
