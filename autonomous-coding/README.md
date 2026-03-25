@@ -1,109 +1,64 @@
-# Autonomous Coding Harness (V2)
+# Autonomous Coding Harness (V3.1)
 
-V2 is a long-running, resumable autonomous coding harness with explicit phases and durable artifacts.
+V3.1 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
+- planner -> builder -> evaluator architecture,
+- durable state and schema-validated artifacts,
+- resumable rounds,
+- strict QA gates,
+- explicit sprint contracts.
 
-## What V2 is
+## What changed from V2 to V3.1
 
-V2 replaces the old two-agent default with a three-phase loop:
-1. **Planner**: Converts spec + backlog into explicit plan artifacts.
-2. **Builder**: Implements prioritized work and writes a build report.
-3. **Evaluator/QA**: Verifies behavior with browser QA and writes structured findings.
+- **Primary execution path is now continuous session** across planner/builder/evaluator (single SDK client session with SDK compaction).
+- **Sprint contract artifacts** are generated per round and enforced by builder + evaluator.
+- **Builder silent fallback removed**: empty builder output now raises explicit runtime error.
+- **Resume behavior hardened**:
+  - no restart on already completed run,
+  - no premature round checkpoint before successful execution.
+- **Robust JSON artifact handling** with deterministic fallback for malformed evaluator reports.
+- **Expanded QA discipline in prompts** (preflight checks, graded criteria, hard thresholds, pass/fail/blocked semantics).
 
-The default run cycle is:
-- planner pass
-- builder pass
-- evaluator pass
-- repeat builder/evaluator up to bounded max rounds when QA finds blockers
+## Architecture
 
-## V1 vs V2
+Core modules:
+- `orchestrator.py`: round control, resume logic, model/session strategy, sprint contract creation, timings.
+- `planner.py`: planning artifact enforcement.
+- `builder.py`: implementation phase execution + strict non-empty output.
+- `evaluator.py`: QA report ingestion with blocked fallback behavior.
+- `artifacts.py`: deterministic paths, schema validation, cached schema loads.
+- `state_models.py`: typed state and run status models.
 
-- **V1**: initializer + coding loop, mostly prompt-driven handoff.
-- **V2**: planner/builder/evaluator with schema-validated artifact handoff and persisted run state.
-- **V1 compatibility** remains available via `--mode v1`.
+## Session model strategy (continuity vs overrides)
 
-## Directory structure
+- **Primary V3.1 path**: all phase models identical => shared continuous client session.
+- **Compatibility mode**: per-phase model overrides differ => phase-scoped sessions (continuity intentionally disabled and explicitly logged).
 
-```text
-autonomous-coding/
-├── autonomous_agent_demo.py
-├── orchestrator.py
-├── planner.py
-├── builder.py
-├── evaluator.py
-├── artifacts.py
-├── state_models.py
-├── client.py
-├── security.py
-├── prompts.py
-├── prompts/
-│   ├── app_spec.txt
-│   ├── planner_prompt.md
-│   ├── builder_prompt.md
-│   ├── evaluator_prompt.md
-│   ├── initializer_prompt.md
-│   └── coding_prompt.md
-├── schemas/
-│   ├── run_state.schema.json
-│   ├── round_state.schema.json
-│   ├── acceptance_criteria.schema.json
-│   ├── work_backlog.schema.json
-│   └── qa_report.schema.json
-└── tests/
-```
-
-## Installation
-
+Recommended for maximum continuity:
 ```bash
-pip install -r autonomous-coding/requirements.txt
-npm install -g @anthropic-ai/claude-code
+python autonomous-coding/autonomous_agent_demo.py --model claude-opus-4-6
 ```
 
-Set API key for non-dry-run execution:
-
-```bash
-export ANTHROPIC_API_KEY='your-key'
-```
-
-## Model configuration (4.6-oriented)
-
-Defaults use `claude-sonnet-4-6` for all phases.
-
-Override all phases at once:
-
-```bash
-python autonomous-coding/autonomous_agent_demo.py --model claude-sonnet-4-6
-```
-
-Or configure per phase:
-
+Advanced compatibility mode:
 ```bash
 python autonomous-coding/autonomous_agent_demo.py \
-  --planner-model claude-sonnet-4-6 \
-  --builder-model claude-sonnet-4-6 \
+  --planner-model claude-opus-4-6 \
+  --builder-model claude-opus-4-6 \
   --evaluator-model claude-sonnet-4-6
 ```
 
-## Start a fresh run
+## Sprint contracts
 
-```bash
-python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
-```
+For each round, orchestrator writes:
+- `planning/sprint_contract_round_XX.json`
 
-## Resume an existing run
+Schema-backed minimum contract:
+- `round_number`
+- `features_in_scope`
+- `acceptance_tests[]`
 
-```bash
-python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --resume
-```
+Builder and evaluator prompts explicitly require using this contract as the round oracle.
 
-## Useful flags
-
-- `--max-rounds N`: bound builder/evaluator retry rounds.
-- `--planner-only`: run planner and stop.
-- `--qa-only`: run evaluator only for next round.
-- `--dry-run`: deterministic non-network execution.
-- `--mode v1`: run legacy two-agent flow.
-
-## Artifact contract
+## Artifact and backlog flow
 
 Planner outputs:
 - `planning/expanded_spec.md`
@@ -111,55 +66,72 @@ Planner outputs:
 - `planning/acceptance_criteria.json`
 - `planning/work_backlog.json`
 
-State outputs:
-- `state/run_state.json`
-- `state/round_state_XX.json`
-
-Builder outputs:
+Round outputs:
+- `planning/sprint_contract_round_XX.json`
 - `builder/build_report_round_XX.md`
-
-Evaluator outputs:
 - `qa/qa_report_round_XX.json`
 - `qa/qa_report_round_XX.md`
+- `state/round_state_XX.json`
 
-All structured JSON artifacts are validated against `schemas/`.
+Run state:
+- `state/run_state.json`
 
-## Browser QA
+## Security
 
-Evaluator is expected to perform browser-based QA via **Playwright MCP** (preferred). Puppeteer is retained as fallback if required by environment compatibility.
+Security is preserved with layered controls:
+- SDK sandbox enabled.
+- Explicit filesystem/tool permissions in `.claude_settings.json`.
+- Bash pre-tool hook allowlist in `security.py`.
+- Risky commands receive extra validation (`pkill`, `chmod`, `init.sh`).
+- `pnpm` is allowlisted for modern frontend dependency workflows.
 
-If browser QA cannot start, evaluator must emit a blocker (`result: blocked`) instead of passing.
+## Running
 
-## Security model
+Install dependencies:
+```bash
+pip install -r autonomous-coding/requirements.txt
+```
 
-Defense in depth remains enabled:
-- Sandbox enabled in SDK settings.
-- Filesystem permissions constrained to project directory.
-- Bash pre-tool hook allowlists commands and validates risky commands (`pkill`, `chmod`, `init.sh`).
+Set API key for live runs:
+```bash
+export ANTHROPIC_API_KEY='your-key'
+```
 
-## Dry-run/test mode
+Fresh run:
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
+```
 
-Use dry-run to validate orchestration and artifact generation without model/network calls:
+Resume run:
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --resume
+```
+
+If a run is already completed, `--resume` will stop with a clear message and will not silently relaunch.
+
+## Dry-run / deterministic harness check
 
 ```bash
 python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --dry-run
 ```
 
+This validates orchestration and artifact flow without calling live models.
+
 ## Troubleshooting
 
-- **Missing API key**: set `ANTHROPIC_API_KEY` unless using `--dry-run`.
-- **Run appears stuck**: inspect `state/run_state.json` and latest round artifacts.
-- **Schema validation failures**: inspect malformed JSON and corresponding schema in `schemas/`.
-- **Browser tooling issues**: check local `npx` availability and Playwright MCP startup.
+- Missing API key: set `ANTHROPIC_API_KEY` (except with `--dry-run`).
+- Schema validation errors: inspect artifact JSON against `schemas/*.schema.json`.
+- Browser QA blocked: ensure app server is reachable and MCP tooling can start.
+- Resume behavior: inspect `state/run_state.json` + latest `state/round_state_XX.json`.
 
-## Limitations
+## Real limitations
 
-- V2 relies on model compliance with prompt artifact contracts.
-- Browser MCP startup depends on host Node/npm environment.
-- Legacy V1 prompt flow is kept only for compatibility, not as primary architecture.
+- Cost/token telemetry is not exposed by the current runner interface; V3.1 reports phase durations and explicitly marks token/cost metrics unavailable.
+- Compatibility mode with different phase models cannot preserve a single continuous session.
 
-## Maintainer notes
+## Maintainer guide
 
-- Keep planner and evaluator first-class phases.
-- Keep all important transitions represented in persisted state.
-- Add tests for every new state transition and schema.
+- Keep `state/run_state.json` semantics stable.
+- Every new structured artifact must have a schema and tests.
+- Prefer explicit failures over silent fallback success.
+- Keep evaluator as the final authority on pass/fail/blocked.

@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import Any, cast
 
 from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
 from claude_code_sdk.types import HookMatcher
@@ -64,7 +65,7 @@ def create_client(
 
     browser_tools, mcp_servers = _browser_config(browser_provider)
     allowed_tools = [*BUILTIN_TOOLS]
-    if phase in {"builder", "evaluator"}:
+    if phase in {"builder", "evaluator", "orchestrator"}:
         allowed_tools.extend(browser_tools)
 
     security_settings = {
@@ -85,7 +86,10 @@ def create_client(
 
     project_dir.mkdir(parents=True, exist_ok=True)
     settings_file = project_dir / ".claude_settings.json"
-    settings_file.write_text(json.dumps(security_settings, indent=2))
+    rendered_settings = json.dumps(security_settings, indent=2)
+    existing_settings = settings_file.read_text() if settings_file.exists() else None
+    if existing_settings != rendered_settings:
+        settings_file.write_text(rendered_settings)
 
     return ClaudeSDKClient(
         options=ClaudeCodeOptions(
@@ -96,7 +100,7 @@ def create_client(
             ),
             allowed_tools=allowed_tools,
             mcp_servers=mcp_servers,
-            hooks={"PreToolUse": [HookMatcher(matcher="Bash", hooks=[bash_security_hook])]},
+            hooks={"PreToolUse": [HookMatcher(matcher="Bash", hooks=[cast(Any, bash_security_hook)])]},
             max_turns=1000,
             cwd=str(project_dir.resolve()),
             settings=str(settings_file.resolve()),

@@ -1,4 +1,4 @@
-## ROLE: BUILDER PHASE (V2)
+## ROLE: BUILDER PHASE (V3.1)
 
 You are the builder in a three-phase autonomous coding harness.
 
@@ -8,13 +8,27 @@ You are the builder in a three-phase autonomous coding harness.
 - `planning/architecture.md`
 - `planning/acceptance_criteria.json`
 - `planning/work_backlog.json`
+- `planning/sprint_contract_round_XX.json` (round-specific contract)
 - latest `qa/qa_report_round_*.json` if present
 
 ### Required outputs
-- Implement code changes for highest-priority unresolved items.
-- Write `builder/build_report_round_XX.md` for this round (or append details if already created).
+- Implement prioritized in-scope work for the current sprint contract.
+- Write `builder/build_report_round_XX.md` with concrete evidence.
+
+### Mandatory self-evaluation before QA handoff
+1. Verify application server status (start it if needed, record exact commands).
+2. Use browser tooling to exercise every in-scope feature.
+3. Capture screenshots as evidence for each validated user-visible behavior.
+4. Update backlog statuses based on observed behavior only.
+5. Never mark work as done based only on code inspection.
+
+### Strategic discipline
+- At the top of the build report, state `Strategy: REFINE` or `Strategy: PIVOT`.
+- Explain why this strategy is chosen based on previous QA findings.
+- Keep remaining work explicitly in backlog; do not hide unfinished scope.
 
 ### Rules
-- Do not self-certify completion; evaluator is authority on pass/fail.
+- Evaluator is authority for final pass/fail.
+- No silent fallback reports.
 - Do not loosen security settings.
-- Do not mutate requirement text in `feature_list.json`; only update status fields when justified.
+- Do not rewrite requirement text in `feature_list.json`.
