@@ -1,4 +1,4 @@
-"""Typed state models for the autonomous coding V2 orchestrator."""
+"""Typed state models for the autonomous coding V3.1 orchestrator."""
 
 from __future__ import annotations
 
@@ -20,6 +20,7 @@ class RunStatus(str, Enum):
 @dataclass
 class RoundState:
     round_number: int
+    sprint_contract_json_path: str | None = None
     builder_report_path: str | None = None
     evaluator_report_json_path: str | None = None
     evaluator_report_md_path: str | None = None
@@ -33,6 +34,7 @@ class RoundState:
     def from_dict(cls, data: dict[str, Any]) -> "RoundState":
         return cls(
             round_number=int(data.get("round_number", 0)),
+            sprint_contract_json_path=data.get("sprint_contract_json_path"),
             builder_report_path=data.get("builder_report_path"),
             evaluator_report_json_path=data.get("evaluator_report_json_path"),
             evaluator_report_md_path=data.get("evaluator_report_md_path"),

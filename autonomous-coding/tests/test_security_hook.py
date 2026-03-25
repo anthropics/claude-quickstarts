@@ -24,3 +24,10 @@ def test_chmod_validation() -> None:
     assert allowed
     blocked, _ = validate_chmod_command("chmod 777 init.sh")
     assert not blocked
+
+
+def test_allows_pnpm_command() -> None:
+    result = asyncio.run(
+        bash_security_hook({"tool_name": "Bash", "tool_input": {"command": "pnpm install"}})
+    )
+    assert result == {}

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous coding harness entrypoint (V2 default, V1 compatibility mode)."""
+"""Autonomous coding harness entrypoint (V3.1 default, V1 compatibility mode)."""
 
 from __future__ import annotations
 
@@ -13,16 +13,29 @@ from orchestrator import ModelConfig, Orchestrator
 from progress import print_progress_summary
 from prompts import copy_spec_to_project
 
-DEFAULT_MODEL = "claude-sonnet-4-6"
-DEFAULT_PLANNER_MODEL = "claude-sonnet-4-6"
-DEFAULT_BUILDER_MODEL = "claude-sonnet-4-6"
-DEFAULT_EVALUATOR_MODEL = "claude-sonnet-4-6"
+DEFAULT_MODEL = "claude-opus-4-6"
+DEFAULT_PLANNER_MODEL = "claude-opus-4-6"
+DEFAULT_BUILDER_MODEL = "claude-opus-4-6"
+DEFAULT_EVALUATOR_MODEL = "claude-opus-4-6"
+
+
+class _DryRunClient:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+def _dry_run_client_factory(project_dir: Path, model: str, phase: str):
+    del project_dir, model, phase
+    return _DryRunClient()
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Autonomous Coding Harness")
     parser.add_argument("--project-dir", type=Path, default=Path("./autonomous_demo_project"))
-    parser.add_argument("--mode", choices=["v2", "v1"], default="v2")
+    parser.add_argument("--mode", choices=["v3_1", "v2", "v1"], default="v3_1")
 
     parser.add_argument("--model", type=str, default=None, help="Single model override for all phases")
     parser.add_argument("--planner-model", type=str, default=DEFAULT_PLANNER_MODEL)
@@ -39,12 +52,18 @@ def parse_args() -> argparse.Namespace:
 
 
 def _normalize_project_dir(project_dir: Path) -> Path:
-    if project_dir.is_absolute() or str(project_dir).startswith("generations/"):
+    if project_dir.is_absolute():
         return project_dir
-    return Path("generations") / project_dir
+
+    cleaned_parts = [part for part in project_dir.parts if part not in {".", ""}]
+    cleaned = Path(*cleaned_parts) if cleaned_parts else Path(".")
+    if cleaned.parts and cleaned.parts[0] == "generations":
+        return cleaned
+
+    return Path("generations") / cleaned
 
 
-async def _run_v2(args: argparse.Namespace, project_dir: Path) -> None:
+async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
     copy_spec_to_project(project_dir)
 
     if args.model:
@@ -57,19 +76,31 @@ async def _run_v2(args: argparse.Namespace, project_dir: Path) -> None:
         )
 
     if args.dry_run:
-        async def dry_runner(project_dir: Path, model: str, prompt: str, phase: str) -> str:
-            del prompt
+
+        async def dry_runner(
+            project_dir: Path,
+            model: str,
+            prompt: str,
+            phase: str,
+            client=None,
+        ) -> str:
+            del prompt, client
             return f"[dry-run] phase={phase} model={model} project={project_dir}"
 
         runner = dry_runner
     else:
         runner = run_phase_session
 
+    orchestrator_kwargs = {}
+    if args.dry_run:
+        orchestrator_kwargs["client_factory"] = _dry_run_client_factory
+
     orchestrator = Orchestrator(
         project_dir=project_dir,
         model_config=model_config,
         max_rounds=args.max_rounds,
         phase_runner=runner,
+        **orchestrator_kwargs,
     )
     state = await orchestrator.run(
         resume=args.resume,
@@ -101,7 +132,7 @@ def main() -> None:
                 )
             )
         else:
-            asyncio.run(_run_v2(args, project_dir))
+            asyncio.run(_run_v3_1(args, project_dir))
     except KeyboardInterrupt:
         print("\nInterrupted by user. Re-run with --resume to continue.")
 

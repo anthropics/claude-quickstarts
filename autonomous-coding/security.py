@@ -28,6 +28,7 @@ ALLOWED_COMMANDS = {
     "pwd",
     # Node.js development
     "npm",
+    "pnpm",
     "node",
     # Version control
     "git",

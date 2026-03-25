@@ -1,4 +1,4 @@
-"""Planner phase for autonomous coding V2."""
+"""Planner phase for autonomous coding V3.1."""
 
 from __future__ import annotations
 
@@ -6,10 +6,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Awaitable, Callable
 
+from claude_code_sdk import ClaudeSDKClient
+
 from artifacts import ArtifactPaths, read_json, write_validated_json
 from prompts import get_planner_prompt
 
-PhaseRunner = Callable[[Path, str, str, str], Awaitable[str]]
+PhaseRunner = Callable[[Path, str, str, str, ClaudeSDKClient | None], Awaitable[str]]
 
 
 @dataclass
@@ -23,13 +25,12 @@ class PlannerPhase:
     def __init__(self, runner: PhaseRunner):
         self.runner = runner
 
-    async def run(self, project_dir: Path, model: str) -> PlannerResult:
+    async def run(self, project_dir: Path, model: str, client: ClaudeSDKClient | None = None) -> PlannerResult:
         paths = ArtifactPaths(project_dir)
         paths.ensure_dirs()
-        summary = await self.runner(project_dir, model, get_planner_prompt(), "planner")
+        summary = await self.runner(project_dir, model, get_planner_prompt(), "planner", client)
 
-        # Ensure required JSON artifacts exist (create conservative defaults if missing).
-        acceptance = read_json(paths.acceptance_criteria)
+        acceptance = read_json(paths.acceptance_criteria, context="acceptance_criteria")
         if not acceptance:
             acceptance = {
                 "project_name": project_dir.name,
@@ -43,7 +44,7 @@ class PlannerPhase:
             }
         write_validated_json(paths.acceptance_criteria, acceptance, "acceptance_criteria")
 
-        backlog = read_json(paths.work_backlog)
+        backlog = read_json(paths.work_backlog, context="work_backlog")
         if not backlog:
             backlog = {
                 "items": [

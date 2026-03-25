@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -45,6 +46,9 @@ class ArtifactPaths:
     def architecture(self) -> Path:
         return self.planning_dir / "architecture.md"
 
+    def sprint_contract_json(self, round_number: int) -> Path:
+        return self.planning_dir / f"sprint_contract_round_{round_number:02d}.json"
+
     def round_state(self, round_number: int) -> Path:
         return self.state_dir / f"round_state_{round_number:02d}.json"
 
@@ -58,6 +62,7 @@ class ArtifactPaths:
         return self.builder_dir / f"build_report_round_{round_number:02d}.md"
 
 
+@lru_cache(maxsize=None)
 def _load_schema(name: str) -> dict[str, Any]:
     path = SCHEMA_DIR / f"{name}.schema.json"
     return json.loads(path.read_text())
@@ -70,10 +75,23 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     tmp.replace(path)
 
 
-def read_json(path: Path, default: dict[str, Any] | None = None) -> dict[str, Any]:
+def read_json(
+    path: Path,
+    default: dict[str, Any] | None = None,
+    *,
+    context: str = "artifact",
+) -> dict[str, Any]:
+    fallback = default if default is not None else {}
     if not path.exists():
-        return default if default is not None else {}
-    return json.loads(path.read_text())
+        return fallback
+    try:
+        return json.loads(path.read_text())
+    except json.JSONDecodeError as exc:
+        print(
+            f"[V3.1] Warning: malformed JSON for {context} at {path}: {exc}. "
+            "Using deterministic fallback."
+        )
+        return fallback
 
 
 def validate_against_schema(payload: dict[str, Any], schema_name: str) -> None:

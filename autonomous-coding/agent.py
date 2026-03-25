@@ -1,16 +1,17 @@
-"""Agent session logic for V1 compatibility and V2 phase execution."""
+"""Agent session logic for V1 compatibility and V3.1 phase execution."""
 
 from __future__ import annotations
 
 import asyncio
+import traceback
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from claude_code_sdk import ClaudeSDKClient
 
 from client import create_client
 from progress import print_session_header, print_progress_summary
-from prompts import get_coding_prompt, get_initializer_prompt, copy_spec_to_project
+from prompts import copy_spec_to_project, get_coding_prompt, get_initializer_prompt
 
 AUTO_CONTINUE_DELAY_SECONDS = 3
 
@@ -28,6 +29,7 @@ async def run_agent_session(
         await client.query(message)
         response_text = ""
         async for msg in client.receive_response():
+            msg: Any = msg
             msg_type = type(msg).__name__
 
             if msg_type == "AssistantMessage" and hasattr(msg, "content"):
@@ -51,15 +53,32 @@ async def run_agent_session(
         print("\n" + "-" * 70 + "\n")
         return "continue", response_text
     except Exception as exc:  # pragma: no cover
-        print(f"Error during agent session: {exc}")
-        return "error", str(exc)
+        tb = traceback.format_exc()
+        print(f"Error during agent session: {exc}\n{tb}")
+        return "error", f"{exc}\n{tb}"
 
 
-async def run_phase_session(project_dir: Path, model: str, prompt: str, phase: str) -> str:
-    """Run one phase in a fresh context and return plain-text summary."""
-    client = create_client(project_dir=project_dir, model=model, phase=phase)
-    async with client:
+async def run_phase_session(
+    project_dir: Path,
+    model: str,
+    prompt: str,
+    phase: str,
+    client: ClaudeSDKClient | None = None,
+) -> str:
+    """Run one phase and return plain-text summary.
+
+    When `client` is provided, the phase runs in a shared continuous session.
+    Otherwise a phase-scoped client is created (compatibility mode).
+    """
+    status = "error"
+    response = ""
+    if client is None:
+        owned_client = create_client(project_dir=project_dir, model=model, phase=phase)
+        async with owned_client:
+            status, response = await run_agent_session(owned_client, prompt, project_dir)
+    else:
         status, response = await run_agent_session(client, prompt, project_dir)
+
     if status == "error":
         raise RuntimeError(response)
     return response
