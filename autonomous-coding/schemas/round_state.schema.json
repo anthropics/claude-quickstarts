@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["round_number", "outcome", "blocking_issues"],
+  "properties": {
+    "round_number": {"type": "integer", "minimum": 1},
+    "builder_report_path": {"type": ["string", "null"]},
+    "evaluator_report_json_path": {"type": ["string", "null"]},
+    "evaluator_report_md_path": {"type": ["string", "null"]},
+    "outcome": {"type": ["string", "null"], "enum": ["pass", "fail", "blocked", null]},
+    "blocking_issues": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  },
+  "additionalProperties": false
+}

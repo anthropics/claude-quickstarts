@@ -1,0 +1,13 @@
+{
+  "round": 1,
+  "result": "fail",
+  "summary": "Example QA summary",
+  "blocking_findings": [
+    {
+      "id": "QA-01",
+      "severity": "high",
+      "description": "Example issue",
+      "repro_steps": ["Open app", "Click action", "Observe failure"]
+    }
+  ]
+}
