@@ -1,9 +1,11 @@
-"""Builder phase for autonomous coding V3.1."""
+"""Builder phase for autonomous coding V3.3."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+
+from claude_code_sdk import ClaudeSDKClient
 
 from artifacts import ArtifactPaths
 from phase_types import PhaseRunner
@@ -36,8 +38,8 @@ class BuilderPhase:
             f"{get_builder_prompt()}\n\n"
             f"Current round number: {round_number}\n"
             f"Sprint contract (must be honored): {sprint_contract_path.as_posix()}\n"
-            "After implementation, write planning/sprint_proposal_round_XX.md for the next round "
-            "using the template in the builder prompt.\n"
+            f"After implementation, write planning/sprint_proposal_round_{round_number:02d}.md "
+            f"for round {round_number + 1} using the template in the builder prompt.\n"
         )
         summary = await self.runner(project_dir, model, prompt, "builder", client)
         if not summary or not summary.strip():

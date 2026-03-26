@@ -280,4 +280,9 @@ def test_round_two_contract_uses_previous_builder_proposal(tmp_path: Path) -> No
 
     contract_round_02 = json.loads((tmp_path / "planning" / "sprint_contract_round_02.json").read_text())
     assert "Ship profile settings page" in contract_round_02["features_in_scope"]
+    counts: dict[str, int] = {}
+    for feature in contract_round_02["features_in_scope"]:
+        counts[feature] = counts.get(feature, 0) + 1
+    duplicates = {feature for feature, count in counts.items() if count > 1}
+    assert not duplicates, f"Duplicate features in round 2 contract: {duplicates}"
     assert any(test["id"] == "AC-NEXT-1" for test in contract_round_02["acceptance_tests"])

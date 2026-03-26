@@ -1,11 +1,21 @@
-# Autonomous Coding Harness (V3.2)
+# Autonomous Coding Harness (V3.3)
 
-V3.2 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
+V3.3 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
 - planner -> builder -> evaluator architecture,
 - durable state and schema-validated artifacts,
 - resumable rounds,
 - strict QA gates,
 - explicit sprint contracts.
+
+## What changed from V3.2 to V3.3
+
+- **Traceability restored and versioned cleanly**: `V3_1_TRACEABILITY_MATRIX.md` was restored to its original V3.1 content, and V3.3 changes are tracked in `V3_3_TRACEABILITY_MATRIX.md`.
+- **Sprint proposal path contract formalized**: proposal artifact paths are now exposed via `ArtifactPaths.sprint_proposal_md(...)` to avoid hard-coded path drift.
+- **Round progression hardening**: proposed features from builder proposals are now filtered against previously attempted features before being merged into new scope.
+- **Builder typing/prompt correctness fixes**: explicit `ClaudeSDKClient` import added and proposal filename instruction now uses real round numbering (no literal `XX`).
+- **Proposal parser robustness**: parser resets section state on unknown markdown headers and logs when expected proposal files are missing.
+- **Operator visibility improvements**: explicit warnings are now emitted for empty `work_backlog.json` and missing prior sprint contracts used for criteria deduplication.
+- **Prompt/version consistency and test hardening**: planner/evaluator prompt headers now target V3.3; round-two proposal integration test now guards against duplicate scope entries.
 
 ## What changed from V3.1 to V3.2
 
