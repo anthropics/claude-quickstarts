@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Awaitable
 
 from claude_code_sdk import ClaudeSDKClient
 

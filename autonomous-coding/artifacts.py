@@ -49,6 +49,10 @@ class ArtifactPaths:
     def sprint_contract_json(self, round_number: int) -> Path:
         return self.planning_dir / f"sprint_contract_round_{round_number:02d}.json"
 
+    def sprint_proposal_md(self, round_number: int) -> Path:
+        """Builder proposal captured for round N and consumed by round N+1 planning."""
+        return self.planning_dir / f"sprint_proposal_round_{round_number:02d}.md"
+
     def round_state(self, round_number: int) -> Path:
         return self.state_dir / f"round_state_{round_number:02d}.json"
 

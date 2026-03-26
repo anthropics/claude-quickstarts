@@ -1,4 +1,4 @@
-"""V3.2 autonomous coding orchestrator (planner -> builder -> evaluator)."""
+"""V3.3 autonomous coding orchestrator (planner -> builder -> evaluator)."""
 
 from __future__ import annotations
 
@@ -97,6 +97,12 @@ class Orchestrator:
         assigned: set[str] = set()
         for prev_round in range(1, round_number):
             prev_contract = self.paths.sprint_contract_json(prev_round)
+            if not prev_contract.exists():
+                print(
+                    f"[V3.3] INFO: sprint_contract_round_{prev_round:02d}.json not found; "
+                    f"criteria deduplication for round {round_number} may be incomplete."
+                )
+                continue
             payload = read_json(prev_contract, context=f"sprint_contract_round_{prev_round:02d}")
             if not isinstance(payload, dict):
                 continue
@@ -111,8 +117,12 @@ class Orchestrator:
         if round_number <= 1:
             return [], []
 
-        proposal_path = self.paths.planning_dir / f"sprint_proposal_round_{round_number - 1:02d}.md"
+        proposal_path = self.paths.sprint_proposal_md(round_number - 1)
         if not proposal_path.exists():
+            print(
+                f"[V3.3] INFO: No sprint proposal found for round {round_number - 1} "
+                f"(expected at {proposal_path}). Contract built from backlog only."
+            )
             return [], []
 
         proposed_features: list[str] = []
@@ -120,11 +130,13 @@ class Orchestrator:
         section = ""
         for raw_line in proposal_path.read_text().splitlines():
             line = raw_line.strip()
-            if line.lower().startswith("## proposed features in scope"):
-                section = "features"
-                continue
-            if line.lower().startswith("## proposed acceptance tests"):
-                section = "tests"
+            if line.startswith("##"):
+                if "proposed features in scope" in line.lower():
+                    section = "features"
+                elif "proposed acceptance tests" in line.lower():
+                    section = "tests"
+                else:
+                    section = ""
                 continue
             if not line.startswith("- "):
                 continue
@@ -153,13 +165,19 @@ class Orchestrator:
         proposed_features, proposed_acceptance = self._load_previous_sprint_proposal(round_number)
 
         backlog_items = backlog.get("items", []) if isinstance(backlog, dict) else []
+        if not backlog_items:
+            print(
+                f"[V3.3] WARNING: work_backlog.json is empty or missing for round {round_number}. "
+                "Sprint scope uses generic fallback. Consider re-running planner phase."
+            )
         in_scope = [
             item.get("title", "Unnamed backlog item")
             for item in backlog_items
             if item.get("status") != "done" and item.get("title", "").strip() not in attempted_features
         ]
         if proposed_features:
-            in_scope = proposed_features + in_scope
+            new_proposals = [feature for feature in proposed_features if feature.strip() not in attempted_features]
+            in_scope = new_proposals + in_scope
 
         deduped_in_scope = list(dict.fromkeys([feature.strip() for feature in in_scope if feature and feature.strip()]))
         in_scope = deduped_in_scope[:MAX_SCOPE_ITEMS] or ["Address QA blockers from previous round"]
@@ -167,7 +185,7 @@ class Orchestrator:
         criteria = acceptance.get("criteria", []) if isinstance(acceptance, dict) else []
         if not criteria:
             print(
-                f"[V3.2] WARNING: acceptance_criteria.json is empty or missing for round {round_number}. "
+                f"[V3.3] WARNING: acceptance_criteria.json is empty or missing for round {round_number}. "
                 "Sprint contract uses generic fallback. Consider re-running planner phase."
             )
 
