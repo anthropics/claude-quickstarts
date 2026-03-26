@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from typing import Any
 
+from metrics import default_run_usage
 
 class RunStatus(str, Enum):
     NOT_STARTED = "not_started"
@@ -51,6 +52,7 @@ class RunState:
     max_rounds: int = 3
     completed: bool = False
     latest_summary: str = ""
+    llm_usage: dict[str, Any] = field(default_factory=default_run_usage)
     created_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
@@ -71,6 +73,7 @@ class RunState:
             max_rounds=int(data.get("max_rounds", 3)),
             completed=bool(data.get("completed", False)),
             latest_summary=str(data.get("latest_summary", "")),
+            llm_usage=dict(data.get("llm_usage", default_run_usage())),
             created_at=str(data.get("created_at", datetime.now(timezone.utc).isoformat())),
             updated_at=str(data.get("updated_at", datetime.now(timezone.utc).isoformat())),
         )

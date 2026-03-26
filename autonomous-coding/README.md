@@ -1,12 +1,20 @@
-# Autonomous Coding Harness (V3.4)
+# Autonomous Coding Harness (V3.5)
 
-V3.4 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
+V3.5 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
 - planner -> builder -> evaluator architecture,
 - durable state and schema-validated artifacts,
 - resumable rounds,
 - strict QA gates,
 - explicit sprint contracts,
 - explicit proposal negotiation artifacts before round contract merge.
+- best-effort token/cost observability persisted in `state/run_state.json`.
+
+## What changed from V3.4 to V3.5
+
+- **Best-effort token/cost telemetry integrated into run state**: each phase run appends estimated `input_tokens`, `output_tokens`, `total_tokens`, and `estimated_cost_usd` into cumulative `llm_usage` metrics in `state/run_state.json`.
+- **Lightweight progress telemetry**: concise non-verbose usage lines now print both at LLM-call level and at phase-end cumulative level.
+- **Resume-safe accounting**: `--resume` continues from the existing `llm_usage` counters without resetting prior totals.
+- **Schema-backed run state update**: `schemas/run_state.schema.json` now validates `llm_usage` structure and per-phase totals for deterministic artifact quality.
 
 ## What changed from V3.3 to V3.4
 
@@ -86,11 +94,15 @@ Schema-backed minimum contract:
 
 Builder and evaluator prompts explicitly require using this contract as the round oracle.
 
-V3.4 details:
+V3.5 details:
 - Default scope cap is 10 (`V3_4_SPRINT_MAX_SCOPE_ITEMS`, fallback `V3_2_SPRINT_MAX_SCOPE_ITEMS`).
 - Default acceptance test cap is 12 (`V3_4_SPRINT_MAX_ACCEPTANCE_TESTS`, fallback `V3_2_SPRINT_MAX_ACCEPTANCE_TESTS`).
 - Negotiation turn cap is 2 (`V3_4_MAX_NEGOTIATION_TURNS`).
 - Previously attempted features/criteria are filtered to reduce repetitive contracts across rounds.
+- Estimated telemetry pricing can be tuned with:
+  - `V3_5_EST_INPUT_USD_PER_1M`
+  - `V3_5_EST_OUTPUT_USD_PER_1M`
+  - `V3_5_EST_CHARS_PER_TOKEN`
 
 ## Artifact and backlog flow
 
@@ -161,7 +173,7 @@ This validates orchestration and artifact flow without calling live models.
 
 ## Real limitations
 
-- Cost/token telemetry is not exposed by the current runner interface; V3.1 reports phase durations and explicitly marks token/cost metrics unavailable.
+- Cost/token telemetry remains best-effort (estimated from prompt/response text size) until first-class SDK usage fields are exposed by the runner interface.
 - Compatibility mode with different phase models cannot preserve a single continuous session.
 - Sprint contract negotiation remains lightweight (proposal artifact handoff rather than live back-and-forth turn negotiation).
 

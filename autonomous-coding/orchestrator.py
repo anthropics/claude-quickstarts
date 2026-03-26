@@ -12,6 +12,7 @@ from artifacts import ArtifactPaths, read_json, write_validated_json
 from builder import BuilderPhase
 from client import create_client
 from evaluator import EvaluatorPhase
+from metrics import default_run_usage
 from phase_types import ClientFactory, PhaseRunner
 from planner import PlannerPhase
 from state_models import RoundState, RunState, RunStatus
@@ -22,7 +23,7 @@ MAX_ACCEPTANCE_TESTS = int(
     os.environ.get("V3_4_SPRINT_MAX_ACCEPTANCE_TESTS", os.environ.get("V3_2_SPRINT_MAX_ACCEPTANCE_TESTS", "12"))
 )
 MAX_NEGOTIATION_TURNS = int(os.environ.get("V3_4_MAX_NEGOTIATION_TURNS", "2"))
-LOG_VERSION_TAG = "V3.4"
+LOG_VERSION_TAG = "V3.5"
 
 
 @dataclass
@@ -54,6 +55,38 @@ class Orchestrator:
         self.builder = BuilderPhase(phase_runner)
         self.evaluator = EvaluatorPhase(phase_runner)
         self.phase_timings: dict[str, list[float]] = {"planner": [], "builder": [], "evaluator": []}
+
+    def _record_usage(self, state: RunState, phase: str, usage: dict[str, Any]) -> None:
+        usage_root = state.llm_usage or default_run_usage()
+        by_phase = usage_root.get("by_phase", {})
+        phase_bucket = by_phase.get(phase, {})
+        totals = usage_root.get("totals", {})
+        input_tokens = int(usage.get("input_tokens", 0))
+        output_tokens = int(usage.get("output_tokens", 0))
+        total_tokens = int(usage.get("total_tokens", input_tokens + output_tokens))
+        estimated_cost = float(usage.get("estimated_cost_usd", 0.0))
+
+        phase_bucket["calls"] = int(phase_bucket.get("calls", 0)) + 1
+        phase_bucket["input_tokens"] = int(phase_bucket.get("input_tokens", 0)) + input_tokens
+        phase_bucket["output_tokens"] = int(phase_bucket.get("output_tokens", 0)) + output_tokens
+        phase_bucket["total_tokens"] = int(phase_bucket.get("total_tokens", 0)) + total_tokens
+        phase_bucket["estimated_cost_usd"] = float(phase_bucket.get("estimated_cost_usd", 0.0)) + estimated_cost
+        by_phase[phase] = phase_bucket
+
+        usage_root["calls_total"] = int(usage_root.get("calls_total", 0)) + 1
+        totals["input_tokens"] = int(totals.get("input_tokens", 0)) + input_tokens
+        totals["output_tokens"] = int(totals.get("output_tokens", 0)) + output_tokens
+        totals["total_tokens"] = int(totals.get("total_tokens", 0)) + total_tokens
+        totals["estimated_cost_usd"] = float(totals.get("estimated_cost_usd", 0.0)) + estimated_cost
+        usage_root["totals"] = totals
+        usage_root["by_phase"] = by_phase
+        state.llm_usage = usage_root
+
+        print(
+            f"[{LOG_VERSION_TAG}] Phase-end {phase} usage: "
+            f"calls={phase_bucket['calls']} total_tokens={phase_bucket['total_tokens']} "
+            f"est_cost=${phase_bucket['estimated_cost_usd']:.6f} (cumulative phase)"
+        )
 
     def _load_run_state(self) -> RunState:
         payload = read_json(self.paths.run_state, context="run_state")
@@ -313,10 +346,7 @@ class Orchestrator:
                 continue
             total = sum(durations)
             print(f"  {phase}: count={len(durations)} total={total:.2f}s avg={total/len(durations):.2f}s")
-        print(
-            f"[{LOG_VERSION_TAG}] Token/cost metrics: "
-            "not available from current runner interface; integrate SDK usage telemetry for cost governance."
-        )
+        print(f"[{LOG_VERSION_TAG}] Token/cost telemetry is tracked with best-effort estimation in state/run_state.json.")
 
     async def run(self, resume: bool = True, planner_only: bool = False, qa_only: bool = False) -> RunState:
         self.project_dir.mkdir(parents=True, exist_ok=True)
@@ -355,6 +385,7 @@ class Orchestrator:
                     self.project_dir, self.model_config.planner_model, client=client
                 )
                 self.phase_timings["planner"].append(time.monotonic() - t0)
+                self._record_usage(run_state, "planner", planner_result.usage.to_dict())
                 run_state.planner_complete = True
                 run_state.latest_summary = self._summarize(planner_result.summary)
                 self._save_run_state(run_state)
@@ -380,6 +411,7 @@ class Orchestrator:
                     client=client,
                 )
                 self.phase_timings["evaluator"].append(time.monotonic() - t0)
+                self._record_usage(run_state, "evaluator", eval_result.usage.to_dict())
                 run_state.current_round = next_round
                 run_state.status = RunStatus.COMPLETED if eval_result.result == "pass" else RunStatus.BLOCKED
                 run_state.completed = eval_result.result == "pass"
@@ -412,6 +444,7 @@ class Orchestrator:
                     client=client,
                 )
                 self.phase_timings["builder"].append(time.monotonic() - t0)
+                self._record_usage(run_state, "builder", build_result.usage.to_dict())
 
                 print(f"[{LOG_VERSION_TAG}] Round {round_number}/{self.max_rounds}: evaluator")
                 run_state.status = RunStatus.EVALUATING
@@ -426,6 +459,7 @@ class Orchestrator:
                     client=client,
                 )
                 self.phase_timings["evaluator"].append(time.monotonic() - t0)
+                self._record_usage(run_state, "evaluator", eval_result.usage.to_dict())
 
                 round_state = RoundState(
                     round_number=round_number,

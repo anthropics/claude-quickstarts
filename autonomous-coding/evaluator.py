@@ -8,6 +8,7 @@ from pathlib import Path
 from claude_code_sdk import ClaudeSDKClient
 
 from artifacts import ArtifactPaths, read_json, safe_validate, write_validated_json
+from metrics import UsageEstimate, estimate_usage
 from phase_types import PhaseRunner
 from prompts import get_evaluator_prompt
 
@@ -19,6 +20,7 @@ class EvaluatorResult:
     report_md_path: Path
     blocking_issues: list[str]
     summary: str
+    usage: UsageEstimate
 
 
 class EvaluatorPhase:
@@ -43,6 +45,12 @@ class EvaluatorPhase:
             f"Sprint contract (mandatory oracle): {sprint_contract_path.as_posix()}\n"
         )
         summary = await self.runner(project_dir, model, prompt, "evaluator", client)
+        usage = estimate_usage(prompt, summary)
+        print(
+            "[V3.5] LLM call evaluator "
+            f"tokens(in={usage.input_tokens},out={usage.output_tokens},total={usage.total_tokens}) "
+            f"est_cost=${usage.estimated_cost_usd:.6f}"
+        )
 
         report_json_path = paths.qa_report_json(round_number)
         fallback_report = {
@@ -64,7 +72,7 @@ class EvaluatorPhase:
 
         ok, reason = safe_validate(report, "qa_report")
         if not ok:
-            print(f"[V3.4] QA report failed schema validation: {reason}. Using blocked fallback.")
+            print(f"[V3.5] QA report failed schema validation: {reason}. Using blocked fallback.")
             report = fallback_report
 
         write_validated_json(report_json_path, report, "qa_report")
@@ -82,4 +90,5 @@ class EvaluatorPhase:
             report_md_path=report_md_path,
             blocking_issues=issues,
             summary=summary or report.get("summary", ""),
+            usage=usage,
         )

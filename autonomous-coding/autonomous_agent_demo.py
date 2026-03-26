@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous coding harness entrypoint (V3.4 runtime, V1 compatibility mode)."""
+"""Autonomous coding harness entrypoint (V3.5 runtime, V1 compatibility mode)."""
 
 from __future__ import annotations
 
