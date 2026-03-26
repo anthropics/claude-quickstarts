@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous coding harness entrypoint (V3.5 runtime, V1 compatibility mode)."""
+"""Autonomous coding harness entrypoint (V3.5.2 runtime, V1 compatibility mode)."""
 
 from __future__ import annotations
 
@@ -48,6 +48,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--planner-only", action="store_true")
     parser.add_argument("--qa-only", action="store_true")
+    parser.add_argument(
+        "--llm-contract-review",
+        action="store_true",
+        help="Enable optional evaluator-model arbitration during sprint contract negotiation.",
+    )
     return parser.parse_args()
 
 
@@ -100,6 +105,7 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
         model_config=model_config,
         max_rounds=args.max_rounds,
         phase_runner=runner,
+        llm_contract_review=args.llm_contract_review,
         **orchestrator_kwargs,
     )
     state = await orchestrator.run(

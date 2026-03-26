@@ -32,7 +32,7 @@ class PlannerPhase:
         summary = await self.runner(project_dir, model, prompt, "planner", client)
         usage = estimate_usage(prompt, summary)
         print(
-            "[V3.5] LLM call planner "
+            "[V3.5.2] LLM call planner "
             f"tokens(in={usage.input_tokens},out={usage.output_tokens},total={usage.total_tokens}) "
             f"est_cost=${usage.estimated_cost_usd:.6f}"
         )

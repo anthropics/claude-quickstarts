@@ -1,4 +1,4 @@
-# TRACEABILITY_MATRIX — Consolidated (v3.5.1)
+# TRACEABILITY_MATRIX — Consolidated (v3.5.2)
 
 > Concatenation intégrale des matrices existantes, sans altération du contenu source.
 
@@ -113,3 +113,14 @@
 | N4-Q-02 | P2 | Mettre à jour documentation versionnée sans écraser l'historique | `README.md`, `V3_5_TRACEABILITY_MATRIX.md` | Added dedicated V3.5.1 section and separate traceability matrix file | manual review + test suite | fixed | Keeps prior matrices intact (`V3_1`..`V3_4`) and adds V3.5.1 as additive artifact |
 
 
+---
+
+## Source: `V3_5_2_TRACEABILITY_MATRIX.md`
+
+# V3.5.2 Traceability Matrix
+
+| Finding ID | Severity | Requirement summary | Files impacted | Implementation action | Test / validation evidence | Final status | Notes / tradeoffs |
+|---|---|---|---|---|---|---|---|
+| N5-M-01 | P1 | Enrichir le verdict de négociation au-delà du binaire seul | `orchestrator.py`, `schemas/sprint_contract_negotiation.schema.json`, `tests/test_orchestrator_integration.py`, `tests/test_artifacts.py` | Added structured negotiation metadata (`review_mode`, `confidence_score`, `reason_codes`, `actionable_suggestions`) while preserving `approved|changes_requested` status contract | `pytest autonomous-coding/tests/test_artifacts.py -q`; `pytest autonomous-coding/tests/test_orchestrator_integration.py -q` (`test_malformed_proposal_creates_changes_requested_negotiation`) | fixed | Backward-compatible: existing status consumers continue to work |
+| N5-M-02 | P1 | Ajouter un enum `negotiation_reason_code` exploitable analytics | `orchestrator.py`, `schemas/sprint_contract_negotiation.schema.json`, `README.md`, `tests/test_artifacts.py` | Introduced typed reason-code set (e.g. `FORMAT_ERROR`, `DUPLICATE_AC`, `OUT_OF_SCOPE`) and deterministic derivation path in negotiation review | `pytest autonomous-coding/tests/test_artifacts.py -q` (`test_sprint_contract_negotiation_rejects_unknown_reason_code`) | fixed | Dashboard intentionally deferred; schema and artifacts now analytics-ready |
+| N5-M-03 | P1 | Exposer mode optionnel `--llm-contract-review` pour arbitrage evaluator explicite | `autonomous_agent_demo.py`, `orchestrator.py`, `README.md`, `tests/test_cli.py`, `tests/test_orchestrator_integration.py` | Added CLI flag + optional evaluator-model arbitration call (`contract_reviewer` phase) with deterministic fallback on invalid LLM output | `pytest autonomous-coding/tests/test_cli.py -q`; `pytest autonomous-coding/tests/test_orchestrator_integration.py -q` (`test_llm_contract_review_enriches_negotiation_artifact`) | fixed | Default mode remains deterministic for resumability/cost control; LLM arbitration is opt-in |
