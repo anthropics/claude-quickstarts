@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous coding harness entrypoint (V3.1 default, V1 compatibility mode)."""
+"""Autonomous coding harness entrypoint (V3.2 default, V1 compatibility mode)."""
 
 from __future__ import annotations
 
@@ -131,6 +131,12 @@ def main() -> None:
                     max_iterations=args.max_iterations,
                 )
             )
+        elif args.mode == "v2":
+            print(
+                "[WARNING] --mode v2 is deprecated and aliased to v3_1. "
+                "Use --mode v3_1 explicitly. This alias will be removed in a future release."
+            )
+            asyncio.run(_run_v3_1(args, project_dir))
         else:
             asyncio.run(_run_v3_1(args, project_dir))
     except KeyboardInterrupt:

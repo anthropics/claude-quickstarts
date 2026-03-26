@@ -88,7 +88,7 @@ def read_json(
         return json.loads(path.read_text())
     except json.JSONDecodeError as exc:
         print(
-            f"[V3.1] Warning: malformed JSON for {context} at {path}: {exc}. "
+            f"[V3.2] Warning: malformed JSON for {context} at {path}: {exc}. "
             "Using deterministic fallback."
         )
         return fallback

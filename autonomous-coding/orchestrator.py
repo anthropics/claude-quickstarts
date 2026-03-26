@@ -1,4 +1,4 @@
-"""V3.1 autonomous coding orchestrator (planner -> builder -> evaluator)."""
+"""V3.2 autonomous coding orchestrator (planner -> builder -> evaluator)."""
 
 from __future__ import annotations
 
@@ -6,21 +6,19 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Awaitable, Callable
-
-from claude_code_sdk import ClaudeSDKClient
+from typing import Any
 
 from artifacts import ArtifactPaths, read_json, write_validated_json
 from builder import BuilderPhase
 from client import create_client
 from evaluator import EvaluatorPhase
+from phase_types import ClientFactory, PhaseRunner
 from planner import PlannerPhase
 from state_models import RoundState, RunState, RunStatus
 
 SUMMARY_MAX_CHARS = int(os.environ.get("V3_1_SUMMARY_MAX_CHARS", "8000"))
-
-PhaseRunner = Callable[[Path, str, str, str, ClaudeSDKClient | None], Awaitable[str]]
-ClientFactory = Callable[[Path, str, str], Any]
+MAX_SCOPE_ITEMS = int(os.environ.get("V3_2_SPRINT_MAX_SCOPE_ITEMS", "10"))
+MAX_ACCEPTANCE_TESTS = int(os.environ.get("V3_2_SPRINT_MAX_ACCEPTANCE_TESTS", "12"))
 
 
 @dataclass
@@ -83,23 +81,109 @@ class Orchestrator:
         }
         return len(models) == 1
 
+    def _get_attempted_features(self, round_number: int) -> set[str]:
+        attempted: set[str] = set()
+        for prev_round in range(1, round_number):
+            prev_contract = self.paths.sprint_contract_json(prev_round)
+            payload = read_json(prev_contract, context=f"sprint_contract_round_{prev_round:02d}")
+            if not isinstance(payload, dict):
+                continue
+            for feature in payload.get("features_in_scope", []):
+                if isinstance(feature, str) and feature.strip():
+                    attempted.add(feature.strip())
+        return attempted
+
+    def _get_previously_assigned_criteria_ids(self, round_number: int) -> set[str]:
+        assigned: set[str] = set()
+        for prev_round in range(1, round_number):
+            prev_contract = self.paths.sprint_contract_json(prev_round)
+            payload = read_json(prev_contract, context=f"sprint_contract_round_{prev_round:02d}")
+            if not isinstance(payload, dict):
+                continue
+            for test in payload.get("acceptance_tests", []):
+                if isinstance(test, dict):
+                    test_id = test.get("id")
+                    if isinstance(test_id, str) and test_id.strip():
+                        assigned.add(test_id.strip())
+        return assigned
+
+    def _load_previous_sprint_proposal(self, round_number: int) -> tuple[list[str], list[dict[str, str]]]:
+        if round_number <= 1:
+            return [], []
+
+        proposal_path = self.paths.planning_dir / f"sprint_proposal_round_{round_number - 1:02d}.md"
+        if not proposal_path.exists():
+            return [], []
+
+        proposed_features: list[str] = []
+        proposed_acceptance: list[dict[str, str]] = []
+        section = ""
+        for raw_line in proposal_path.read_text().splitlines():
+            line = raw_line.strip()
+            if line.lower().startswith("## proposed features in scope"):
+                section = "features"
+                continue
+            if line.lower().startswith("## proposed acceptance tests"):
+                section = "tests"
+                continue
+            if not line.startswith("- "):
+                continue
+
+            body = line[2:].strip()
+            if section == "features" and body:
+                proposed_features.append(body)
+            elif section == "tests" and body:
+                chunks = [chunk.strip() for chunk in body.split("|")]
+                if len(chunks) >= 3:
+                    proposed_acceptance.append(
+                        {
+                            "id": chunks[0] or "AC-PROPOSAL",
+                            "criterion": chunks[1] or "Criterion from builder proposal",
+                            "verification_method": chunks[2] or "Browser QA with reproducible steps",
+                        }
+                    )
+
+        return proposed_features, proposed_acceptance
+
     def _build_sprint_contract(self, round_number: int) -> Path:
         acceptance = read_json(self.paths.acceptance_criteria, context="acceptance_criteria")
         backlog = read_json(self.paths.work_backlog, context="work_backlog")
+        attempted_features = self._get_attempted_features(round_number)
+        previous_criteria_ids = self._get_previously_assigned_criteria_ids(round_number)
+        proposed_features, proposed_acceptance = self._load_previous_sprint_proposal(round_number)
 
         backlog_items = backlog.get("items", []) if isinstance(backlog, dict) else []
-        in_scope = [item.get("title", "Unnamed backlog item") for item in backlog_items if item.get("status") != "done"]
-        in_scope = in_scope[:5] or ["Stabilize existing implementation and unblock QA findings"]
+        in_scope = [
+            item.get("title", "Unnamed backlog item")
+            for item in backlog_items
+            if item.get("status") != "done" and item.get("title", "").strip() not in attempted_features
+        ]
+        if proposed_features:
+            in_scope = proposed_features + in_scope
+
+        deduped_in_scope = list(dict.fromkeys([feature.strip() for feature in in_scope if feature and feature.strip()]))
+        in_scope = deduped_in_scope[:MAX_SCOPE_ITEMS] or ["Address QA blockers from previous round"]
 
         criteria = acceptance.get("criteria", []) if isinstance(acceptance, dict) else []
+        if not criteria:
+            print(
+                f"[V3.2] WARNING: acceptance_criteria.json is empty or missing for round {round_number}. "
+                "Sprint contract uses generic fallback. Consider re-running planner phase."
+            )
+
         acceptance_tests = [
             {
                 "id": criterion.get("id", f"AC-{idx+1:03d}"),
                 "criterion": criterion.get("description", "Criterion description missing"),
                 "verification_method": "Browser QA with screenshots and reproducible steps",
             }
-            for idx, criterion in enumerate(criteria[:8])
+            for idx, criterion in enumerate(criteria)
+            if criterion.get("id", f"AC-{idx+1:03d}") not in previous_criteria_ids
         ]
+        if proposed_acceptance:
+            acceptance_tests = proposed_acceptance + acceptance_tests
+
+        acceptance_tests = acceptance_tests[:MAX_ACCEPTANCE_TESTS]
         if not acceptance_tests:
             acceptance_tests = [
                 {
@@ -119,13 +203,13 @@ class Orchestrator:
         return contract_path
 
     def _print_metrics(self) -> None:
-        print("\n[V3.1] Phase timing summary:")
+        print("\n[V3.2] Phase timing summary:")
         for phase, durations in self.phase_timings.items():
             if not durations:
                 continue
             total = sum(durations)
             print(f"  {phase}: count={len(durations)} total={total:.2f}s avg={total/len(durations):.2f}s")
-        print("[V3.1] Token/cost metrics: not available from current runner interface.")
+        print("[V3.2] Token/cost metrics: not available from current runner interface.")
 
     async def run(self, resume: bool = True, planner_only: bool = False, qa_only: bool = False) -> RunState:
         self.project_dir.mkdir(parents=True, exist_ok=True)
@@ -136,7 +220,7 @@ class Orchestrator:
 
         if resume and run_state.completed:
             print(
-                f"[V3.1] Run already completed on status={run_state.status.value}. "
+                f"[V3.2] Run already completed on status={run_state.status.value}. "
                 "Use --resume=False or remove state/run_state.json to restart."
             )
             return run_state
@@ -145,23 +229,23 @@ class Orchestrator:
         shared_client: Any = None
         if continuous_session:
             model = self.model_config.builder_model
-            print(f"[V3.1] Continuous session mode enabled with model={model}")
+            print(f"[V3.2] Continuous session mode enabled with model={model}")
             shared_client = self.client_factory(self.project_dir, model, "evaluator")
         else:
             print(
-                "[V3.1] Compatibility mode enabled: per-phase model overrides require phase-scoped sessions; "
+                "[V3.2] Compatibility mode enabled: per-phase model overrides require phase-scoped sessions; "
                 "continuous shared context disabled."
             )
 
-        async def _run_loop() -> RunState:
+        async def _run_loop(client: Any = None) -> RunState:
             nonlocal run_state
             if not qa_only and not run_state.planner_complete:
-                print("[V3.1] Running planner phase")
+                print("[V3.2] Running planner phase")
                 run_state.status = RunStatus.PLANNING
                 self._save_run_state(run_state)
                 t0 = time.monotonic()
                 planner_result = await self.planner.run(
-                    self.project_dir, self.model_config.planner_model, client=shared_client
+                    self.project_dir, self.model_config.planner_model, client=client
                 )
                 self.phase_timings["planner"].append(time.monotonic() - t0)
                 run_state.planner_complete = True
@@ -176,7 +260,7 @@ class Orchestrator:
             next_round = max(1, run_state.current_round + 1)
 
             if qa_only:
-                print(f"[V3.1] Running evaluator-only mode for round {next_round}")
+                print(f"[V3.2] Running evaluator-only mode for round {next_round}")
                 sprint_contract_path = self._build_sprint_contract(next_round)
                 run_state.status = RunStatus.EVALUATING
                 self._save_run_state(run_state)
@@ -186,7 +270,7 @@ class Orchestrator:
                     self.model_config.evaluator_model,
                     next_round,
                     sprint_contract_path,
-                    client=shared_client,
+                    client=client,
                 )
                 self.phase_timings["evaluator"].append(time.monotonic() - t0)
                 run_state.current_round = next_round
@@ -209,7 +293,7 @@ class Orchestrator:
             for round_number in range(next_round, self.max_rounds + 1):
                 sprint_contract_path = self._build_sprint_contract(round_number)
 
-                print(f"[V3.1] Round {round_number}/{self.max_rounds}: builder")
+                print(f"[V3.2] Round {round_number}/{self.max_rounds}: builder")
                 run_state.status = RunStatus.BUILDING
                 self._save_run_state(run_state)
                 t0 = time.monotonic()
@@ -218,11 +302,11 @@ class Orchestrator:
                     self.model_config.builder_model,
                     round_number,
                     sprint_contract_path,
-                    client=shared_client,
+                    client=client,
                 )
                 self.phase_timings["builder"].append(time.monotonic() - t0)
 
-                print(f"[V3.1] Round {round_number}/{self.max_rounds}: evaluator")
+                print(f"[V3.2] Round {round_number}/{self.max_rounds}: evaluator")
                 run_state.status = RunStatus.EVALUATING
                 run_state.latest_summary = self._summarize(build_result.summary)
                 self._save_run_state(run_state)
@@ -232,7 +316,7 @@ class Orchestrator:
                     self.model_config.evaluator_model,
                     round_number,
                     sprint_contract_path,
-                    client=shared_client,
+                    client=client,
                 )
                 self.phase_timings["evaluator"].append(time.monotonic() - t0)
 
@@ -253,25 +337,25 @@ class Orchestrator:
                     run_state.completed = True
                     run_state.latest_summary = self._summarize(eval_result.summary)
                     self._save_run_state(run_state)
-                    print(f"[V3.1] Completed successfully in round {round_number}")
+                    print(f"[V3.2] Completed successfully in round {round_number}")
                     return run_state
 
                 run_state.status = RunStatus.BLOCKED
                 run_state.completed = False
                 run_state.latest_summary = self._summarize(eval_result.summary)
                 self._save_run_state(run_state)
-                print(f"[V3.1] Evaluator reported {eval_result.result}; continuing if rounds remain")
+                print(f"[V3.2] Evaluator reported {eval_result.result}; continuing if rounds remain")
 
-            print("[V3.1] Max rounds reached without pass")
+            print("[V3.2] Max rounds reached without pass")
             return run_state
 
         if shared_client is None:
-            final_state = await _run_loop()
+            final_state = await _run_loop(client=None)
             self._print_metrics()
             return final_state
 
         async with shared_client:
-            final_state = await _run_loop()
+            final_state = await _run_loop(client=shared_client)
 
         self._print_metrics()
         return final_state

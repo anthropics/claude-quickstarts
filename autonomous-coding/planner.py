@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Awaitable, Callable
 
 from claude_code_sdk import ClaudeSDKClient
 
 from artifacts import ArtifactPaths, read_json, write_validated_json
+from phase_types import PhaseRunner
 from prompts import get_planner_prompt
-
-PhaseRunner = Callable[[Path, str, str, str, ClaudeSDKClient | None], Awaitable[str]]
 
 
 @dataclass

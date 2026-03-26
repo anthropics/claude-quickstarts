@@ -1,11 +1,20 @@
-# Autonomous Coding Harness (V3.1)
+# Autonomous Coding Harness (V3.2)
 
-V3.1 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
+V3.2 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
 - planner -> builder -> evaluator architecture,
 - durable state and schema-validated artifacts,
 - resumable rounds,
 - strict QA gates,
 - explicit sprint contracts.
+
+## What changed from V3.1 to V3.2
+
+- **Sprint contract generation is now round-aware**: larger configurable caps, dedupe, and filtering of already-attempted scope.
+- **Contract negotiation input added**: builder now produces `planning/sprint_proposal_round_XX.md`, and orchestrator uses prior-round proposals when preparing the next round contract.
+- **Evaluator schema-hardening**: syntactically valid but schema-invalid QA reports are auto-fallbacked to deterministic `blocked`.
+- **CLI clarity improved**: `--mode v2` now prints an explicit deprecation warning before aliasing to V3.1 runtime.
+- **Resume/runtime robustness improvements**: shared client is passed explicitly to run loop (no fragile closure capture).
+- **Test suite strengthened**: additional regression checks for checkpoint status, CLI warning, and evaluator schema invalidity.
 
 ## What changed from V2 to V3.1
 
@@ -57,6 +66,11 @@ Schema-backed minimum contract:
 - `acceptance_tests[]`
 
 Builder and evaluator prompts explicitly require using this contract as the round oracle.
+
+V3.2 details:
+- Default scope cap is now 10 (`V3_2_SPRINT_MAX_SCOPE_ITEMS`) instead of the previous fixed 5.
+- Default acceptance test cap is now 12 (`V3_2_SPRINT_MAX_ACCEPTANCE_TESTS`) instead of the previous fixed 8.
+- Previously attempted features/criteria are filtered to reduce repetitive contracts across rounds.
 
 ## Artifact and backlog flow
 
@@ -128,6 +142,7 @@ This validates orchestration and artifact flow without calling live models.
 
 - Cost/token telemetry is not exposed by the current runner interface; V3.1 reports phase durations and explicitly marks token/cost metrics unavailable.
 - Compatibility mode with different phase models cannot preserve a single continuous session.
+- Sprint contract negotiation remains lightweight (proposal artifact handoff rather than live back-and-forth turn negotiation).
 
 ## Maintainer guide
 
