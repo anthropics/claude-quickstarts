@@ -50,8 +50,12 @@ def test_sprint_contract_negotiation_schema_validates() -> None:
     payload = {
         "round_number": 2,
         "status": "approved",
+        "review_mode": "deterministic",
         "max_turns": 2,
         "turns_used": 1,
+        "confidence_score": 0.9,
+        "reason_codes": [],
+        "actionable_suggestions": [],
         "feedback": [],
         "approved_features": ["Feature A"],
         "approved_acceptance_tests": [
@@ -64,3 +68,21 @@ def test_sprint_contract_negotiation_schema_validates() -> None:
     }
     ok, reason = safe_validate(payload, "sprint_contract_negotiation")
     assert ok, reason
+
+
+def test_sprint_contract_negotiation_rejects_unknown_reason_code() -> None:
+    payload = {
+        "round_number": 2,
+        "status": "changes_requested",
+        "review_mode": "llm_assisted",
+        "max_turns": 2,
+        "turns_used": 2,
+        "confidence_score": 0.4,
+        "reason_codes": ["NOT_A_REAL_CODE"],
+        "actionable_suggestions": ["Fix formatting"],
+        "feedback": ["invalid proposal"],
+        "approved_features": [],
+        "approved_acceptance_tests": [],
+    }
+    ok, _ = safe_validate(payload, "sprint_contract_negotiation")
+    assert not ok

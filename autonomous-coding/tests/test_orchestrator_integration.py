@@ -31,7 +31,12 @@ class FakeRunner:
         self.eval_calls = 0
         self.planner_calls = 0
         self.builder_calls = 0
-        self.clients_by_phase: dict[str, list[object | None]] = {"planner": [], "builder": [], "evaluator": []}
+        self.clients_by_phase: dict[str, list[object | None]] = {
+            "planner": [],
+            "builder": [],
+            "evaluator": [],
+            "contract_reviewer": [],
+        }
 
     async def __call__(
         self,
@@ -98,6 +103,16 @@ class FakeRunner:
 
         if phase in self.clients_by_phase:
             self.clients_by_phase[phase].append(client)
+        if phase == "contract_reviewer":
+            return json.dumps(
+                {
+                    "status": "changes_requested",
+                    "confidence_score": 0.61,
+                    "reason_codes": ["OUT_OF_SCOPE"],
+                    "actionable_suggestions": ["Reduce scope to one user-visible workflow."],
+                    "rationale": "Proposal exceeds current round scope.",
+                }
+            )
         return f"fake {phase}"
 
 
@@ -369,3 +384,26 @@ def test_malformed_proposal_creates_changes_requested_negotiation(tmp_path: Path
     negotiation = json.loads((tmp_path / "planning" / "sprint_contract_negotiation_round_02.json").read_text())
     assert negotiation["status"] == "changes_requested"
     assert negotiation["feedback"]
+    assert "FORMAT_ERROR" in negotiation["reason_codes"]
+    assert negotiation["review_mode"] == "deterministic"
+
+
+def test_llm_contract_review_enriches_negotiation_artifact(tmp_path: Path) -> None:
+    runner = FakeRunner(tmp_path, ["fail", "pass"])
+    orchestrator = Orchestrator(
+        project_dir=tmp_path,
+        model_config=ModelConfig("m", "m", "m"),
+        max_rounds=2,
+        phase_runner=runner,
+        client_factory=dummy_client_factory,
+        llm_contract_review=True,
+    )
+    asyncio.run(orchestrator.run(resume=False))
+
+    negotiation = json.loads((tmp_path / "planning" / "sprint_contract_negotiation_round_02.json").read_text())
+    assert negotiation["review_mode"] == "llm_assisted"
+    assert negotiation["turns_used"] == 2
+    assert negotiation["status"] == "changes_requested"
+    assert "LLM_ARBITRATION_REQUESTED" in negotiation["reason_codes"]
+    assert "OUT_OF_SCOPE" in negotiation["reason_codes"]
+    assert negotiation["confidence_score"] == pytest.approx(0.61)

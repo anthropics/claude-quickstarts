@@ -1,13 +1,23 @@
-# Autonomous Coding Harness (V3.5)
+# Autonomous Coding Harness (V3.5.2)
 
-V3.5 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
+V3.5.2 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
 - planner -> builder -> evaluator architecture,
 - durable state and schema-validated artifacts,
 - resumable rounds,
 - strict QA gates,
 - explicit sprint contracts,
-- explicit proposal negotiation artifacts before round contract merge.
+- explicit proposal negotiation artifacts before round contract merge,
+- enriched negotiation metadata (`reason_codes`, confidence, actionable suggestions),
+- optional evaluator-model arbitration for contract review (`--llm-contract-review`).
 - best-effort token/cost observability persisted in `state/run_state.json`.
+
+## What changed from V3.5.1 to V3.5.2
+
+- **Negotiation artifact enrichment**: `planning/sprint_contract_negotiation_round_XX.json` now supports structured `reason_codes`, `confidence_score`, `actionable_suggestions`, and explicit `review_mode` (`deterministic|llm_assisted`).
+- **Reason-code analytics primitives**: deterministic negotiation now emits typed failure causes (e.g., `FORMAT_ERROR`, `DUPLICATE_AC`, `EMPTY_PROPOSAL`, `PROPOSAL_MISSING`) to enable future dashboards without adding one yet.
+- **Optional LLM arbitration**: new CLI flag `--llm-contract-review` enables evaluator-model arbitration for proposal review when explicit adjudication is needed.
+- **Backward compatibility preserved**: legacy `status` (`approved|changes_requested`) and existing negotiation flow remain valid by default.
+- **Version marker uplift**: runtime and telemetry log markers were aligned to V3.5.2 for easier operations audit.
 
 ## What changed from V3.4 to V3.5
 
@@ -94,11 +104,13 @@ Schema-backed minimum contract:
 
 Builder and evaluator prompts explicitly require using this contract as the round oracle.
 
-V3.5 details:
+V3.5.2 details:
 - Default scope cap is 10 (`V3_4_SPRINT_MAX_SCOPE_ITEMS`, fallback `V3_2_SPRINT_MAX_SCOPE_ITEMS`).
 - Default acceptance test cap is 12 (`V3_4_SPRINT_MAX_ACCEPTANCE_TESTS`, fallback `V3_2_SPRINT_MAX_ACCEPTANCE_TESTS`).
 - Negotiation turn cap is 2 (`V3_4_MAX_NEGOTIATION_TURNS`).
 - Previously attempted features/criteria are filtered to reduce repetitive contracts across rounds.
+- Negotiation schema supports typed `reason_codes` and optional `confidence_score`/`actionable_suggestions`.
+- LLM arbitration can be enabled with `--llm-contract-review`; default remains deterministic negotiation.
 - Estimated telemetry pricing can be tuned with:
   - `V3_5_EST_INPUT_USD_PER_1M`
   - `V3_5_EST_OUTPUT_USD_PER_1M`
@@ -149,6 +161,11 @@ Fresh run:
 python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
 ```
 
+Fresh run with optional LLM contract arbitration:
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --llm-contract-review
+```
+
 Resume run:
 ```bash
 python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --resume
@@ -175,7 +192,7 @@ This validates orchestration and artifact flow without calling live models.
 
 - Cost/token telemetry remains best-effort (estimated from prompt/response text size) until first-class SDK usage fields are exposed by the runner interface.
 - Compatibility mode with different phase models cannot preserve a single continuous session.
-- Sprint contract negotiation remains lightweight (proposal artifact handoff rather than live back-and-forth turn negotiation).
+- Sprint contract negotiation remains lightweight (proposal artifact handoff rather than live back-and-forth turn negotiation); typed reason-code analytics are ready for a future dashboard rollout.
 
 ## Maintainer guide
 

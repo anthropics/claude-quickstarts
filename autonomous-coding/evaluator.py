@@ -47,7 +47,7 @@ class EvaluatorPhase:
         summary = await self.runner(project_dir, model, prompt, "evaluator", client)
         usage = estimate_usage(prompt, summary)
         print(
-            "[V3.5] LLM call evaluator "
+            "[V3.5.2] LLM call evaluator "
             f"tokens(in={usage.input_tokens},out={usage.output_tokens},total={usage.total_tokens}) "
             f"est_cost=${usage.estimated_cost_usd:.6f}"
         )
@@ -72,7 +72,7 @@ class EvaluatorPhase:
 
         ok, reason = safe_validate(report, "qa_report")
         if not ok:
-            print(f"[V3.5] QA report failed schema validation: {reason}. Using blocked fallback.")
+            print(f"[V3.5.2] QA report failed schema validation: {reason}. Using blocked fallback.")
             report = fallback_report
 
         write_validated_json(report_json_path, report, "qa_report")

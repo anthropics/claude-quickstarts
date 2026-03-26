@@ -1,10 +1,11 @@
-"""V3.4 autonomous coding orchestrator (planner -> builder -> evaluator)."""
+"""V3.5.2 autonomous coding orchestrator (planner -> builder -> evaluator)."""
 
 from __future__ import annotations
 
 import os
 import time
 from dataclasses import dataclass
+import json
 from pathlib import Path
 from typing import Any
 
@@ -23,7 +24,17 @@ MAX_ACCEPTANCE_TESTS = int(
     os.environ.get("V3_4_SPRINT_MAX_ACCEPTANCE_TESTS", os.environ.get("V3_2_SPRINT_MAX_ACCEPTANCE_TESTS", "12"))
 )
 MAX_NEGOTIATION_TURNS = int(os.environ.get("V3_4_MAX_NEGOTIATION_TURNS", "2"))
-LOG_VERSION_TAG = "V3.5"
+LOG_VERSION_TAG = "V3.5.2"
+
+NEGOTIATION_REASON_CODES = {
+    "FORMAT_ERROR",
+    "DUPLICATE_AC",
+    "OUT_OF_SCOPE",
+    "EMPTY_PROPOSAL",
+    "PROPOSAL_MISSING",
+    "LLM_ARBITRATION_REQUESTED",
+    "LLM_RESPONSE_INVALID",
+}
 
 
 @dataclass
@@ -43,6 +54,7 @@ class Orchestrator:
         max_rounds: int,
         phase_runner: PhaseRunner,
         client_factory: ClientFactory = create_client,
+        llm_contract_review: bool = False,
     ):
         self.project_dir = project_dir
         self.paths = ArtifactPaths(project_dir)
@@ -51,6 +63,7 @@ class Orchestrator:
         self.max_rounds = max_rounds
         self.phase_runner = phase_runner
         self.client_factory = client_factory
+        self.llm_contract_review = llm_contract_review
         self.planner = PlannerPhase(phase_runner)
         self.builder = BuilderPhase(phase_runner)
         self.evaluator = EvaluatorPhase(phase_runner)
@@ -212,12 +225,152 @@ class Orchestrator:
 
         return proposed_features, proposed_acceptance, parse_issues
 
-    def _review_proposal_and_write_negotiation(
+    def _derive_reason_codes(
+        self,
+        parse_issues: list[str],
+        proposed_features: list[str],
+        proposed_acceptance: list[dict[str, str]],
+    ) -> list[str]:
+        codes: list[str] = []
+
+        if not proposed_features and not proposed_acceptance:
+            codes.append("EMPTY_PROPOSAL")
+
+        if any(issue.startswith("proposal_missing_round_") for issue in parse_issues):
+            codes.append("PROPOSAL_MISSING")
+
+        if any("invalid acceptance test format" in issue or "unknown section" in issue for issue in parse_issues):
+            codes.append("FORMAT_ERROR")
+
+        seen: set[str] = set()
+        duplicate_found = False
+        for test in proposed_acceptance:
+            test_id = str(test.get("id", "")).strip()
+            if not test_id:
+                continue
+            if test_id in seen:
+                duplicate_found = True
+                break
+            seen.add(test_id)
+        if duplicate_found:
+            codes.append("DUPLICATE_AC")
+
+        return list(dict.fromkeys(codes))
+
+    def _build_contract_review_prompt(
         self,
         round_number: int,
         proposed_features: list[str],
         proposed_acceptance: list[dict[str, str]],
         parse_issues: list[str],
+        deterministic_status: str,
+        deterministic_feedback: list[str],
+        deterministic_reason_codes: list[str],
+    ) -> str:
+        allowed_codes = ", ".join(sorted(NEGOTIATION_REASON_CODES))
+        proposal_payload = {
+            "round_number": round_number,
+            "proposed_features": proposed_features,
+            "proposed_acceptance_tests": proposed_acceptance,
+            "parse_issues": parse_issues,
+            "deterministic_review": {
+                "status": deterministic_status,
+                "feedback": deterministic_feedback,
+                "reason_codes": deterministic_reason_codes,
+            },
+        }
+        return (
+            "You are an evaluator contract reviewer for sprint-contract negotiation.\n"
+            "Return STRICT JSON only (no markdown).\n"
+            "Required keys: status, confidence_score, reason_codes, actionable_suggestions, rationale.\n"
+            'status must be "approved" or "changes_requested".\n'
+            "confidence_score must be a float from 0.0 to 1.0.\n"
+            f"reason_codes must be an array of values from: {allowed_codes}.\n"
+            "actionable_suggestions must be short, concrete bullets for builder/planner.\n"
+            "rationale must be brief and deterministic.\n\n"
+            "Input payload:\n"
+            f"{json.dumps(proposal_payload, indent=2)}"
+        )
+
+    async def _llm_review_proposal(
+        self,
+        round_number: int,
+        proposed_features: list[str],
+        proposed_acceptance: list[dict[str, str]],
+        parse_issues: list[str],
+        deterministic_status: str,
+        deterministic_feedback: list[str],
+        deterministic_reason_codes: list[str],
+        client: Any = None,
+    ) -> dict[str, Any]:
+        prompt = self._build_contract_review_prompt(
+            round_number,
+            proposed_features,
+            proposed_acceptance,
+            parse_issues,
+            deterministic_status,
+            deterministic_feedback,
+            deterministic_reason_codes,
+        )
+        response = await self.phase_runner(
+            self.project_dir,
+            self.model_config.evaluator_model,
+            prompt,
+            "contract_reviewer",
+            client,
+        )
+        try:
+            payload = json.loads(response)
+        except json.JSONDecodeError:
+            return {
+                "status": deterministic_status,
+                "confidence_score": 0.0,
+                "reason_codes": ["LLM_RESPONSE_INVALID"],
+                "actionable_suggestions": [],
+                "rationale": "LLM contract review returned invalid JSON; deterministic review retained.",
+            }
+
+        status = payload.get("status")
+        if status not in {"approved", "changes_requested"}:
+            status = deterministic_status
+
+        confidence = payload.get("confidence_score", 0.0)
+        try:
+            confidence_score = float(confidence)
+        except (TypeError, ValueError):
+            confidence_score = 0.0
+        confidence_score = max(0.0, min(1.0, confidence_score))
+
+        raw_codes = payload.get("reason_codes", [])
+        reason_codes = [
+            code for code in raw_codes if isinstance(code, str) and code in NEGOTIATION_REASON_CODES
+        ]
+        reason_codes = list(dict.fromkeys(reason_codes))
+        if not reason_codes:
+            reason_codes = ["LLM_RESPONSE_INVALID"]
+
+        raw_suggestions = payload.get("actionable_suggestions", [])
+        suggestions = [item for item in raw_suggestions if isinstance(item, str) and item.strip()][:5]
+
+        rationale = payload.get("rationale", "")
+        if not isinstance(rationale, str):
+            rationale = ""
+
+        return {
+            "status": status,
+            "confidence_score": confidence_score,
+            "reason_codes": reason_codes,
+            "actionable_suggestions": suggestions,
+            "rationale": rationale.strip(),
+        }
+
+    async def _review_proposal_and_write_negotiation(
+        self,
+        round_number: int,
+        proposed_features: list[str],
+        proposed_acceptance: list[dict[str, str]],
+        parse_issues: list[str],
+        client: Any = None,
     ) -> dict[str, Any]:
         feedback = list(parse_issues)
         status = "approved"
@@ -226,13 +379,46 @@ class Orchestrator:
             feedback.append("Proposal did not contain any actionable feature or acceptance test bullet.")
         if parse_issues:
             status = "changes_requested"
+        reason_codes = self._derive_reason_codes(parse_issues, proposed_features, proposed_acceptance)
+        confidence_score = 1.0 if status == "approved" else 0.35
+        actionable_suggestions: list[str] = []
+        review_mode = "deterministic"
+        llm_rationale = ""
+        turns_used = 1
+
+        if self.llm_contract_review and round_number > 1:
+            llm_review = await self._llm_review_proposal(
+                round_number,
+                proposed_features,
+                proposed_acceptance,
+                parse_issues,
+                status,
+                feedback,
+                reason_codes,
+                client,
+            )
+            review_mode = "llm_assisted"
+            turns_used = min(MAX_NEGOTIATION_TURNS, 2)
+            status = llm_review["status"]
+            confidence_score = llm_review["confidence_score"]
+            actionable_suggestions = llm_review["actionable_suggestions"]
+            llm_rationale = llm_review["rationale"]
+            reason_codes = list(dict.fromkeys(reason_codes + ["LLM_ARBITRATION_REQUESTED"] + llm_review["reason_codes"]))
+            if llm_rationale:
+                feedback.append(f"llm_arbitration: {llm_rationale}")
+            if actionable_suggestions:
+                feedback.extend([f"suggestion: {suggestion}" for suggestion in actionable_suggestions])
 
         review_payload = {
             "round_number": round_number,
             "status": status,
             "max_turns": MAX_NEGOTIATION_TURNS,
-            "turns_used": 1,
+            "turns_used": turns_used,
             "feedback": feedback,
+            "reason_codes": reason_codes,
+            "confidence_score": confidence_score,
+            "actionable_suggestions": actionable_suggestions,
+            "review_mode": review_mode,
             "approved_features": proposed_features if status == "approved" else [],
             "approved_acceptance_tests": proposed_acceptance if status == "approved" else [],
         }
@@ -245,17 +431,18 @@ class Orchestrator:
             print(f"[{LOG_VERSION_TAG}] INFO: round {round_number} proposal review feedback: {feedback}")
         return review_payload
 
-    def _build_sprint_contract(self, round_number: int) -> Path:
+    async def _build_sprint_contract(self, round_number: int, client: Any = None) -> Path:
         acceptance = read_json(self.paths.acceptance_criteria, context="acceptance_criteria")
         backlog = read_json(self.paths.work_backlog, context="work_backlog")
         attempted_features = self._get_attempted_features(round_number)
         previous_criteria_ids = self._get_previously_assigned_criteria_ids(round_number)
         proposed_features, proposed_acceptance, parse_issues = self._load_previous_sprint_proposal(round_number)
-        negotiation = self._review_proposal_and_write_negotiation(
+        negotiation = await self._review_proposal_and_write_negotiation(
             round_number,
             proposed_features,
             proposed_acceptance,
             parse_issues,
+            client=client,
         )
 
         backlog_items = backlog.get("items", []) if isinstance(backlog, dict) else []
@@ -399,7 +586,7 @@ class Orchestrator:
 
             if qa_only:
                 print(f"[{LOG_VERSION_TAG}] Running evaluator-only mode for round {next_round}")
-                sprint_contract_path = self._build_sprint_contract(next_round)
+                sprint_contract_path = await self._build_sprint_contract(next_round, client=client)
                 run_state.status = RunStatus.EVALUATING
                 self._save_run_state(run_state)
                 t0 = time.monotonic()
@@ -430,7 +617,7 @@ class Orchestrator:
                 return run_state
 
             for round_number in range(next_round, self.max_rounds + 1):
-                sprint_contract_path = self._build_sprint_contract(round_number)
+                sprint_contract_path = await self._build_sprint_contract(round_number, client=client)
 
                 print(f"[{LOG_VERSION_TAG}] Round {round_number}/{self.max_rounds}: builder")
                 run_state.status = RunStatus.BUILDING
