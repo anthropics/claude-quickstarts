@@ -1,202 +1,237 @@
 # Autonomous Coding Harness (V3.5.2)
 
-V3.5.2 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
-- planner -> builder -> evaluator architecture,
-- durable state and schema-validated artifacts,
-- resumable rounds,
-- strict QA gates,
-- explicit sprint contracts,
-- explicit proposal negotiation artifacts before round contract merge,
-- enriched negotiation metadata (`reason_codes`, confidence, actionable suggestions),
-- optional evaluator-model arbitration for contract review (`--llm-contract-review`).
-- best-effort token/cost observability persisted in `state/run_state.json`.
+Harness d’automatisation de développement basé sur un cycle **Planner → Builder → Evaluator**, avec artefacts JSON validés par schéma, reprise de session (`--resume`) et garde-fous QA/sécurité.
 
-## What changed from V3.5.1 to V3.5.2
+> 📌 Le détail des évolutions par version est désormais dans `CHANGELOG.md` (et **plus** dans ce README).
 
-- **Negotiation artifact enrichment**: `planning/sprint_contract_negotiation_round_XX.json` now supports structured `reason_codes`, `confidence_score`, `actionable_suggestions`, and explicit `review_mode` (`deterministic|llm_assisted`).
-- **Reason-code analytics primitives**: deterministic negotiation now emits typed failure causes (e.g., `FORMAT_ERROR`, `DUPLICATE_AC`, `EMPTY_PROPOSAL`, `PROPOSAL_MISSING`) to enable future dashboards without adding one yet.
-- **Optional LLM arbitration**: new CLI flag `--llm-contract-review` enables evaluator-model arbitration for proposal review when explicit adjudication is needed.
-- **Backward compatibility preserved**: legacy `status` (`approved|changes_requested`) and existing negotiation flow remain valid by default.
-- **Version marker uplift**: runtime and telemetry log markers were aligned to V3.5.2 for easier operations audit.
+## 1) Objectif du projet
 
-## What changed from V3.4 to V3.5
+Ce projet sert à piloter un cycle de développement autonome sur un dossier cible (`--project-dir`) en :
+- planifiant le travail,
+- implémentant des changements,
+- évaluant les résultats avec critères d’acceptation,
+- conservant un état durable pour reprendre sans perdre le contexte.
 
-- **Best-effort token/cost telemetry integrated into run state**: each phase run appends estimated `input_tokens`, `output_tokens`, `total_tokens`, and `estimated_cost_usd` into cumulative `llm_usage` metrics in `state/run_state.json`.
-- **Lightweight progress telemetry**: concise non-verbose usage lines now print both at LLM-call level and at phase-end cumulative level.
-- **Resume-safe accounting**: `--resume` continues from the existing `llm_usage` counters without resetting prior totals.
-- **Schema-backed run state update**: `schemas/run_state.schema.json` now validates `llm_usage` structure and per-phase totals for deterministic artifact quality.
+Le flux est pensé pour des itérations multi-rounds avec contrats de sprint explicites et reporting QA structuré.
 
-## What changed from V3.3 to V3.4
+## 2) Schéma de fonctionnement
 
-- **Contract negotiation artifact introduced**: each round now emits `planning/sprint_contract_negotiation_round_XX.json` (schema-backed), recording `approved|changes_requested`, feedback, and approved proposal payload used for contract merge.
-- **Acceptance test progression hardening**: proposed acceptance tests are now normalized, filtered against previously assigned IDs, and deduplicated before entering new sprint contracts.
-- **Proposal parsing tightened**: malformed proposal bullets now generate deterministic review feedback and do not silently leak into contracts.
-- **Version/log consistency cleanup**: orchestrator and prompts now use V3.4 markers for reliable operations and auditability.
-- **Telemetry clarity**: metrics output now explicitly documents the token/cost instrumentation gap as an operational action item.
-
-## What changed from V3.2 to V3.3
-
-- **Traceability restored and versioned cleanly**: `V3_1_TRACEABILITY_MATRIX.md` was restored to its original V3.1 content, and V3.3 changes are tracked in `V3_3_TRACEABILITY_MATRIX.md`.
-- **Sprint proposal path contract formalized**: proposal artifact paths are now exposed via `ArtifactPaths.sprint_proposal_md(...)` to avoid hard-coded path drift.
-- **Round progression hardening**: proposed features from builder proposals are now filtered against previously attempted features before being merged into new scope.
-- **Builder typing/prompt correctness fixes**: explicit `ClaudeSDKClient` import added and proposal filename instruction now uses real round numbering (no literal `XX`).
-- **Proposal parser robustness**: parser resets section state on unknown markdown headers and logs when expected proposal files are missing.
-- **Operator visibility improvements**: explicit warnings are now emitted for empty `work_backlog.json` and missing prior sprint contracts used for criteria deduplication.
-- **Prompt/version consistency and test hardening**: planner/evaluator prompt headers now target V3.3; round-two proposal integration test now guards against duplicate scope entries.
-
-## What changed from V3.1 to V3.2
-
-- **Sprint contract generation is now round-aware**: larger configurable caps, dedupe, and filtering of already-attempted scope.
-- **Contract negotiation input added**: builder now produces `planning/sprint_proposal_round_XX.md`, and orchestrator uses prior-round proposals when preparing the next round contract.
-- **Evaluator schema-hardening**: syntactically valid but schema-invalid QA reports are auto-fallbacked to deterministic `blocked`.
-- **CLI clarity improved**: `--mode v2` now prints an explicit deprecation warning before aliasing to V3.1 runtime.
-- **Resume/runtime robustness improvements**: shared client is passed explicitly to run loop (no fragile closure capture).
-- **Test suite strengthened**: additional regression checks for checkpoint status, CLI warning, and evaluator schema invalidity.
-
-## What changed from V2 to V3.1
-
-- **Primary execution path is now continuous session** across planner/builder/evaluator (single SDK client session with SDK compaction).
-- **Sprint contract artifacts** are generated per round and enforced by builder + evaluator.
-- **Builder silent fallback removed**: empty builder output now raises explicit runtime error.
-- **Resume behavior hardened**:
-  - no restart on already completed run,
-  - no premature round checkpoint before successful execution.
-- **Robust JSON artifact handling** with deterministic fallback for malformed evaluator reports.
-- **Expanded QA discipline in prompts** (preflight checks, graded criteria, hard thresholds, pass/fail/blocked semantics).
-
-## Architecture
-
-Core modules:
-- `orchestrator.py`: round control, resume logic, model/session strategy, sprint contract creation, timings.
-- `planner.py`: planning artifact enforcement.
-- `builder.py`: implementation phase execution + strict non-empty output.
-- `evaluator.py`: QA report ingestion with blocked fallback behavior.
-- `artifacts.py`: deterministic paths, schema validation, cached schema loads.
-- `state_models.py`: typed state and run status models.
-
-## Session model strategy (continuity vs overrides)
-
-- **Primary V3.1 path**: all phase models identical => shared continuous client session.
-- **Compatibility mode**: per-phase model overrides differ => phase-scoped sessions (continuity intentionally disabled and explicitly logged).
-
-Recommended for maximum continuity:
-```bash
-python autonomous-coding/autonomous_agent_demo.py --model claude-opus-4-6
+```mermaid
+flowchart LR
+    A[app_spec.txt] --> B[Planner]
+    B --> C[Artifacts planning/*]
+    C --> D[Sprint contract round XX]
+    D --> E[Builder]
+    E --> F[build_report_round_XX.md]
+    E --> G[Code changes in project-dir]
+    D --> H[Evaluator]
+    F --> H
+    G --> H
+    H --> I[qa_report_round_XX.json/.md]
+    I --> J[state/round_state_XX.json]
+    J --> K[state/run_state.json]
+    K -->|resume| B
 ```
 
-Advanced compatibility mode:
+## 3) Architecture (modules clés)
+
+- `autonomous_agent_demo.py` : point d’entrée CLI (modes, flags, orchestration runtime).  
+- `orchestrator.py` : boucle de rounds, reprise, progression, création contrats de sprint.  
+- `planner.py` : production des artefacts de planification.  
+- `builder.py` : exécution implémentation + rapport de build.  
+- `evaluator.py` : QA finale, statut pass/fail/blocked.  
+- `artifacts.py` : chemins d’artefacts + validation de schémas JSON.  
+- `client.py` et `security.py` : configuration SDK, sandbox, permissions outils, hooks Bash.  
+- `state_models.py` : modèles de l’état d’exécution.
+
+## 4) Prérequis obligatoires
+
+## 4.1 Linux
+
+- Python **3.10+** recommandé.
+- `pip` disponible.
+- `npx` (Node.js) recommandé pour les outils MCP navigateur (Playwright/Puppeteer).
+- Clé API Anthropic: `ANTHROPIC_API_KEY` (sauf mode `--dry-run`).
+
+Vérification rapide :
+
 ```bash
-python autonomous-coding/autonomous_agent_demo.py \
-  --planner-model claude-opus-4-6 \
-  --builder-model claude-opus-4-6 \
-  --evaluator-model claude-sonnet-4-6
+python3 --version
+pip --version
+npx --version
 ```
 
-## Sprint contracts
+## 4.2 Windows (PowerShell)
 
-For each round, orchestrator writes:
-- `planning/sprint_contract_round_XX.json`
+- Python **3.10+** recommandé.
+- `pip` fonctionnel.
+- Node.js (pour `npx`) recommandé.
+- Variable d’environnement `ANTHROPIC_API_KEY` (sauf `--dry-run`).
 
-Schema-backed minimum contract:
-- `round_number`
-- `features_in_scope`
-- `acceptance_tests[]`
+Vérification rapide :
 
-Builder and evaluator prompts explicitly require using this contract as the round oracle.
+```powershell
+python --version
+pip --version
+npx --version
+```
 
-V3.5.2 details:
-- Default scope cap is 10 (`V3_4_SPRINT_MAX_SCOPE_ITEMS`, fallback `V3_2_SPRINT_MAX_SCOPE_ITEMS`).
-- Default acceptance test cap is 12 (`V3_4_SPRINT_MAX_ACCEPTANCE_TESTS`, fallback `V3_2_SPRINT_MAX_ACCEPTANCE_TESTS`).
-- Negotiation turn cap is 2 (`V3_4_MAX_NEGOTIATION_TURNS`).
-- Previously attempted features/criteria are filtered to reduce repetitive contracts across rounds.
-- Negotiation schema supports typed `reason_codes` and optional `confidence_score`/`actionable_suggestions`.
-- LLM arbitration can be enabled with `--llm-contract-review`; default remains deterministic negotiation.
-- Estimated telemetry pricing can be tuned with:
-  - `V3_5_EST_INPUT_USD_PER_1M`
-  - `V3_5_EST_OUTPUT_USD_PER_1M`
-  - `V3_5_EST_CHARS_PER_TOKEN`
+## 5) Installation
 
-## Artifact and backlog flow
+Depuis la racine du repo :
 
-Planner outputs:
+```bash
+pip install -r autonomous-coding/requirements.txt
+```
+
+Dépendances principales :
+- `claude-code-sdk`
+- `jsonschema`
+- `pytest`
+
+## 6) Configuration
+
+### 6.1 Variables d’environnement
+
+Linux/macOS :
+
+```bash
+export ANTHROPIC_API_KEY="votre_cle"
+```
+
+Windows PowerShell :
+
+```powershell
+$env:ANTHROPIC_API_KEY="votre_cle"
+```
+
+### 6.2 Fichiers importants à connaître
+
+- `prompts/app_spec.txt` : spec applicative de base copiée dans le projet cible pour initialiser le contexte produit.
+- `artifacts/qa_report_template.json` : exemple/template de structure de rapport QA.
+- `schemas/*.schema.json` : contrats JSON officiels (run state, backlog, contrat sprint, QA, etc.).
+- `.claude_settings.json` (généré dans `--project-dir`) : sandbox + permissions outils autorisés.
+
+> Le “fichier JSON pour commencer” auquel on pense souvent est en pratique le couple :
+> - `planning/work_backlog.json` (généré par le Planner),
+> - et les schémas dans `schemas/` qui imposent la structure.
+
+## 7) Utilisation détaillée
+
+Commande de base :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
+```
+
+Le dossier effectif est normalisé sous `generations/` quand un chemin relatif est fourni.
+
+### 7.1 Commandes principales
+
+- Exécution standard :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
+```
+
+- Reprise d’un run existant :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --resume
+```
+
+- Dry-run (sans appel LLM distant) :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --dry-run
+```
+
+- Planification uniquement :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --planner-only
+```
+
+- QA uniquement :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --qa-only
+```
+
+- Activer la revue de contrat assistée LLM :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --llm-contract-review
+```
+
+### 7.2 Flags CLI (résumé)
+
+- `--project-dir` : dossier du projet cible.
+- `--mode {v3_1,v2,v1}` : runtime (v2 est alias déprécié).
+- `--model` : même modèle pour toutes les phases.
+- `--planner-model` / `--builder-model` / `--evaluator-model` : override par phase.
+- `--max-rounds` : nombre max de rounds.
+- `--max-iterations` : uniquement mode v1.
+- `--resume` : reprendre sur l’état existant.
+- `--dry-run` : test orchestration sans API live.
+- `--planner-only` / `--qa-only` : exécution partielle.
+- `--llm-contract-review` : arbitrage modèle côté négociation de contrat.
+
+## 8) Artefacts produits
+
+Dans `--project-dir` (souvent `generations/<nom>`):
+
 - `planning/expanded_spec.md`
 - `planning/architecture.md`
 - `planning/acceptance_criteria.json`
 - `planning/work_backlog.json`
-
-Round outputs:
 - `planning/sprint_contract_round_XX.json`
 - `planning/sprint_contract_negotiation_round_XX.json`
 - `builder/build_report_round_XX.md`
 - `qa/qa_report_round_XX.json`
 - `qa/qa_report_round_XX.md`
 - `state/round_state_XX.json`
-
-Run state:
 - `state/run_state.json`
 
-## Security
+## 9) Fonctionnalités couvertes
 
-Security is preserved with layered controls:
-- SDK sandbox enabled.
-- Explicit filesystem/tool permissions in `.claude_settings.json`.
-- Bash pre-tool hook allowlist in `security.py`.
-- Risky commands receive extra validation (`pkill`, `chmod`, `init.sh`).
-- `pnpm` is allowlisted for modern frontend dependency workflows.
+- Orchestration multi-phase (planner/builder/evaluator).
+- Contrats de sprint explicites par round.
+- Négociation de contrat avec raison structurée (`reason_codes`, etc.).
+- Validation schéma JSON des artefacts.
+- Reprise de run robuste via état persistant.
+- Telemetry token/coût (estimation best-effort).
+- Garde-fous sécurité (sandbox + permissions + hooks Bash).
+- Support outillage navigateur MCP (Playwright prioritaire, Puppeteer fallback).
 
-## Running
+## 10) Tests et validation efficaces
 
-Install dependencies:
-```bash
-pip install -r autonomous-coding/requirements.txt
-```
-
-Set API key for live runs:
-```bash
-export ANTHROPIC_API_KEY='your-key'
-```
-
-Fresh run:
-```bash
-python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
-```
-
-Fresh run with optional LLM contract arbitration:
-```bash
-python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --llm-contract-review
-```
-
-Resume run:
-```bash
-python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --resume
-```
-
-If a run is already completed, `--resume` will stop with a clear message and will not silently relaunch.
-
-## Dry-run / deterministic harness check
+Exécuter les tests unitaires/intégration locale :
 
 ```bash
-python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --dry-run
+pytest autonomous-coding/tests autonomous-coding/test_security.py autonomous-coding/test_security_hook.py -q
 ```
 
-This validates orchestration and artifact flow without calling live models.
+Tester le flux complet sans coûts API :
 
-## Troubleshooting
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./smoke_demo --dry-run
+```
 
-- Missing API key: set `ANTHROPIC_API_KEY` (except with `--dry-run`).
-- Schema validation errors: inspect artifact JSON against `schemas/*.schema.json`.
-- Browser QA blocked: ensure app server is reachable and MCP tooling can start.
-- Resume behavior: inspect `state/run_state.json` + latest `state/round_state_XX.json`.
+Vérifier la cohérence des artefacts JSON :
+- inspecter les fichiers sous `state/`, `planning/`, `qa/`,
+- confirmer l’alignement avec `schemas/*.schema.json`.
 
-## Real limitations
+## 11) Dépannage rapide
 
-- Cost/token telemetry remains best-effort (estimated from prompt/response text size) until first-class SDK usage fields are exposed by the runner interface.
-- Compatibility mode with different phase models cannot preserve a single continuous session.
-- Sprint contract negotiation remains lightweight (proposal artifact handoff rather than live back-and-forth turn negotiation); typed reason-code analytics are ready for a future dashboard rollout.
+- **`ANTHROPIC_API_KEY` absent** : requis hors `--dry-run`.
+- **Erreurs de schéma JSON** : valider les artefacts contre `schemas/*.schema.json`.
+- **Run bloqué en reprise** : vérifier `state/run_state.json` et le dernier `state/round_state_XX.json`.
+- **QA navigateur indisponible** : vérifier Node.js/`npx` et l’exécution MCP.
 
-## Maintainer guide
+## 12) Bonnes pratiques d’exploitation
 
-- Keep `state/run_state.json` semantics stable.
-- Every new structured artifact must have a schema and tests.
-- Prefer explicit failures over silent fallback success.
-- Keep evaluator as the final authority on pass/fail/blocked.
+- Toujours démarrer par une spec claire dans `app_spec.txt`.
+- Garder `work_backlog.json` et critères d’acceptation concis et testables.
+- Favoriser `--dry-run` pour valider la tuyauterie avant run live.
+- Utiliser `--resume` plutôt que relancer de zéro pour préserver la traçabilité.
