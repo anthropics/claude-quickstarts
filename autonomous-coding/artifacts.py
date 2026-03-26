@@ -10,6 +10,7 @@ from typing import Any
 from jsonschema import ValidationError, validate
 
 SCHEMA_DIR = Path(__file__).parent / "schemas"
+LOG_VERSION_TAG = "V3.4"
 
 
 class ArtifactPaths:
@@ -53,6 +54,9 @@ class ArtifactPaths:
         """Builder proposal captured for round N and consumed by round N+1 planning."""
         return self.planning_dir / f"sprint_proposal_round_{round_number:02d}.md"
 
+    def sprint_contract_negotiation_json(self, round_number: int) -> Path:
+        return self.planning_dir / f"sprint_contract_negotiation_round_{round_number:02d}.json"
+
     def round_state(self, round_number: int) -> Path:
         return self.state_dir / f"round_state_{round_number:02d}.json"
 
@@ -92,7 +96,7 @@ def read_json(
         return json.loads(path.read_text())
     except json.JSONDecodeError as exc:
         print(
-            f"[V3.2] Warning: malformed JSON for {context} at {path}: {exc}. "
+            f"[{LOG_VERSION_TAG}] Warning: malformed JSON for {context} at {path}: {exc}. "
             "Using deterministic fallback."
         )
         return fallback

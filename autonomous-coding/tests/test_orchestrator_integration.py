@@ -286,3 +286,64 @@ def test_round_two_contract_uses_previous_builder_proposal(tmp_path: Path) -> No
     duplicates = {feature for feature, count in counts.items() if count > 1}
     assert not duplicates, f"Duplicate features in round 2 contract: {duplicates}"
     assert any(test["id"] == "AC-NEXT-1" for test in contract_round_02["acceptance_tests"])
+
+
+def test_round_two_contract_dedups_proposed_acceptance_ids(tmp_path: Path) -> None:
+    class ProposalRunner(FakeRunner):
+        async def __call__(self, project_dir: Path, model: str, prompt: str, phase: str, client=None) -> str:
+            result = await super().__call__(project_dir, model, prompt, phase, client)
+            if phase == "builder" and self.builder_calls == 1:
+                proposal = project_dir / "planning" / "sprint_proposal_round_01.md"
+                proposal.write_text(
+                    "# Sprint Proposal Round 01\n\n"
+                    "## Proposed features in scope\n"
+                    "- Feature A\n\n"
+                    "## Proposed acceptance tests\n"
+                    "- AC-1 | Duplicate of prior criterion | Browser QA path A\n"
+                    "- AC-NEW | New criterion | Browser QA path B\n"
+                    "- AC-NEW | Duplicate proposal id | Browser QA path C\n"
+                )
+            return result
+
+    runner = ProposalRunner(tmp_path, ["fail", "pass"])
+    orchestrator = Orchestrator(
+        project_dir=tmp_path,
+        model_config=ModelConfig("m", "m", "m"),
+        max_rounds=2,
+        phase_runner=runner,
+        client_factory=dummy_client_factory,
+    )
+    asyncio.run(orchestrator.run(resume=False))
+
+    contract_round_02 = json.loads((tmp_path / "planning" / "sprint_contract_round_02.json").read_text())
+    ids = [item["id"] for item in contract_round_02["acceptance_tests"]]
+    assert "AC-1" not in ids
+    assert ids.count("AC-NEW") == 1
+
+
+def test_malformed_proposal_creates_changes_requested_negotiation(tmp_path: Path) -> None:
+    class MalformedProposalRunner(FakeRunner):
+        async def __call__(self, project_dir: Path, model: str, prompt: str, phase: str, client=None) -> str:
+            result = await super().__call__(project_dir, model, prompt, phase, client)
+            if phase == "builder" and self.builder_calls == 1:
+                proposal = project_dir / "planning" / "sprint_proposal_round_01.md"
+                proposal.write_text(
+                    "# Sprint Proposal Round 01\n\n"
+                    "## Proposed acceptance tests\n"
+                    "- missing separators line\n"
+                )
+            return result
+
+    runner = MalformedProposalRunner(tmp_path, ["fail", "pass"])
+    orchestrator = Orchestrator(
+        project_dir=tmp_path,
+        model_config=ModelConfig("m", "m", "m"),
+        max_rounds=2,
+        phase_runner=runner,
+        client_factory=dummy_client_factory,
+    )
+    asyncio.run(orchestrator.run(resume=False))
+
+    negotiation = json.loads((tmp_path / "planning" / "sprint_contract_negotiation_round_02.json").read_text())
+    assert negotiation["status"] == "changes_requested"
+    assert negotiation["feedback"]

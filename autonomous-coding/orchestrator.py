@@ -1,4 +1,4 @@
-"""V3.3 autonomous coding orchestrator (planner -> builder -> evaluator)."""
+"""V3.4 autonomous coding orchestrator (planner -> builder -> evaluator)."""
 
 from __future__ import annotations
 
@@ -17,8 +17,12 @@ from planner import PlannerPhase
 from state_models import RoundState, RunState, RunStatus
 
 SUMMARY_MAX_CHARS = int(os.environ.get("V3_1_SUMMARY_MAX_CHARS", "8000"))
-MAX_SCOPE_ITEMS = int(os.environ.get("V3_2_SPRINT_MAX_SCOPE_ITEMS", "10"))
-MAX_ACCEPTANCE_TESTS = int(os.environ.get("V3_2_SPRINT_MAX_ACCEPTANCE_TESTS", "12"))
+MAX_SCOPE_ITEMS = int(os.environ.get("V3_4_SPRINT_MAX_SCOPE_ITEMS", os.environ.get("V3_2_SPRINT_MAX_SCOPE_ITEMS", "10")))
+MAX_ACCEPTANCE_TESTS = int(
+    os.environ.get("V3_4_SPRINT_MAX_ACCEPTANCE_TESTS", os.environ.get("V3_2_SPRINT_MAX_ACCEPTANCE_TESTS", "12"))
+)
+MAX_NEGOTIATION_TURNS = int(os.environ.get("V3_4_MAX_NEGOTIATION_TURNS", "2"))
+LOG_VERSION_TAG = "V3.4"
 
 
 @dataclass
@@ -99,7 +103,7 @@ class Orchestrator:
             prev_contract = self.paths.sprint_contract_json(prev_round)
             if not prev_contract.exists():
                 print(
-                    f"[V3.3] INFO: sprint_contract_round_{prev_round:02d}.json not found; "
+                    f"[{LOG_VERSION_TAG}] INFO: sprint_contract_round_{prev_round:02d}.json not found; "
                     f"criteria deduplication for round {round_number} may be incomplete."
                 )
                 continue
@@ -113,22 +117,31 @@ class Orchestrator:
                         assigned.add(test_id.strip())
         return assigned
 
-    def _load_previous_sprint_proposal(self, round_number: int) -> tuple[list[str], list[dict[str, str]]]:
+    def _normalize_acceptance_id(self, value: str, idx: int, round_number: int) -> str:
+        normalized = "-".join(value.strip().split())
+        if normalized:
+            return normalized
+        return f"AC-PROPOSAL-R{round_number:02d}-{idx:03d}"
+
+    def _load_previous_sprint_proposal(
+        self, round_number: int
+    ) -> tuple[list[str], list[dict[str, str]], list[str]]:
         if round_number <= 1:
-            return [], []
+            return [], [], []
 
         proposal_path = self.paths.sprint_proposal_md(round_number - 1)
         if not proposal_path.exists():
             print(
-                f"[V3.3] INFO: No sprint proposal found for round {round_number - 1} "
+                f"[{LOG_VERSION_TAG}] INFO: No sprint proposal found for round {round_number - 1} "
                 f"(expected at {proposal_path}). Contract built from backlog only."
             )
-            return [], []
+            return [], [], [f"proposal_missing_round_{round_number - 1:02d}"]
 
         proposed_features: list[str] = []
         proposed_acceptance: list[dict[str, str]] = []
+        parse_issues: list[str] = []
         section = ""
-        for raw_line in proposal_path.read_text().splitlines():
+        for line_number, raw_line in enumerate(proposal_path.read_text().splitlines(), start=1):
             line = raw_line.strip()
             if line.startswith("##"):
                 if "proposed features in scope" in line.lower():
@@ -149,25 +162,73 @@ class Orchestrator:
                 if len(chunks) >= 3:
                     proposed_acceptance.append(
                         {
-                            "id": chunks[0] or "AC-PROPOSAL",
+                            "id": self._normalize_acceptance_id(chunks[0], len(proposed_acceptance) + 1, round_number),
                             "criterion": chunks[1] or "Criterion from builder proposal",
                             "verification_method": chunks[2] or "Browser QA with reproducible steps",
                         }
                     )
+                else:
+                    parse_issues.append(
+                        f"line_{line_number}: invalid acceptance test format; expected "
+                        "'- ID | Criterion | Verification method'"
+                    )
+            elif body:
+                parse_issues.append(
+                    f"line_{line_number}: bullet under unknown section ignored"
+                )
 
-        return proposed_features, proposed_acceptance
+        return proposed_features, proposed_acceptance, parse_issues
+
+    def _review_proposal_and_write_negotiation(
+        self,
+        round_number: int,
+        proposed_features: list[str],
+        proposed_acceptance: list[dict[str, str]],
+        parse_issues: list[str],
+    ) -> dict[str, Any]:
+        feedback = list(parse_issues)
+        status = "approved"
+        if not proposed_features and not proposed_acceptance:
+            status = "changes_requested"
+            feedback.append("Proposal did not contain any actionable feature or acceptance test bullet.")
+        if parse_issues:
+            status = "changes_requested"
+
+        review_payload = {
+            "round_number": round_number,
+            "status": status,
+            "max_turns": MAX_NEGOTIATION_TURNS,
+            "turns_used": 1,
+            "feedback": feedback,
+            "approved_features": proposed_features if status == "approved" else [],
+            "approved_acceptance_tests": proposed_acceptance if status == "approved" else [],
+        }
+        write_validated_json(
+            self.paths.sprint_contract_negotiation_json(round_number),
+            review_payload,
+            "sprint_contract_negotiation",
+        )
+        if feedback:
+            print(f"[{LOG_VERSION_TAG}] INFO: round {round_number} proposal review feedback: {feedback}")
+        return review_payload
 
     def _build_sprint_contract(self, round_number: int) -> Path:
         acceptance = read_json(self.paths.acceptance_criteria, context="acceptance_criteria")
         backlog = read_json(self.paths.work_backlog, context="work_backlog")
         attempted_features = self._get_attempted_features(round_number)
         previous_criteria_ids = self._get_previously_assigned_criteria_ids(round_number)
-        proposed_features, proposed_acceptance = self._load_previous_sprint_proposal(round_number)
+        proposed_features, proposed_acceptance, parse_issues = self._load_previous_sprint_proposal(round_number)
+        negotiation = self._review_proposal_and_write_negotiation(
+            round_number,
+            proposed_features,
+            proposed_acceptance,
+            parse_issues,
+        )
 
         backlog_items = backlog.get("items", []) if isinstance(backlog, dict) else []
         if not backlog_items:
             print(
-                f"[V3.3] WARNING: work_backlog.json is empty or missing for round {round_number}. "
+                f"[{LOG_VERSION_TAG}] WARNING: work_backlog.json is empty or missing for round {round_number}. "
                 "Sprint scope uses generic fallback. Consider re-running planner phase."
             )
         in_scope = [
@@ -175,7 +236,7 @@ class Orchestrator:
             for item in backlog_items
             if item.get("status") != "done" and item.get("title", "").strip() not in attempted_features
         ]
-        if proposed_features:
+        if negotiation["status"] == "approved" and proposed_features:
             new_proposals = [feature for feature in proposed_features if feature.strip() not in attempted_features]
             in_scope = new_proposals + in_scope
 
@@ -185,7 +246,7 @@ class Orchestrator:
         criteria = acceptance.get("criteria", []) if isinstance(acceptance, dict) else []
         if not criteria:
             print(
-                f"[V3.3] WARNING: acceptance_criteria.json is empty or missing for round {round_number}. "
+                f"[{LOG_VERSION_TAG}] WARNING: acceptance_criteria.json is empty or missing for round {round_number}. "
                 "Sprint contract uses generic fallback. Consider re-running planner phase."
             )
 
@@ -198,8 +259,33 @@ class Orchestrator:
             for idx, criterion in enumerate(criteria)
             if criterion.get("id", f"AC-{idx+1:03d}") not in previous_criteria_ids
         ]
-        if proposed_acceptance:
-            acceptance_tests = proposed_acceptance + acceptance_tests
+        deduped_acceptance: list[dict[str, str]] = []
+        seen_ids: set[str] = set()
+        for test in acceptance_tests:
+            test_id = str(test.get("id", "")).strip()
+            if not test_id or test_id in seen_ids:
+                continue
+            seen_ids.add(test_id)
+            deduped_acceptance.append(test)
+
+        if negotiation["status"] == "approved" and proposed_acceptance:
+            for idx, proposed in enumerate(proposed_acceptance, start=1):
+                proposed_id = self._normalize_acceptance_id(proposed.get("id", ""), idx, round_number)
+                if proposed_id in previous_criteria_ids or proposed_id in seen_ids:
+                    continue
+                seen_ids.add(proposed_id)
+                deduped_acceptance.insert(
+                    0,
+                    {
+                        "id": proposed_id,
+                        "criterion": proposed.get("criterion", "Criterion from builder proposal"),
+                        "verification_method": proposed.get(
+                            "verification_method", "Browser QA with screenshots and reproducible steps"
+                        ),
+                    },
+                )
+
+        acceptance_tests = deduped_acceptance
 
         acceptance_tests = acceptance_tests[:MAX_ACCEPTANCE_TESTS]
         if not acceptance_tests:
@@ -221,13 +307,16 @@ class Orchestrator:
         return contract_path
 
     def _print_metrics(self) -> None:
-        print("\n[V3.2] Phase timing summary:")
+        print(f"\n[{LOG_VERSION_TAG}] Phase timing summary:")
         for phase, durations in self.phase_timings.items():
             if not durations:
                 continue
             total = sum(durations)
             print(f"  {phase}: count={len(durations)} total={total:.2f}s avg={total/len(durations):.2f}s")
-        print("[V3.2] Token/cost metrics: not available from current runner interface.")
+        print(
+            f"[{LOG_VERSION_TAG}] Token/cost metrics: "
+            "not available from current runner interface; integrate SDK usage telemetry for cost governance."
+        )
 
     async def run(self, resume: bool = True, planner_only: bool = False, qa_only: bool = False) -> RunState:
         self.project_dir.mkdir(parents=True, exist_ok=True)
@@ -238,7 +327,7 @@ class Orchestrator:
 
         if resume and run_state.completed:
             print(
-                f"[V3.2] Run already completed on status={run_state.status.value}. "
+                f"[{LOG_VERSION_TAG}] Run already completed on status={run_state.status.value}. "
                 "Use --resume=False or remove state/run_state.json to restart."
             )
             return run_state
@@ -247,18 +336,18 @@ class Orchestrator:
         shared_client: Any = None
         if continuous_session:
             model = self.model_config.builder_model
-            print(f"[V3.2] Continuous session mode enabled with model={model}")
+            print(f"[{LOG_VERSION_TAG}] Continuous session mode enabled with model={model}")
             shared_client = self.client_factory(self.project_dir, model, "evaluator")
         else:
             print(
-                "[V3.2] Compatibility mode enabled: per-phase model overrides require phase-scoped sessions; "
+                f"[{LOG_VERSION_TAG}] Compatibility mode enabled: per-phase model overrides require phase-scoped sessions; "
                 "continuous shared context disabled."
             )
 
         async def _run_loop(client: Any = None) -> RunState:
             nonlocal run_state
             if not qa_only and not run_state.planner_complete:
-                print("[V3.2] Running planner phase")
+                print(f"[{LOG_VERSION_TAG}] Running planner phase")
                 run_state.status = RunStatus.PLANNING
                 self._save_run_state(run_state)
                 t0 = time.monotonic()
@@ -278,7 +367,7 @@ class Orchestrator:
             next_round = max(1, run_state.current_round + 1)
 
             if qa_only:
-                print(f"[V3.2] Running evaluator-only mode for round {next_round}")
+                print(f"[{LOG_VERSION_TAG}] Running evaluator-only mode for round {next_round}")
                 sprint_contract_path = self._build_sprint_contract(next_round)
                 run_state.status = RunStatus.EVALUATING
                 self._save_run_state(run_state)
@@ -311,7 +400,7 @@ class Orchestrator:
             for round_number in range(next_round, self.max_rounds + 1):
                 sprint_contract_path = self._build_sprint_contract(round_number)
 
-                print(f"[V3.2] Round {round_number}/{self.max_rounds}: builder")
+                print(f"[{LOG_VERSION_TAG}] Round {round_number}/{self.max_rounds}: builder")
                 run_state.status = RunStatus.BUILDING
                 self._save_run_state(run_state)
                 t0 = time.monotonic()
@@ -324,7 +413,7 @@ class Orchestrator:
                 )
                 self.phase_timings["builder"].append(time.monotonic() - t0)
 
-                print(f"[V3.2] Round {round_number}/{self.max_rounds}: evaluator")
+                print(f"[{LOG_VERSION_TAG}] Round {round_number}/{self.max_rounds}: evaluator")
                 run_state.status = RunStatus.EVALUATING
                 run_state.latest_summary = self._summarize(build_result.summary)
                 self._save_run_state(run_state)
@@ -355,16 +444,16 @@ class Orchestrator:
                     run_state.completed = True
                     run_state.latest_summary = self._summarize(eval_result.summary)
                     self._save_run_state(run_state)
-                    print(f"[V3.2] Completed successfully in round {round_number}")
+                    print(f"[{LOG_VERSION_TAG}] Completed successfully in round {round_number}")
                     return run_state
 
                 run_state.status = RunStatus.BLOCKED
                 run_state.completed = False
                 run_state.latest_summary = self._summarize(eval_result.summary)
                 self._save_run_state(run_state)
-                print(f"[V3.2] Evaluator reported {eval_result.result}; continuing if rounds remain")
+                print(f"[{LOG_VERSION_TAG}] Evaluator reported {eval_result.result}; continuing if rounds remain")
 
-            print("[V3.2] Max rounds reached without pass")
+            print(f"[{LOG_VERSION_TAG}] Max rounds reached without pass")
             return run_state
 
         if shared_client is None:

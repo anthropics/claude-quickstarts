@@ -1,4 +1,4 @@
-"""Evaluator / QA phase for autonomous coding V3.2."""
+"""Evaluator / QA phase for autonomous coding V3.4."""
 
 from __future__ import annotations
 
@@ -64,7 +64,7 @@ class EvaluatorPhase:
 
         ok, reason = safe_validate(report, "qa_report")
         if not ok:
-            print(f"[V3.2] QA report failed schema validation: {reason}. Using blocked fallback.")
+            print(f"[V3.4] QA report failed schema validation: {reason}. Using blocked fallback.")
             report = fallback_report
 
         write_validated_json(report_json_path, report, "qa_report")
