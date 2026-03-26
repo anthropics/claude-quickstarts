@@ -153,6 +153,9 @@ def test_resume_skips_planner(tmp_path: Path) -> None:
     assert state.current_round == 2
     assert runner2.planner_calls == 0
     assert runner2.eval_calls == 1
+    usage = state.llm_usage
+    assert usage["calls_total"] >= 3
+    assert usage["by_phase"]["planner"]["calls"] == 1
 
 
 def test_resume_completed_run_does_not_restart(tmp_path: Path) -> None:
@@ -319,6 +322,25 @@ def test_round_two_contract_dedups_proposed_acceptance_ids(tmp_path: Path) -> No
     ids = [item["id"] for item in contract_round_02["acceptance_tests"]]
     assert "AC-1" not in ids
     assert ids.count("AC-NEW") == 1
+
+
+def test_run_state_persists_llm_usage_metrics(tmp_path: Path) -> None:
+    runner = FakeRunner(tmp_path, ["pass"])
+    orchestrator = Orchestrator(
+        project_dir=tmp_path,
+        model_config=ModelConfig("m", "m", "m"),
+        max_rounds=1,
+        phase_runner=runner,
+        client_factory=dummy_client_factory,
+    )
+    state = asyncio.run(orchestrator.run(resume=False))
+    usage = state.llm_usage
+    assert usage["calls_total"] == 3
+    assert usage["totals"]["total_tokens"] > 0
+    assert usage["totals"]["estimated_cost_usd"] > 0
+    assert usage["by_phase"]["planner"]["calls"] == 1
+    assert usage["by_phase"]["builder"]["calls"] == 1
+    assert usage["by_phase"]["evaluator"]["calls"] == 1
 
 
 def test_malformed_proposal_creates_changes_requested_negotiation(tmp_path: Path) -> None:

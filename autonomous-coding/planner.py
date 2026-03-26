@@ -8,6 +8,7 @@ from pathlib import Path
 from claude_code_sdk import ClaudeSDKClient
 
 from artifacts import ArtifactPaths, read_json, write_validated_json
+from metrics import UsageEstimate, estimate_usage
 from phase_types import PhaseRunner
 from prompts import get_planner_prompt
 
@@ -15,6 +16,7 @@ from prompts import get_planner_prompt
 @dataclass
 class PlannerResult:
     summary: str
+    usage: UsageEstimate
 
 
 class PlannerPhase:
@@ -26,7 +28,14 @@ class PlannerPhase:
     async def run(self, project_dir: Path, model: str, client: ClaudeSDKClient | None = None) -> PlannerResult:
         paths = ArtifactPaths(project_dir)
         paths.ensure_dirs()
-        summary = await self.runner(project_dir, model, get_planner_prompt(), "planner", client)
+        prompt = get_planner_prompt()
+        summary = await self.runner(project_dir, model, prompt, "planner", client)
+        usage = estimate_usage(prompt, summary)
+        print(
+            "[V3.5] LLM call planner "
+            f"tokens(in={usage.input_tokens},out={usage.output_tokens},total={usage.total_tokens}) "
+            f"est_cost=${usage.estimated_cost_usd:.6f}"
+        )
 
         acceptance = read_json(paths.acceptance_criteria, context="acceptance_criteria")
         if not acceptance:
@@ -63,4 +72,4 @@ class PlannerPhase:
             if not doc_path.exists():
                 doc_path.write_text(default)
 
-        return PlannerResult(summary=summary)
+        return PlannerResult(summary=summary, usage=usage)
