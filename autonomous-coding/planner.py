@@ -1,4 +1,4 @@
-"""Planner phase for autonomous coding V3.1."""
+"""Planner phase for autonomous coding V3.4."""
 
 from __future__ import annotations
 

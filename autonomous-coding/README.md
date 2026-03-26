@@ -1,11 +1,20 @@
-# Autonomous Coding Harness (V3.3)
+# Autonomous Coding Harness (V3.4)
 
-V3.3 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
+V3.4 is a production-focused autonomous coding harness aligned with Anthropic's long-running harness patterns:
 - planner -> builder -> evaluator architecture,
 - durable state and schema-validated artifacts,
 - resumable rounds,
 - strict QA gates,
-- explicit sprint contracts.
+- explicit sprint contracts,
+- explicit proposal negotiation artifacts before round contract merge.
+
+## What changed from V3.3 to V3.4
+
+- **Contract negotiation artifact introduced**: each round now emits `planning/sprint_contract_negotiation_round_XX.json` (schema-backed), recording `approved|changes_requested`, feedback, and approved proposal payload used for contract merge.
+- **Acceptance test progression hardening**: proposed acceptance tests are now normalized, filtered against previously assigned IDs, and deduplicated before entering new sprint contracts.
+- **Proposal parsing tightened**: malformed proposal bullets now generate deterministic review feedback and do not silently leak into contracts.
+- **Version/log consistency cleanup**: orchestrator and prompts now use V3.4 markers for reliable operations and auditability.
+- **Telemetry clarity**: metrics output now explicitly documents the token/cost instrumentation gap as an operational action item.
 
 ## What changed from V3.2 to V3.3
 
@@ -77,9 +86,10 @@ Schema-backed minimum contract:
 
 Builder and evaluator prompts explicitly require using this contract as the round oracle.
 
-V3.2 details:
-- Default scope cap is now 10 (`V3_2_SPRINT_MAX_SCOPE_ITEMS`) instead of the previous fixed 5.
-- Default acceptance test cap is now 12 (`V3_2_SPRINT_MAX_ACCEPTANCE_TESTS`) instead of the previous fixed 8.
+V3.4 details:
+- Default scope cap is 10 (`V3_4_SPRINT_MAX_SCOPE_ITEMS`, fallback `V3_2_SPRINT_MAX_SCOPE_ITEMS`).
+- Default acceptance test cap is 12 (`V3_4_SPRINT_MAX_ACCEPTANCE_TESTS`, fallback `V3_2_SPRINT_MAX_ACCEPTANCE_TESTS`).
+- Negotiation turn cap is 2 (`V3_4_MAX_NEGOTIATION_TURNS`).
 - Previously attempted features/criteria are filtered to reduce repetitive contracts across rounds.
 
 ## Artifact and backlog flow
@@ -92,6 +102,7 @@ Planner outputs:
 
 Round outputs:
 - `planning/sprint_contract_round_XX.json`
+- `planning/sprint_contract_negotiation_round_XX.json`
 - `builder/build_report_round_XX.md`
 - `qa/qa_report_round_XX.json`
 - `qa/qa_report_round_XX.md`

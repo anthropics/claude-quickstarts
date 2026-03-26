@@ -1,4 +1,4 @@
-## ROLE: BUILDER PHASE (V3.2)
+## ROLE: BUILDER PHASE (V3.4)
 
 You are the builder in a three-phase autonomous coding harness.
 

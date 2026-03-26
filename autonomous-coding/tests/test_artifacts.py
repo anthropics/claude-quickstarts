@@ -44,3 +44,23 @@ def test_sprint_contract_schema_validates() -> None:
     }
     ok, reason = safe_validate(payload, "sprint_contract")
     assert ok, reason
+
+
+def test_sprint_contract_negotiation_schema_validates() -> None:
+    payload = {
+        "round_number": 2,
+        "status": "approved",
+        "max_turns": 2,
+        "turns_used": 1,
+        "feedback": [],
+        "approved_features": ["Feature A"],
+        "approved_acceptance_tests": [
+            {
+                "id": "AC-100",
+                "criterion": "User can persist preference",
+                "verification_method": "Browser QA",
+            }
+        ],
+    }
+    ok, reason = safe_validate(payload, "sprint_contract_negotiation")
+    assert ok, reason
