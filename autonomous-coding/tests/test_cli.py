@@ -25,3 +25,13 @@ def test_parse_args_model_override(monkeypatch) -> None:
 def test_normalize_project_dir_handles_dot_prefix() -> None:
     normalized = cli._normalize_project_dir(Path("./generations/myproject"))
     assert normalized == Path("generations/myproject")
+
+
+def test_main_warns_when_v2_mode_is_used(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["prog", "--mode", "v2", "--project-dir", "./tmp-project", "--dry-run", "--max-rounds", "1"],
+    )
+    cli.main()
+    output = capsys.readouterr().out
+    assert "deprecated and aliased to v3_1" in output

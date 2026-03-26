@@ -1,17 +1,16 @@
-"""Evaluator / QA phase for autonomous coding V3.1."""
+"""Evaluator / QA phase for autonomous coding V3.2."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Awaitable, Callable
+from typing import Awaitable
 
 from claude_code_sdk import ClaudeSDKClient
 
-from artifacts import ArtifactPaths, read_json, write_validated_json
+from artifacts import ArtifactPaths, read_json, safe_validate, write_validated_json
+from phase_types import PhaseRunner
 from prompts import get_evaluator_prompt
-
-PhaseRunner = Callable[[Path, str, str, str, ClaudeSDKClient | None], Awaitable[str]]
 
 
 @dataclass
@@ -62,6 +61,11 @@ class EvaluatorPhase:
         }
         report = read_json(report_json_path, default=fallback_report, context="qa_report")
         if "result" not in report:
+            report = fallback_report
+
+        ok, reason = safe_validate(report, "qa_report")
+        if not ok:
+            print(f"[V3.2] QA report failed schema validation: {reason}. Using blocked fallback.")
             report = fallback_report
 
         write_validated_json(report_json_path, report, "qa_report")
