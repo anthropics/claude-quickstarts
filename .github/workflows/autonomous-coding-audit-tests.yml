@@ -1,0 +1,77 @@
+name: autonomous-coding-audit-tests
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/autonomous-coding-audit-tests.yml
+      - autonomous-coding/**
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/autonomous-coding-audit-tests.yml
+      - autonomous-coding/**
+
+jobs:
+  audit-and-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: autonomous-coding
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: autonomous-coding/requirements.txt
+
+      - name: Install dependencies and audit tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pip-audit
+
+      - name: Dependency audit
+        run: pip-audit -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests test_security.py test_security_hook.py -q
+
+      - name: Run 5 dry-run smoke commands (no remote LLM)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          MODE_OPTIONS=("v3_1" "v1")
+          AUTH_OPTIONS=("auto" "cli")
+          EXTRA_OPTIONS=("--planner-only" "--llm-contract-review" "")
+          TARGET_OPTIONS=("80" "120" "200" "260")
+
+          run_dry_command() {
+            local idx="$1"
+            local mode auth extra target rounds iterations project_dir cmd
+
+            mode="$(printf '%s\n' "${MODE_OPTIONS[@]}" | shuf -n1)"
+            auth="$(printf '%s\n' "${AUTH_OPTIONS[@]}" | shuf -n1)"
+            extra="$(printf '%s\n' "${EXTRA_OPTIONS[@]}" | shuf -n1)"
+            target="$(printf '%s\n' "${TARGET_OPTIONS[@]}" | shuf -n1)"
+
+            project_dir="./ci_dry_run_${idx}"
+            rounds="--max-rounds 1"
+            iterations=""
+
+            if [[ "$mode" == "v1" ]]; then
+              rounds=""
+              iterations="--max-iterations 1"
+            fi
+
+            cmd="python autonomous_agent_demo.py --project-dir ${project_dir} --dry-run --mode ${mode} --target-tests ${target} --auth-mode ${auth} ${rounds} ${iterations} ${extra}"
+
+            echo "[$idx/5] Executing: $cmd"
+            eval "$cmd"
+          }
+
+          for i in 1 2 3 4 5; do
+            run_dry_command "$i"
+          done
