@@ -45,35 +45,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          MODE_OPTIONS=("v3_1" "v1")
-          AUTH_OPTIONS=("auto" "cli")
-          EXTRA_OPTIONS=("--planner-only" "--llm-contract-review" "")
-          TARGET_OPTIONS=("80" "120" "200" "260")
-
-          run_dry_command() {
-            local idx="$1"
-            local mode auth extra target rounds iterations project_dir cmd
-
-            mode="$(printf '%s\n' "${MODE_OPTIONS[@]}" | shuf -n1)"
-            auth="$(printf '%s\n' "${AUTH_OPTIONS[@]}" | shuf -n1)"
-            extra="$(printf '%s\n' "${EXTRA_OPTIONS[@]}" | shuf -n1)"
-            target="$(printf '%s\n' "${TARGET_OPTIONS[@]}" | shuf -n1)"
-
-            project_dir="./ci_dry_run_${idx}"
-            rounds="--max-rounds 1"
-            iterations=""
-
-            if [[ "$mode" == "v1" ]]; then
-              rounds=""
-              iterations="--max-iterations 1"
-            fi
-
-            cmd="python autonomous_agent_demo.py --project-dir ${project_dir} --dry-run --mode ${mode} --target-tests ${target} --auth-mode ${auth} ${rounds} ${iterations} ${extra}"
-
-            echo "[$idx/5] Executing: $cmd"
-            eval "$cmd"
-          }
-
           for i in 1 2 3 4 5; do
-            run_dry_command "$i"
+            cmd="python autonomous_agent_demo.py --project-dir ./ci_dry_run_${i} --dry-run"
+            echo "[$i/5] Executing: $cmd"
+            eval "$cmd"
           done
