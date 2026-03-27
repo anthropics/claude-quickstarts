@@ -2,6 +2,13 @@
 
 Toutes les évolutions notables du module `autonomous-coding` sont listées ici.
 
+## [3.6.1] - 2026-03-27
+
+### Changed
+- Priorité renforcée sur Playwright MCP en mode **headless par défaut** dans la configuration client (`client.py`).
+- Clarification des consignes QA/prompts pour imposer Playwright headless en chemin principal, avec Puppeteer seulement en fallback.
+- Mise à jour de la documentation versionnée (README + traceability consolidée) pour refléter cette politique navigateur.
+
 ## [3.6.0] - 2026-03-27
 
 ### Added

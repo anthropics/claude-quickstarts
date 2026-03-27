@@ -1,4 +1,4 @@
-# Autonomous Coding Harness (V3.6.0)
+# Autonomous Coding Harness (V3.6.1)
 
 Harness d’automatisation de développement basé sur un cycle **Planner → Builder → Evaluator**, avec artefacts JSON validés par schéma, reprise de session (`--resume`) et garde-fous QA/sécurité.
 
@@ -223,7 +223,7 @@ Dans `--project-dir` (souvent `generations/<nom>`):
 - Reprise de run robuste via état persistant.
 - Telemetry token/coût (estimation best-effort).
 - Garde-fous sécurité (sandbox + permissions + hooks Bash).
-- Support outillage navigateur MCP (Playwright prioritaire, Puppeteer fallback).
+- Support outillage navigateur MCP (**Playwright prioritaire en mode headless par défaut**, Puppeteer fallback).
 
 ## 10) Tests et validation efficaces
 

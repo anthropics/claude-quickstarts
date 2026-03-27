@@ -1,6 +1,16 @@
-# TRACEABILITY_MATRIX — Consolidated (v3.6.0)
+# TRACEABILITY_MATRIX — Consolidated (v3.6.1)
 
 > Concatenation intégrale des matrices existantes, sans altération du contenu source.
+
+---
+
+## Source: `V3_6_1_TRACEABILITY_MATRIX.md`
+
+# V3.6.1 Traceability Matrix
+
+| Finding ID | Severity | Requirement summary | Files impacted | Implementation action | Test / validation evidence | Final status | Notes / tradeoffs |
+|---|---|---|---|---|---|---|---|
+| N7-M-01 | P1 | Forcer Playwright headless par défaut et l’indiquer explicitement | `client.py`, `tests/test_client_auth.py`, `README.md`, `prompts/evaluator_prompt.md`, `prompts/coding_prompt.md`, `CHANGELOG.md`, `TRACEABILITY_MATRIX.md` | Updated browser MCP config to launch Playwright with `--headless` in the default path, added unit coverage, and aligned docs/prompts/changelog on “Playwright headless first, Puppeteer fallback only” | `pytest autonomous-coding/tests/test_client_auth.py -q` | fixed | No phase/security contract changed; only default browser launch policy and traceability/docs wording were updated |
 
 ---
 
