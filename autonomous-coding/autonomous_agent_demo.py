@@ -50,7 +50,7 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=None,
         help="Target minimum test count for planning/initialization prompts across modes (default: 200).",
- main
+
     )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
