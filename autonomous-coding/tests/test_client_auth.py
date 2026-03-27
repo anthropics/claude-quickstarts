@@ -54,3 +54,17 @@ def test_validate_auth_configuration_auto_accepts_api_key(monkeypatch, tmp_path:
     monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
 
     client.validate_auth_configuration("auto")
+
+
+def test_browser_config_prefers_playwright_headless_by_default() -> None:
+    tools, servers = client._browser_config()
+    assert tools == client.PLAYWRIGHT_TOOLS
+    assert servers["playwright"]["command"] == "npx"
+    assert servers["playwright"]["args"] == ["@playwright/mcp@latest", "--headless"]
+    assert "puppeteer" in servers
+
+
+def test_browser_config_allows_explicit_puppeteer_fallback() -> None:
+    tools, servers = client._browser_config("puppeteer")
+    assert tools == client.PUPPETEER_TOOLS
+    assert servers == {"puppeteer": {"command": "npx", "args": ["puppeteer-mcp-server"]}}

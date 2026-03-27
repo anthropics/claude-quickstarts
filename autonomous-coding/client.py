@@ -97,7 +97,8 @@ def validate_auth_configuration(auth_mode: AuthMode) -> None:
 def _browser_config(preferred: str = "playwright") -> tuple[list[str], dict]:
     """Return allowed browser tools and MCP server config.
 
-    Playwright is preferred; Puppeteer is retained as fallback.
+    Playwright is preferred and launched headless by default.
+    Puppeteer is retained as fallback.
     """
     if preferred == "puppeteer":
         return PUPPETEER_TOOLS, {
@@ -105,7 +106,7 @@ def _browser_config(preferred: str = "playwright") -> tuple[list[str], dict]:
         }
 
     return PLAYWRIGHT_TOOLS, {
-        "playwright": {"command": "npx", "args": ["@playwright/mcp@latest"]},
+        "playwright": {"command": "npx", "args": ["@playwright/mcp@latest", "--headless"]},
         "puppeteer": {"command": "npx", "args": ["puppeteer-mcp-server"]},
     }
 
