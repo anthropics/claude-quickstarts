@@ -190,6 +190,15 @@ python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --a
 python autonomous-coding/autonomous_agent_demo.py --mode v1 --project-dir ./my_project --target-tests 300
 ```
 
+<<<<<<< codex/add-flag-argument-for-test-count-e9qou9
+- Mode v3_1 avec cible de backlog planifiée :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --mode v3_1 --project-dir ./my_project --target-tests 300
+```
+
+=======
+>>>>>>> main
 ### 7.2 Flags CLI (résumé)
 
 - `--project-dir` : dossier du projet cible.
@@ -198,7 +207,11 @@ python autonomous-coding/autonomous_agent_demo.py --mode v1 --project-dir ./my_p
 - `--planner-model` / `--builder-model` / `--evaluator-model` : override par phase.
 - `--max-rounds` : nombre max de rounds.
 - `--max-iterations` : uniquement mode v1.
+<<<<<<< codex/add-flag-argument-for-test-count-e9qou9
+- `--target-tests` : nombre cible minimum de tests appliqué aux prompts de planification/initialisation (défaut explicite: 200 avec warning).
+=======
 - `--target-tests` : nombre cible de tests initiaux en mode v1 (défaut explicite: 200 avec warning).
+>>>>>>> main
 - `--resume` : reprendre sur l’état existant.
 - `--dry-run` : test orchestration sans API live.
 - `--planner-only` / `--qa-only` : exécution partielle.

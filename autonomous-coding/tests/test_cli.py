@@ -72,6 +72,21 @@ def test_main_warns_when_target_tests_default_is_used(monkeypatch, capsys) -> No
     assert "--target-tests not provided; defaulting to 200" in output
 
 
+<<<<<<< codex/add-flag-argument-for-test-count-e9qou9
+def test_main_warns_when_target_tests_default_is_used_in_v3_1(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["prog", "--mode", "v3_1", "--project-dir", "./tmp-project", "--dry-run"])
+
+    async def fake_run_v3_1(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(cli, "_run_v3_1", fake_run_v3_1)
+    cli.main()
+    output = capsys.readouterr().out
+    assert "--target-tests not provided; defaulting to 200" in output
+
+
+=======
+>>>>>>> main
 def test_main_rejects_non_positive_target_tests(monkeypatch, capsys) -> None:
     monkeypatch.setattr("sys.argv", ["prog", "--target-tests", "0", "--dry-run"])
     cli.main()
