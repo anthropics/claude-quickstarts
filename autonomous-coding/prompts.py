@@ -15,8 +15,9 @@ def load_prompt_file(filename: str) -> str:
     return path.read_text()
 
 
-def get_initializer_prompt() -> str:
-    return load_prompt_file("initializer_prompt.md")
+def get_initializer_prompt(target_test_count: int = 200) -> str:
+    prompt = load_prompt_file("initializer_prompt.md")
+    return prompt.replace("{{TARGET_TEST_COUNT}}", str(target_test_count))
 
 
 def get_coding_prompt() -> str:
