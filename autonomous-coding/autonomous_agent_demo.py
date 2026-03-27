@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
-"""Autonomous coding harness entrypoint (V3.5.2 runtime, V1 compatibility mode)."""
+"""Autonomous coding harness entrypoint (V3.6.0 runtime, V1 compatibility mode)."""
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import os
+from functools import partial
 from pathlib import Path
 
 from agent import run_autonomous_agent, run_phase_session
+from client import create_client, validate_auth_configuration
 from orchestrator import ModelConfig, Orchestrator
 from progress import print_progress_summary
 from prompts import copy_spec_to_project
@@ -48,6 +49,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--planner-only", action="store_true")
     parser.add_argument("--qa-only", action="store_true")
+    parser.add_argument(
+        "--auth-mode",
+        choices=["api_key", "cli", "auto"],
+        default="api_key",
+        help="Authentication mode for Claude SDK client",
+    )
     parser.add_argument(
         "--llm-contract-review",
         action="store_true",
@@ -99,6 +106,8 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
     orchestrator_kwargs = {}
     if args.dry_run:
         orchestrator_kwargs["client_factory"] = _dry_run_client_factory
+    else:
+        orchestrator_kwargs["client_factory"] = partial(create_client, auth_mode=args.auth_mode)
 
     orchestrator = Orchestrator(
         project_dir=project_dir,
@@ -120,9 +129,12 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
 def main() -> None:
     args = parse_args()
 
-    if not args.dry_run and not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY environment variable not set")
-        return
+    if not args.dry_run:
+        try:
+            validate_auth_configuration(args.auth_mode)
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            return
 
     project_dir = _normalize_project_dir(args.project_dir)
     project_dir.mkdir(parents=True, exist_ok=True)
@@ -135,6 +147,7 @@ def main() -> None:
                     project_dir=project_dir,
                     model=model,
                     max_iterations=args.max_iterations,
+                    auth_mode=args.auth_mode,
                 )
             )
         elif args.mode == "v2":

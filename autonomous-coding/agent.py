@@ -64,6 +64,7 @@ async def run_phase_session(
     prompt: str,
     phase: str,
     client: ClaudeSDKClient | None = None,
+    auth_mode: str = "api_key",
 ) -> str:
     """Run one phase and return plain-text summary.
 
@@ -73,7 +74,7 @@ async def run_phase_session(
     status = "error"
     response = ""
     if client is None:
-        owned_client = create_client(project_dir=project_dir, model=model, phase=phase)
+        owned_client = create_client(project_dir=project_dir, model=model, phase=phase, auth_mode=auth_mode)
         async with owned_client:
             status, response = await run_agent_session(owned_client, prompt, project_dir)
     else:
@@ -88,6 +89,7 @@ async def run_autonomous_agent(
     project_dir: Path,
     model: str,
     max_iterations: Optional[int] = None,
+    auth_mode: str = "api_key",
 ) -> None:
     """Legacy V1 autonomous loop (initializer + coding agent)."""
     print("\n" + "=" * 70)
@@ -112,7 +114,13 @@ async def run_autonomous_agent(
         print_session_header(iteration, is_first_run)
         prompt = get_initializer_prompt() if is_first_run else get_coding_prompt()
         phase = "planner" if is_first_run else "builder"
-        await run_phase_session(project_dir=project_dir, model=model, prompt=prompt, phase=phase)
+        await run_phase_session(
+            project_dir=project_dir,
+            model=model,
+            prompt=prompt,
+            phase=phase,
+            auth_mode=auth_mode,
+        )
         is_first_run = False
         print_progress_summary(project_dir)
         await asyncio.sleep(AUTO_CONTINUE_DELAY_SECONDS)

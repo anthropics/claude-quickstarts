@@ -10,6 +10,7 @@ def test_parse_args_defaults(monkeypatch) -> None:
     args = cli.parse_args()
     assert args.mode == "v3_1"
     assert args.max_rounds == 3
+    assert args.auth_mode == "api_key"
     assert args.llm_contract_review is False
 
 
@@ -29,6 +30,12 @@ def test_parse_args_llm_contract_review_enabled(monkeypatch) -> None:
     assert args.llm_contract_review is True
 
 
+def test_parse_args_auth_mode_cli(monkeypatch) -> None:
+    monkeypatch.setattr("sys.argv", ["prog", "--auth-mode", "cli"])
+    args = cli.parse_args()
+    assert args.auth_mode == "cli"
+
+
 def test_normalize_project_dir_handles_dot_prefix() -> None:
     normalized = cli._normalize_project_dir(Path("./generations/myproject"))
     assert normalized == Path("generations/myproject")
@@ -42,3 +49,15 @@ def test_main_warns_when_v2_mode_is_used(monkeypatch, capsys) -> None:
     cli.main()
     output = capsys.readouterr().out
     assert "deprecated and aliased to v3_1" in output
+
+
+def test_main_rejects_missing_cli_credentials(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["prog", "--auth-mode", "cli", "--project-dir", "./tmp-project"])
+    monkeypatch.delenv("CLAUDE_CODE_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("CLAUDE_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.setattr(cli, "_run_v3_1", lambda *args, **kwargs: None)
+    cli.main()
+    output = capsys.readouterr().out
+    assert "Claude CLI credentials were not detected" in output

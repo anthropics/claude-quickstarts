@@ -1,4 +1,4 @@
-# Autonomous Coding Harness (V3.5.2)
+# Autonomous Coding Harness (V3.6.0)
 
 Harness d’automatisation de développement basé sur un cycle **Planner → Builder → Evaluator**, avec artefacts JSON validés par schéma, reprise de session (`--resume`) et garde-fous QA/sécurité.
 
@@ -51,7 +51,9 @@ flowchart LR
 - Python **3.10+** recommandé.
 - `pip` disponible.
 - `npx` (Node.js) recommandé pour les outils MCP navigateur (Playwright/Puppeteer).
-- Clé API Anthropic: `ANTHROPIC_API_KEY` (sauf mode `--dry-run`).
+- Authentification au choix :
+  - `ANTHROPIC_API_KEY` (mode `api_key`),
+  - ou credentials Claude CLI détectables (mode `cli`/`auto`).
 
 Vérification rapide :
 
@@ -66,7 +68,9 @@ npx --version
 - Python **3.10+** recommandé.
 - `pip` fonctionnel.
 - Node.js (pour `npx`) recommandé.
-- Variable d’environnement `ANTHROPIC_API_KEY` (sauf `--dry-run`).
+- Authentification au choix :
+  - variable `ANTHROPIC_API_KEY` (mode `api_key`),
+  - ou credentials Claude CLI détectables (mode `cli`/`auto`).
 
 Vérification rapide :
 
@@ -91,7 +95,7 @@ Dépendances principales :
 
 ## 6) Configuration
 
-### 6.1 Variables d’environnement
+### 6.1 Variables d’environnement / credentials
 
 Linux/macOS :
 
@@ -104,6 +108,10 @@ Windows PowerShell :
 ```powershell
 $env:ANTHROPIC_API_KEY="votre_cle"
 ```
+
+Credentials CLI (optionnels) :
+- Session CLI (`claude login`) détectée automatiquement.
+- Ou token via une variable d’environnement compatible CLI (`CLAUDE_CODE_AUTH_TOKEN`, `CLAUDE_AUTH_TOKEN`, `ANTHROPIC_AUTH_TOKEN`).
 
 ### 6.2 Fichiers importants à connaître
 
@@ -164,6 +172,18 @@ python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --q
 python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --llm-contract-review
 ```
 
+- Forcer l’authentification via Claude CLI :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --auth-mode cli
+```
+
+- Mode auto (essaye CLI puis API key) :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --auth-mode auto
+```
+
 ### 7.2 Flags CLI (résumé)
 
 - `--project-dir` : dossier du projet cible.
@@ -175,6 +195,7 @@ python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --l
 - `--resume` : reprendre sur l’état existant.
 - `--dry-run` : test orchestration sans API live.
 - `--planner-only` / `--qa-only` : exécution partielle.
+- `--auth-mode {api_key,cli,auto}` : stratégie d’authentification SDK.
 - `--llm-contract-review` : arbitrage modèle côté négociation de contrat.
 
 ## 8) Artefacts produits
@@ -224,7 +245,10 @@ Vérifier la cohérence des artefacts JSON :
 
 ## 11) Dépannage rapide
 
-- **`ANTHROPIC_API_KEY` absent** : requis hors `--dry-run`.
+- **Auth en échec** :
+  - mode `api_key` : `ANTHROPIC_API_KEY` requis,
+  - mode `cli` : credentials/session CLI requis,
+  - mode `auto` : au moins une méthode doit être disponible.
 - **Erreurs de schéma JSON** : valider les artefacts contre `schemas/*.schema.json`.
 - **Run bloqué en reprise** : vérifier `state/run_state.json` et le dernier `state/round_state_XX.json`.
 - **QA navigateur indisponible** : vérifier Node.js/`npx` et l’exécution MCP.
