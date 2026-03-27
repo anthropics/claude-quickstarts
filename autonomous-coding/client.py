@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from claude_code_sdk import ClaudeCodeOptions, ClaudeSDKClient
 from claude_code_sdk.types import HookMatcher
@@ -32,6 +32,67 @@ PUPPETEER_TOOLS = [
     "mcp__puppeteer__puppeteer_evaluate",
 ]
 
+AuthMode = Literal["api_key", "cli", "auto"]
+
+
+def _has_claude_cli_credentials() -> bool:
+    """Best-effort detection for Claude CLI credentials.
+
+    The SDK remains the source of truth; this check is used for clear
+    preflight errors before client startup.
+    """
+    cli_token_env_vars = (
+        "CLAUDE_CODE_AUTH_TOKEN",
+        "CLAUDE_AUTH_TOKEN",
+        "ANTHROPIC_AUTH_TOKEN",
+    )
+    if any(os.environ.get(var) for var in cli_token_env_vars):
+        return True
+
+    home = Path.home()
+    candidate_files = (
+        home / ".anthropic" / "credentials.json",
+        home / ".config" / "claude" / "credentials.json",
+        home / ".claude" / "credentials.json",
+    )
+    if any(path.exists() for path in candidate_files):
+        return True
+
+    anthropic_dir = home / ".anthropic"
+    if anthropic_dir.exists():
+        for candidate in anthropic_dir.glob("*.json"):
+            stem = candidate.stem.lower()
+            if "credential" in stem or "auth" in stem:
+                return True
+    return False
+
+
+def validate_auth_configuration(auth_mode: AuthMode) -> None:
+    """Validate selected auth mode with explicit, user-facing errors."""
+    if auth_mode not in {"api_key", "cli", "auto"}:
+        raise ValueError(f"Unsupported auth_mode '{auth_mode}'. Expected one of: api_key, cli, auto.")
+
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    has_cli_credentials = _has_claude_cli_credentials()
+
+    if auth_mode == "api_key" and not api_key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY environment variable not set.\n"
+            "Get your API key from: https://console.anthropic.com/"
+        )
+
+    if auth_mode == "cli" and not has_cli_credentials:
+        raise ValueError(
+            "Claude CLI credentials were not detected.\n"
+            "Run `claude login` (or provide CLI auth token/credentials) before starting."
+        )
+
+    if auth_mode == "auto" and not (api_key or has_cli_credentials):
+        raise ValueError(
+            "No authentication method detected.\n"
+            "Set ANTHROPIC_API_KEY or authenticate with Claude CLI (`claude login`)."
+        )
+
 
 def _browser_config(preferred: str = "playwright") -> tuple[list[str], dict]:
     """Return allowed browser tools and MCP server config.
@@ -54,14 +115,10 @@ def create_client(
     model: str,
     phase: str,
     browser_provider: str = "playwright",
+    auth_mode: AuthMode = "api_key",
 ) -> ClaudeSDKClient:
     """Create a Claude Agent SDK client with security and phase-aware tooling."""
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
-    if not api_key:
-        raise ValueError(
-            "ANTHROPIC_API_KEY environment variable not set.\n"
-            "Get your API key from: https://console.anthropic.com/"
-        )
+    validate_auth_configuration(auth_mode)
 
     browser_tools, mcp_servers = _browser_config(browser_provider)
     allowed_tools = [*BUILTIN_TOOLS]

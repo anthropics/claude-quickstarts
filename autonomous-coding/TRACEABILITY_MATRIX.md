@@ -1,6 +1,17 @@
-# TRACEABILITY_MATRIX — Consolidated (v3.5.2)
+# TRACEABILITY_MATRIX — Consolidated (v3.6.0)
 
 > Concatenation intégrale des matrices existantes, sans altération du contenu source.
+
+---
+
+## Source: `V3_6_TRACEABILITY_MATRIX.md`
+
+# V3.6 Traceability Matrix
+
+| Finding ID | Severity | Requirement summary | Files impacted | Implementation action | Test / validation evidence | Final status | Notes / tradeoffs |
+|---|---|---|---|---|---|---|---|
+| N6-M-01 | P1 | Offrir un choix explicite entre API key et credentials Claude CLI | `autonomous_agent_demo.py`, `client.py`, `agent.py`, `README.md`, `tests/test_cli.py`, `tests/test_client_auth.py` | Added `--auth-mode {api_key,cli,auto}`, centralized auth preflight, and threaded auth mode through V3.1 + V1 paths without changing phase/security logic | `pytest autonomous-coding/tests/test_cli.py autonomous-coding/tests/test_client_auth.py -q`; `pytest autonomous-coding/tests -q` | fixed | Default remains `api_key` to preserve historical runtime behavior |
+| N6-Q-01 | P2 | Éviter erreurs d’auth tardives et ambiguës | `client.py`, `autonomous_agent_demo.py`, `tests/test_cli.py`, `tests/test_client_auth.py` | Added explicit preflight validation for `api_key`, `cli`, `auto` with user-facing actionable errors | `pytest autonomous-coding/tests/test_cli.py -q`; `pytest autonomous-coding/tests/test_client_auth.py -q` | fixed | SDK stays source of truth at runtime; preflight is best-effort for operator UX |
 
 ---
 

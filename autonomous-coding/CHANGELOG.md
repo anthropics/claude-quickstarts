@@ -2,6 +2,18 @@
 
 Toutes les évolutions notables du module `autonomous-coding` sont listées ici.
 
+## [3.6.0] - 2026-03-27
+
+### Added
+- Nouveau flag CLI `--auth-mode {api_key,cli,auto}` pour choisir explicitement la méthode d’authentification.
+- Détection best-effort des credentials Claude CLI (session/token/fichier credentials) pour préflight explicite.
+- Couverture de tests dédiée à la validation auth (`tests/test_client_auth.py`) et au parsing/erreurs CLI.
+
+### Changed
+- Préflight d’authentification centralisé dans `client.py` (`validate_auth_configuration`) avec messages d’erreur actionnables.
+- Intégration de l’auth mode dans les chemins V3.1 (orchestrator) et V1 compat (`run_autonomous_agent`).
+- Documentation mise à jour pour inclure les modes `cli` et `auto`.
+
 ## [3.5.2] - 2026-03-26
 
 ### Added
