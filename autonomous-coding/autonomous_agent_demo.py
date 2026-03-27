@@ -49,7 +49,11 @@ def parse_args() -> argparse.Namespace:
         "--target-tests",
         type=int,
         default=None,
+<<<<<<< codex/add-flag-argument-for-test-count-e9qou9
         help="Target minimum test count for planning/initialization prompts across modes (default: 200).",
+=======
+        help="Target number of tests to generate in V1 initializer (default: 200).",
+>>>>>>> main
     )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")

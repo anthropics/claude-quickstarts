@@ -5,7 +5,11 @@ Toutes les évolutions notables du module `autonomous-coding` sont listées ici.
 ## [3.6.1] - 2026-03-27
 
 ### Added
+<<<<<<< codex/add-flag-argument-for-test-count-e9qou9
 - Nouveau flag CLI `--target-tests` pour définir explicitement le volume cible de tests dans les prompts de planification/initialisation (tous modes).
+=======
+- Nouveau flag CLI `--target-tests` (mode v1) pour définir explicitement le nombre de tests initiaux à générer dans `feature_list.json`.
+>>>>>>> main
 
 ### Changed
 - Priorité renforcée sur Playwright MCP en mode **headless par défaut** dans la configuration client (`client.py`).
