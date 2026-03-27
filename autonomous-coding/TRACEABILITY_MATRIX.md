@@ -11,6 +11,7 @@
 | Finding ID | Severity | Requirement summary | Files impacted | Implementation action | Test / validation evidence | Final status | Notes / tradeoffs |
 |---|---|---|---|---|---|---|---|
 | N7-M-01 | P1 | Forcer Playwright headless par défaut et l’indiquer explicitement | `client.py`, `tests/test_client_auth.py`, `README.md`, `prompts/evaluator_prompt.md`, `prompts/coding_prompt.md`, `CHANGELOG.md`, `TRACEABILITY_MATRIX.md` | Updated browser MCP config to launch Playwright with `--headless` in the default path, added unit coverage, and aligned docs/prompts/changelog on “Playwright headless first, Puppeteer fallback only” | `pytest autonomous-coding/tests/test_client_auth.py -q` | fixed | No phase/security contract changed; only default browser launch policy and traceability/docs wording were updated |
+| N7-M-02 | P1 | Permettre la configuration du volume de tests initiaux sans modifier la logique métier | `autonomous_agent_demo.py`, `agent.py`, `prompts.py`, `prompts/initializer_prompt.md`, `tests/test_cli.py`, `README.md`, `CHANGELOG.md`, `TRACEABILITY_MATRIX.md` | Added `--target-tests` (V1), threaded the value to initializer prompt rendering, and enforced explicit default warning (`200`) when unset | `pytest autonomous-coding/tests/test_cli.py -q` | fixed | Scope limited to CLI/prompt parameterization; orchestration/phase/security contracts unchanged |
 
 ---
 
