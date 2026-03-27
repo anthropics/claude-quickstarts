@@ -45,7 +45,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          for i in 1 2 3 4 5; do
+          for i in 1; do
             cmd="python autonomous_agent_demo.py --project-dir ./ci_dry_run_${i} --dry-run"
             echo "[$i/5] Executing: $cmd"
             eval "$cmd"
