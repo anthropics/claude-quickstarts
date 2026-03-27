@@ -190,15 +190,12 @@ python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --a
 python autonomous-coding/autonomous_agent_demo.py --mode v1 --project-dir ./my_project --target-tests 300
 ```
 
-<<<<<<< codex/add-flag-argument-for-test-count-e9qou9
 - Mode v3_1 avec cible de backlog planifiée :
-
+- 
 ```bash
 python autonomous-coding/autonomous_agent_demo.py --mode v3_1 --project-dir ./my_project --target-tests 300
 ```
 
-=======
->>>>>>> main
 ### 7.2 Flags CLI (résumé)
 
 - `--project-dir` : dossier du projet cible.
