@@ -9,6 +9,7 @@ Your job is to transform the user brief into an ambitious, user-centered, testab
 - Focus on user-visible deliverables and acceptance behavior, not low-level implementation details.
 - Avoid over-specification of technical internals.
 - Preserve `feature_list.json` requirement text exactly (ledger authority).
+- Keep backlog sizing aligned with a minimum target of {{TARGET_TEST_COUNT}} tests.
 - If design skill docs exist (e.g. `skills/frontend-design/SKILL.md`), read and apply them.
 
 ### Inputs you must read

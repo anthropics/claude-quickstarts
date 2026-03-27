@@ -55,6 +55,7 @@ class Orchestrator:
         phase_runner: PhaseRunner,
         client_factory: ClientFactory = create_client,
         llm_contract_review: bool = False,
+        target_test_count: int = 200,
     ):
         self.project_dir = project_dir
         self.paths = ArtifactPaths(project_dir)
@@ -64,7 +65,7 @@ class Orchestrator:
         self.phase_runner = phase_runner
         self.client_factory = client_factory
         self.llm_contract_review = llm_contract_review
-        self.planner = PlannerPhase(phase_runner)
+        self.planner = PlannerPhase(phase_runner, target_test_count=target_test_count)
         self.builder = BuilderPhase(phase_runner)
         self.evaluator = EvaluatorPhase(phase_runner)
         self.phase_timings: dict[str, list[float]] = {"planner": [], "builder": [], "evaluator": []}

@@ -4,10 +4,14 @@ Toutes les évolutions notables du module `autonomous-coding` sont listées ici.
 
 ## [3.6.1] - 2026-03-27
 
+### Added
+- Nouveau flag CLI `--target-tests` pour définir explicitement le volume cible de tests dans les prompts de planification/initialisation (tous modes).
+
 ### Changed
 - Priorité renforcée sur Playwright MCP en mode **headless par défaut** dans la configuration client (`client.py`).
 - Clarification des consignes QA/prompts pour imposer Playwright headless en chemin principal, avec Puppeteer seulement en fallback.
 - Mise à jour de la documentation versionnée (README + traceability consolidée) pour refléter cette politique navigateur.
+- Si `--target-tests` n’est pas fourni, le runtime affiche un warning explicite et applique la valeur par défaut `200`.
 
 ## [3.6.0] - 2026-03-27
 

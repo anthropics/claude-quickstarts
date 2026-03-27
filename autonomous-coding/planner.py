@@ -22,13 +22,14 @@ class PlannerResult:
 class PlannerPhase:
     """Runs planning and enforces required planning artifacts."""
 
-    def __init__(self, runner: PhaseRunner):
+    def __init__(self, runner: PhaseRunner, target_test_count: int = 200):
         self.runner = runner
+        self.target_test_count = target_test_count
 
     async def run(self, project_dir: Path, model: str, client: ClaudeSDKClient | None = None) -> PlannerResult:
         paths = ArtifactPaths(project_dir)
         paths.ensure_dirs()
-        prompt = get_planner_prompt()
+        prompt = get_planner_prompt(target_test_count=self.target_test_count)
         summary = await self.runner(project_dir, model, prompt, "planner", client)
         usage = estimate_usage(prompt, summary)
         print(

@@ -10,6 +10,7 @@ def test_parse_args_defaults(monkeypatch) -> None:
     args = cli.parse_args()
     assert args.mode == "v3_1"
     assert args.max_rounds == 3
+    assert args.target_tests is None
     assert args.auth_mode == "api_key"
     assert args.llm_contract_review is False
 
@@ -22,6 +23,12 @@ def test_parse_args_model_override(monkeypatch) -> None:
     args = cli.parse_args()
     assert args.model == "claude-opus-4-6"
     assert args.max_rounds == 2
+
+
+def test_parse_args_target_tests_override(monkeypatch) -> None:
+    monkeypatch.setattr("sys.argv", ["prog", "--target-tests", "350"])
+    args = cli.parse_args()
+    assert args.target_tests == 350
 
 
 def test_parse_args_llm_contract_review_enabled(monkeypatch) -> None:
@@ -49,6 +56,39 @@ def test_main_warns_when_v2_mode_is_used(monkeypatch, capsys) -> None:
     cli.main()
     output = capsys.readouterr().out
     assert "deprecated and aliased to v3_1" in output
+
+
+def test_main_warns_when_target_tests_default_is_used(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["prog", "--mode", "v1", "--project-dir", "./tmp-project", "--max-iterations", "0", "--dry-run"],
+    )
+    async def fake_run_autonomous_agent(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(cli, "run_autonomous_agent", fake_run_autonomous_agent)
+    cli.main()
+    output = capsys.readouterr().out
+    assert "--target-tests not provided; defaulting to 200" in output
+
+
+def test_main_warns_when_target_tests_default_is_used_in_v3_1(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["prog", "--mode", "v3_1", "--project-dir", "./tmp-project", "--dry-run"])
+
+    async def fake_run_v3_1(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(cli, "_run_v3_1", fake_run_v3_1)
+    cli.main()
+    output = capsys.readouterr().out
+    assert "--target-tests not provided; defaulting to 200" in output
+
+
+def test_main_rejects_non_positive_target_tests(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["prog", "--target-tests", "0", "--dry-run"])
+    cli.main()
+    output = capsys.readouterr().out
+    assert "--target-tests must be a positive integer" in output
 
 
 def test_main_rejects_missing_cli_credentials(monkeypatch, capsys) -> None:

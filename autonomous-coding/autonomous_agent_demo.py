@@ -45,6 +45,12 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--max-rounds", type=int, default=3)
     parser.add_argument("--max-iterations", type=int, default=None, help="V1 mode only")
+    parser.add_argument(
+        "--target-tests",
+        type=int,
+        default=None,
+        help="Target minimum test count for planning/initialization prompts across modes (default: 200).",
+    )
     parser.add_argument("--resume", action="store_true")
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--planner-only", action="store_true")
@@ -115,6 +121,7 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
         max_rounds=args.max_rounds,
         phase_runner=runner,
         llm_contract_review=args.llm_contract_review,
+        target_test_count=args.target_tests or 200,
         **orchestrator_kwargs,
     )
     state = await orchestrator.run(
@@ -128,6 +135,13 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
 
 def main() -> None:
     args = parse_args()
+    target_tests = args.target_tests
+    if target_tests is None:
+        target_tests = 200
+        print("[WARNING] --target-tests not provided; defaulting to 200.")
+    elif target_tests <= 0:
+        print("Error: --target-tests must be a positive integer.")
+        return
 
     if not args.dry_run:
         try:
@@ -148,6 +162,7 @@ def main() -> None:
                     model=model,
                     max_iterations=args.max_iterations,
                     auth_mode=args.auth_mode,
+                    target_test_count=target_tests,
                 )
             )
         elif args.mode == "v2":

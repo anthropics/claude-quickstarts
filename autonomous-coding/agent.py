@@ -90,6 +90,7 @@ async def run_autonomous_agent(
     model: str,
     max_iterations: Optional[int] = None,
     auth_mode: str = "api_key",
+    target_test_count: int = 200,
 ) -> None:
     """Legacy V1 autonomous loop (initializer + coding agent)."""
     print("\n" + "=" * 70)
@@ -112,7 +113,7 @@ async def run_autonomous_agent(
             break
 
         print_session_header(iteration, is_first_run)
-        prompt = get_initializer_prompt() if is_first_run else get_coding_prompt()
+        prompt = get_initializer_prompt(target_test_count=target_test_count) if is_first_run else get_coding_prompt()
         phase = "planner" if is_first_run else "builder"
         await run_phase_session(
             project_dir=project_dir,
