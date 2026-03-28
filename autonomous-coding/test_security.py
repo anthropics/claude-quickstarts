@@ -123,9 +123,9 @@ def legacy_test_validate_init_script():
         # Allowed cases
         ("./init.sh", True, "basic ./init.sh"),
         ("./init.sh arg1 arg2", True, "with arguments"),
-        ("/path/to/init.sh", True, "absolute path"),
-        ("../dir/init.sh", True, "relative path with init.sh"),
         # Blocked cases
+        ("/path/to/init.sh", False, "absolute path"),
+        ("../dir/init.sh", False, "relative path outside project"),
         ("./setup.sh", False, "different script name"),
         ("./init.py", False, "python script"),
         ("bash init.sh", False, "bash invocation"),
@@ -194,6 +194,14 @@ def main():
         "pkill bash",
         "pkill chrome",
         "pkill python",
+        # Project escape and unsafe package installs
+        "cat ../secret.txt",
+        "grep -r secret ../",
+        "sleep 9999",
+        "npm install malicious-package",
+        "pnpm add left-pad",
+        "../evil/init.sh",
+        "/tmp/init.sh",
         # Shell injection attempts
         "$(echo pkill) node",
         'eval "pkill node"',
@@ -262,7 +270,6 @@ def main():
         # init.sh execution (allowed)
         "./init.sh",
         "./init.sh --production",
-        "/path/to/init.sh",
         # Combined chmod and init.sh
         "chmod +x init.sh && ./init.sh",
     ]

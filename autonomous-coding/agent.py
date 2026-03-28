@@ -9,7 +9,7 @@ from typing import Any, Optional
 
 from claude_code_sdk import ClaudeSDKClient
 
-from client import create_client
+from client import AuthMode, create_client
 from progress import print_session_header, print_progress_summary
 from prompts import copy_spec_to_project, get_coding_prompt, get_initializer_prompt
 
@@ -64,7 +64,7 @@ async def run_phase_session(
     prompt: str,
     phase: str,
     client: ClaudeSDKClient | None = None,
-    auth_mode: str = "api_key",
+    auth_mode: AuthMode = "api_key",
 ) -> str:
     """Run one phase and return plain-text summary.
 
@@ -89,7 +89,7 @@ async def run_autonomous_agent(
     project_dir: Path,
     model: str,
     max_iterations: Optional[int] = None,
-    auth_mode: str = "api_key",
+    auth_mode: AuthMode = "api_key",
     target_test_count: int = 200,
 ) -> None:
     """Legacy V1 autonomous loop (initializer + coding agent)."""

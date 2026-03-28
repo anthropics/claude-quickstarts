@@ -2,6 +2,21 @@
 
 Toutes les évolutions notables du module `autonomous-coding` sont listées ici.
 
+## [3.6.3] - 2026-03-28
+
+### Added
+
+- Couverture de régression dédiée pour la barrière Bash, l’échec explicite du planner, la traversée `--project-dir` et la robustesse de `progress.py`.
+- Configuration locale `pyrightconfig.json` pour rendre le type-check du module `autonomous-coding` exécutable dans l’environnement de développement courant.
+
+### Changed
+
+- Durcissement réel de `security.py` sans changer le concept actuel : chemins hors projet bloqués, `./init.sh` uniquement, `sleep` borné, et installations explicites de paquets refusées.
+- `PlannerPhase` échoue désormais explicitement si les artefacts obligatoires sont absents, invalides ou restent en placeholder ; le dry-run génère des artefacts de planification valides.
+- Les chemins relatifs `--project-dir` conservent la normalisation sous `generations/` mais refusent désormais toute évasion via `..`.
+- `progress.py` retombe proprement sur un fallback sûr quand `feature_list.json` ou `run_state.json` ont une structure inattendue.
+- Alignement des marqueurs de version runtime, prompts actifs et documentation utilisateur sur `V3.6.3`.
+
 ## [3.6.1] - 2026-03-27
 
 ### Added

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 import autonomous_agent_demo as cli
 
 
@@ -46,6 +48,12 @@ def test_parse_args_auth_mode_cli(monkeypatch) -> None:
 def test_normalize_project_dir_handles_dot_prefix() -> None:
     normalized = cli._normalize_project_dir(Path("./generations/myproject"))
     assert normalized == Path("generations/myproject")
+
+
+@pytest.mark.parametrize("raw_path", ["../x", "safe/../x"])
+def test_normalize_project_dir_rejects_parent_traversal(raw_path: str) -> None:
+    with pytest.raises(ValueError, match="must stay within generations"):
+        cli._normalize_project_dir(Path(raw_path))
 
 
 def test_main_warns_when_v2_mode_is_used(monkeypatch, capsys) -> None:
@@ -103,3 +111,12 @@ def test_main_rejects_missing_cli_credentials(monkeypatch, capsys) -> None:
     cli.main()
     output = capsys.readouterr().out
     assert "Claude CLI credentials were not detected" in output
+
+
+def test_main_rejects_project_dir_traversal(monkeypatch, capsys) -> None:
+    monkeypatch.setattr("sys.argv", ["prog", "--project-dir", "../escape", "--dry-run"])
+
+    cli.main()
+
+    output = capsys.readouterr().out
+    assert "must stay within generations" in output

@@ -1,4 +1,4 @@
-"""Best-effort LLM usage/cost estimation utilities for V3.5.2."""
+"""Best-effort LLM usage/cost estimation utilities for V3.6.3."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""V3.5.2 autonomous coding orchestrator (planner -> builder -> evaluator)."""
+"""V3.6.3 autonomous coding orchestrator (planner -> builder -> evaluator)."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ MAX_ACCEPTANCE_TESTS = int(
     os.environ.get("V3_4_SPRINT_MAX_ACCEPTANCE_TESTS", os.environ.get("V3_2_SPRINT_MAX_ACCEPTANCE_TESTS", "12"))
 )
 MAX_NEGOTIATION_TURNS = int(os.environ.get("V3_4_MAX_NEGOTIATION_TURNS", "2"))
-LOG_VERSION_TAG = "V3.5.2"
+LOG_VERSION_TAG = "V3.6.3"
 
 NEGOTIATION_REASON_CODES = {
     "FORMAT_ERROR",

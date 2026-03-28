@@ -12,8 +12,12 @@ def count_passing_tests(project_dir: Path) -> tuple[int, int]:
         return 0, 0
     try:
         tests = json.loads(tests_file.read_text())
-        total = len(tests)
-        passing = sum(1 for test in tests if test.get("passes", False))
+        if not isinstance(tests, list):
+            return 0, 0
+
+        structured_tests = [test for test in tests if isinstance(test, dict)]
+        total = len(structured_tests)
+        passing = sum(1 for test in structured_tests if test.get("passes", False))
         return passing, total
     except (json.JSONDecodeError, OSError):
         return 0, 0
@@ -32,13 +36,16 @@ def print_progress_summary(project_dir: Path) -> None:
     if run_state.exists():
         try:
             state = json.loads(run_state.read_text())
-            print(
-                "\nRun State: "
-                f"status={state.get('status')} "
-                f"round={state.get('current_round')}/{state.get('max_rounds')} "
-                f"planner_complete={state.get('planner_complete')}"
-            )
-        except json.JSONDecodeError:
+            if not isinstance(state, dict):
+                print("\nRun State: unexpected run_state.json structure")
+            else:
+                print(
+                    "\nRun State: "
+                    f"status={state.get('status')} "
+                    f"round={state.get('current_round')}/{state.get('max_rounds')} "
+                    f"planner_complete={state.get('planner_complete')}"
+                )
+        except (json.JSONDecodeError, OSError):
             print("\nRun State: unreadable run_state.json")
 
     if total > 0:

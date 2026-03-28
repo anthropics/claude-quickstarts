@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous coding harness entrypoint (V3.6.1 runtime, V1 compatibility mode)."""
+"""Autonomous coding harness entrypoint (V3.6.3 runtime, V1 compatibility mode)."""
 
 from __future__ import annotations
 
@@ -7,9 +7,11 @@ import argparse
 import asyncio
 from functools import partial
 from pathlib import Path
+from typing import cast
 
 from agent import run_autonomous_agent, run_phase_session
-from client import create_client, validate_auth_configuration
+from artifacts import ArtifactPaths, write_validated_json
+from client import AuthMode, create_client, validate_auth_configuration
 from orchestrator import ModelConfig, Orchestrator
 from progress import print_progress_summary
 from prompts import copy_spec_to_project
@@ -74,8 +76,13 @@ def _normalize_project_dir(project_dir: Path) -> Path:
     if project_dir.is_absolute():
         return project_dir
 
+    if ".." in project_dir.parts:
+        raise ValueError("Relative --project-dir must stay within generations/ and cannot contain '..'.")
+
     cleaned_parts = [part for part in project_dir.parts if part not in {".", ""}]
     cleaned = Path(*cleaned_parts) if cleaned_parts else Path(".")
+    if ".." in cleaned.parts:
+        raise ValueError("Relative --project-dir must stay within generations/ and cannot contain '..'.")
     if cleaned.parts and cleaned.parts[0] == "generations":
         return cleaned
 
@@ -84,6 +91,7 @@ def _normalize_project_dir(project_dir: Path) -> Path:
 
 async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
     copy_spec_to_project(project_dir)
+    auth_mode = cast(AuthMode, args.auth_mode)
 
     if args.model:
         model_config = ModelConfig(args.model, args.model, args.model)
@@ -104,6 +112,39 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
             client=None,
         ) -> str:
             del prompt, client
+            if phase == "planner":
+                paths = ArtifactPaths(project_dir)
+                paths.ensure_dirs()
+                write_validated_json(
+                    paths.acceptance_criteria,
+                    {
+                        "project_name": project_dir.name,
+                        "criteria": [
+                            {
+                                "id": "AC-DRYRUN-001",
+                                "description": "Dry-run planning artifact generated successfully.",
+                                "priority": "p0",
+                            }
+                        ],
+                    },
+                    "acceptance_criteria",
+                )
+                write_validated_json(
+                    paths.work_backlog,
+                    {
+                        "items": [
+                            {
+                                "id": "WB-DRYRUN-001",
+                                "title": "Dry-run backlog item",
+                                "status": "todo",
+                                "source_feature_index": 0,
+                            }
+                        ]
+                    },
+                    "work_backlog",
+                )
+                paths.expanded_spec.write_text("# Expanded Spec\n\nDry-run planner artifact.\n")
+                paths.architecture.write_text("# Architecture\n\nDry-run planner artifact.\n")
             return f"[dry-run] phase={phase} model={model} project={project_dir}"
 
         runner = dry_runner
@@ -114,7 +155,7 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
     if args.dry_run:
         orchestrator_kwargs["client_factory"] = _dry_run_client_factory
     else:
-        orchestrator_kwargs["client_factory"] = partial(create_client, auth_mode=args.auth_mode)
+        orchestrator_kwargs["client_factory"] = partial(create_client, auth_mode=auth_mode)
 
     orchestrator = Orchestrator(
         project_dir=project_dir,
@@ -136,6 +177,7 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
 
 def main() -> None:
     args = parse_args()
+    auth_mode = cast(AuthMode, args.auth_mode)
     target_tests = args.target_tests
     if target_tests is None:
         target_tests = 200
@@ -146,12 +188,17 @@ def main() -> None:
 
     if not args.dry_run:
         try:
-            validate_auth_configuration(args.auth_mode)
+            validate_auth_configuration(auth_mode)
         except ValueError as exc:
             print(f"Error: {exc}")
             return
 
-    project_dir = _normalize_project_dir(args.project_dir)
+    try:
+        project_dir = _normalize_project_dir(args.project_dir)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return
+
     project_dir.mkdir(parents=True, exist_ok=True)
 
     try:
@@ -162,7 +209,7 @@ def main() -> None:
                     project_dir=project_dir,
                     model=model,
                     max_iterations=args.max_iterations,
-                    auth_mode=args.auth_mode,
+                    auth_mode=auth_mode,
                     target_test_count=target_tests,
                 )
             )

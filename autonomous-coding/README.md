@@ -1,4 +1,4 @@
-# Autonomous Coding Harness (V3.6.1)
+# Autonomous Coding Harness (V3.6.3)
 
 Harness d’automatisation de développement basé sur un cycle **Planner → Builder → Evaluator**, avec artefacts JSON validés par schéma, reprise de session (`--resume`) et garde-fous QA/sécurité.
 
@@ -132,7 +132,7 @@ Commande de base :
 python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
 ```
 
-Le dossier effectif est normalisé sous `generations/` quand un chemin relatif est fourni.
+Le dossier effectif est normalisé sous `generations/` quand un chemin relatif est fourni. Les chemins relatifs contenant `..` sont rejetés pour empêcher une sortie de périmètre.
 
 ### 7.1 Commandes principales
 
@@ -243,7 +243,7 @@ Dans `--project-dir` (souvent `generations/<nom>`):
 Exécuter les tests unitaires/intégration locale :
 
 ```bash
-pytest autonomous-coding/tests autonomous-coding/test_security.py autonomous-coding/test_security_hook.py -q
+pytest autonomous-coding/tests autonomous-coding/test_security.py -q
 ```
 
 Tester le flux complet sans coûts API :

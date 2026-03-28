@@ -8,6 +8,7 @@ import pytest
 from artifacts import ArtifactPaths, write_validated_json
 from builder import BuilderPhase
 from evaluator import EvaluatorPhase
+from planner import PlannerPhase
 
 
 async def _empty_runner(project_dir: Path, model: str, prompt: str, phase: str, client=None) -> str:
@@ -38,6 +39,46 @@ async def _schema_invalid_eval_runner(project_dir: Path, model: str, prompt: str
     return "eval done"
 
 
+async def _missing_planner_artifacts_runner(
+    project_dir: Path, model: str, prompt: str, phase: str, client=None
+) -> str:
+    del project_dir, model, prompt, phase, client
+    return "planner done"
+
+
+async def _placeholder_planner_docs_runner(
+    project_dir: Path, model: str, prompt: str, phase: str, client=None
+) -> str:
+    del model, prompt, phase, client
+    paths = ArtifactPaths(project_dir)
+    paths.ensure_dirs()
+    write_validated_json(
+        paths.acceptance_criteria,
+        {
+            "project_name": project_dir.name,
+            "criteria": [{"id": "AC-001", "description": "Real criterion", "priority": "p0"}],
+        },
+        "acceptance_criteria",
+    )
+    write_validated_json(
+        paths.work_backlog,
+        {
+            "items": [
+                {
+                    "id": "WB-001",
+                    "title": "Real backlog item",
+                    "status": "todo",
+                    "source_feature_index": 0,
+                }
+            ]
+        },
+        "work_backlog",
+    )
+    paths.expanded_spec.write_text("# Expanded Spec\n\nPlanner output pending.\n")
+    paths.architecture.write_text("# Architecture\n\nPlanner output pending.\n")
+    return "planner done"
+
+
 def test_builder_empty_response_raises(tmp_path: Path) -> None:
     phase = BuilderPhase(_empty_runner)
     with pytest.raises(RuntimeError, match="empty response"):
@@ -49,6 +90,18 @@ def test_builder_empty_response_raises(tmp_path: Path) -> None:
                 sprint_contract_path=tmp_path / "planning" / "sprint_contract_round_01.json",
             )
         )
+
+
+def test_planner_missing_artifacts_raise_explicit_failure(tmp_path: Path) -> None:
+    phase = PlannerPhase(_missing_planner_artifacts_runner)
+    with pytest.raises(RuntimeError, match="required planning artifacts"):
+        asyncio.run(phase.run(tmp_path, model="m"))
+
+
+def test_planner_placeholder_docs_raise_explicit_failure(tmp_path: Path) -> None:
+    phase = PlannerPhase(_placeholder_planner_docs_runner)
+    with pytest.raises(RuntimeError, match="placeholder"):
+        asyncio.run(phase.run(tmp_path, model="m"))
 
 
 def test_evaluator_invalid_json_uses_blocked_fallback(tmp_path: Path) -> None:

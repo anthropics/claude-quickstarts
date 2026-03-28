@@ -46,7 +46,7 @@ class BuilderPhase:
         summary = await self.runner(project_dir, model, prompt, "builder", client)
         usage = estimate_usage(prompt, summary)
         print(
-            "[V3.5.2] LLM call builder "
+            "[V3.6.3] LLM call builder "
             f"tokens(in={usage.input_tokens},out={usage.output_tokens},total={usage.total_tokens}) "
             f"est_cost=${usage.estimated_cost_usd:.6f}"
         )

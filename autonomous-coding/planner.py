@@ -7,7 +7,7 @@ from pathlib import Path
 
 from claude_code_sdk import ClaudeSDKClient
 
-from artifacts import ArtifactPaths, read_json, write_validated_json
+from artifacts import ArtifactPaths, read_json, safe_validate, write_validated_json
 from metrics import UsageEstimate, estimate_usage
 from phase_types import PhaseRunner
 from prompts import get_planner_prompt
@@ -26,6 +26,52 @@ class PlannerPhase:
         self.runner = runner
         self.target_test_count = target_test_count
 
+    def _validate_required_artifacts(self, paths: ArtifactPaths) -> tuple[dict[str, object], dict[str, object]]:
+        errors: list[str] = []
+
+        def load_required_json(path: Path, schema_name: str) -> dict[str, object]:
+            if not path.exists():
+                errors.append(f"{path.name} missing")
+                return {}
+
+            payload = read_json(path, context=schema_name)
+            if not isinstance(payload, dict):
+                errors.append(f"{path.name} must contain a JSON object")
+                return {}
+
+            ok, reason = safe_validate(payload, schema_name)
+            if not ok:
+                errors.append(f"{path.name} failed schema validation: {reason}")
+                return {}
+
+            return payload
+
+        def validate_required_doc(path: Path) -> None:
+            if not path.exists():
+                errors.append(f"{path.name} missing")
+                return
+
+            content = path.read_text().strip()
+            if not content:
+                errors.append(f"{path.name} is empty")
+                return
+            if "Planner output pending." in content:
+                errors.append(f"{path.name} contains placeholder content")
+
+        acceptance = load_required_json(paths.acceptance_criteria, "acceptance_criteria")
+        backlog = load_required_json(paths.work_backlog, "work_backlog")
+        validate_required_doc(paths.expanded_spec)
+        validate_required_doc(paths.architecture)
+
+        if errors:
+            details = "; ".join(errors)
+            raise RuntimeError(
+                "PlannerPhase required planning artifacts are missing, invalid, or placeholder: "
+                f"{details}"
+            )
+
+        return acceptance, backlog
+
     async def run(self, project_dir: Path, model: str, client: ClaudeSDKClient | None = None) -> PlannerResult:
         paths = ArtifactPaths(project_dir)
         paths.ensure_dirs()
@@ -33,44 +79,13 @@ class PlannerPhase:
         summary = await self.runner(project_dir, model, prompt, "planner", client)
         usage = estimate_usage(prompt, summary)
         print(
-            "[V3.5.2] LLM call planner "
+            "[V3.6.3] LLM call planner "
             f"tokens(in={usage.input_tokens},out={usage.output_tokens},total={usage.total_tokens}) "
             f"est_cost=${usage.estimated_cost_usd:.6f}"
         )
 
-        acceptance = read_json(paths.acceptance_criteria, context="acceptance_criteria")
-        if not acceptance:
-            acceptance = {
-                "project_name": project_dir.name,
-                "criteria": [
-                    {
-                        "id": "AC-001",
-                        "description": "Core application boots and basic chat flow works.",
-                        "priority": "p0",
-                    }
-                ],
-            }
+        acceptance, backlog = self._validate_required_artifacts(paths)
         write_validated_json(paths.acceptance_criteria, acceptance, "acceptance_criteria")
-
-        backlog = read_json(paths.work_backlog, context="work_backlog")
-        if not backlog:
-            backlog = {
-                "items": [
-                    {
-                        "id": "WB-001",
-                        "title": "Establish initial working vertical slice",
-                        "status": "todo",
-                        "source_feature_index": 0,
-                    }
-                ]
-            }
         write_validated_json(paths.work_backlog, backlog, "work_backlog")
-
-        for doc_path, default in [
-            (paths.expanded_spec, "# Expanded Spec\n\nPlanner output pending.\n"),
-            (paths.architecture, "# Architecture\n\nPlanner output pending.\n"),
-        ]:
-            if not doc_path.exists():
-                doc_path.write_text(default)
 
         return PlannerResult(summary=summary, usage=usage)

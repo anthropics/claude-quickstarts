@@ -9,6 +9,8 @@ Uses an allowlist approach - only explicitly permitted commands can run.
 import os
 import shlex
 
+MAX_SLEEP_SECONDS = 300
+
 
 # Allowed commands for development tasks
 # Minimal set needed for the autonomous coding demo
@@ -42,14 +44,29 @@ ALLOWED_COMMANDS = {
 }
 
 # Commands that need additional validation even when in the allowlist
-COMMANDS_NEEDING_EXTRA_VALIDATION = {"pkill", "chmod", "init.sh"}
+COMMANDS_NEEDING_EXTRA_VALIDATION = {
+    "cat",
+    "chmod",
+    "cp",
+    "grep",
+    "head",
+    "init.sh",
+    "ls",
+    "mkdir",
+    "npm",
+    "pkill",
+    "pnpm",
+    "sleep",
+    "tail",
+    "wc",
+}
 
 
 def split_command_segments(command_string: str) -> list[str]:
     """
     Split a compound command into individual command segments.
 
-    Handles command chaining (&&, ||, ;) but not pipes (those are single commands).
+    Handles command chaining (&&, ||, ;, |) with simple shell heuristics.
 
     Args:
         command_string: The full shell command
@@ -59,9 +76,8 @@ def split_command_segments(command_string: str) -> list[str]:
     """
     import re
 
-    # Split on && and || while preserving the ability to handle each segment
-    # This regex splits on && or || that aren't inside quotes
-    segments = re.split(r"\s*(?:&&|\|\|)\s*", command_string)
+    # Split on &&, ||, and single pipes.
+    segments = re.split(r"\s*(?:&&|\|\||(?<!\|)\|(?!\|))\s*", command_string)
 
     # Further split on semicolons
     result = []
@@ -73,6 +89,90 @@ def split_command_segments(command_string: str) -> list[str]:
                 result.append(sub)
 
     return result
+
+
+def _parse_tokens(command_string: str) -> tuple[list[str], str]:
+    try:
+        return shlex.split(command_string), ""
+    except ValueError:
+        return [], "Could not parse command"
+
+
+def _is_safe_project_path(path_token: str) -> bool:
+    if path_token in {"", "-", "."}:
+        return True
+    if path_token.startswith("~"):
+        return False
+    drive, _ = os.path.splitdrive(path_token)
+    if drive or path_token.startswith("/"):
+        return False
+
+    normalized = path_token.replace("\\", "/")
+    parts = [part for part in normalized.split("/") if part not in {"", "."}]
+    return ".." not in parts
+
+
+def _validate_project_paths(command_name: str, path_tokens: list[str]) -> tuple[bool, str]:
+    for token in path_tokens:
+        if not _is_safe_project_path(token):
+            return False, f"{command_name} path must stay within the project: {token}"
+    return True, ""
+
+
+def _non_flag_tokens(tokens: list[str]) -> list[str]:
+    return [token for token in tokens if not token.startswith("-")]
+
+
+def validate_project_path_command(command_string: str, *, skip_non_flag_args: int = 0) -> tuple[bool, str]:
+    tokens, error = _parse_tokens(command_string)
+    if error:
+        return False, error
+    if not tokens:
+        return False, "Empty command"
+
+    args = _non_flag_tokens(tokens[1:])
+    return _validate_project_paths(tokens[0], args[skip_non_flag_args:])
+
+
+def validate_sleep_command(command_string: str) -> tuple[bool, str]:
+    tokens, error = _parse_tokens(command_string)
+    if error:
+        return False, error
+    if len(tokens) != 2:
+        return False, "sleep requires exactly one duration argument"
+
+    try:
+        duration = float(tokens[1])
+    except ValueError:
+        return False, f"sleep duration must be numeric, got: {tokens[1]}"
+
+    if duration <= 0:
+        return False, "sleep duration must be positive"
+    if duration > MAX_SLEEP_SECONDS:
+        return False, f"sleep duration exceeds {MAX_SLEEP_SECONDS} seconds"
+    return True, ""
+
+
+def validate_package_manager_command(command_string: str) -> tuple[bool, str]:
+    tokens, error = _parse_tokens(command_string)
+    if error:
+        return False, error
+    if not tokens:
+        return False, "Empty package manager command"
+    if len(tokens) == 1:
+        return True, ""
+
+    manager = tokens[0]
+    subcommand = tokens[1]
+    positional_args = _non_flag_tokens(tokens[2:])
+
+    if subcommand == "add":
+        return False, f"{manager} add is not allowed by the security policy"
+
+    if subcommand in {"install", "i"} and positional_args:
+        return False, f"{manager} install with explicit packages or paths is not allowed"
+
+    return True, ""
 
 
 def extract_commands(command_string: str) -> list[str]:
@@ -214,10 +314,9 @@ def validate_chmod_command(command_string: str) -> tuple[bool, str]:
     Returns:
         Tuple of (is_allowed, reason_if_blocked)
     """
-    try:
-        tokens = shlex.split(command_string)
-    except ValueError:
-        return False, "Could not parse chmod command"
+    tokens, error = _parse_tokens(command_string)
+    if error:
+        return False, error
 
     if not tokens or tokens[0] != "chmod":
         return False, "Not a chmod command"
@@ -249,7 +348,7 @@ def validate_chmod_command(command_string: str) -> tuple[bool, str]:
     if not re.match(r"^[ugoa]*\+x$", mode):
         return False, f"chmod only allowed with +x mode, got: {mode}"
 
-    return True, ""
+    return _validate_project_paths("chmod", files)
 
 
 def validate_init_script(command_string: str) -> tuple[bool, str]:
@@ -259,10 +358,9 @@ def validate_init_script(command_string: str) -> tuple[bool, str]:
     Returns:
         Tuple of (is_allowed, reason_if_blocked)
     """
-    try:
-        tokens = shlex.split(command_string)
-    except ValueError:
-        return False, "Could not parse init script command"
+    tokens, error = _parse_tokens(command_string)
+    if error:
+        return False, error
 
     if not tokens:
         return False, "Empty command"
@@ -270,8 +368,7 @@ def validate_init_script(command_string: str) -> tuple[bool, str]:
     # The command should be exactly ./init.sh (possibly with arguments)
     script = tokens[0]
 
-    # Allow ./init.sh or paths ending in /init.sh
-    if script == "./init.sh" or script.endswith("/init.sh"):
+    if script == "./init.sh":
         return True, ""
 
     return False, f"Only ./init.sh is allowed, got: {script}"
@@ -354,6 +451,22 @@ async def bash_security_hook(input_data, tool_use_id=None, context=None):
                     return {"decision": "block", "reason": reason}
             elif cmd == "init.sh":
                 allowed, reason = validate_init_script(cmd_segment)
+                if not allowed:
+                    return {"decision": "block", "reason": reason}
+            elif cmd in {"cat", "cp", "head", "ls", "mkdir", "tail", "wc"}:
+                allowed, reason = validate_project_path_command(cmd_segment)
+                if not allowed:
+                    return {"decision": "block", "reason": reason}
+            elif cmd == "grep":
+                allowed, reason = validate_project_path_command(cmd_segment, skip_non_flag_args=1)
+                if not allowed:
+                    return {"decision": "block", "reason": reason}
+            elif cmd == "sleep":
+                allowed, reason = validate_sleep_command(cmd_segment)
+                if not allowed:
+                    return {"decision": "block", "reason": reason}
+            elif cmd in {"npm", "pnpm"}:
+                allowed, reason = validate_package_manager_command(cmd_segment)
                 if not allowed:
                     return {"decision": "block", "reason": reason}
 
