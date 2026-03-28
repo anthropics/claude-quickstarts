@@ -1,10 +1,11 @@
 # TRACEABILITY_MATRIX — Consolidated (v3.6.3)
 
 > Concatenation intégrale des matrices existantes, sans altération du contenu source.
+> La section `3.6.3` est maintenue directement dans ce fichier consolidé.
 
 ---
 
-## Source: `V3_6_3_TRACEABILITY_MATRIX.md`
+## Release: `V3.6.3`
 
 # V3.6.3 Traceability Matrix
 
