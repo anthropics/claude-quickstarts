@@ -17,6 +17,7 @@ def test_parse_args_defaults(monkeypatch) -> None:
     assert args.mode == "orchestrated"
     assert args.max_rounds == 3
     assert args.target_tests is None
+    assert args.provider == "claude"
     assert args.auth_mode == "api_key"
     assert args.llm_contract_review is False
 
@@ -70,6 +71,11 @@ def test_parse_args_help_shows_official_modes_without_v2(monkeypatch, capsys) ->
     output = capsys.readouterr().out
     assert "{legacy,orchestrated}" in output
     assert "v2" not in output
+
+def test_parse_args_provider_openai(monkeypatch) -> None:
+    monkeypatch.setattr("sys.argv", ["prog", "--provider", "openai"])
+    args = cli.parse_args()
+    assert args.provider == "openai"
 
 
 def test_normalize_project_dir_handles_dot_prefix() -> None:
@@ -227,3 +233,21 @@ def test_readme_documents_official_modes_without_v2() -> None:
     assert "--mode v2" not in readme
     assert "legacy --dry-run" in readme
     assert "workflow live manuel" in readme
+
+def test_main_rejects_missing_openai_cli_credentials(monkeypatch, capsys, tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir(parents=True)
+    monkeypatch.setattr(
+        "sys.argv",
+        ["prog", "--provider", "openai", "--auth-mode", "cli", "--project-dir", "./tmp-project"],
+    )
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.delenv("CODEX_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    async def fake_run_orchestrated(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(cli, "_run_orchestrated", fake_run_orchestrated)
+    cli.main()
+    output = capsys.readouterr().out
+    assert "Codex CLI credentials were not detected" in output

@@ -271,6 +271,22 @@ def test_model_overrides_use_compatibility_mode_without_shared_client(tmp_path: 
     assert runner.clients_by_phase["evaluator"][0] is None
 
 
+def test_shared_session_can_be_disabled_even_with_identical_models(tmp_path: Path) -> None:
+    runner = FakeRunner(tmp_path, ["pass"])
+    orchestrator = Orchestrator(
+        project_dir=tmp_path,
+        model_config=ModelConfig("m", "m", "m"),
+        max_rounds=1,
+        phase_runner=runner,
+        client_factory=dummy_client_factory,
+        shared_session_enabled=False,
+    )
+    asyncio.run(orchestrator.run(resume=False))
+    assert runner.clients_by_phase["planner"][0] is None
+    assert runner.clients_by_phase["builder"][0] is None
+    assert runner.clients_by_phase["evaluator"][0] is None
+
+
 def test_round_two_contract_uses_previous_builder_proposal(tmp_path: Path) -> None:
     class ProposalRunner(FakeRunner):
         async def __call__(self, project_dir: Path, model: str, prompt: str, phase: str, client=None) -> str:

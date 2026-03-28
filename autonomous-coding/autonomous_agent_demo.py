@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous coding harness entrypoint (V3.6.3 runtime, legacy/orchestrated CLI)."""
+"""Autonomous coding harness entrypoint (V3.7.0 runtime, legacy/orchestrated CLI)."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from agent import run_autonomous_agent, run_phase_session
 from artifacts import ArtifactPaths, write_validated_json
 from client import AuthMode, create_client, validate_auth_configuration
 from orchestrator import ModelConfig, Orchestrator
+from provider_resolution import resolve_provider_backend
 from progress import print_progress_summary
 from prompts import copy_spec_to_project
 
@@ -86,10 +87,16 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--planner-only", action="store_true")
     parser.add_argument("--qa-only", action="store_true")
     parser.add_argument(
+        "--provider",
+        choices=["claude", "openai"],
+        default="claude",
+        help="LLM provider to use for phase execution",
+    )
+    parser.add_argument(
         "--auth-mode",
         choices=["api_key", "cli", "auto"],
         default="api_key",
-        help="Authentication mode for Claude SDK client",
+        help="Authentication mode for the selected provider runtime",
     )
     parser.add_argument(
         "--llm-contract-review",
@@ -119,6 +126,7 @@ def _normalize_project_dir(project_dir: Path) -> Path:
 async def _run_orchestrated(args: argparse.Namespace, project_dir: Path) -> None:
     copy_spec_to_project(project_dir)
     auth_mode = cast(AuthMode, args.auth_mode)
+    resolved_backend = resolve_provider_backend(args.provider, auth_mode)
 
     if args.model:
         model_config = ModelConfig(args.model, args.model, args.model)
@@ -176,13 +184,19 @@ async def _run_orchestrated(args: argparse.Namespace, project_dir: Path) -> None
 
         runner = dry_runner
     else:
-        runner = run_phase_session
+        runner = partial(run_phase_session, auth_mode=args.auth_mode, provider=args.provider)
 
     orchestrator_kwargs = {}
     if args.dry_run:
         orchestrator_kwargs["client_factory"] = _dry_run_client_factory
     else:
         orchestrator_kwargs["client_factory"] = partial(create_client, auth_mode=auth_mode)
+        orchestrator_kwargs["client_factory"] = partial(
+            create_client,
+            auth_mode=auth_mode,
+            provider=args.provider,
+        )
+    orchestrator_kwargs["shared_session_enabled"] = resolved_backend.capabilities.supports_shared_session
 
     orchestrator = Orchestrator(
         project_dir=project_dir,
@@ -224,7 +238,7 @@ def main() -> None:
 
     if not args.dry_run:
         try:
-            validate_auth_configuration(auth_mode)
+            validate_auth_configuration(auth_mode, provider=args.provider)
         except ValueError as exc:
             print(f"Error: {exc}")
             return
@@ -246,6 +260,7 @@ def main() -> None:
                     model=model,
                     max_iterations=args.max_iterations,
                     auth_mode=auth_mode,
+                    provider=args.provider,
                     target_test_count=target_tests,
                 )
             )

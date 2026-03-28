@@ -1,4 +1,4 @@
-"""Planner phase for autonomous coding V3.4."""
+"""Planner phase for autonomous coding V3.7.0."""
 
 from __future__ import annotations
 
@@ -79,7 +79,7 @@ class PlannerPhase:
         summary = await self.runner(project_dir, model, prompt, "planner", client)
         usage = estimate_usage(prompt, summary)
         print(
-            "[V3.6.3] LLM call planner "
+            "[V3.7.0] LLM call planner "
             f"tokens(in={usage.input_tokens},out={usage.output_tokens},total={usage.total_tokens}) "
             f"est_cost=${usage.estimated_cost_usd:.6f}"
         )

@@ -57,6 +57,41 @@ def test_validate_auth_configuration_auto_accepts_api_key(monkeypatch, tmp_path:
     client.validate_auth_configuration("auto")
 
 
+def test_validate_auth_configuration_openai_api_key_requires_env(monkeypatch) -> None:
+    monkeypatch.delenv("CODEX_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="CODEX_API_KEY or OPENAI_API_KEY"):
+        client.validate_auth_configuration("api_key", provider="openai")
+
+
+def test_validate_auth_configuration_openai_cli_requires_cached_login(monkeypatch, tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: home)
+
+    with pytest.raises(ValueError, match="Codex CLI credentials were not detected"):
+        client.validate_auth_configuration("cli", provider="openai")
+
+
+def test_validate_auth_configuration_openai_cli_accepts_auth_cache(monkeypatch, tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    (home / ".codex").mkdir(parents=True)
+    (home / ".codex" / "auth.json").write_text('{"access_token": "ok"}')
+    monkeypatch.setattr(Path, "home", lambda: home)
+
+    client.validate_auth_configuration("cli", provider="openai")
+
+
+def test_validate_auth_configuration_openai_auto_accepts_codex_api_key(monkeypatch, tmp_path: Path) -> None:
+    home = tmp_path / "home"
+    home.mkdir(parents=True)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.setenv("CODEX_API_KEY", "test-key")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+
+    client.validate_auth_configuration("auto", provider="openai")
+
+
 def test_browser_config_prefers_playwright_headless_by_default() -> None:
     tools, servers = client._browser_config()
     assert tools == client.PLAYWRIGHT_TOOLS
@@ -77,7 +112,7 @@ class _CapturingClient:
 
 
 def test_create_client_writes_settings_and_keeps_planner_browserless(monkeypatch, tmp_path: Path) -> None:
-    monkeypatch.setattr(client, "validate_auth_configuration", lambda auth_mode: None)
+    monkeypatch.setattr(client, "validate_auth_configuration", lambda *args, **kwargs: None)
     monkeypatch.setattr(client, "ClaudeSDKClient", _CapturingClient)
 
     created = client.create_client(tmp_path, model="m", phase="planner")
@@ -95,7 +130,7 @@ def test_create_client_writes_settings_and_keeps_planner_browserless(monkeypatch
 
 @pytest.mark.parametrize("phase", ["builder", "evaluator", "orchestrator"])
 def test_create_client_enables_browser_tools_for_browser_phases(monkeypatch, tmp_path: Path, phase: str) -> None:
-    monkeypatch.setattr(client, "validate_auth_configuration", lambda auth_mode: None)
+    monkeypatch.setattr(client, "validate_auth_configuration", lambda *args, **kwargs: None)
     monkeypatch.setattr(client, "ClaudeSDKClient", _CapturingClient)
 
     created = client.create_client(tmp_path, model="m", phase=phase)

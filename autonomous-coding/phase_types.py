@@ -5,7 +5,5 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Awaitable, Callable
 
-from claude_code_sdk import ClaudeSDKClient
-
-PhaseRunner = Callable[[Path, str, str, str, ClaudeSDKClient | None], Awaitable[str]]
+PhaseRunner = Callable[[Path, str, str, str, Any | None], Awaitable[str]]
 ClientFactory = Callable[[Path, str, str], Any]
