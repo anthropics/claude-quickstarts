@@ -2,7 +2,7 @@
 
 Scope: `autonomous-coding/`
 
-- V3.1 is the primary harness path (`autonomous_agent_demo.py` default mode).
+- `orchestrated` is the primary harness path (`autonomous_agent_demo.py` default mode).
 - Preserve resumability semantics of `state/run_state.json`; do not silently reinterpret completed state.
 - Preserve security boundaries in `client.py` + `security.py` (sandbox, allowlist, hook checks).
 - Planner/Builder/Evaluator artifact contracts are schema-backed in `schemas/`; keep them deterministic.

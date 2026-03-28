@@ -16,6 +16,7 @@ Toutes les évolutions notables du module `autonomous-coding` sont listées ici.
 - Les chemins relatifs `--project-dir` conservent la normalisation sous `generations/` mais refusent désormais toute évasion via `..`.
 - `progress.py` retombe proprement sur un fallback sûr quand `feature_list.json` ou `run_state.json` ont une structure inattendue.
 - Alignement des marqueurs de version runtime, prompts actifs et documentation utilisateur sur `V3.6.3`.
+- Contrat CLI des modes clarifié : `v2` est retiré, `v1` devient `legacy`, `v3_1` devient `orchestrated`, et `orchestrated` devient le mode par défaut. Les alias `v1`/`v3_1` restent acceptés temporairement avec warning.
 
 ## [3.6.1] - 2026-03-27
 

@@ -184,26 +184,28 @@ python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --a
 python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --auth-mode auto
 ```
 
-- Mode v1 avec cible de tests personnalisée :
+- Mode `legacy` avec cible de tests personnalisée :
 
 ```bash
-python autonomous-coding/autonomous_agent_demo.py --mode v1 --project-dir ./my_project --target-tests 300
+python autonomous-coding/autonomous_agent_demo.py --mode legacy --project-dir ./my_project --target-tests 300
 ```
 
-- Mode v3_1 avec cible de backlog planifiée :
-- 
+- Mode `orchestrated` avec cible de backlog planifiée :
+
 ```bash
-python autonomous-coding/autonomous_agent_demo.py --mode v3_1 --project-dir ./my_project --target-tests 300
+python autonomous-coding/autonomous_agent_demo.py --mode orchestrated --project-dir ./my_project --target-tests 300
 ```
+
+- `orchestrated` est le mode par défaut. Les alias `v1` et `v3_1` restent acceptés temporairement avec warning de dépréciation. `v2` n'est plus reconnu.
 
 ### 7.2 Flags CLI (résumé)
 
 - `--project-dir` : dossier du projet cible.
-- `--mode {v3_1,v2,v1}` : runtime (v2 est alias déprécié).
+- `--mode {legacy,orchestrated}` : runtime public. `v1` et `v3_1` restent acceptés temporairement comme alias avec warning ; `v2` est retiré.
 - `--model` : même modèle pour toutes les phases.
 - `--planner-model` / `--builder-model` / `--evaluator-model` : override par phase.
 - `--max-rounds` : nombre max de rounds.
-- `--max-iterations` : uniquement mode v1.
+- `--max-iterations` : uniquement mode `legacy`.
 - `--target-tests` : nombre cible minimum de tests appliqué aux prompts de planification/initialisation (défaut explicite: 200 avec warning).
 - `--resume` : reprendre sur l’état existant.
 - `--dry-run` : test orchestration sans API live.

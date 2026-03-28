@@ -1,4 +1,4 @@
-"""Prompt loading utilities for V1 and V2 harness flows."""
+"""Prompt loading utilities for legacy and orchestrated harness flows."""
 
 from __future__ import annotations
 

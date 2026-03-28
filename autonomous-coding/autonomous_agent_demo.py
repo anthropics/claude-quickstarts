@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Autonomous coding harness entrypoint (V3.6.3 runtime, V1 compatibility mode)."""
+"""Autonomous coding harness entrypoint (V3.6.3 runtime, legacy/orchestrated CLI)."""
 
 from __future__ import annotations
 
@@ -20,6 +20,26 @@ DEFAULT_MODEL = "claude-opus-4-6"
 DEFAULT_PLANNER_MODEL = "claude-opus-4-6"
 DEFAULT_BUILDER_MODEL = "claude-opus-4-6"
 DEFAULT_EVALUATOR_MODEL = "claude-opus-4-6"
+OFFICIAL_MODES = ("legacy", "orchestrated")
+DEPRECATED_MODE_ALIASES = {"v1": "legacy", "v3_1": "orchestrated"}
+
+
+def _parse_mode(value: str) -> str:
+    if value in OFFICIAL_MODES or value in DEPRECATED_MODE_ALIASES:
+        return value
+    if value == "v2":
+        raise argparse.ArgumentTypeError("unsupported mode 'v2'; use 'legacy' or 'orchestrated'")
+    raise argparse.ArgumentTypeError(f"unsupported mode '{value}'; use 'legacy' or 'orchestrated'")
+
+
+def _resolve_mode(mode: str) -> str:
+    canonical = DEPRECATED_MODE_ALIASES.get(mode, mode)
+    if mode != canonical:
+        print(
+            f"[WARNING] --mode {mode} is a deprecated alias for {canonical}. "
+            "Use the canonical name; the alias will be removed in a future release."
+        )
+    return canonical
 
 
 class _DryRunClient:
@@ -38,7 +58,13 @@ def _dry_run_client_factory(project_dir: Path, model: str, phase: str):
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Autonomous Coding Harness")
     parser.add_argument("--project-dir", type=Path, default=Path("./autonomous_demo_project"))
-    parser.add_argument("--mode", choices=["v3_1", "v2", "v1"], default="v3_1")
+    parser.add_argument(
+        "--mode",
+        type=_parse_mode,
+        default="orchestrated",
+        metavar="{legacy,orchestrated}",
+        help="Execution mode. Official modes: legacy, orchestrated. Deprecated aliases: v1, v3_1.",
+    )
 
     parser.add_argument("--model", type=str, default=None, help="Single model override for all phases")
     parser.add_argument("--planner-model", type=str, default=DEFAULT_PLANNER_MODEL)
@@ -46,7 +72,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--evaluator-model", type=str, default=DEFAULT_EVALUATOR_MODEL)
 
     parser.add_argument("--max-rounds", type=int, default=3)
-    parser.add_argument("--max-iterations", type=int, default=None, help="V1 mode only")
+    parser.add_argument("--max-iterations", type=int, default=None, help="Legacy mode only")
     parser.add_argument(
         "--target-tests",
         type=int,
@@ -89,7 +115,7 @@ def _normalize_project_dir(project_dir: Path) -> Path:
     return Path("generations") / cleaned
 
 
-async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
+async def _run_orchestrated(args: argparse.Namespace, project_dir: Path) -> None:
     copy_spec_to_project(project_dir)
     auth_mode = cast(AuthMode, args.auth_mode)
 
@@ -177,6 +203,7 @@ async def _run_v3_1(args: argparse.Namespace, project_dir: Path) -> None:
 
 def main() -> None:
     args = parse_args()
+    mode = _resolve_mode(args.mode)
     auth_mode = cast(AuthMode, args.auth_mode)
     target_tests = args.target_tests
     if target_tests is None:
@@ -202,7 +229,7 @@ def main() -> None:
     project_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        if args.mode == "v1":
+        if mode == "legacy":
             model = args.model or DEFAULT_MODEL
             asyncio.run(
                 run_autonomous_agent(
@@ -213,14 +240,8 @@ def main() -> None:
                     target_test_count=target_tests,
                 )
             )
-        elif args.mode == "v2":
-            print(
-                "[WARNING] --mode v2 is deprecated and aliased to v3_1. "
-                "Use --mode v3_1 explicitly. This alias will be removed in a future release."
-            )
-            asyncio.run(_run_v3_1(args, project_dir))
         else:
-            asyncio.run(_run_v3_1(args, project_dir))
+            asyncio.run(_run_orchestrated(args, project_dir))
     except KeyboardInterrupt:
         print("\nInterrupted by user. Re-run with --resume to continue.")
 

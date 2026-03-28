@@ -1,4 +1,4 @@
-"""Agent session logic for V1 compatibility and V3.1 phase execution."""
+"""Agent session logic for legacy compatibility and orchestrated phase execution."""
 
 from __future__ import annotations
 
@@ -92,9 +92,9 @@ async def run_autonomous_agent(
     auth_mode: AuthMode = "api_key",
     target_test_count: int = 200,
 ) -> None:
-    """Legacy V1 autonomous loop (initializer + coding agent)."""
+    """Legacy autonomous loop (initializer + coding agent)."""
     print("\n" + "=" * 70)
-    print("  AUTONOMOUS CODING AGENT DEMO (V1 COMPAT MODE)")
+    print("  AUTONOMOUS CODING AGENT DEMO (LEGACY MODE)")
     print("=" * 70)
 
     project_dir.mkdir(parents=True, exist_ok=True)
