@@ -1,4 +1,4 @@
-"""V3.6.3 autonomous coding orchestrator (planner -> builder -> evaluator)."""
+"""V3.7.0 autonomous coding orchestrator (planner -> builder -> evaluator)."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ MAX_ACCEPTANCE_TESTS = int(
     os.environ.get("V3_4_SPRINT_MAX_ACCEPTANCE_TESTS", os.environ.get("V3_2_SPRINT_MAX_ACCEPTANCE_TESTS", "12"))
 )
 MAX_NEGOTIATION_TURNS = int(os.environ.get("V3_4_MAX_NEGOTIATION_TURNS", "2"))
-LOG_VERSION_TAG = "V3.6.3"
+LOG_VERSION_TAG = "V3.7.0"
 
 NEGOTIATION_REASON_CODES = {
     "FORMAT_ERROR",
@@ -56,6 +56,7 @@ class Orchestrator:
         client_factory: ClientFactory = create_client,
         llm_contract_review: bool = False,
         target_test_count: int = 200,
+        shared_session_enabled: bool = True,
     ):
         self.project_dir = project_dir
         self.paths = ArtifactPaths(project_dir)
@@ -65,6 +66,7 @@ class Orchestrator:
         self.phase_runner = phase_runner
         self.client_factory = client_factory
         self.llm_contract_review = llm_contract_review
+        self.shared_session_enabled = shared_session_enabled
         self.planner = PlannerPhase(phase_runner, target_test_count=target_test_count)
         self.builder = BuilderPhase(phase_runner)
         self.evaluator = EvaluatorPhase(phase_runner)
@@ -125,6 +127,8 @@ class Orchestrator:
         return text[:SUMMARY_MAX_CHARS]
 
     def _continuous_session_enabled(self) -> bool:
+        if not self.shared_session_enabled:
+            return False
         models = {
             self.model_config.planner_model,
             self.model_config.builder_model,

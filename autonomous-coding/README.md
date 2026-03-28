@@ -1,4 +1,4 @@
-# Autonomous Coding Harness (V3.6.3)
+# Autonomous Coding Harness (V3.7.0)
 
 Harness d’automatisation de développement basé sur un cycle **Planner → Builder → Evaluator**, avec artefacts JSON validés par schéma, reprise de session (`--resume`) et garde-fous QA/sécurité.
 
@@ -95,6 +95,11 @@ Dépendances principales :
 
 ## 6) Configuration
 
+> Etat actuel du support provider :
+> - `--provider claude` utilise le runtime Claude existant.
+> - `--provider openai` utilise aujourd'hui le transport **Codex CLI** en mode non interactif.
+> - Le provider OpenAI ne passe pas encore par une intégration API OpenAI Python directe dans ce harness.
+
 ### 6.1 Variables d’environnement / credentials
 
 Linux/macOS :
@@ -112,6 +117,11 @@ $env:ANTHROPIC_API_KEY="votre_cle"
 Credentials CLI (optionnels) :
 - Session CLI (`claude login`) détectée automatiquement.
 - Ou token via une variable d’environnement compatible CLI (`CLAUDE_CODE_AUTH_TOKEN`, `CLAUDE_AUTH_TOKEN`, `ANTHROPIC_AUTH_TOKEN`).
+
+Credentials OpenAI/Codex :
+- API key non interactive : `CODEX_API_KEY` ou `OPENAI_API_KEY`.
+- Session CLI persistée : `codex login`, avec cache local attendu dans `~/.codex/auth.json`.
+- Le provider OpenAI nécessite un projet cible dans un dépôt Git pour l'exécution Codex CLI.
 
 ### 6.2 Fichiers importants à connaître
 
@@ -182,6 +192,18 @@ python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --l
 python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --auth-mode cli
 ```
 
+- Exécuter explicitement avec le provider OpenAI via session Codex CLI :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --provider openai --auth-mode cli
+```
+
+- Exécuter explicitement avec le provider OpenAI via API key pour Codex CLI :
+
+```bash
+python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --provider openai --auth-mode api_key
+```
+
 - Mode auto (essaye CLI puis API key) :
 
 ```bash
@@ -214,7 +236,8 @@ python autonomous-coding/autonomous_agent_demo.py --mode orchestrated --project-
 - `--resume` : reprendre sur l’état existant.
 - `--dry-run` : smoke test offline du mode `orchestrated`. Ne valide ni auth réelle, ni client SDK réel, ni appels LLM/outils réels.
 - `--planner-only` / `--qa-only` : exécution partielle.
-- `--auth-mode {api_key,cli,auto}` : stratégie d’authentification SDK.
+- `--provider {claude,openai}` : sélection explicite du provider runtime.
+- `--auth-mode {api_key,cli,auto}` : stratégie d’authentification du provider sélectionné.
 - `--llm-contract-review` : arbitrage modèle côté négociation de contrat.
 - `legacy --dry-run` : rejet explicite avec code de sortie non nul, pour éviter un faux sentiment de couverture V1.
 

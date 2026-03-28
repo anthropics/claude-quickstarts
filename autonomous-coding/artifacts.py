@@ -10,7 +10,7 @@ from typing import Any
 from jsonschema import ValidationError, validate
 
 SCHEMA_DIR = Path(__file__).parent / "schemas"
-LOG_VERSION_TAG = "V3.4"
+LOG_VERSION_TAG = "V3.7.0"
 
 
 class ArtifactPaths:

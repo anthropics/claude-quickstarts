@@ -1,4 +1,4 @@
-"""Best-effort LLM usage/cost estimation utilities for V3.6.3."""
+"""Best-effort LLM usage/cost estimation utilities for V3.7.0."""
 
 from __future__ import annotations
 
@@ -7,9 +7,13 @@ import os
 from dataclasses import asdict, dataclass
 from typing import Any
 
-INPUT_USD_PER_1M = float(os.environ.get("V3_5_EST_INPUT_USD_PER_1M", "3.0"))
-OUTPUT_USD_PER_1M = float(os.environ.get("V3_5_EST_OUTPUT_USD_PER_1M", "15.0"))
-TOKEN_EST_CHARS_PER_TOKEN = float(os.environ.get("V3_5_EST_CHARS_PER_TOKEN", "4.0"))
+INPUT_USD_PER_1M = float(os.environ.get("V3_7_EST_INPUT_USD_PER_1M", os.environ.get("V3_5_EST_INPUT_USD_PER_1M", "3.0")))
+OUTPUT_USD_PER_1M = float(
+    os.environ.get("V3_7_EST_OUTPUT_USD_PER_1M", os.environ.get("V3_5_EST_OUTPUT_USD_PER_1M", "15.0"))
+)
+TOKEN_EST_CHARS_PER_TOKEN = float(
+    os.environ.get("V3_7_EST_CHARS_PER_TOKEN", os.environ.get("V3_5_EST_CHARS_PER_TOKEN", "4.0"))
+)
 
 
 @dataclass

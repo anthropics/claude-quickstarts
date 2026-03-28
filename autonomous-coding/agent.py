@@ -10,6 +10,8 @@ from typing import Any, Optional
 from claude_code_sdk import ClaudeSDKClient
 
 from client import AuthMode, create_client
+from openai_codex_cli import run_codex_cli_phase
+from provider_resolution import Provider
 from progress import print_session_header, print_progress_summary
 from prompts import copy_spec_to_project, get_coding_prompt, get_initializer_prompt
 
@@ -63,8 +65,9 @@ async def run_phase_session(
     model: str,
     prompt: str,
     phase: str,
-    client: ClaudeSDKClient | None = None,
+    client: Any | None = None,
     auth_mode: AuthMode = "api_key",
+    provider: Provider = "claude",
 ) -> str:
     """Run one phase and return plain-text summary.
 
@@ -73,8 +76,25 @@ async def run_phase_session(
     """
     status = "error"
     response = ""
+    if provider == "openai":
+        if client is not None:
+            raise RuntimeError("OpenAI/Codex runtime does not support shared client sessions.")
+        return await run_codex_cli_phase(
+            project_dir=project_dir,
+            model=model,
+            prompt=prompt,
+            phase=phase,
+            auth_mode=auth_mode,
+        )
+
     if client is None:
-        owned_client = create_client(project_dir=project_dir, model=model, phase=phase, auth_mode=auth_mode)
+        owned_client = create_client(
+            project_dir=project_dir,
+            model=model,
+            phase=phase,
+            auth_mode=auth_mode,
+            provider=provider,
+        )
         async with owned_client:
             status, response = await run_agent_session(owned_client, prompt, project_dir)
     else:
@@ -90,6 +110,7 @@ async def run_autonomous_agent(
     model: str,
     max_iterations: Optional[int] = None,
     auth_mode: AuthMode = "api_key",
+    provider: Provider = "claude",
     target_test_count: int = 200,
 ) -> None:
     """Legacy autonomous loop (initializer + coding agent)."""
@@ -121,6 +142,7 @@ async def run_autonomous_agent(
             prompt=prompt,
             phase=phase,
             auth_mode=auth_mode,
+            provider=provider,
         )
         is_first_run = False
         print_progress_summary(project_dir)
