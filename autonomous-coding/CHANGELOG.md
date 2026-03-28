@@ -8,6 +8,7 @@ Toutes les évolutions notables du module `autonomous-coding` sont listées ici.
 
 - Couverture de régression dédiée pour la barrière Bash, l’échec explicite du planner, la traversée `--project-dir` et la robustesse de `progress.py`.
 - Configuration locale `pyrightconfig.json` pour rendre le type-check du module `autonomous-coding` exécutable dans l’environnement de développement courant.
+- Nouvelle couverture hybride du contrat `--dry-run` : tests offline dédiés, smoke CLI orchestrated, et workflow live manuel pour les chemins SDK/LLM réels.
 
 ### Changed
 
@@ -17,6 +18,8 @@ Toutes les évolutions notables du module `autonomous-coding` sont listées ici.
 - `progress.py` retombe proprement sur un fallback sûr quand `feature_list.json` ou `run_state.json` ont une structure inattendue.
 - Alignement des marqueurs de version runtime, prompts actifs et documentation utilisateur sur `V3.6.3`.
 - Contrat CLI des modes clarifié : `v2` est retiré, `v1` devient `legacy`, `v3_1` devient `orchestrated`, et `orchestrated` devient le mode par défaut. Les alias `v1`/`v3_1` restent acceptés temporairement avec warning.
+- `legacy --dry-run` est maintenant rejeté explicitement avec code de sortie stable ; seul `orchestrated --dry-run` reste vendu comme smoke test offline.
+- `create_client()` n’autorise plus les outils navigateur dans le contrat planner/contract-reviewer ; ils restent limités à builder/evaluator/orchestrator.
 
 ## [3.6.1] - 2026-03-27
 

@@ -148,11 +148,15 @@ python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project
 python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --resume
 ```
 
-- Dry-run (sans appel LLM distant) :
+- Dry-run orchestrated (sans appel LLM distant) :
 
 ```bash
-python autonomous-coding/autonomous_agent_demo.py --project-dir ./my_project --dry-run
+python autonomous-coding/autonomous_agent_demo.py --mode orchestrated --project-dir ./my_project --dry-run
 ```
+
+- `legacy --dry-run` :
+
+  non supporté intentionnellement. Le runtime V1 ne valide pas un run offline complet et la CLI échoue vite avec un code non nul stable.
 
 - Planification uniquement :
 
@@ -208,10 +212,11 @@ python autonomous-coding/autonomous_agent_demo.py --mode orchestrated --project-
 - `--max-iterations` : uniquement mode `legacy`.
 - `--target-tests` : nombre cible minimum de tests appliqué aux prompts de planification/initialisation (défaut explicite: 200 avec warning).
 - `--resume` : reprendre sur l’état existant.
-- `--dry-run` : test orchestration sans API live.
+- `--dry-run` : smoke test offline du mode `orchestrated`. Ne valide ni auth réelle, ni client SDK réel, ni appels LLM/outils réels.
 - `--planner-only` / `--qa-only` : exécution partielle.
 - `--auth-mode {api_key,cli,auto}` : stratégie d’authentification SDK.
 - `--llm-contract-review` : arbitrage modèle côté négociation de contrat.
+- `legacy --dry-run` : rejet explicite avec code de sortie non nul, pour éviter un faux sentiment de couverture V1.
 
 ## 8) Artefacts produits
 
@@ -248,15 +253,19 @@ Exécuter les tests unitaires/intégration locale :
 pytest autonomous-coding/tests autonomous-coding/test_security.py -q
 ```
 
-Tester le flux complet sans coûts API :
+Tester la tuyauterie offline du mode orchestrated sans coûts API :
 
 ```bash
-python autonomous-coding/autonomous_agent_demo.py --project-dir ./smoke_demo --dry-run
+python autonomous-coding/autonomous_agent_demo.py --mode orchestrated --project-dir ./smoke_demo --dry-run --max-rounds 2 --llm-contract-review
 ```
 
 Vérifier la cohérence des artefacts JSON :
 - inspecter les fichiers sous `state/`, `planning/`, `qa/`,
 - confirmer l’alignement avec `schemas/*.schema.json`.
+
+Tester les chemins réels que le dry-run ne couvre pas :
+- utiliser le workflow live manuel GitHub Actions `autonomous-coding-live-smoke`,
+- ou lancer `pytest autonomous-coding/tests/test_live_phase_smoke.py -q -m live` avec `ANTHROPIC_API_KEY` et `AUTONOMOUS_CODING_ENABLE_LIVE_TESTS=1`.
 
 ## 11) Dépannage rapide
 
@@ -272,5 +281,7 @@ Vérifier la cohérence des artefacts JSON :
 
 - Toujours démarrer par une spec claire dans `app_spec.txt`.
 - Garder `work_backlog.json` et critères d’acceptation concis et testables.
-- Favoriser `--dry-run` pour valider la tuyauterie avant run live.
+- Favoriser `orchestrated --dry-run` pour valider la tuyauterie offline avant run live.
+- Ne pas utiliser `legacy --dry-run` comme signal de validation : la combinaison est rejetée explicitement.
+- Utiliser le workflow live manuel quand il faut vérifier auth SDK, appels LLM réels, QA réelle et revue de contrat LLM.
 - Utiliser `--resume` plutôt que relancer de zéro pour préserver la traçabilité.

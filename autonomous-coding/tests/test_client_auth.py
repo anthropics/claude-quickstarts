@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
@@ -68,3 +69,41 @@ def test_browser_config_allows_explicit_puppeteer_fallback() -> None:
     tools, servers = client._browser_config("puppeteer")
     assert tools == client.PUPPETEER_TOOLS
     assert servers == {"puppeteer": {"command": "npx", "args": ["puppeteer-mcp-server"]}}
+
+
+class _CapturingClient:
+    def __init__(self, *, options):
+        self.options = options
+
+
+def test_create_client_writes_settings_and_keeps_planner_browserless(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(client, "validate_auth_configuration", lambda auth_mode: None)
+    monkeypatch.setattr(client, "ClaudeSDKClient", _CapturingClient)
+
+    created = client.create_client(tmp_path, model="m", phase="planner")
+    settings = json.loads((tmp_path / ".claude_settings.json").read_text(encoding="utf-8"))
+    allowed_tools = list(created.options.allowed_tools)
+
+    assert allowed_tools == client.BUILTIN_TOOLS
+    assert client.PLAYWRIGHT_TOOLS[0] not in allowed_tools
+    assert client.PLAYWRIGHT_TOOLS[0] not in settings["permissions"]["allow"]
+    assert settings["permissions"]["defaultMode"] == "acceptEdits"
+    assert settings["sandbox"]["enabled"] is True
+    assert created.options.cwd == str(tmp_path.resolve())
+    assert created.options.settings == str((tmp_path / ".claude_settings.json").resolve())
+
+
+@pytest.mark.parametrize("phase", ["builder", "evaluator", "orchestrator"])
+def test_create_client_enables_browser_tools_for_browser_phases(monkeypatch, tmp_path: Path, phase: str) -> None:
+    monkeypatch.setattr(client, "validate_auth_configuration", lambda auth_mode: None)
+    monkeypatch.setattr(client, "ClaudeSDKClient", _CapturingClient)
+
+    created = client.create_client(tmp_path, model="m", phase=phase)
+    settings = json.loads((tmp_path / ".claude_settings.json").read_text(encoding="utf-8"))
+    allowed_tools = list(created.options.allowed_tools)
+
+    for tool in client.PLAYWRIGHT_TOOLS:
+        assert tool in allowed_tools
+        assert tool in settings["permissions"]["allow"]
+
+    assert settings["sandbox"]["enabled"] is True

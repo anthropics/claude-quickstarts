@@ -122,9 +122,9 @@ def create_client(
     validate_auth_configuration(auth_mode)
 
     browser_tools, mcp_servers = _browser_config(browser_provider)
+    phase_browser_tools = [*browser_tools] if phase in {"builder", "evaluator", "orchestrator"} else []
     allowed_tools = [*BUILTIN_TOOLS]
-    if phase in {"builder", "evaluator", "orchestrator"}:
-        allowed_tools.extend(browser_tools)
+    allowed_tools.extend(phase_browser_tools)
 
     security_settings = {
         "sandbox": {"enabled": True, "autoAllowBashIfSandboxed": True},
@@ -137,7 +137,7 @@ def create_client(
                 "Glob(./**)",
                 "Grep(./**)",
                 "Bash(*)",
-                *browser_tools,
+                *phase_browser_tools,
             ],
         },
     }

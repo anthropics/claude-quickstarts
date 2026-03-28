@@ -22,6 +22,7 @@ DEFAULT_BUILDER_MODEL = "claude-opus-4-6"
 DEFAULT_EVALUATOR_MODEL = "claude-opus-4-6"
 OFFICIAL_MODES = ("legacy", "orchestrated")
 DEPRECATED_MODE_ALIASES = {"v1": "legacy", "v3_1": "orchestrated"}
+LEGACY_DRY_RUN_EXIT_CODE = 2
 
 
 def _parse_mode(value: str) -> str:
@@ -212,6 +213,14 @@ def main() -> None:
     elif target_tests <= 0:
         print("Error: --target-tests must be a positive integer.")
         return
+
+    if mode == "legacy" and args.dry_run:
+        print(
+            "Error: --dry-run is not supported with --mode legacy. "
+            "The V1 runtime cannot complete a meaningful offline run; use --mode orchestrated --dry-run "
+            "or the workflow live manuel for real SDK/LLM verification."
+        )
+        raise SystemExit(LEGACY_DRY_RUN_EXIT_CODE)
 
     if not args.dry_run:
         try:

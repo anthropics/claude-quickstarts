@@ -7,6 +7,10 @@ import pytest
 import autonomous_agent_demo as cli
 
 
+def _stub_auth_ok(*args, **kwargs) -> None:
+    del args, kwargs
+
+
 def test_parse_args_defaults(monkeypatch) -> None:
     monkeypatch.setattr("sys.argv", ["prog"])
     args = cli.parse_args()
@@ -82,7 +86,7 @@ def test_normalize_project_dir_rejects_parent_traversal(raw_path: str) -> None:
 def test_main_dispatches_legacy_mode(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         "sys.argv",
-        ["prog", "--mode", "legacy", "--project-dir", "./tmp-project", "--max-iterations", "0", "--dry-run"],
+        ["prog", "--mode", "legacy", "--project-dir", "./tmp-project", "--max-iterations", "0"],
     )
     called = {"legacy": False}
 
@@ -90,6 +94,7 @@ def test_main_dispatches_legacy_mode(monkeypatch, capsys) -> None:
         called["legacy"] = True
         return None
 
+    monkeypatch.setattr(cli, "validate_auth_configuration", _stub_auth_ok)
     monkeypatch.setattr(cli, "run_autonomous_agent", fake_run_autonomous_agent)
     cli.main()
     output = capsys.readouterr().out
@@ -100,7 +105,7 @@ def test_main_dispatches_legacy_mode(monkeypatch, capsys) -> None:
 def test_main_warns_when_v1_alias_is_used(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         "sys.argv",
-        ["prog", "--mode", "v1", "--project-dir", "./tmp-project", "--max-iterations", "0", "--dry-run"],
+        ["prog", "--mode", "v1", "--project-dir", "./tmp-project", "--max-iterations", "0"],
     )
     called = {"legacy": False}
 
@@ -108,6 +113,7 @@ def test_main_warns_when_v1_alias_is_used(monkeypatch, capsys) -> None:
         called["legacy"] = True
         return None
 
+    monkeypatch.setattr(cli, "validate_auth_configuration", _stub_auth_ok)
     monkeypatch.setattr(cli, "run_autonomous_agent", fake_run_autonomous_agent)
     cli.main()
     output = capsys.readouterr().out
@@ -118,15 +124,30 @@ def test_main_warns_when_v1_alias_is_used(monkeypatch, capsys) -> None:
 def test_main_warns_when_target_tests_default_is_used(monkeypatch, capsys) -> None:
     monkeypatch.setattr(
         "sys.argv",
-        ["prog", "--mode", "legacy", "--project-dir", "./tmp-project", "--max-iterations", "0", "--dry-run"],
+        ["prog", "--mode", "legacy", "--project-dir", "./tmp-project", "--max-iterations", "0"],
     )
     async def fake_run_autonomous_agent(*args, **kwargs):
         return None
 
+    monkeypatch.setattr(cli, "validate_auth_configuration", _stub_auth_ok)
     monkeypatch.setattr(cli, "run_autonomous_agent", fake_run_autonomous_agent)
     cli.main()
     output = capsys.readouterr().out
     assert "--target-tests not provided; defaulting to 200" in output
+
+
+def test_main_rejects_legacy_dry_run_with_stable_exit_code(monkeypatch, capsys) -> None:
+    monkeypatch.setattr(
+        "sys.argv",
+        ["prog", "--mode", "legacy", "--project-dir", "./tmp-project", "--max-iterations", "0", "--dry-run"],
+    )
+
+    with pytest.raises(SystemExit) as excinfo:
+        cli.main()
+
+    output = capsys.readouterr().out
+    assert excinfo.value.code == cli.LEGACY_DRY_RUN_EXIT_CODE
+    assert "--dry-run is not supported with --mode legacy" in output
 
 
 def test_main_dispatches_orchestrated_mode(monkeypatch, capsys) -> None:
@@ -204,3 +225,5 @@ def test_readme_documents_official_modes_without_v2() -> None:
     readme = (Path(__file__).resolve().parents[1] / "README.md").read_text(encoding="utf-8")
     assert "--mode {legacy,orchestrated}" in readme
     assert "--mode v2" not in readme
+    assert "legacy --dry-run" in readme
+    assert "workflow live manuel" in readme
