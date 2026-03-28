@@ -261,7 +261,6 @@ def main() -> None:
                     max_iterations=args.max_iterations,
                     auth_mode=auth_mode,
                     provider=args.provider,
-                    auth_mode=auth_mode,
                     target_test_count=target_tests,
                 )
             )
