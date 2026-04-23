@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Computer Use Demo</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app">
+      <aside class="sidebar">
+        <h2>Chats</h2>
+        <form id="new-chat-form" class="new-chat">
+          <input id="new-title" type="text" placeholder="Title (optional)" />
+          <select id="new-model"></select>
+          <select id="new-provider"></select>
+          <select id="new-tool-version"></select>
+          <button type="submit">New chat</button>
+        </form>
+        <ul id="chat-list" class="chat-list"></ul>
+        <details class="config">
+          <summary>API key &amp; settings</summary>
+          <label>
+            API key
+            <input id="api-key-input" type="password" placeholder="sk-ant-..." />
+          </label>
+          <button id="save-api-key" type="button">Save key</button>
+          <label>
+            Base URL (optional)
+            <input id="base-url-input" type="text" placeholder="https://..." />
+          </label>
+          <button id="save-base-url" type="button">Save URL</button>
+          <label>
+            System prompt suffix
+            <textarea id="system-prompt-input" rows="3"></textarea>
+          </label>
+          <button id="save-system-prompt" type="button">Save prompt</button>
+        </details>
+      </aside>
+      <main class="chat">
+        <header class="chat-header">
+          <h1 id="chat-title">Pick or create a chat</h1>
+          <span id="chat-status" class="status idle">idle</span>
+          <button id="cancel-btn" type="button" disabled>Cancel turn</button>
+        </header>
+        <section id="transcript" class="transcript"></section>
+        <form id="message-form" class="composer">
+          <textarea
+            id="message-input"
+            placeholder="Give Claude an instruction... (Enter to send, Shift+Enter for newline)"
+            rows="2"
+            disabled
+          ></textarea>
+          <button type="submit" disabled>Send</button>
+        </form>
+      </main>
+      <section class="vnc">
+        <div class="vnc-toolbar">
+          <span>Desktop</span>
+          <button id="vnc-toggle" type="button">Toggle screen control (off)</button>
+        </div>
+        <iframe id="vnc-iframe"></iframe>
+      </section>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

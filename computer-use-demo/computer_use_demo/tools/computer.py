@@ -1,6 +1,5 @@
 import asyncio
 import base64
-import os
 import shlex
 import shutil
 from enum import StrEnum
@@ -9,6 +8,8 @@ from typing import Literal, TypedDict, cast, get_args
 from uuid import uuid4
 
 from anthropic.types.beta import BetaToolComputerUse20241022Param, BetaToolUnionParam
+
+from computer_use_demo.settings import DISPLAY_NUM, HEIGHT, WIDTH
 
 from .base import BaseAnthropicTool, ToolError, ToolResult
 from .run import run
@@ -113,11 +114,11 @@ class BaseComputerTool:
     def __init__(self):
         super().__init__()
 
-        self.width = int(os.getenv("WIDTH") or 0)
-        self.height = int(os.getenv("HEIGHT") or 0)
+        self.width = WIDTH
+        self.height = HEIGHT
         assert self.width and self.height, "WIDTH, HEIGHT must be set"
-        if (display_num := os.getenv("DISPLAY_NUM")) is not None:
-            self.display_num = int(display_num)
+        if DISPLAY_NUM is not None:
+            self.display_num = DISPLAY_NUM
             self._display_prefix = f"DISPLAY=:{self.display_num} "
         else:
             self.display_num = None

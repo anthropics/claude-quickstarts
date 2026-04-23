@@ -2,6 +2,7 @@
 Agentic sampling loop that calls the Claude API and local implementation of anthropic-defined computer use tools.
 """
 
+import logging
 import platform
 from collections.abc import Callable
 from datetime import datetime
@@ -10,12 +11,12 @@ from typing import Any, cast
 
 import httpx
 from anthropic import (
-    Anthropic,
-    AnthropicBedrock,
-    AnthropicVertex,
     APIError,
     APIResponseValidationError,
     APIStatusError,
+    AsyncAnthropic,
+    AsyncAnthropicBedrock,
+    AsyncAnthropicVertex,
 )
 from anthropic.types.beta import (
     BetaCacheControlEphemeralParam,
@@ -29,12 +30,16 @@ from anthropic.types.beta import (
     BetaToolUseBlockParam,
 )
 
+from computer_use_demo.settings import ANTHROPIC_BASE_URL
+
 from .tools import (
     TOOL_GROUPS_BY_VERSION,
     ToolCollection,
     ToolResult,
     ToolVersion,
 )
+
+logger = logging.getLogger(__name__)
 
 PROMPT_CACHING_BETA_FLAG = "prompt-caching-2024-07-31"
 
@@ -76,7 +81,7 @@ async def sampling_loop(
     output_callback: Callable[[BetaContentBlockParam], None],
     tool_output_callback: Callable[[ToolResult, str], None],
     api_response_callback: Callable[
-        [httpx.Request, httpx.Response | object | None, Exception | None], None
+        [httpx.Request | None, httpx.Response | object | None, Exception | None], None
     ],
     api_key: str,
     only_n_most_recent_images: int | None = None,
@@ -84,9 +89,18 @@ async def sampling_loop(
     tool_version: ToolVersion,
     thinking_budget: int | None = None,
     token_efficient_tools_beta: bool = False,
+    delta_callback: Callable[[Any], None] | None = None,
+    tool_runner: Callable[[str, dict[str, Any]], Any] | None = None,
+    base_url: str | None = None,
 ):
     """
     Agentic sampling loop for the assistant/tool interaction of computer use.
+
+    ``delta_callback`` receives every raw stream event from the Anthropic
+    streaming API (text/thinking deltas, block start/stop, etc.) so callers can
+    render token-level progress. ``tool_runner`` optionally overrides the
+    default ``ToolCollection.run`` dispatch (useful for tests or for serializing
+    shared desktop state across chats).
     """
     tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
     tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
@@ -102,12 +116,17 @@ async def sampling_loop(
             betas.append("token-efficient-tools-2025-02-19")
         image_truncation_threshold = only_n_most_recent_images or 0
         if provider == APIProvider.ANTHROPIC:
-            client = Anthropic(api_key=api_key, max_retries=4)
+            resolved_base_url = base_url or ANTHROPIC_BASE_URL
+            client = AsyncAnthropic(
+                api_key=api_key,
+                base_url=resolved_base_url,
+                max_retries=4,
+            )
             enable_prompt_caching = True
         elif provider == APIProvider.VERTEX:
-            client = AnthropicVertex()
+            client = AsyncAnthropicVertex()
         elif provider == APIProvider.BEDROCK:
-            client = AnthropicBedrock()
+            client = AsyncAnthropicBedrock()
 
         if enable_prompt_caching:
             betas.append(PROMPT_CACHING_BETA_FLAG)
@@ -131,32 +150,50 @@ async def sampling_loop(
                 "thinking": {"type": "enabled", "budget_tokens": thinking_budget}
             }
 
-        # Call the API
-        # we use raw_response to provide debug information to streamlit. Your
-        # implementation may be able call the SDK directly with:
-        # `response = client.messages.create(...)` instead.
+        tool_params = tool_collection.to_params()
+        logger.info(
+            "API request: model=%s, betas=%s, tools=%s, messages=%d",
+            model,
+            betas,
+            [p.get("name", p.get("type")) for p in tool_params],
+            len(messages),
+        )
+
         try:
-            raw_response = client.beta.messages.with_raw_response.create(
+            async with client.beta.messages.stream(  # type: ignore[attr-defined]
                 max_tokens=max_tokens,
                 messages=messages,
                 model=model,
                 system=[system],
-                tools=tool_collection.to_params(),
+                tools=tool_params,
                 betas=betas,
                 extra_body=extra_body,
-            )
+            ) as stream:
+                if delta_callback is not None:
+                    async for event in stream:
+                        delta_callback(event)
+                try:
+                    response = await stream.get_final_message()
+                except AssertionError:
+                    api_response_callback(
+                        None,
+                        None,
+                        RuntimeError(
+                            "Stream ended without a complete response. "
+                            "The API (or proxy) may have closed the connection early."
+                        ),
+                    )
+                    return messages
         except (APIStatusError, APIResponseValidationError) as e:
             api_response_callback(e.request, e.response, e)
             return messages
         except APIError as e:
-            api_response_callback(e.request, e.body, e)
+            api_response_callback(
+                getattr(e, "request", None), getattr(e, "body", None), e
+            )
             return messages
 
-        api_response_callback(
-            raw_response.http_response.request, raw_response.http_response, None
-        )
-
-        response = raw_response.parse()
+        api_response_callback(None, response, None)
 
         response_params = _response_to_params(response)
         messages.append(
@@ -173,12 +210,15 @@ async def sampling_loop(
                 isinstance(content_block, dict)
                 and content_block.get("type") == "tool_use"
             ):
-                # Type narrowing for tool use blocks
                 tool_use_block = cast(BetaToolUseBlockParam, content_block)
-                result = await tool_collection.run(
-                    name=tool_use_block["name"],
-                    tool_input=cast(dict[str, Any], tool_use_block.get("input", {})),
-                )
+                tool_name = tool_use_block["name"]
+                tool_input = cast(dict[str, Any], tool_use_block.get("input", {}))
+                if tool_runner is not None:
+                    result = await tool_runner(tool_name, tool_input)
+                else:
+                    result = await tool_collection.run(
+                        name=tool_name, tool_input=tool_input
+                    )
                 tool_result_content.append(
                     _make_api_tool_result(result, tool_use_block["id"])
                 )
@@ -282,10 +322,9 @@ def _inject_prompt_caching(
                     {"type": "ephemeral"}
                 )
             else:
-                if isinstance(content[-1], dict) and "cache_control" in content[-1]:
-                    del content[-1]["cache_control"]  # type: ignore
-                # we'll only every have one extra turn per loop
-                break
+                for block in content:
+                    if isinstance(block, dict) and "cache_control" in block:
+                        del block["cache_control"]  # type: ignore
 
 
 def _make_api_tool_result(

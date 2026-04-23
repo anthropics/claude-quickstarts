@@ -185,7 +185,9 @@ async def test_insert_command(edit_tool):
     ):
         mock_read_text.return_value = "Line 1\nLine 2\nLine 3"
         result = await edit_tool(
-            command="insert", path="/test/file.txt", insert_line=2,
+            command="insert",
+            path="/test/file.txt",
+            insert_line=2,
             insert_text="New Line",
         )
         assert isinstance(result, CLIResult)
@@ -256,7 +258,9 @@ async def test_insert_command(edit_tool):
     ):
         mock_read_text.return_value = "Original content"
         await edit_tool(
-            command="insert", path="/test/file.txt", insert_line=1,
+            command="insert",
+            path="/test/file.txt",
+            insert_line=1,
             insert_text="New Line",
         )
         assert edit_tool._file_history[Path("/test/file.txt")] == ["Original content"]

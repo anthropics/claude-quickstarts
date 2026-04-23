@@ -1,4 +1,8 @@
-streamlit==1.41.0
+fastapi>=0.115
+uvicorn[standard]>=0.30
+sqlalchemy[asyncio]>=2.0
+aiosqlite>=0.20
+pydantic>=2.7
 anthropic[bedrock,vertex]>=0.39.0
 jsonschema==4.22.0
 boto3>=1.28.57

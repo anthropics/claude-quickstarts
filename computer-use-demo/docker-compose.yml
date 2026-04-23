@@ -1,0 +1,19 @@
+services:
+  computer-use-demo:
+    build:
+      context: .
+    image: computer-use-demo:local
+    ports:
+      - "8000:8000"  # FastAPI chat UI + API
+      - "6080:6080"  # noVNC websockify
+      - "5900:5900"  # raw VNC
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Override the Anthropic API endpoint (proxy, gateway, or self-hosted relay).
+      # Leave unset to use the default api.anthropic.com.
+      ANTHROPIC_BASE_URL: ${ANTHROPIC_BASE_URL:-}
+      API_PROVIDER: ${API_PROVIDER:-anthropic}
+      WIDTH: ${WIDTH:-1024}
+      HEIGHT: ${HEIGHT:-768}
+    volumes:
+      - ${HOME}/.anthropic:/home/computeruse/.anthropic

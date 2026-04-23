@@ -20,5 +20,11 @@ select = [
 
 ignore = ["E501", "ASYNC230"]
 
+[lint.per-file-ignores]
+# FastAPI idiomatically uses Depends() in argument defaults.
+"computer_use_demo/api/**/routes.py" = ["B008"]
+"computer_use_demo/api/**/controllers.py" = ["B008"]
+"computer_use_demo/api/**/ws.py" = ["B008"]
+
 [lint.isort]
 combine-as-imports = true
