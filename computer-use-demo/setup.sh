@@ -15,7 +15,13 @@ if ! command -v cargo &> /dev/null; then
 fi
 
 python3 -m venv .venv
-source .venv/bin/activate
+# Use the Windows venv layout when running under Git Bash / MSYS / Cygwin,
+# where Python places the activation script under .venv/Scripts instead of .venv/bin.
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" || "$OSTYPE" == "cygwin" ]]; then
+    source .venv/Scripts/activate
+else
+    source .venv/bin/activate
+fi
 pip install --upgrade pip
 pip install -r dev-requirements.txt
 pre-commit install
