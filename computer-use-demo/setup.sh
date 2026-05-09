@@ -15,7 +15,17 @@ if ! command -v cargo &> /dev/null; then
 fi
 
 python3 -m venv .venv
-source .venv/bin/activate
+if [ -f ".venv/bin/activate" ]; then
+    ACTIVATE_PATH=".venv/bin/activate"
+elif [ -f ".venv/Scripts/activate" ]; then
+    ACTIVATE_PATH=".venv/Scripts/activate"
+else
+    echo "Could not find virtual environment activation script in .venv/bin or .venv/Scripts."
+    exit 1
+fi
+
+# shellcheck source=/dev/null
+source "$ACTIVATE_PATH"
 pip install --upgrade pip
 pip install -r dev-requirements.txt
 pre-commit install
