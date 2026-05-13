@@ -1,0 +1,85 @@
+/* Anthropic-style design tokens (light mode). Uses system font stacks. */
+
+:root {
+  --accent-brand: #d97757;             /* spark / clay orange */
+  --accent-brand-hover: hsl(15 54% 51%);
+  --bg-000: #ffffff;
+  --bg-100: hsl(48 33% 97%);
+  --bg-200: hsl(50 26% 94%);
+  --bg-300: hsl(50 23% 92%);
+  --bg-400: hsl(50 21% 89%);
+  --border: hsla(30, 3%, 12%, 0.12);
+  --border-strong: hsla(30, 3%, 12%, 0.24);
+  --text: hsl(30 3% 12%);
+  --text-muted: hsl(30 3% 40%);
+  --danger: hsl(0 56% 45%);
+  --warning-bg: hsl(45 90% 92%);
+  --radius: 10px;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+/* Ensure [hidden] beats element/id display rules. */
+[hidden] { display: none !important; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg-100);
+  color: var(--text);
+  line-height: 1.5;
+}
+
+h1, h2, h3 { font-weight: 600; letter-spacing: -0.01em; }
+
+a { color: var(--accent-brand); }
+a:hover { color: var(--accent-brand-hover); }
+
+.card {
+  background: var(--bg-000);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.btn {
+  background: var(--accent-brand);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font: inherit;
+  cursor: pointer;
+}
+.btn:hover { background: var(--accent-brand-hover); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+.banner {
+  background: var(--warning-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.muted { color: var(--text-muted); }
+
+input, select, textarea {
+  font: inherit;
+  background: var(--bg-000);
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text);
+}
+input:focus, select:focus, textarea:focus {
+  outline: 2px solid var(--accent-brand);
+  outline-offset: -1px;
+}
+
+code, pre, .mono { font-family: var(--font-mono); font-size: 0.92em; }
+pre {
+  background: var(--bg-200);
+  border-radius: 6px;
+  padding: 10px 12px;
+  overflow-x: auto;
+}

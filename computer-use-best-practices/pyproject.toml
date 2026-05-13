@@ -1,0 +1,47 @@
+[project]
+name = "computer-use-best-practices"
+version = "0.1.0"
+description = "Pedagogical demo of Claude computer-use on macOS: explicit tools, correct image sizing, sandboxed shell, trajectory recording."
+requires-python = ">=3.11"
+classifiers = ["Private :: Do Not Upload"]
+dependencies = [
+    "Pillow>=10.0",
+    "anthropic>=0.93",
+    "fastapi>=0.110",
+    "playwright>=1.40",
+    "pyautogui>=0.9",
+    "python-dotenv>=1.0",
+    "python-multipart>=0.0.9",
+    "streamlit>=1.30",
+    "uvicorn>=0.27",
+]
+
+[dependency-groups]
+dev = ["pytest>=8.0", "pyright>=1.1", "ruff>=0.6"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["E501"]
+
+[tool.pyright]
+include = ["computer_use", "constants.py", "dev_ui", "tests"]
+typeCheckingMode = "standard"
+reportMissingModuleSource = "none" # pyautogui ships no type stubs
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["computer_use", "dev_ui"]
+
+[tool.uv]
+# macOS-only project; don't resolve Linux-only transitive deps (python3-xlib).
+environments = ["sys_platform == 'darwin'"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

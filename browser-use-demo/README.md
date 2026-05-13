@@ -2,6 +2,9 @@
 
 A complete reference implementation for building browser automation with Claude using Playwright. This demo provides a containerized Streamlit interface showcasing how to give Claude the ability to navigate websites, interact with DOM elements, extract content, and fill forms.
 
+> [!TIP]
+> **Looking for production-readiness patterns?** This demo is a deliberately minimal, containerized reference focused on browser-only (DOM) automation in Docker. If you want to see common patterns for making computer- and browser-use agents more reliable and cost-effective — explicit tool definitions, image sizing and pruning, prompt caching, server-side compaction, batched tool calls, a sandboxed shell, and trajectory recording — see the [Computer Use Best Practices](../computer-use-best-practices) quickstart, which runs a full GUI agent (screenshot-and-click plus a Playwright browser tool) natively on macOS and pairs with Anthropic's [computer-use best-practices guide](https://claude.com/blog/best-practices-for-computer-and-browser-use-with-claude).
+
 ## Overview
 
 This demo implements a custom browser tool that enables Claude to interact with web browsers. It provides:

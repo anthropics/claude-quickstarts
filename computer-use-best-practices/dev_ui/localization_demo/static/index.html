@@ -1,0 +1,338 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Localization demo</title>
+  <link rel="stylesheet" href="/assets/anthropic.css">
+  <style>
+    * { box-sizing: border-box; }
+    body { padding: 2rem; max-width: 1500px; margin-inline: auto; }
+    h1 { margin: 0 0 .25rem; font-size: 1.5rem; }
+    p.intro { margin: 0 0 1.5rem; color: var(--text-muted); max-width: 70ch; }
+    code { background: var(--bg-200); padding: 1px 5px; border-radius: 4px; }
+
+    .card { padding: 1.25rem; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+
+    form.card { display: grid; gap: .9rem; margin-bottom: 1.5rem; }
+    .row { display: grid; grid-template-columns: 1fr auto auto auto; gap: .75rem; align-items: end; }
+    .field { display: flex; flex-direction: column; gap: .35rem; }
+    .field label { font-size: .8rem; color: var(--text-muted); font-weight: 500; }
+    .field input[type=text], .field select, .field textarea { padding: .55rem .7rem; }
+    .field textarea { font-family: var(--font-mono); resize: vertical; min-height: 4.5rem; }
+    .placeholders { font-size: .75rem; color: var(--text-muted); }
+    .placeholders code { cursor: pointer; }
+
+    .drop {
+      border: 2px dashed var(--border-strong); border-radius: var(--radius);
+      padding: 1rem; display: flex; align-items: center; gap: 1rem;
+      cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .drop:hover, .drop.drag { border-color: var(--accent-brand); background: var(--bg-200); }
+    .drop input[type=file] { display: none; }
+    .drop .hint { color: var(--text-muted); font-size: .9rem; }
+    .drop img.preview {
+      max-height: 80px; max-width: 140px; border-radius: 6px;
+      object-fit: cover; display: none;
+    }
+    .drop.has-file img.preview { display: block; }
+    .drop.has-file .hint { display: none; }
+    .drop .filename { font-size: .85rem; color: var(--text-muted); display: none; }
+    .drop.has-file .filename { display: inline; }
+
+    button.btn { padding: .6rem 1.25rem; font-weight: 500; }
+    #status { color: var(--text-muted); font-size: .9rem; min-height: 1.2em; }
+
+    #panes:not([hidden]) { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 1.25rem; }
+    @media (max-width: 1000px) { #panes:not([hidden]) { grid-template-columns: 1fr; } .row { grid-template-columns: 1fr; } }
+    .pane h3 { margin: 0 0 .25rem; font-size: .95rem; }
+    .pane .meta { color: var(--text-muted); font-size: .82rem; margin-bottom: .75rem; font-variant-numeric: tabular-nums; }
+    .imgwrap { position: relative; line-height: 0; border-radius: 6px; overflow: hidden; }
+    .imgwrap img { width: 100%; display: block; }
+
+    /* Crosshair inscribed in a translucent ring (matches the eval-tool style). */
+    .crosshair {
+      --ch: 179, 58, 50;  /* hsl(0 56% 45%) -> rgb */
+      --size: 36px;
+      --overhang: 6px;
+      position: absolute; pointer-events: none;
+      width: var(--size); height: var(--size);
+      transform: translate(-50%, -50%);
+      border-radius: 50%;
+      background: rgba(var(--ch), 0.10);
+      border: 1.5px solid rgba(var(--ch), 0.8);
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+      overflow: visible;
+    }
+    .crosshair::before, .crosshair::after {
+      content: ""; position: absolute;
+      background: rgba(var(--ch), 0.9);
+      box-shadow: 0 0 2px rgba(255, 255, 255, 0.9);
+    }
+    /* lines extend a few px past the ring */
+    .crosshair::before {
+      top: 50%; left: calc(-1 * var(--overhang)); right: calc(-1 * var(--overhang));
+      height: 1.5px; transform: translateY(-50%);
+    }
+    .crosshair::after {
+      left: 50%; top: calc(-1 * var(--overhang)); bottom: calc(-1 * var(--overhang));
+      width: 1.5px; transform: translateX(-50%);
+    }
+    .crosshair .dot {
+      position: absolute; left: 50%; top: 50%;
+      width: 4px; height: 4px; border-radius: 50%;
+      background: rgba(var(--ch), 1);
+      box-shadow: 0 0 2px rgba(255, 255, 255, 1);
+      transform: translate(-50%, -50%);
+    }
+    .crosshair .coord {
+      position: absolute; bottom: 100%; left: 50%;
+      transform: translateX(-50%);
+      margin-bottom: 6px; padding: 1px 6px;
+      font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
+      color: #fff; background: rgba(0, 0, 0, 0.6);
+      border-radius: 3px; white-space: nowrap;
+    }
+
+    details.card { margin-top: 0; }
+    details summary { cursor: pointer; font-weight: 500; color: var(--text-muted); }
+    pre { margin: .75rem 0 0; font-size: .82rem; overflow: auto; max-height: 18rem; }
+
+    #history { margin-top: 1.25rem; }
+    #history ul { list-style: none; padding: 0; margin: .5rem 0 0; }
+    #history li { display: grid; grid-template-columns: 1fr auto auto;
+                  gap: 1.5rem; padding: .45rem 0; border-top: 1px solid var(--border);
+                  font-size: .88rem; font-variant-numeric: tabular-nums; }
+    #history li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #history li .mono { color: var(--text-muted); }
+  </style>
+</head>
+<body>
+  <h1>Localization demo</h1>
+  <p class="intro">
+    Upload an image and describe something in it. The image is resized with
+    <code>target_image_size()</code> before being sent; the model points in that
+    resized space, and we scale the point back to your original. The two
+    coordinate spaces are shown side by side.
+  </p>
+
+  <form id="f" class="card">
+    <label class="drop" id="drop">
+      <input type="file" id="image" accept="image/*" required>
+      <img class="preview" id="preview" alt="">
+      <span class="hint">Drop an image here, or click to choose</span>
+      <span class="filename" id="filename"></span>
+    </label>
+
+    <div class="row">
+      <div class="field">
+        <label for="label">What to find</label>
+        <input type="text" id="label" placeholder="e.g. the blue Submit button" required>
+      </div>
+      <div class="field">
+        <label for="model">Model</label>
+        <select id="model"></select>
+      </div>
+      <div class="field">
+        <label for="effort">Thinking</label>
+        <select id="effort"></select>
+      </div>
+      <button type="submit" id="go" class="btn">Localize</button>
+    </div>
+
+    <details id="prompt-details">
+      <summary>Prompt &amp; tool</summary>
+      <div class="field" style="margin-top:.75rem">
+        <label for="prompt">Prompt template</label>
+        <textarea id="prompt" rows="3"></textarea>
+        <div class="placeholders">
+          Placeholders:
+          <code data-ph="{label}">{label}</code>
+          <code data-ph="{sent_w}">{sent_w}</code>
+          <code data-ph="{sent_h}">{sent_h}</code>
+          &nbsp; <a href="#" id="reset-prompt">reset</a>
+        </div>
+      </div>
+      <div class="field" style="margin-top:.75rem">
+        <label>point_at tool definition (read-only)</label>
+        <pre id="tooldef" style="margin:0"></pre>
+      </div>
+    </details>
+
+    <div id="status"></div>
+  </form>
+
+  <div id="panes" hidden>
+    <div class="card pane">
+      <h3>Sent to model</h3>
+      <div class="meta" id="sent-meta"></div>
+      <div class="imgwrap">
+        <img id="sent-img" alt="resized image">
+        <div class="crosshair" id="sent-mark" hidden><span class="dot"></span><span class="coord"></span></div>
+      </div>
+    </div>
+    <div class="card pane">
+      <h3>Your original</h3>
+      <div class="meta" id="orig-meta"></div>
+      <div class="imgwrap">
+        <img id="orig-img" alt="original image">
+        <div class="crosshair" id="orig-mark" hidden><span class="dot"></span><span class="coord"></span></div>
+      </div>
+    </div>
+  </div>
+
+  <details id="raw" class="card" hidden>
+    <summary>Response JSON</summary>
+    <pre id="out"></pre>
+  </details>
+
+  <div id="history" class="card" hidden>
+    <h3 style="margin:0">Recent results</h3>
+    <ul id="history-list"></ul>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+let effortSupport = new Set();
+let defaultPrompt = '';
+
+async function populate() {
+  const r = await fetch('/meta').then(r => r.json());
+  effortSupport = new Set(r.effort_supported_models);
+  defaultPrompt = r.default_prompt_template;
+  for (const m of r.models) {
+    const o = document.createElement('option');
+    o.value = o.textContent = m;
+    if (m === r.default_model) o.selected = true;
+    $('model').appendChild(o);
+  }
+  for (const t of r.thinking_efforts) {
+    const o = document.createElement('option');
+    o.value = o.textContent = t;
+    $('effort').appendChild(o);
+  }
+  $('prompt').value = defaultPrompt;
+  $('tooldef').textContent = JSON.stringify(r.point_at_tool, null, 2);
+  syncEffort();
+}
+$('reset-prompt').addEventListener('click', e => { e.preventDefault(); $('prompt').value = defaultPrompt; });
+document.querySelectorAll('.placeholders code').forEach(c =>
+  c.addEventListener('click', () => {
+    const t = $('prompt'), p = c.dataset.ph;
+    const s = t.selectionStart, e = t.selectionEnd;
+    t.value = t.value.slice(0, s) + p + t.value.slice(e);
+    t.focus(); t.setSelectionRange(s + p.length, s + p.length);
+  })
+);
+
+function syncEffort() {
+  const supported = effortSupport.has($('model').value);
+  for (const o of $('effort').options) {
+    o.disabled = !supported && o.value !== 'off';
+  }
+  if (!supported) $('effort').value = 'off';
+}
+$('model').addEventListener('change', syncEffort);
+
+function setFile(file) {
+  if (!file) return;
+  const dt = new DataTransfer(); dt.items.add(file); $('image').files = dt.files;
+  $('preview').src = URL.createObjectURL(file);
+  $('filename').textContent = `${file.name} (${(file.size/1024).toFixed(0)} KB)`;
+  $('drop').classList.add('has-file');
+}
+$('image').addEventListener('change', e => setFile(e.target.files[0]));
+$('drop').addEventListener('dragover', e => { e.preventDefault(); $('drop').classList.add('drag'); });
+$('drop').addEventListener('dragleave', () => $('drop').classList.remove('drag'));
+$('drop').addEventListener('drop', e => {
+  e.preventDefault(); $('drop').classList.remove('drag');
+  setFile(e.dataTransfer.files[0]);
+});
+
+function placeMark(imgEl, markEl, x, y, naturalW, naturalH) {
+  const r = imgEl.getBoundingClientRect();
+  markEl.style.left = (x * r.width / naturalW) + 'px';
+  markEl.style.top  = (y * r.height / naturalH) + 'px';
+  markEl.querySelector('.coord').textContent = `(${x}, ${y})`;
+  markEl.hidden = false;
+}
+
+const history = [];
+function pushHistory(d) {
+  history.unshift({label: d.label, sent: d.point_sent, orig: d.point_original, model: d.model});
+  if (history.length > 10) history.pop();
+  const ul = $('history-list');
+  ul.innerHTML = '';
+  for (const h of history) {
+    const li = document.createElement('li');
+    li.innerHTML = `<span>${h.label}</span>` +
+      `<span class="mono">model (${h.sent[0]}, ${h.sent[1]})</span>` +
+      `<span class="mono">original (${h.orig[0]}, ${h.orig[1]})</span>`;
+    ul.appendChild(li);
+  }
+  $('history').hidden = false;
+}
+
+let lastResult = null;
+function repositionMarks() {
+  if (!lastResult) return;
+  const d = lastResult;
+  placeMark($('sent-img'), $('sent-mark'), d.point_sent[0], d.point_sent[1], d.sent_size[0], d.sent_size[1]);
+  placeMark($('orig-img'), $('orig-mark'), d.point_original[0], d.point_original[1], d.original_size[0], d.original_size[1]);
+}
+window.addEventListener('resize', repositionMarks);
+
+$('f').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const file = $('image').files[0];
+  if (!file) return;
+  $('go').disabled = true;
+  $('status').textContent = `calling ${$('model').value}...`;
+  $('panes').hidden = true; $('raw').hidden = true;
+
+  const fd = new FormData();
+  fd.append('image', file);
+  fd.append('label', $('label').value);
+  fd.append('model', $('model').value);
+  fd.append('thinking_effort', $('effort').value);
+  fd.append('prompt_template', $('prompt').value);
+
+  let data;
+  try {
+    const res = await fetch('/localize', {method: 'POST', body: fd});
+    data = await res.json();
+    if (!res.ok) throw new Error(data.error || res.statusText);
+  } catch (err) {
+    $('status').textContent = String(err);
+    $('go').disabled = false;
+    return;
+  }
+  $('go').disabled = false;
+  $('status').textContent = '';
+
+  const [sw, sh] = data.sent_size, [ow, oh] = data.original_size;
+  const [sx, sy] = data.point_sent, [ox, oy] = data.point_original;
+
+  $('sent-meta').textContent =
+    `${sw} x ${sh} px  |  model said (${sx}, ${sy})  |  ${data.elapsed_s}s  |  ` +
+    `${data.usage.input_tokens} in / ${data.usage.output_tokens} out`;
+  $('orig-meta').textContent =
+    `${ow} x ${oh} px  |  scaled to (${ox}, ${oy})  |  scale x${data.scale[0].toFixed(3)}`;
+
+  $('sent-img').src = 'data:image/jpeg;base64,' + data.sent_image_b64;
+  $('orig-img').src = URL.createObjectURL(file);
+  $('panes').hidden = false;
+
+  lastResult = data;
+  $('sent-img').onload = repositionMarks;
+  $('orig-img').onload = repositionMarks;
+
+  const summary = {...data}; delete summary.sent_image_b64;
+  $('out').textContent = JSON.stringify(summary, null, 2);
+  $('raw').hidden = false;
+  pushHistory(data);
+});
+
+populate();
+</script>
+</body>
+</html>

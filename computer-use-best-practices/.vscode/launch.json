@@ -1,0 +1,100 @@
+{
+  "version": "0.2.0",
+  "inputs": [
+    {
+      "id": "task",
+      "type": "promptString",
+      "description": "Natural-language task for the agent",
+      "default": "Take a screenshot and describe what you see."
+    },
+    {
+      "id": "model",
+      "type": "promptString",
+      "description": "Model (claude-haiku-4-5, claude-sonnet-4-6, claude-opus-4-6, claude-opus-4-7, or any from COMPUTER_USE_EXTRA_MODELS)",
+      "default": "claude-haiku-4-5"
+    },
+    {
+      "id": "thinking",
+      "type": "pickString",
+      "description": "Thinking effort",
+      "options": ["off", "low", "medium", "high", "max"],
+      "default": "off"
+    }
+  ],
+  "configurations": [
+    {
+      "name": "Agent: run task",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "computer_use",
+      "args": ["${input:task}", "--model", "${input:model}", "--thinking", "${input:thinking}"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    },
+    {
+      "name": "Agent: run task (skip preflight)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "computer_use",
+      "args": ["${input:task}", "--skip-preflight"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    },
+    {
+      "name": "Tool panel (FastAPI)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["dev_ui.tool_panel.server:app", "--reload", "--port", "8000"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    },
+    {
+      "name": "Localization demo (FastAPI)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "uvicorn",
+      "args": ["dev_ui.localization_demo.server:app", "--reload", "--port", "8001"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": false
+    },
+    {
+      "name": "Trajectory viewer (Streamlit)",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "streamlit",
+      "args": ["run", "dev_ui/trajectory_viewer/app.py"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false
+    },
+    {
+      "name": "Tests: all",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["tests/", "-v"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false
+    },
+    {
+      "name": "Tests: current file",
+      "type": "debugpy",
+      "request": "launch",
+      "module": "pytest",
+      "args": ["${file}", "-v"],
+      "console": "integratedTerminal",
+      "cwd": "${workspaceFolder}",
+      "justMyCode": false
+    }
+  ]
+}

@@ -1,0 +1,182 @@
+<!doctype html>
+<meta charset="utf-8" />
+<title>computer-use tool panel</title>
+<link rel="stylesheet" href="/assets/anthropic.css" />
+<style>
+  body { display: grid; grid-template-columns: 440px 1fr;
+         grid-template-rows: auto 1fr; height: 100vh; font-size: 13px; }
+  #tools { overflow-y: auto; border-right: 1px solid var(--border); padding: 12px; }
+  #result { overflow-y: auto; padding: 12px; }
+  .card { margin-bottom: 10px; }
+  .card h3 { margin: 0 0 6px; font-size: 14px; }
+  .card details { margin: 0 0 8px; }
+  .card details summary { cursor: pointer; color: var(--text-muted);
+                          font-size: 12px; }
+  .card details p { margin: 6px 0 0; white-space: pre-wrap; color: var(--text-muted); }
+  .card label { display: block; margin: 4px 0; }
+  .card input, .card select, .card textarea { width: 100%; box-sizing: border-box; }
+  .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  .row input[type=number] { width: 5em; }
+  img.shot { max-width: 100%; cursor: crosshair; border: 1px solid var(--border-strong);
+             border-radius: 6px; margin-top: 8px; }
+  #coords { position: sticky; top: 0; background: var(--bg-300);
+            border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px;
+            font-family: var(--font-mono); }
+  #preflight { grid-column: 1 / -1; margin: 12px; display: none; }
+  #preflight button { float: right; }
+  ol.batch { padding-left: 1.4em; }
+  ol.batch li { margin-bottom: 12px; }
+  ol.batch li.err pre { border-left: 3px solid var(--danger); padding-left: 8px; }
+</style>
+<div id="preflight" class="banner"></div>
+<div id="tools"></div>
+<div id="result">
+  <div id="coords">click a screenshot to capture coordinates</div>
+  <pre id="out">ready</pre>
+  <div id="img"></div>
+</div>
+<script>
+let lastCoordInput = null;
+let lastMeta = null;
+
+function fieldFor(name, spec) {
+  const wrap = document.createElement('label');
+  wrap.textContent = name + ' ';
+  let el;
+  if (spec.enum) {
+    el = document.createElement('select');
+    el.innerHTML = '<option value=""></option>' +
+      spec.enum.map(v => `<option>${v}</option>`).join('');
+  } else if (spec.type === 'array') {
+    el = document.createElement('input');
+    el.placeholder = 'JSON, e.g. [100,200]';
+    if (name.includes('coordinate'))
+      el.addEventListener('focus', () => { lastCoordInput = el; });
+  } else if (spec.type === 'integer' || spec.type === 'number') {
+    el = document.createElement('input'); el.type = 'number';
+  } else {
+    el = document.createElement('input');
+  }
+  el.dataset.name = name; el.dataset.type = spec.type || 'string';
+  wrap.appendChild(el);
+  return wrap;
+}
+
+function collect(card) {
+  const out = {};
+  for (const el of card.querySelectorAll('[data-name]')) {
+    const v = el.value.trim();
+    if (!v) continue;
+    const t = el.dataset.type;
+    out[el.dataset.name] =
+      t === 'array' || t === 'object' ? JSON.parse(v)
+      : t === 'integer' ? parseInt(v, 10)
+      : t === 'number' ? parseFloat(v)
+      : v;
+  }
+  return out;
+}
+
+function makeShot(b64) {
+  const img = document.createElement('img');
+  img.className = 'shot';
+  img.src = 'data:image/jpeg;base64,' + b64;
+  img.onclick = e => {
+    const rect = img.getBoundingClientRect();
+    const ix = Math.round((e.clientX - rect.left) * img.naturalWidth / rect.width);
+    const iy = Math.round((e.clientY - rect.top) * img.naturalHeight / rect.height);
+    let msg = `image px: [${ix}, ${iy}]`;
+    if (lastMeta && lastMeta.sent_size && lastMeta.screen_size) {
+      const [sw, sh] = lastMeta.sent_size, [scw, sch] = lastMeta.screen_size;
+      const sx = Math.round(ix * scw / sw), sy = Math.round(iy * sch / sh);
+      msg += `  ->  screen px: [${sx}, ${sy}]`;
+    }
+    document.getElementById('coords').textContent = msg;
+    if (lastCoordInput) lastCoordInput.value = `[${ix}, ${iy}]`;
+  };
+  return img;
+}
+
+function renderBlocks(blocks, container) {
+  let text = '';
+  for (const block of blocks) {
+    if (block.type === 'text') text += (text ? '\n' : '') + block.text;
+    else if (block.type === 'image') container.appendChild(makeShot(block.source.data));
+  }
+  return text;
+}
+
+async function run(tool, input, delay) {
+  const out = document.getElementById('out');
+  let remaining = delay;
+  const tick = () => {
+    out.textContent = remaining > 0 ? `running in ${remaining.toFixed(1)}s ...` : 'running ...';
+  };
+  tick();
+  const cd = delay > 0 ? setInterval(() => { remaining = Math.max(0, remaining - 0.1); tick(); }, 100) : null;
+  const r = await fetch('/run', {
+    method: 'POST', headers: {'content-type': 'application/json'},
+    body: JSON.stringify({tool, input, delay}),
+  }).then(r => r.json());
+  if (cd) clearInterval(cd);
+  lastMeta = r.meta || null;
+  const head = {ms: r.ms, error: r.error, meta: r.meta};
+  out.textContent = JSON.stringify(head, null, 2);
+  const imgDiv = document.getElementById('img');
+  imgDiv.innerHTML = '';
+  const batch = (r.meta && r.meta.batch_results) || null;
+  if (batch && Array.isArray(batch)) {
+    const ol = document.createElement('ol');
+    ol.className = 'batch';
+    for (const step of batch) {
+      const li = document.createElement('li');
+      if (step.error) li.className = 'err';
+      const stepText = renderBlocks(step.content || [], li);
+      const pre = document.createElement('pre');
+      pre.textContent = (step.error ? 'error: ' + step.error + '\n' : '') + stepText;
+      li.prepend(pre);
+      ol.appendChild(li);
+    }
+    imgDiv.appendChild(ol);
+  } else {
+    const text = renderBlocks(r.content || [], imgDiv);
+    if (text) out.textContent += '\n' + text;
+  }
+}
+
+fetch('/preflight').then(r => r.json()).then(p => {
+  if (p.screen_recording && p.accessibility) return;
+  const el = document.getElementById('preflight');
+  const missing = [];
+  if (!p.screen_recording) missing.push('Screen Recording');
+  if (!p.accessibility) missing.push('Accessibility');
+  el.textContent = 'Missing macOS permissions: ' + missing.join(', ') +
+    '. Grant them in System Settings > Privacy & Security, then restart this server.';
+  const btn = document.createElement('button');
+  btn.className = 'btn';
+  btn.textContent = 'dismiss';
+  btn.onclick = () => { el.style.display = 'none'; };
+  el.appendChild(btn);
+  el.style.display = 'block';
+});
+
+fetch('/tools').then(r => r.json()).then(tools => {
+  const root = document.getElementById('tools');
+  for (const t of tools) {
+    const card = document.createElement('div'); card.className = 'card';
+    card.innerHTML = `<h3>${t.name}</h3>` +
+      `<details><summary>description</summary><p>${t.description}</p></details>`;
+    for (const [k, spec] of Object.entries(t.input_schema.properties || {}))
+      card.appendChild(fieldFor(k, spec));
+    const row = document.createElement('div'); row.className = 'row';
+    const delay = document.createElement('input');
+    delay.type = 'number'; delay.value = '3'; delay.title = 'delay (s)';
+    const btn = document.createElement('button');
+    btn.className = 'btn'; btn.textContent = 'run';
+    btn.onclick = () => run(t.name, collect(card), parseFloat(delay.value) || 0);
+    row.append('delay:', delay, btn);
+    card.appendChild(row);
+    root.appendChild(card);
+  }
+});
+</script>

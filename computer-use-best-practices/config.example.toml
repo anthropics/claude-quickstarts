@@ -1,0 +1,27 @@
+# Override any constants.Config field. Point CU_CONFIG at this file (in your
+# .env or shell) to apply it; individual CU_<FIELD_NAME> env vars layer on top.
+#
+#   CU_CONFIG=config.toml uv run python -m computer_use "..."
+#
+# Only set the fields you want to change; everything else keeps its default.
+
+# enable_computer_use_tools = true
+# enable_browser_use_tools  = true
+# enable_editor_tool        = true
+# enable_advisor_tool       = false
+# enable_autocompaction     = false
+
+# image_prune_strategy = "interval"   # "none" | "simple" | "interval"
+# image_prune_min      = 3
+# image_prune_interval = 40
+
+# jpeg_quality           = 75
+# browser_viewport       = [1456, 819]
+# default_max_iters      = 200
+# api_retry_max_attempts = 5
+# autocompaction_trigger_tokens = 150000
+
+# advisor_model = "claude-opus-4-6"
+# advisor_max_conversation_uses = 6
+
+# extra_models = ["some-beta-model"]

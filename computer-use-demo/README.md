@@ -22,6 +22,9 @@ This repository helps you get started with computer use on Claude, with referenc
 - Anthropic-defined computer use tools
 - A streamlit app for interacting with the agent loop
 
+> [!TIP]
+> **Looking for production-readiness patterns?** This demo is a deliberately minimal, containerized reference: it shows the essential agent loop running against a Linux desktop in Docker with X11 + VNC. If you want to see common patterns for making computer-use agents more reliable and cost-effective — explicit tool definitions, image sizing and pruning, prompt caching, server-side compaction, batched tool calls, a sandboxed shell, and trajectory recording — see the [Computer Use Best Practices](../computer-use-best-practices) quickstart, which runs natively on macOS (no container) and pairs with Anthropic's [computer-use best-practices guide](https://claude.com/blog/best-practices-for-computer-and-browser-use-with-claude).
+
 Please use [this form](https://forms.gle/BT1hpBrqDPDUrCqo7) to provide feedback on the quality of the model responses, the API itself, or the quality of the documentation - we cannot wait to hear from you!
 
 > [!IMPORTANT]

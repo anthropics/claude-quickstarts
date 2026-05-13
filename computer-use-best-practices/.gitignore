@@ -1,0 +1,11 @@
+runs/
+do_not_commit/
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+.uv/
+.DS_Store
+.env
+.streamlit/

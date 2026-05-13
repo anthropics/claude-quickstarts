@@ -1,0 +1,37 @@
+;; sandbox-exec profile for the bash/python tools.
+;;
+;; Policy: read anywhere *except* known credential locations, write only to the
+;; per-call SCRATCH directory, no network. The interesting boundaries for a
+;; demo are write- and network-denial; trying to enumerate every readable
+;; system path makes the profile brittle without adding much, so we allow
+;; file-read* broadly and then deny the secret paths below (later rules take
+;; precedence in SBPL).
+(version 1)
+(deny default)
+(import "/System/Library/Sandbox/Profiles/bsd.sb")
+
+(deny network*)
+
+(allow process-exec)
+(allow process-fork)
+(allow signal)
+(allow sysctl-read)
+(allow mach-lookup)
+
+(allow file-read*)
+(allow file-write*
+  (subpath (param "SCRATCH"))
+  (subpath "/dev"))
+
+(deny file-read*
+  (subpath (string-append (param "HOME") "/.ssh"))
+  (subpath (string-append (param "HOME") "/.aws"))
+  (subpath (string-append (param "HOME") "/.gnupg"))
+  (subpath (string-append (param "HOME") "/.config/gcloud"))
+  (subpath (string-append (param "HOME") "/.kube"))
+  (subpath (string-append (param "HOME") "/.docker"))
+  (subpath (string-append (param "HOME") "/.config/gh"))
+  (literal (string-append (param "HOME") "/.netrc"))
+  (regex #"/\.env$")
+  (regex #"/\.env\.")
+)
