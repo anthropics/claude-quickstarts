@@ -2,6 +2,10 @@
 venvPath = "."
 venv = ".venv"
 useLibraryCodeForTypes = false
+# The anthropic SDK exports AnthropicBedrock/AnthropicVertex via `from .lib.bedrock import *`
+# after defining __all__, so pyright flags `from anthropic import AnthropicBedrock` as a
+# private import even though it is the SDK's documented API and works at runtime.
+reportPrivateImportUsage = false
 
 [tool.pytest.ini_options]
 pythonpath = "."
