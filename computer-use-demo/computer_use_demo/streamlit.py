@@ -8,9 +8,20 @@ import os
 import subprocess
 import traceback
 from contextlib import contextmanager
-from dataclasses import dataclass
+import inspect
+from dataclasses import dataclass as _dataclass
+
+
 from datetime import datetime, timedelta
-from enum import StrEnum
+import sys
+
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+    from enum import Enum
+
+    class StrEnum(str, Enum):
+        pass
 from functools import partial
 from pathlib import PosixPath
 from typing import cast, get_args
@@ -25,11 +36,12 @@ from anthropic.types.beta import (
 )
 from streamlit.delta_generator import DeltaGenerator
 
-from computer_use_demo.loop import (
+from .loop import (
     APIProvider,
     sampling_loop,
 )
-from computer_use_demo.tools import ToolResult, ToolVersion
+
+from .tools import ToolResult, ToolVersion
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
     APIProvider.ANTHROPIC: "claude-sonnet-4-5-20250929",

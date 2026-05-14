@@ -5,8 +5,15 @@ Agentic sampling loop that calls the Claude API and local implementation of anth
 import platform
 from collections.abc import Callable
 from datetime import datetime
-from enum import StrEnum
+from enum import Enum
 from typing import Any, cast
+
+try:
+    from enum import StrEnum
+except ImportError:
+    class StrEnum(str, Enum):
+        """Fallback for Python < 3.11"""
+        pass
 
 import httpx
 from anthropic import (
