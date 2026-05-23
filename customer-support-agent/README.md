@@ -223,7 +223,7 @@ This project now supports flexible deployment and development configurations, al
 Configuration
 The inclusion of sidebars is controlled by a config.ts file, which uses environment variables to set the configuration:
 ```typescript
-typescriptCopytype Config = {
+type Config = {
   includeLeftSidebar: boolean;
   includeRightSidebar: boolean;
 };
