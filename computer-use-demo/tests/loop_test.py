@@ -3,7 +3,76 @@ from unittest import mock
 from anthropic.types import TextBlock, ToolUseBlock
 from anthropic.types.beta import BetaMessage, BetaMessageParam, BetaTextBlockParam
 
-from computer_use_demo.loop import APIProvider, sampling_loop
+from computer_use_demo.loop import (
+    APIProvider,
+    _maybe_filter_to_n_most_recent_images,
+    sampling_loop,
+)
+
+
+def _image_tool_result(tool_use_id: str) -> dict:
+    """Build a tool_result block containing one image."""
+    return {
+        "type": "tool_result",
+        "tool_use_id": tool_use_id,
+        "content": [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": "fake",
+                },
+            }
+        ],
+    }
+
+
+def test_maybe_filter_to_n_most_recent_images_removes_old_images():
+    """Older images are removed when total exceeds images_to_keep."""
+    messages: list[BetaMessageParam] = [
+        {"role": "user", "content": [_image_tool_result(f"tool_{i}")]} for i in range(5)
+    ]
+
+    _maybe_filter_to_n_most_recent_images(
+        messages, images_to_keep=2, min_removal_threshold=1
+    )
+
+    remaining = [
+        content
+        for message in messages
+        for block in (
+            message["content"] if isinstance(message["content"], list) else []
+        )
+        if isinstance(block, dict) and block.get("type") == "tool_result"
+        for content in block.get("content", [])
+        if isinstance(content, dict) and content.get("type") == "image"
+    ]
+    assert len(remaining) == 2
+
+
+def test_maybe_filter_to_n_most_recent_images_respects_min_removal_threshold():
+    """Removal happens in chunks of min_removal_threshold to preserve cache reuse."""
+    messages: list[BetaMessageParam] = [
+        {"role": "user", "content": [_image_tool_result(f"tool_{i}")]} for i in range(5)
+    ]
+
+    # 5 total, keep 2 → want to remove 3, but chunk size 2 rounds down to 2 removals.
+    _maybe_filter_to_n_most_recent_images(
+        messages, images_to_keep=2, min_removal_threshold=2
+    )
+
+    remaining = [
+        content
+        for message in messages
+        for block in (
+            message["content"] if isinstance(message["content"], list) else []
+        )
+        if isinstance(block, dict) and block.get("type") == "tool_result"
+        for content in block.get("content", [])
+        if isinstance(content, dict) and content.get("type") == "image"
+    ]
+    assert len(remaining) == 3
 
 
 async def test_loop():
