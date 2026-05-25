@@ -201,8 +201,6 @@ def _maybe_filter_to_n_most_recent_images(
     images in place, with a chunk of min_removal_threshold to reduce the amount we
     break the implicit prompt cache.
     """
-    if images_to_keep is None:
-        return messages
 
     tool_result_blocks = cast(
         list[BetaToolResultBlockParam],
