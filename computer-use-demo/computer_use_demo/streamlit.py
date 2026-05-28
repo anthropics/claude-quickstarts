@@ -27,12 +27,14 @@ from streamlit.delta_generator import DeltaGenerator
 
 from computer_use_demo.loop import (
     APIProvider,
+    ThinkingEffort,
+    ThinkingMode,
     sampling_loop,
 )
 from computer_use_demo.tools import ToolResult, ToolVersion
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
-    APIProvider.ANTHROPIC: "claude-sonnet-4-5-20250929",
+    APIProvider.ANTHROPIC: "claude-opus-4-8",
     APIProvider.BEDROCK: "anthropic.claude-3-5-sonnet-20241022-v2:0",
     APIProvider.VERTEX: "claude-3-5-sonnet-v2@20241022",
 }
@@ -43,49 +45,109 @@ class ModelConfig:
     tool_version: ToolVersion
     max_output_tokens: int
     default_output_tokens: int
-    has_thinking: bool = False
+    # Thinking modes this model accepts, in preference order; the first entry is
+    # the default the UI selects. See ThinkingMode in loop.py.
+    thinking_modes: tuple[ThinkingMode, ...] = ("off", "extended")
 
 
 CLAUDE_4 = ModelConfig(
     tool_version="computer_use_20250429",
     max_output_tokens=64_000,
     default_output_tokens=1024 * 16,
-    has_thinking=True,
+    thinking_modes=("off", "extended"),
 )
 
 CLAUDE_4_5 = ModelConfig(
     tool_version="computer_use_20250124",
     max_output_tokens=128_000,
     default_output_tokens=1024 * 16,
-    has_thinking=True,
+    thinking_modes=("off", "extended"),
 )
 
 CLAUDE_4_WITH_ZOOMABLE_TOOL = ModelConfig(
     tool_version="computer_use_20251124",
     max_output_tokens=64_000,
     default_output_tokens=1024 * 16,
-    has_thinking=True,
+    thinking_modes=("off", "extended"),
 )
 
 HAIKU_4_5 = ModelConfig(
     tool_version="computer_use_20250124",
     max_output_tokens=1024 * 8,
     default_output_tokens=1024 * 4,
-    has_thinking=False,
+    thinking_modes=("off",),
+)
+
+# Claude Opus 4.6 / Sonnet 4.6 introduce adaptive thinking (the model decides
+# how much to reason, steered by an effort level). They still accept the older
+# extended-thinking budget for backwards compatibility, but adaptive is the
+# recommended default.
+CLAUDE_4_6 = ModelConfig(
+    tool_version="computer_use_20251124",
+    max_output_tokens=128_000,
+    default_output_tokens=1024 * 16,
+    thinking_modes=("adaptive", "extended", "off"),
+)
+
+# Claude Opus 4.7 and later only support adaptive thinking; requests with a
+# manual thinking budget are rejected by the API.
+CLAUDE_4_7 = ModelConfig(
+    tool_version="computer_use_20251124",
+    max_output_tokens=128_000,
+    default_output_tokens=1024 * 16,
+    thinking_modes=("adaptive", "off"),
+)
+
+# Fallback for model IDs not listed in MODEL_TO_MODEL_CONF. Thinking defaults to
+# off (safe for any model), but every mode is selectable so newer models can be
+# used by typing their ID and picking "adaptive" manually.
+DEFAULT_MODEL_CONF = ModelConfig(
+    tool_version="computer_use_20250429",
+    max_output_tokens=64_000,
+    default_output_tokens=1024 * 16,
+    thinking_modes=("off", "adaptive", "extended"),
 )
 
 MODEL_TO_MODEL_CONF: dict[str, ModelConfig] = {
     "claude-opus-4-1-20250805": CLAUDE_4,
+    "claude-opus-4-1": CLAUDE_4,
     "claude-sonnet-4-20250514": CLAUDE_4,
     "claude-opus-4-20250514": CLAUDE_4,
     "claude-sonnet-4-5-20250929": CLAUDE_4_5,
     "anthropic.claude-sonnet-4-5-20250929-v1:0": CLAUDE_4_5,
     "claude-sonnet-4-5@20250929": CLAUDE_4_5,
+    "claude-sonnet-4-5": CLAUDE_4_5,
     "claude-haiku-4-5-20251001": HAIKU_4_5,
     "anthropic.claude-haiku-4-5-20251001-v1:0": HAIKU_4_5,  # Bedrock
     "claude-haiku-4-5@20251001": HAIKU_4_5,  # Vertex
+    "claude-haiku-4-5": HAIKU_4_5,
     "claude-opus-4-5-20251101": CLAUDE_4_WITH_ZOOMABLE_TOOL,
+    "claude-opus-4-5": CLAUDE_4_WITH_ZOOMABLE_TOOL,
+    "claude-opus-4-6": CLAUDE_4_6,
+    "claude-sonnet-4-6": CLAUDE_4_6,
+    "claude-opus-4-7": CLAUDE_4_7,
+    "claude-opus-4-8": CLAUDE_4_7,
 }
+
+
+def _lookup_model_conf(model: str) -> ModelConfig:
+    """Resolve a model ID to its config.
+
+    Tries an exact match first, then the longest known key that the ID starts
+    with, so undated aliases, newly dated snapshots, and the Bedrock / Vertex
+    forms of a known model family resolve to the right config instead of
+    falling through to the permissive default. Offering a thinking mode the
+    model doesn't support produces an API error, so a correct lookup matters.
+    """
+    if model in MODEL_TO_MODEL_CONF:
+        return MODEL_TO_MODEL_CONF[model]
+    # anthropic.claude-sonnet-4-5-20250929-v1:0 -> claude-sonnet-4-5-20250929...
+    normalized = model.removeprefix("anthropic.").replace("@", "-")
+    prefix_matches = [k for k in MODEL_TO_MODEL_CONF if normalized.startswith(k)]
+    if prefix_matches:
+        return MODEL_TO_MODEL_CONF[max(prefix_matches, key=len)]
+    return DEFAULT_MODEL_CONF
+
 
 CONFIG_DIR = PosixPath("~/.anthropic").expanduser()
 API_KEY_FILE = CONFIG_DIR / "api_key"
@@ -134,6 +196,9 @@ def setup_state():
         st.session_state.provider_radio = st.session_state.provider
     if "model" not in st.session_state:
         _reset_model()
+    if "thinking_modes" not in st.session_state:
+        # Covers sessions created before the thinking controls were added.
+        _reset_model_conf()
     if "auth_validated" not in st.session_state:
         st.session_state.auth_validated = False
     if "responses" not in st.session_state:
@@ -160,9 +225,7 @@ def _reset_model():
 
 
 def _reset_model_conf():
-    model_conf = (
-        MODEL_TO_MODEL_CONF.get(st.session_state.model, CLAUDE_4)  # Default fallback
-    )
+    model_conf = _lookup_model_conf(st.session_state.model)
 
     # If we're in radio selection mode, use the selected tool version
     if hasattr(st.session_state, "tool_versions"):
@@ -170,10 +233,12 @@ def _reset_model_conf():
     else:
         st.session_state.tool_version = model_conf.tool_version
 
-    st.session_state.has_thinking = model_conf.has_thinking
     st.session_state.output_tokens = model_conf.default_output_tokens
     st.session_state.max_output_tokens = model_conf.max_output_tokens
     st.session_state.thinking_budget = int(model_conf.default_output_tokens / 2)
+    st.session_state.thinking_modes = model_conf.thinking_modes
+    st.session_state.thinking_mode = model_conf.thinking_modes[0]
+    st.session_state.thinking_effort = "medium"
 
 
 async def main():
@@ -247,14 +312,51 @@ async def main():
 
         st.number_input("Max Output Tokens", key="output_tokens", step=1)
 
-        st.checkbox("Thinking Enabled", key="thinking", value=False)
-        st.number_input(
-            "Thinking Budget",
-            key="thinking_budget",
-            max_value=st.session_state.max_output_tokens,
-            step=1,
-            disabled=not st.session_state.thinking,
-        )
+        # Thinking controls. Which modes are offered depends on the selected
+        # model: newer models (Opus 4.6 / Sonnet 4.6 and later) reason
+        # adaptively, steered by an effort level, while older models take an
+        # explicit thinking token budget. The options are derived from the
+        # current model string (not cached state) and any selection that the
+        # current model doesn't support is reset to its default, so an
+        # unsupported mode can never be sent to the API for a known model.
+        model_conf = _lookup_model_conf(st.session_state.model)
+        thinking_modes = model_conf.thinking_modes
+        st.session_state.thinking_modes = thinking_modes
+        if st.session_state.thinking_mode not in thinking_modes:
+            st.session_state.thinking_mode = thinking_modes[0]
+        if model_conf is DEFAULT_MODEL_CONF:
+            st.caption(
+                "⚠️ Unrecognized model — all thinking modes are shown. Pick the "
+                "one this model supports; an unsupported mode will be rejected "
+                "by the API."
+            )
+        if len(thinking_modes) > 1:
+            st.radio(
+                "Thinking",
+                options=thinking_modes,
+                key="thinking_mode",
+                format_func=str.capitalize,
+                horizontal=True,
+                help=(
+                    "Adaptive: the model decides how much to think, steered by "
+                    "the effort level below. Extended: a fixed thinking token "
+                    "budget. Only the modes the selected model supports are "
+                    "shown."
+                ),
+            )
+            if st.session_state.thinking_mode == "adaptive":
+                st.select_slider(
+                    "Thinking Effort",
+                    options=get_args(ThinkingEffort),
+                    key="thinking_effort",
+                )
+            elif st.session_state.thinking_mode == "extended":
+                st.number_input(
+                    "Thinking Budget",
+                    key="thinking_budget",
+                    max_value=st.session_state.max_output_tokens,
+                    step=1,
+                )
 
         if st.button("Reset", type="primary"):
             with st.spinner("Resetting..."):
@@ -344,9 +446,9 @@ async def main():
                 only_n_most_recent_images=st.session_state.only_n_most_recent_images,
                 tool_version=st.session_state.tool_versions,
                 max_tokens=st.session_state.output_tokens,
-                thinking_budget=st.session_state.thinking_budget
-                if st.session_state.thinking
-                else None,
+                thinking_mode=st.session_state.thinking_mode,
+                thinking_effort=st.session_state.thinking_effort,
+                thinking_budget=st.session_state.thinking_budget,
                 token_efficient_tools_beta=st.session_state.token_efficient_tools_beta,
             )
 

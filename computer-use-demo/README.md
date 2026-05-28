@@ -1,7 +1,7 @@
 # Anthropic Computer Use Demo
 
 > [!NOTE]
-> Now featuring support for the new Claude 4 models! The latest Claude Opus 4.5 (claude-opus-4-5-20251101) is now available, along with Claude Sonnet 4.5 (claude-sonnet-4-5-20250929), Claude Sonnet 4 (claude-sonnet-4-20250514), Claude Opus 4 (claude-opus-4-20250514), and Claude Haiku 4.5 (claude-haiku-4-5-20251001). These models bring next-generation capabilities with the updated str_replace_based_edit_tool that replaces the previous str_replace_editor tool. The undo_edit command has been removed in this latest version for a more streamlined experience.
+> The demo now defaults to Claude Opus 4.8 (claude-opus-4-8), the latest model, with adaptive thinking — the model decides how much to reason, steered by a selectable effort level. Claude Opus 4.7, Opus 4.6, and Sonnet 4.6 are also supported with adaptive thinking, while older models (Claude Opus 4.5, Sonnet 4.5, Sonnet 4, Opus 4, and Haiku 4.5) continue to work with extended thinking and the str_replace_based_edit_tool.
 
 > [!CAUTION]
 > Computer use is a beta feature. Please be aware that computer use poses unique risks that are distinct from standard API features or chat interfaces. These risks are heightened when using computer use to interact with the internet. To minimize risks, consider taking precautions such as:

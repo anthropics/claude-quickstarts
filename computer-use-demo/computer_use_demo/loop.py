@@ -6,7 +6,7 @@ import platform
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import httpx
 from anthropic import (
@@ -37,6 +37,17 @@ from .tools import (
 )
 
 PROMPT_CACHING_BETA_FLAG = "prompt-caching-2024-07-31"
+
+# How the model's reasoning is requested. Which modes a given model supports is
+# declared per-model in streamlit.py (MODEL_TO_MODEL_CONF):
+# - "adaptive": the model decides how much to think, steered by an effort level
+#   (Claude Opus 4.6 / Sonnet 4.6 and newer). Sent as
+#   thinking={"type": "adaptive"} plus output_config={"effort": ...}.
+# - "extended": a fixed thinking token budget (Claude Opus 4.5 / Sonnet 4.5 and
+#   older). Sent as thinking={"type": "enabled", "budget_tokens": ...}.
+# - "off": no thinking parameters are sent.
+ThinkingMode = Literal["adaptive", "extended", "off"]
+ThinkingEffort = Literal["low", "medium", "high", "max"]
 
 
 class APIProvider(StrEnum):
@@ -82,6 +93,8 @@ async def sampling_loop(
     only_n_most_recent_images: int | None = None,
     max_tokens: int = 4096,
     tool_version: ToolVersion,
+    thinking_mode: ThinkingMode = "off",
+    thinking_effort: ThinkingEffort = "medium",
     thinking_budget: int | None = None,
     token_efficient_tools_beta: bool = False,
 ):
@@ -125,8 +138,17 @@ async def sampling_loop(
                 min_removal_threshold=image_truncation_threshold,
             )
         extra_body = {}
-        if thinking_budget:
-            # Ensure we only send the required fields for thinking
+        if thinking_mode == "adaptive":
+            # Newer models (Claude Opus 4.6 / Sonnet 4.6 and later) reason
+            # adaptively: the model decides how much to think and the effort
+            # level steers it. These models do not accept a manual token budget.
+            extra_body = {
+                "thinking": {"type": "adaptive"},
+                "output_config": {"effort": thinking_effort},
+            }
+        elif thinking_mode == "extended" and thinking_budget:
+            # Older models use extended thinking with an explicit token budget.
+            # Ensure we only send the required fields for thinking.
             extra_body = {
                 "thinking": {"type": "enabled", "budget_tokens": thinking_budget}
             }
