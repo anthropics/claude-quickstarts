@@ -44,6 +44,12 @@ An autonomous coding agent powered by the Claude Agent SDK. This project demonst
 
 [Go to Autonomous Coding Agent Quickstart](./autonomous-coding)
 
+### Code Security Scanner
+
+A Claude-powered security vulnerability scanner that analyzes code snippets across multiple programming languages and returns structured reports with severity levels (Critical / High / Medium / Low), line-number identification, and actionable fix recommendations. Built with Next.js 14, TailwindCSS, and TypeScript.
+
+[Go to Code Security Scanner Quickstart](./code-security-scanner)
+
 ## General Usage
 
 Each quickstart project comes with its own README and setup instructions. Generally, you'll follow these steps:
