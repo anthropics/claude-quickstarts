@@ -1,0 +1,82 @@
+# Quickstarts Registry
+# Machine-readable index of all available quickstarts for discoverability
+# See: https://github.com/anthropics/claude-quickstarts/issues/354
+
+- title: Customer Support Agent
+  description: An AI-powered customer support chat interface using Claude and Amazon Bedrock Knowledge Bases for contextual knowledge retrieval.
+  path: customer-support-agent
+  categories:
+    - Agents
+    - Knowledge Retrieval
+    - Amazon Bedrock
+  tags:
+    - chat
+    - support
+    - rag
+
+- title: Financial Data Analyst
+  description: A Next.js application combining Claude with interactive data visualization to analyze financial data via natural language chat.
+  path: financial-data-analyst
+  categories:
+    - Data Analysis
+    - Visualization
+  tags:
+    - finance
+    - charts
+    - nextjs
+
+- title: Computer Use Demo
+  description: A containerized environment demonstrating Claude's computer use capabilities, including mouse, keyboard, and screen control with the latest tool versions.
+  path: computer-use-demo
+  categories:
+    - Computer Use
+    - Desktop Automation
+  tags:
+    - docker
+    - gui
+    - automation
+
+- title: Computer Use Best Practices
+  description: A pedagogical, native-macOS reference implementation demonstrating patterns for reliable and cost-effective computer-use agents, including prompt caching, compaction, and trajectory recording.
+  path: computer-use-best-practices
+  categories:
+    - Computer Use
+    - Best Practices
+  tags:
+    - macos
+    - production
+    - optimization
+
+- title: Browser Use Demo
+  description: A complete reference implementation for browser automation using Playwright, enabling Claude to navigate websites, interact with DOM elements, and fill forms.
+  path: browser-use-demo
+  categories:
+    - Browser Automation
+    - Web Scraping
+  tags:
+    - playwright
+    - docker
+    - dom
+
+- title: Autonomous Coding Agent
+  description: A minimal harness demonstrating long-running autonomous coding with the Claude Agent SDK, implementing a two-agent pattern for building complete applications over multiple sessions.
+  path: autonomous-coding
+  categories:
+    - Agents
+    - Code Generation
+    - Claude Agent SDK
+  tags:
+    - coding
+    - multi-session
+    - git
+
+- title: Agents Reference Implementation
+  description: A minimal educational implementation of LLM agents using the Claude API, demonstrating how sophisticated AI behaviors emerge from tools in a loop.
+  path: agents
+  categories:
+    - Agents
+    - Educational
+  tags:
+    - reference
+    - tools
+    - loops
