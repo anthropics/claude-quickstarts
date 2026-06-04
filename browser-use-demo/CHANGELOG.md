@@ -34,3 +34,13 @@ This file tracks all modifications made to files derived from or inspired by Mic
 - **Nature of Changes**:
   - Added clarifying comment in the `options` property explaining that this implementation uses fixed 1920x1080 dimensions with empirical coordinate correction, and directing users to the "Handle coordinate scaling" section in the computer use documentation for the recommended client-side downscaling approach.
 
+## Other Changes
+
+These changes are not derived from Microsoft Playwright source code.
+
+### browser_use_demo/loop.py
+- **Date Modified**: 6/4/26
+- **Nature of Changes**:
+  - Fixed dead image-truncation feature. `sampling_loop` accepted `only_n_most_recent_images` (passed as `3` from `streamlit.py`) but never used it, and `_maybe_filter_to_n_most_recent_images` was never called, so screenshots accumulated unbounded. Wired the helper into the loop guarded by `if only_n_most_recent_images:`, mirroring the computer-use demo.
+  - Fixed `_maybe_filter_to_n_most_recent_images` traversal. Screenshots are stored as `image` blocks nested inside `tool_result` blocks, but the helper only inspected top-level `image` blocks in user content (which never exist in this codebase), so it would have removed nothing even once wired. Updated it to count and remove the nested `tool_result` images, oldest first, in chunks for better prompt-cache behavior.
+

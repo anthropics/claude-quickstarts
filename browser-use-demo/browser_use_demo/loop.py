@@ -6,7 +6,7 @@ import os
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
-from typing import Optional
+from typing import Optional, cast
 
 import httpx
 
@@ -20,6 +20,7 @@ from anthropic.types.beta import (
     BetaContentBlockParam,
     BetaMessageParam,
     BetaTextBlockParam,
+    BetaToolResultBlockParam,
 )
 
 from .message_handler import MessageBuilder, ResponseProcessor
@@ -122,6 +123,16 @@ async def sampling_loop(
                 cache_control=BetaCacheControlEphemeralParam(type="ephemeral"),
             )
 
+        # Truncate older screenshots to bound context growth. Screenshots are
+        # of diminishing value as the conversation progresses, so keep only the
+        # N most recent ones.
+        if only_n_most_recent_images:
+            _maybe_filter_to_n_most_recent_images(
+                messages,
+                only_n_most_recent_images,
+                min_removal_threshold=only_n_most_recent_images,
+            )
+
         # Make API call
         try:
             api_kwargs = {
@@ -179,31 +190,57 @@ def _maybe_filter_to_n_most_recent_images(
     min_removal_threshold: int = 10,
 ):
     """
-    Filter messages to keep only the N most recent images.
+    Filter messages to keep only the N most recent screenshots.
+
+    Screenshots are returned by the browser tool as ``image`` blocks nested
+    inside ``tool_result`` blocks (see ResponseProcessor._build_tool_result),
+    so we count and remove the nested images, oldest first. Removals are done
+    in chunks of ``min_removal_threshold`` to avoid breaking the implicit
+    prompt cache on every turn.
     """
-    if images_to_keep <= 0:
-        raise ValueError("images_to_keep must be > 0")
+    tool_result_blocks = cast(
+        list[BetaToolResultBlockParam],
+        [
+            block
+            for message in messages
+            for block in (
+                message["content"] if isinstance(message.get("content"), list) else []
+            )
+            if isinstance(block, dict) and block.get("type") == "tool_result"
+        ],
+    )
 
     total_images = sum(
         1
-        for message in messages
-        if message["role"] == "user"
-        for block in message.get("content", [])
-        if isinstance(block, dict) and block.get("type") == "image"
+        for tool_result in tool_result_blocks
+        for inner in tool_result.get("content", [])
+        if isinstance(inner, dict) and inner.get("type") == "image"
     )
 
     images_to_remove = total_images - images_to_keep
     if images_to_remove < min_removal_threshold:
         return
+    # Remove in chunks for better prompt-cache behavior.
+    images_to_remove -= images_to_remove % min_removal_threshold
 
-    images_removed = 0
-    for message in messages:
-        if message["role"] == "user" and isinstance(message.get("content"), list):
+    for tool_result in tool_result_blocks:
+        if isinstance(tool_result.get("content"), list):
             new_content = []
-            for block in message["content"]:
-                if isinstance(block, dict) and block.get("type") == "image":
-                    if images_removed < images_to_remove:
-                        images_removed += 1
+            for inner in tool_result.get("content", []):
+                if isinstance(inner, dict) and inner.get("type") == "image":
+                    if images_to_remove > 0:
+                        images_to_remove -= 1
                         continue
-                new_content.append(block)
-            message["content"] = new_content
+                new_content.append(inner)
+            # Guard: the API rejects a tool_result whose content list is empty.
+            # This happens when the result contained only a screenshot (no text)
+            # and that screenshot was just truncated.  Insert a sentinel so the
+            # turn remains structurally valid.
+            if not new_content:
+                new_content = [
+                    cast(
+                        BetaTextBlockParam,
+                        {"type": "text", "text": "[screenshot removed]"},
+                    )
+                ]
+            tool_result["content"] = new_content

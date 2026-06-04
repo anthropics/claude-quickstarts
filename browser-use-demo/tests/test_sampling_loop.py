@@ -510,3 +510,192 @@ class TestSamplingLoopIntegration:
             assert call_args["tool_choice"] == {"type": "auto"}
 
         asyncio.run(run_test())
+
+
+def _make_tool_result_with_image(tool_use_id: str, data: str) -> dict:
+    """Build a user-message tool_result block containing a single image.
+
+    Mirrors the shape produced by ResponseProcessor._build_tool_result, i.e.
+    the image lives nested inside the tool_result's own content list.
+    """
+    return {
+        "type": "tool_result",
+        "tool_use_id": tool_use_id,
+        "content": [
+            {
+                "type": "image",
+                "source": {
+                    "type": "base64",
+                    "media_type": "image/png",
+                    "data": data,
+                },
+            }
+        ],
+    }
+
+
+def _count_images(messages: list[dict]) -> int:
+    """Count screenshot images nested inside tool_result blocks."""
+    return sum(
+        1
+        for message in messages
+        if isinstance(message.get("content"), list)
+        for block in message["content"]
+        if isinstance(block, dict) and block.get("type") == "tool_result"
+        for inner in block.get("content", [])
+        if isinstance(inner, dict) and inner.get("type") == "image"
+    )
+
+
+class TestImageTruncation:
+    """Tests for the `only_n_most_recent_images` screenshot-truncation feature."""
+
+    def test_filter_helper_removes_nested_screenshots(self):
+        """The helper must descend into tool_result blocks (where screenshots live).
+
+        Screenshots are stored nested inside ``tool_result`` blocks, not as
+        top-level ``image`` blocks in user content. The helper must count and
+        remove those nested images for truncation to do anything at all.
+        """
+        from browser_use_demo.loop import _maybe_filter_to_n_most_recent_images
+
+        # 15 accumulated screenshots, keep the 3 most recent.
+        messages = [
+            {
+                "role": "user",
+                "content": [_make_tool_result_with_image(f"tool_{i}", f"img_{i}")],
+            }
+            for i in range(15)
+        ]
+
+        assert _count_images(messages) == 15
+
+        _maybe_filter_to_n_most_recent_images(
+            messages,
+            images_to_keep=3,
+            min_removal_threshold=1,
+        )
+
+        remaining = _count_images(messages)
+        assert remaining == 3, (
+            f"expected 3 most-recent screenshots to remain, found {remaining}"
+        )
+        # The retained screenshots must be the most recent ones.
+        kept_data = [
+            inner["source"]["data"]
+            for message in messages
+            if isinstance(message.get("content"), list)
+            for block in message["content"]
+            if isinstance(block, dict) and block.get("type") == "tool_result"
+            for inner in block.get("content", [])
+            if isinstance(inner, dict) and inner.get("type") == "image"
+        ]
+        assert kept_data == ["img_12", "img_13", "img_14"]
+
+    @patch("browser_use_demo.loop.Anthropic")
+    def test_sampling_loop_truncates_accumulated_images(self, mock_anthropic):
+        """sampling_loop must apply truncation when only_n_most_recent_images is set.
+
+        Runs the loop over a message history that already holds many
+        accumulated screenshots. With truncation wired into the loop, only the
+        N most recent screenshots survive; without it (the bug) all of them
+        remain. The model returns a text-only response so the loop terminates
+        after a single iteration.
+        """
+
+        async def run_test():
+            mock_client = Mock()
+            mock_anthropic.return_value = mock_client
+
+            text_response = Mock()
+            text_response.content = [Mock(type="text", text="done")]
+            mock_client.beta.messages.create = Mock(return_value=text_response)
+
+            mock_browser = AsyncMock()
+
+            # Seed history with 12 prior screenshots.
+            messages = [
+                {
+                    "role": "user",
+                    "content": [_make_tool_result_with_image(f"tool_{i}", f"img_{i}")],
+                }
+                for i in range(12)
+            ]
+
+            await sampling_loop(
+                model="claude-sonnet-4-5",
+                provider=APIProvider.ANTHROPIC,
+                system_prompt_suffix="",
+                messages=messages,
+                output_callback=lambda x: None,
+                tool_output_callback=lambda r, i: None,
+                api_response_callback=lambda *args: None,
+                api_key="test_key",
+                only_n_most_recent_images=3,
+                browser_tool=mock_browser,
+            )
+
+            remaining = _count_images(messages)
+            assert remaining == 3, (
+                "sampling_loop should truncate to only_n_most_recent_images=3 "
+                f"screenshots, but {remaining} remain"
+            )
+            mock_browser.assert_not_called()
+
+        asyncio.run(run_test())
+
+    def test_filter_helper_image_only_tool_result_gets_sentinel(self):
+        """Truncating the sole image from an image-only tool_result must not leave
+        content=[], which the Anthropic API rejects with a 400 error.
+
+        The ``screenshot`` / ``zoom`` / ``navigate`` browser actions return a
+        ToolResult with output="" (falsy) and base64_image set, so
+        _build_tool_result produces a content list with exactly one image block
+        and no text block.  When that image is truncated, the guard must insert a
+        sentinel text block so the tool_result stays structurally valid.
+        """
+        from browser_use_demo.loop import _maybe_filter_to_n_most_recent_images
+
+        # Build 5 tool_results that are image-only (no text block).
+        messages = [
+            {
+                "role": "user",
+                "content": [_make_tool_result_with_image(f"tool_{i}", f"img_{i}")],
+            }
+            for i in range(5)
+        ]
+
+        assert _count_images(messages) == 5
+
+        # Keep only 3 — so the 2 oldest image-only tool_results lose their sole
+        # image.  Without the guard those would be left with content=[].
+        _maybe_filter_to_n_most_recent_images(
+            messages,
+            images_to_keep=3,
+            min_removal_threshold=1,
+        )
+
+        assert _count_images(messages) == 3
+
+        # Every tool_result must still have at least one content block.
+        for message in messages:
+            if not isinstance(message.get("content"), list):
+                continue
+            for block in message["content"]:
+                if not (isinstance(block, dict) and block.get("type") == "tool_result"):
+                    continue
+                content = block.get("content", [])
+                assert len(content) > 0, (
+                    f"tool_result {block.get('tool_use_id')} has empty content after "
+                    "truncation — the API would reject this with a 400"
+                )
+                # The sentinel must be a text block when the image was removed.
+                if not any(
+                    isinstance(c, dict) and c.get("type") == "image" for c in content
+                ):
+                    assert any(
+                        isinstance(c, dict) and c.get("type") == "text" for c in content
+                    ), (
+                        f"tool_result {block.get('tool_use_id')} had its image removed "
+                        "but contains no text sentinel"
+                    )
