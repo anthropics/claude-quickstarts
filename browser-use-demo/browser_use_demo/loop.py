@@ -121,6 +121,16 @@ async def sampling_loop(
                 text=system["text"],
                 cache_control=BetaCacheControlEphemeralParam(type="ephemeral"),
             )
+            # Cached reads are 10% of the price — never break the cache by
+            # truncating screenshots when prompt caching is on. Matches
+            # ``computer-use-demo``'s behavior.
+            only_n_most_recent_images = None
+
+        if only_n_most_recent_images:
+            _maybe_filter_to_n_most_recent_images(
+                messages,
+                only_n_most_recent_images,
+            )
 
         # Make API call
         try:
@@ -179,31 +189,51 @@ def _maybe_filter_to_n_most_recent_images(
     min_removal_threshold: int = 10,
 ):
     """
-    Filter messages to keep only the N most recent images.
+    With the assumption that images are screenshots that are of diminishing
+    value as the conversation progresses, remove all but the final
+    `images_to_keep` ``tool_result`` images in place, with a chunk of
+    ``min_removal_threshold`` to reduce the amount we break the implicit
+    prompt cache.
+
+    Mirrors ``computer-use-demo``'s implementation, which descends into
+    ``tool_result`` blocks. Screenshots in this demo are returned by the
+    browser tool nested inside ``tool_result.content`` — a top-level
+    ``image`` scan (the previous shape) never matched anything.
     """
+    if images_to_keep is None:
+        return
     if images_to_keep <= 0:
         raise ValueError("images_to_keep must be > 0")
 
+    tool_result_blocks = [
+        item
+        for message in messages
+        for item in (
+            message["content"] if isinstance(message["content"], list) else []
+        )
+        if isinstance(item, dict) and item.get("type") == "tool_result"
+    ]
+
     total_images = sum(
         1
-        for message in messages
-        if message["role"] == "user"
-        for block in message.get("content", [])
-        if isinstance(block, dict) and block.get("type") == "image"
+        for tool_result in tool_result_blocks
+        for content in tool_result.get("content", [])
+        if isinstance(content, dict) and content.get("type") == "image"
     )
 
     images_to_remove = total_images - images_to_keep
     if images_to_remove < min_removal_threshold:
         return
+    # remove in chunks of `min_removal_threshold` for better cache behavior
+    images_to_remove -= images_to_remove % min_removal_threshold
 
-    images_removed = 0
-    for message in messages:
-        if message["role"] == "user" and isinstance(message.get("content"), list):
+    for tool_result in tool_result_blocks:
+        if isinstance(tool_result.get("content"), list):
             new_content = []
-            for block in message["content"]:
-                if isinstance(block, dict) and block.get("type") == "image":
-                    if images_removed < images_to_remove:
-                        images_removed += 1
+            for content in tool_result.get("content", []):
+                if isinstance(content, dict) and content.get("type") == "image":
+                    if images_to_remove > 0:
+                        images_to_remove -= 1
                         continue
-                new_content.append(block)
-            message["content"] = new_content
+                new_content.append(content)
+            tool_result["content"] = new_content
