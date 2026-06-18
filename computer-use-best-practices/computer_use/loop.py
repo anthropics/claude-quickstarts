@@ -328,6 +328,24 @@ def _interrupted_result(tool_use_id: str) -> ToolResultBlockParam:
     }
 
 
+def _split_out_media(content: list[Any]) -> tuple[list[Any], list[Any]]:
+    """Pull image/document blocks out of tool_result content so the loop can
+    relay them as top-level user blocks instead. Used for the
+    cfg.relay_images_top_level workaround: Ollama's /v1/messages endpoint
+    ignores media nested in a tool_result, blinding the agent. Returns
+    (text_only_content, media_blocks)."""
+    text_blocks: list[Any] = []
+    media: list[Any] = []
+    for b in content:
+        if isinstance(b, dict) and b.get("type") in {"image", "document"}:
+            media.append(b)
+        else:
+            text_blocks.append(b)
+    if not text_blocks:
+        text_blocks = [{"type": "text", "text": "(screenshot relayed below)"}]
+    return text_blocks, media
+
+
 def sampling_loop(
     *,
     model: str,
@@ -468,11 +486,15 @@ def sampling_loop(
 
             nudge = _should_nudge_batch(tool_uses)
             results: list[ToolResultBlockParam] = []
+            extra_media: list[Any] = []  # top-level blocks relayed after the tool_results
             try:
                 for tu in tool_uses:
                     res = tools.run(tu.name, tu.input)
                     render.tool_result(tu.name, res)
                     content = res.to_api_content()
+                    if cfg.relay_images_top_level:
+                        content, media = _split_out_media(content)
+                        extra_media.extend(media)
                     if nudge and not res.is_error:
                         content.append({"type": "text", "text": BATCH_REMINDER})
                     if advisor_nudge and not res.is_error:
@@ -493,12 +515,14 @@ def sampling_loop(
                 for tu in tool_uses:
                     if tu.id not in done_ids:
                         results.append(_interrupted_result(tu.id))
-                messages.append({"role": "user", "content": results})
-                trajectory.record("user", results)
+                user_content = [*results, *extra_media]
+                messages.append({"role": "user", "content": user_content})
+                trajectory.record("user", user_content)
                 break
 
-            messages.append({"role": "user", "content": results})
-            trajectory.record("user", results)
+            user_content = [*results, *extra_media]
+            messages.append({"role": "user", "content": user_content})
+            trajectory.record("user", user_content)
 
         # The for-loop can exit with messages ending in a user-role entry (Ctrl-C
         # during streaming, Ctrl-C during tool execution, or max_iters reached on

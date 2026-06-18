@@ -11,6 +11,7 @@ from computer_use.loop import (
     _format_usage,
     _is_empty_response,
     _is_recoverable,
+    _split_out_media,
 )
 
 
@@ -133,3 +134,26 @@ def test_effort_unsupported_model_raises() -> None:
     with pytest.raises(ValueError, match=r"does not support output_config\.effort"):
         _effort_kwargs("claude-haiku-4-5", "medium")
     assert _effort_kwargs("claude-haiku-4-5", "off") == {"thinking": {"type": "disabled"}}
+
+
+def test_split_out_media_separates_images():
+    """With cfg.relay_images_top_level, image blocks are pulled out of the
+    tool_result so the loop can relay them as top-level user content."""
+    content = [
+        {"type": "text", "text": "clicked"},
+        {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "X"}},
+    ]
+    text, media = _split_out_media(content)
+    assert [b["type"] for b in text] == ["text"]
+    assert [b["type"] for b in media] == ["image"]
+
+
+def test_split_out_media_synthesizes_text_when_only_media():
+    """A tool_result must keep at least one (text) block once its image is
+    pulled out, so it is never empty."""
+    content = [
+        {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": "X"}},
+    ]
+    text, media = _split_out_media(content)
+    assert len(text) == 1 and text[0]["type"] == "text"
+    assert [b["type"] for b in media] == ["image"]
