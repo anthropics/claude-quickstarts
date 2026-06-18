@@ -120,6 +120,29 @@ def _type_text(text: str, interval: float = 0.01) -> None:
         time.sleep(interval)
 
 
+def _as_xy(coord: Any) -> list[int]:
+    """Coerce a coordinate to ``[x, y]`` integers.
+
+    Claude reliably emits arrays (``[500, 375]``), but weaker / non-Claude
+    models routed through the same loop sometimes send a string instead
+    (``"500,375"`` or ``"[500, 375]"``). Accept both so a single malformed
+    coordinate degrades to a clear error rather than an opaque
+    ``too many values to unpack`` from the bare ``x, y = coord`` unpack.
+    """
+    if isinstance(coord, str):
+        parts = [p.strip() for p in coord.strip().strip("[]()").split(",") if p.strip()]
+    elif isinstance(coord, (list, tuple)):
+        parts = list(coord)
+    else:
+        raise ValueError(f"coordinate must be [x, y], got {type(coord).__name__}: {coord!r}")
+    if len(parts) != 2:
+        raise ValueError(f"coordinate must have exactly 2 values [x, y], got {coord!r}")
+    try:
+        return [round(float(parts[0])), round(float(parts[1]))]
+    except (TypeError, ValueError):
+        raise ValueError(f"coordinate values must be numbers, got {coord!r}")
+
+
 class ComputerTool(Tool):
     name: ClassVar[str] = "computer"
     validates_own_input: ClassVar[bool] = True
@@ -205,7 +228,7 @@ class ComputerTool(Tool):
         }
 
     def _scale_to_screen(self, coord: list[int]) -> tuple[int, int]:
-        x, y = coord
+        x, y = _as_xy(coord)
         sx = round(x * self.screen_w / self.sent_w)
         sy = round(y * self.screen_h / self.sent_h)
         return (
@@ -223,7 +246,7 @@ class ComputerTool(Tool):
         """Format a coordinate for tool output. Echoes the *image-space* values
         the model sent (not the scaled screen pixels) so the model sees its own
         numbers back; the WxH suffix tells human readers which space this is."""
-        x, y = image_coord
+        x, y = _as_xy(image_coord)
         return f"({x}, {y}) in {self.sent_w}x{self.sent_h} image"
 
     def take_screenshot(self) -> ToolResult:
