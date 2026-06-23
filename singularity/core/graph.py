@@ -297,16 +297,15 @@ class SingularityCore:
 
     # ── Veřejné API ──────────────────────────────────────────────────────────────
 
-    async def run(
+    def _make_initial_state(
         self,
         task: str,
         user_id: str,
         session_id: str,
         approved: bool = False,
         force_provider: str = "",
-    ) -> dict:
-        """Spustí kompletní kognitivní smyčku; vrací final_response + provider_log."""
-        initial_state: SingularityState = {
+    ) -> SingularityState:
+        return {
             "messages": [HumanMessage(content=task)],
             "user_id": user_id,
             "session_id": session_id,
@@ -323,11 +322,67 @@ class SingularityCore:
             "force_provider": force_provider,
         }
 
+    async def run(
+        self,
+        task: str,
+        user_id: str,
+        session_id: str,
+        approved: bool = False,
+        force_provider: str = "",
+    ) -> dict:
+        """Spustí kompletní kognitivní smyčku; vrací final_response + provider_log."""
+        initial_state = self._make_initial_state(task, user_id, session_id, approved, force_provider)
         final_state = await self.graph.ainvoke(initial_state)
         return {
             "response": final_state.get("final_response", "Bez výstupu."),
             "provider_log": final_state.get("provider_log", {}),
             "risk_score": final_state.get("risk_score", 0.0),
+        }
+
+    async def run_stream(
+        self,
+        task: str,
+        user_id: str,
+        session_id: str,
+        approved: bool = False,
+        force_provider: str = "",
+    ):
+        """
+        AsyncGenerator: produkuje progress event po každém LangGraph uzlu.
+
+        Každý event je dict s klíčem "event":
+          - "node_completed"  po každém uzlu (node, provider, provider_log)
+          - "completed"       finální výsledek (response, provider_log, risk_score)
+        """
+        initial_state = self._make_initial_state(task, user_id, session_id, approved, force_provider)
+
+        accumulated_plog: dict[str, str] = {}
+        last_response = ""
+        last_risk = 0.0
+
+        async for chunk in self.graph.astream(initial_state):
+            for node_name, updates in chunk.items():
+                if isinstance(updates, dict):
+                    if "provider_log" in updates:
+                        accumulated_plog.update(updates["provider_log"])
+                    if updates.get("final_response"):
+                        last_response = updates["final_response"]
+                    if "risk_score" in updates:
+                        last_risk = updates["risk_score"]
+
+                node_provider = accumulated_plog.get(node_name, "")
+                yield {
+                    "event": "node_completed",
+                    "node": node_name,
+                    "provider": node_provider,
+                    "provider_log": dict(accumulated_plog),
+                }
+
+        yield {
+            "event": "completed",
+            "response": last_response or "Bez výstupu.",
+            "provider_log": accumulated_plog,
+            "risk_score": last_risk,
         }
 
     def e_stop(self) -> None:

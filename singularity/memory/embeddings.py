@@ -14,6 +14,13 @@ class HashEmbeddingFunction:
 
     DIM = 128
 
+    # ChromaDB >=0.6 vyžaduje name() a is_legacy() na embedding functions
+    def name(self) -> str:
+        return "hash-embedding-128"
+
+    def is_legacy(self) -> bool:
+        return False
+
     def __call__(self, input: list[str]) -> list[list[float]]:  # noqa: A002
         return [self._embed(text) for text in input]
 
