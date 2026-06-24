@@ -2,24 +2,30 @@
 Singularity — FastAPI vrstva.
 
 Endpointy:
-  POST /task                 Zadání úkolu (volitelně force_provider, multi-turn)
-  POST /task/stream          SSE streaming verze /task (Fáze 1)
-  POST /approve              Human-in-the-loop schválení/zamítnutí
-  POST /e-stop               Nouzové zastavení
-  GET  /memory/{uid}         Zobrazení paměti uživatele
-  GET  /sessions/{uid}       Konverzační historie + náklady (Fáze 1)
-  GET  /sessions             Seznam aktivních uživatelů (Fáze 1)
-  GET  /providers            Stav providerů (health, cost, latency, cooldown)
-  GET  /health/providers     Okamžitý health check všech providerů (Fáze 2)
-  POST /router/strategy      Runtime změna routing strategie
-  GET  /metrics              Prometheus metriky
-  GET  /tasks/{id}/providers Který model zpracoval který krok
-  GET  /dashboard            Admin dashboard (Fáze 2)
-  WS   /ws/{uid}             Real-time node-level streaming (Fáze 1)
-  GET  /health               Health check
+  POST /task                   Zadání úkolu (sync, volitelně force_provider)
+  POST /task/stream            SSE streaming verze (Fáze 1)
+  POST /task/async             Async fronta — vrátí task_id okamžitě (Fáze 3)
+  POST /task/compare           Paralelní run na Claude + Gemini (Fáze 3)
+  GET  /task/{id}/status       Stav async tasku (Fáze 3)
+  GET  /task/{id}/result       Výsledek async tasku (Fáze 3)
+  POST /approve                Human-in-the-loop schválení/zamítnutí
+  POST /e-stop                 Nouzové zastavení
+  GET  /memory/{uid}           Zobrazení paměti uživatele
+  GET  /sessions/{uid}         Konverzační historie + náklady (Fáze 1)
+  GET  /sessions/{uid}/export  JSON export session (Fáze 3)
+  GET  /sessions               Seznam aktivních uživatelů (Fáze 1)
+  GET  /providers              Stav providerů
+  GET  /health/providers       Okamžitý health check všech providerů (Fáze 2)
+  POST /router/strategy        Runtime změna routing strategie
+  GET  /metrics                Prometheus metriky
+  GET  /tasks/{id}/providers   Který model zpracoval který krok
+  GET  /dashboard              Admin dashboard (Fáze 2)
+  WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
+  GET  /health                 Health check
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 from contextlib import asynccontextmanager
@@ -35,6 +41,7 @@ from core import telemetry
 from core.graph import SingularityCore
 from core.health_monitor import HealthMonitor
 from core.session_store import ConversationTurn, SessionStore, estimate_cost
+from core.task_queue import TaskQueue
 from evals.evaluator import OmegaEvaluator
 
 log = structlog.get_logger()
@@ -43,6 +50,7 @@ log = structlog.get_logger()
 core: SingularityCore | None = None
 evaluator: OmegaEvaluator | None = None
 health_monitor: HealthMonitor | None = None
+task_queue: TaskQueue = TaskQueue()
 session_store: SessionStore = SessionStore()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
@@ -65,15 +73,17 @@ def _build_session_context(user_id: str) -> str:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan handler — inicializace singletonů a health monitoru (Fáze 2)."""
+    """Lifespan handler — inicializace singletonů, health monitoru a task queue."""
     global core, evaluator, health_monitor
     core = SingularityCore()
     evaluator = OmegaEvaluator()
     health_monitor = HealthMonitor(core.router, interval_s=30.0)
     health_monitor.start()
+    task_queue.start(core)
     log.info("singularity_started", strategy=core.router.strategy)
     yield
     health_monitor.stop()
+    task_queue.stop()
     log.info("singularity_shutdown")
 
 
@@ -155,7 +165,7 @@ async def submit_task(req: TaskRequest) -> TaskResponse:
         log.warning("eval_failed", error=str(exc))
         eval_scores = {}
 
-    # Ulož turn do session store
+    # Ulož turn do session store (Fáze 3: včetně eval_scores)
     cost = estimate_cost(result["response"], result["provider_log"])
     session_store.add_turn(
         req.user_id,
@@ -165,6 +175,7 @@ async def submit_task(req: TaskRequest) -> TaskResponse:
             provider_log=result["provider_log"],
             risk_score=result.get("risk_score", 0.0),
             cost_usd=cost,
+            eval_scores=eval_scores,
         ),
     )
 
@@ -174,6 +185,76 @@ async def submit_task(req: TaskRequest) -> TaskResponse:
         eval_scores=eval_scores,
         provider_log=result["provider_log"],
     )
+
+
+@app.post("/task/async")
+async def submit_task_async(req: TaskRequest) -> dict:
+    """Zařadí úkol do fronty a okamžitě vrátí task_id (Fáze 3)."""
+    assert core is not None
+    session_context = _build_session_context(req.user_id)
+    task_id = await task_queue.submit(
+        task=req.task,
+        user_id=req.user_id,
+        approved=req.approved,
+        force_provider=req.force_provider,
+        session_context=session_context,
+    )
+    return {"task_id": task_id, "status": "queued", "queue_size": task_queue.queue_size()}
+
+
+@app.get("/task/{task_id}/status")
+async def get_task_status(task_id: str) -> dict:
+    """Vrátí stav async tasku (Fáze 3)."""
+    status = task_queue.get_status(task_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail="Neznámé task_id")
+    return status
+
+
+@app.get("/task/{task_id}/result")
+async def get_task_result(task_id: str) -> dict:
+    """Vrátí výsledek dokončeného async tasku (Fáze 3)."""
+    result = task_queue.get_result(task_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Neznámé task_id")
+    return result
+
+
+@app.post("/task/compare")
+async def compare_task(req: TaskRequest) -> dict:
+    """
+    Spustí úkol paralelně na Claude i Gemini a vrátí porovnání (Fáze 3).
+    Pokud Gemini není k dispozici, vrátí pouze výsledek Clauda.
+    """
+    assert core is not None
+    session_context = _build_session_context(req.user_id)
+    sid_claude = str(uuid.uuid4())
+    sid_gemini = str(uuid.uuid4())
+
+    run_kwargs = dict(
+        task=req.task,
+        user_id=req.user_id,
+        approved=req.approved,
+        session_context=session_context,
+    )
+
+    results = await asyncio.gather(
+        core.run(**run_kwargs, session_id=sid_claude, force_provider="claude"),
+        core.run(**run_kwargs, session_id=sid_gemini, force_provider="gemini"),
+        return_exceptions=True,
+    )
+
+    def _fmt(r, sid):
+        if isinstance(r, Exception):
+            return {"error": str(r), "session_id": sid}
+        return {**r, "session_id": sid}
+
+    return {
+        "task": req.task,
+        "claude": _fmt(results[0], sid_claude),
+        "gemini": _fmt(results[1], sid_gemini),
+        "gemini_enabled": core.router.gemini_enabled,
+    }
 
 
 @app.post("/task/stream")
@@ -292,6 +373,18 @@ async def get_session(user_id: str) -> dict:
 async def list_sessions() -> dict:
     """Vrátí seznam uživatelů s aktivními session."""
     return {"users": session_store.list_users()}
+
+
+@app.get("/sessions/{user_id}/export")
+async def export_session(user_id: str) -> Response:
+    """JSON export kompletní session historie (Fáze 3)."""
+    history = session_store.get_history(user_id)
+    payload = json.dumps(history, ensure_ascii=False, indent=2)
+    return Response(
+        content=payload,
+        media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="session_{user_id}.json"'},
+    )
 
 
 @app.get("/health/providers")
