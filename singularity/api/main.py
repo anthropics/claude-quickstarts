@@ -37,6 +37,7 @@ Endpointy:
   DELETE /api-keys/{key}       Revokuje API klíč (Fáze 7)
   GET  /health/live            Liveness probe — vždy 200 (Fáze 8)
   GET  /health/ready           Readiness probe — 200 až po inicializaci (Fáze 8)
+  GET  /logs/recent            Posledních N strukturovaných log událostí (Fáze 10)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
 """
@@ -63,6 +64,8 @@ from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
+from core.log_buffer import LogBuffer
+from core.logging_config import configure_logging
 from core.health_monitor import HealthMonitor
 from core.session_store import ConversationTurn, SessionStore, estimate_cost
 from core.task_queue import TaskPriority, TaskQueue
@@ -81,6 +84,7 @@ budget_manager: BudgetManager = BudgetManager()
 user_limiter: UserRateLimiter = UserRateLimiter()
 audit_log: AuditLog = AuditLog()
 api_key_manager: ApiKeyManager = ApiKeyManager()
+log_buffer: LogBuffer = LogBuffer(maxlen=500)
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -104,6 +108,11 @@ def _build_session_context(user_id: str) -> str:
 async def lifespan(app: FastAPI):
     """Lifespan handler — inicializace singletonů, health monitoru a task queue."""
     global core, evaluator, health_monitor
+    configure_logging(
+        level=settings.log_level,
+        log_format=settings.log_format,
+        log_buffer=log_buffer,
+    )
     core = SingularityCore()
     evaluator = OmegaEvaluator()
     health_monitor = HealthMonitor(core.router, interval_s=30.0)
@@ -606,6 +615,19 @@ async def retry_dlq_task(task_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Task není v DLQ")
     audit_log.record("task_dlq_retried", user_id="admin", task_id=task_id)
     return {"status": "requeued", "task_id": task_id}
+
+
+# ── Structured log endpoint (Fáze 10) ────────────────────────────────────────
+
+@app.get("/logs/recent")
+async def get_recent_logs(
+    limit: int = 50,
+    level: str | None = None,
+) -> dict:
+    """Vrátí posledních N strukturovaných log událostí z in-memory bufferu (Fáze 10)."""
+    limit = min(max(limit, 1), 500)
+    events = log_buffer.get_recent(limit=limit, level=level)
+    return {"count": len(events), "events": events}
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
