@@ -42,6 +42,7 @@ Endpointy:
   GET  /cache/stats            Statistiky response cache (Fáze 12)
   DELETE /cache                Vymaže celou response cache (Fáze 12)
   GET  /traces                 Posledních N OTel spanů (Fáze 13)
+  GET  /db/status              Stav SQLite persistence (Fáze 14)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
 """
@@ -67,6 +68,7 @@ from core.api_keys import ApiKeyManager
 from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.cache import ResponseCache
+from core.persistence import Database
 from core.tracing import get_finished_spans, setup_tracing
 from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
@@ -94,6 +96,7 @@ api_key_manager: ApiKeyManager = ApiKeyManager()
 log_buffer: LogBuffer = LogBuffer(maxlen=500)
 task_event_bus: TaskEventBus = TaskEventBus()
 response_cache: ResponseCache = ResponseCache()
+db: Database | None = None
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -116,7 +119,7 @@ def _build_session_context(user_id: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan handler — inicializace singletonů, health monitoru a task queue."""
-    global core, evaluator, health_monitor, response_cache
+    global core, evaluator, health_monitor, response_cache, db
     configure_logging(
         level=settings.log_level,
         log_format=settings.log_format,
@@ -124,6 +127,12 @@ async def lifespan(app: FastAPI):
     )
     if settings.enable_tracing:
         setup_tracing(otlp_endpoint=settings.otlp_endpoint)
+    if settings.enable_persistence:
+        db = Database(db_path=settings.db_path)
+        db.init_schema()
+        audit_log.attach_db(db)
+        api_key_manager.attach_db(db)
+        log.info("persistence_enabled", db_path=settings.db_path)
     response_cache = ResponseCache(
         maxsize=settings.cache_max_size,
         default_ttl_s=settings.cache_ttl_s,
@@ -721,6 +730,23 @@ async def get_traces(limit: int = 50) -> dict:
     limit = min(max(limit, 1), 500)
     spans = get_finished_spans(limit=limit)
     return {"count": len(spans), "spans": spans}
+
+
+# ── Persistence status (Fáze 14) ─────────────────────────────────────────────
+
+@app.get("/db/status")
+async def db_status() -> dict:
+    """Vrátí stav SQLite persistence (Fáze 14)."""
+    if db is None:
+        return {"enabled": False, "db_path": None}
+    audit_count = db.fetchone("SELECT COUNT(*) AS n FROM audit_events") or {}
+    key_count   = db.fetchone("SELECT COUNT(*) AS n FROM api_keys WHERE revoked=0") or {}
+    return {
+        "enabled": True,
+        "db_path": settings.db_path,
+        "audit_events": audit_count.get("n", 0),
+        "active_api_keys": key_count.get("n", 0),
+    }
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
