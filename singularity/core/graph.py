@@ -29,6 +29,7 @@ from agents.swarm import SingularitySwarm
 from config.settings import settings
 from core.limiter import ProviderRateLimiter
 from core.router import LLMRouter
+from core.tracing import get_tracer
 from memory.mem0_store import OmegaMemory
 from providers.claude_provider import ClaudeProvider
 
@@ -84,6 +85,7 @@ class SingularityCore:
         self.limiter = ProviderRateLimiter()
         self.swarm = SingularitySwarm(self.router, self.limiter)
         self.memory = OmegaMemory()
+        self.tracer = get_tracer()
         self.graph = self._build_graph()
 
     # ── Sestavení grafu ────────────────────────────────────────────────────────
@@ -126,82 +128,93 @@ class SingularityCore:
         if state.get("e_stop"):
             return {}
 
-        log.info("node_plan", task=state["task"][:80])
+        with self.tracer.start_as_current_span("node.plan") as span:
+            span.set_attribute("session_id", state.get("session_id", ""))
+            span.set_attribute("user_id", state.get("user_id", ""))
+            log.info("node_plan", task=state["task"][:80])
 
-        # Kritická oprava z Omega: paměť nesmí shodit graf
-        try:
-            memories = self.memory.search(state["task"], user_id=state["user_id"], limit=3)
-        except Exception as exc:
-            log.warning("memory_search_degraded", error=str(exc))
-            memories = []
-        memory_context = (
-            "\n".join(m.get("memory", "") for m in memories)
-            if memories
-            else "Žádné relevantní vzpomínky (paměť dočasně nedostupná)."
-        )
+            # Kritická oprava z Omega: paměť nesmí shodit graf
+            try:
+                memories = self.memory.search(state["task"], user_id=state["user_id"], limit=3)
+            except Exception as exc:
+                log.warning("memory_search_degraded", error=str(exc))
+                memories = []
+            memory_context = (
+                "\n".join(m.get("memory", "") for m in memories)
+                if memories
+                else "Žádné relevantní vzpomínky (paměť dočasně nedostupná)."
+            )
 
-        session_ctx = state.get("session_context", "")
-        full_context = f"Dostupné vzpomínky:\n{memory_context}"
-        if session_ctx:
-            full_context = f"Historie konverzace:\n{session_ctx}\n\n{full_context}"
+            session_ctx = state.get("session_context", "")
+            full_context = f"Dostupné vzpomínky:\n{memory_context}"
+            if session_ctx:
+                full_context = f"Historie konverzace:\n{session_ctx}\n\n{full_context}"
 
-        output = await self.swarm.run_agent(
-            AgentRole.PLANNER,
-            state["task"],
-            context=full_context,
-        )
+            output = await self.swarm.run_agent(
+                AgentRole.PLANNER,
+                state["task"],
+                context=full_context,
+            )
 
-        return {
-            "agent_outputs": {**state.get("agent_outputs", {}), AgentRole.PLANNER: output},
-            "messages": [AIMessage(content=f"[PLÁNOVAČ]\n{output.content}")],
-            "iteration": state.get("iteration", 0) + 1,
-            "provider_log": {**state.get("provider_log", {}), "plan": output.provider_used},
-            "active_provider": output.provider_used,
-        }
+            span.set_attribute("provider", output.provider_used)
+            return {
+                "agent_outputs": {**state.get("agent_outputs", {}), AgentRole.PLANNER: output},
+                "messages": [AIMessage(content=f"[PLÁNOVAČ]\n{output.content}")],
+                "iteration": state.get("iteration", 0) + 1,
+                "provider_log": {**state.get("provider_log", {}), "plan": output.provider_used},
+                "active_provider": output.provider_used,
+            }
 
     async def _execute_node(self, state: SingularityState) -> dict:
-        plan = state["agent_outputs"].get(AgentRole.PLANNER)
-        context = plan.content if plan else ""
+        with self.tracer.start_as_current_span("node.execute") as span:
+            span.set_attribute("session_id", state.get("session_id", ""))
+            plan = state["agent_outputs"].get(AgentRole.PLANNER)
+            context = plan.content if plan else ""
 
-        outputs = await self.swarm.orchestrate(
-            state["task"],
-            roles=[AgentRole.RESEARCHER, AgentRole.PROGRAMMER],
-            context=context,
-        )
+            outputs = await self.swarm.orchestrate(
+                state["task"],
+                roles=[AgentRole.RESEARCHER, AgentRole.PROGRAMMER],
+                context=context,
+            )
 
-        merged = {**state.get("agent_outputs", {}), **outputs}
-        messages = [
-            AIMessage(content=f"[{r.value.upper()}]\n{o.content}") for r, o in outputs.items()
-        ]
-        plog = {**state.get("provider_log", {})}
-        for r, o in outputs.items():
-            plog[r.value] = o.provider_used
+            merged = {**state.get("agent_outputs", {}), **outputs}
+            messages = [
+                AIMessage(content=f"[{r.value.upper()}]\n{o.content}") for r, o in outputs.items()
+            ]
+            plog = {**state.get("provider_log", {})}
+            for r, o in outputs.items():
+                plog[r.value] = o.provider_used
 
-        return {"agent_outputs": merged, "messages": messages, "provider_log": plog}
+            span.set_attribute("roles", ",".join(r.value for r in outputs))
+            return {"agent_outputs": merged, "messages": messages, "provider_log": plog}
 
     async def _critique_node(self, state: SingularityState) -> dict:
-        all_outputs = "\n\n".join(
-            f"=={r.value}==\n{o.content}" for r, o in state.get("agent_outputs", {}).items()
-        )
+        with self.tracer.start_as_current_span("node.critique") as span:
+            span.set_attribute("session_id", state.get("session_id", ""))
+            all_outputs = "\n\n".join(
+                f"=={r.value}==\n{o.content}" for r, o in state.get("agent_outputs", {}).items()
+            )
 
-        critique = await self.swarm.run_agent(
-            AgentRole.CRITIC, state["task"], context=all_outputs
-        )
+            critique = await self.swarm.run_agent(
+                AgentRole.CRITIC, state["task"], context=all_outputs
+            )
 
-        max_risk = max(
-            [o.risk_score for o in state.get("agent_outputs", {}).values()] + [critique.risk_score]
-        )
+            max_risk = max(
+                [o.risk_score for o in state.get("agent_outputs", {}).values()] + [critique.risk_score]
+            )
 
-        merged = {**state.get("agent_outputs", {}), AgentRole.CRITIC: critique}
-        plog = {**state.get("provider_log", {}), "critique": critique.provider_used}
+            merged = {**state.get("agent_outputs", {}), AgentRole.CRITIC: critique}
+            plog = {**state.get("provider_log", {}), "critique": critique.provider_used}
 
-        return {
-            "agent_outputs": merged,
-            "risk_score": max_risk,
-            "awaiting_approval": max_risk >= settings.risk_threshold,
-            "messages": [AIMessage(content=f"[KRITIK]\n{critique.content}")],
-            "provider_log": plog,
-        }
+            span.set_attribute("risk_score", max_risk)
+            span.set_attribute("provider", critique.provider_used)
+            return {
+                "agent_outputs": merged,
+                "risk_score": max_risk,
+                "awaiting_approval": max_risk >= settings.risk_threshold,
+                "messages": [AIMessage(content=f"[KRITIK]\n{critique.content}")],
+                "provider_log": plog,
+            }
 
     async def _await_approval_node(self, state: SingularityState) -> dict:
         log.warning(
@@ -222,31 +235,37 @@ class SingularityCore:
         }
 
     async def _synthesize_node(self, state: SingularityState) -> dict:
-        all_outputs = "\n\n".join(
-            f"=={r.value}==\n{o.content}" for r, o in state.get("agent_outputs", {}).items()
-        )
-
-        synthesis = await self.swarm.run_agent(
-            AgentRole.COMMUNICATOR, state["task"], context=all_outputs
-        )
-
-        try:
-            self.memory.store_episode(
-                content=f"TASK: {state['task']}\nRESULT: {synthesis.content[:500]}",
-                user_id=state["user_id"],
-                session_id=state["session_id"],
+        with self.tracer.start_as_current_span("node.synthesize") as span:
+            span.set_attribute("session_id", state.get("session_id", ""))
+            all_outputs = "\n\n".join(
+                f"=={r.value}==\n{o.content}" for r, o in state.get("agent_outputs", {}).items()
             )
-        except Exception as exc:
-            log.warning("episode_store_failed", error=str(exc))
 
-        plog = {**state.get("provider_log", {}), "synthesize": synthesis.provider_used}
-        return {
-            "final_response": synthesis.content,
-            "messages": [AIMessage(content=synthesis.content)],
-            "provider_log": plog,
-        }
+            synthesis = await self.swarm.run_agent(
+                AgentRole.COMMUNICATOR, state["task"], context=all_outputs
+            )
+
+            try:
+                self.memory.store_episode(
+                    content=f"TASK: {state['task']}\nRESULT: {synthesis.content[:500]}",
+                    user_id=state["user_id"],
+                    session_id=state["session_id"],
+                )
+            except Exception as exc:
+                log.warning("episode_store_failed", error=str(exc))
+
+            plog = {**state.get("provider_log", {}), "synthesize": synthesis.provider_used}
+            span.set_attribute("provider", synthesis.provider_used)
+            return {
+                "final_response": synthesis.content,
+                "messages": [AIMessage(content=synthesis.content)],
+                "provider_log": plog,
+            }
 
     async def _reflect_node(self, state: SingularityState) -> dict:
+        with self.tracer.start_as_current_span("node.reflect") as span:
+            span.set_attribute("session_id", state.get("session_id", ""))
+            span.set_attribute("risk_score", state.get("risk_score", 0.0))
         if state["risk_score"] < 0.4:
             try:
                 self.memory.store_workflow(

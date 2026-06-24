@@ -41,6 +41,7 @@ Endpointy:
   GET  /logs/recent            Posledních N strukturovaných log událostí (Fáze 10)
   GET  /cache/stats            Statistiky response cache (Fáze 12)
   DELETE /cache                Vymaže celou response cache (Fáze 12)
+  GET  /traces                 Posledních N OTel spanů (Fáze 13)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
 """
@@ -66,6 +67,7 @@ from core.api_keys import ApiKeyManager
 from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.cache import ResponseCache
+from core.tracing import get_finished_spans, setup_tracing
 from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
 from core.log_buffer import LogBuffer
@@ -114,13 +116,14 @@ def _build_session_context(user_id: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan handler — inicializace singletonů, health monitoru a task queue."""
-    global core, evaluator, health_monitor
-    global response_cache
+    global core, evaluator, health_monitor, response_cache
     configure_logging(
         level=settings.log_level,
         log_format=settings.log_format,
         log_buffer=log_buffer,
     )
+    if settings.enable_tracing:
+        setup_tracing(otlp_endpoint=settings.otlp_endpoint)
     response_cache = ResponseCache(
         maxsize=settings.cache_max_size,
         default_ttl_s=settings.cache_ttl_s,
@@ -708,6 +711,16 @@ async def clear_cache() -> dict:
     cleared = await response_cache.clear()
     log.info("cache_cleared", entries=cleared)
     return {"status": "ok", "cleared": cleared}
+
+
+# ── Tracing endpoint (Fáze 13) ────────────────────────────────────────────────
+
+@app.get("/traces")
+async def get_traces(limit: int = 50) -> dict:
+    """Vrátí posledních N OTel spanů z in-memory exporteru (Fáze 13)."""
+    limit = min(max(limit, 1), 500)
+    spans = get_finished_spans(limit=limit)
+    return {"count": len(spans), "spans": spans}
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
