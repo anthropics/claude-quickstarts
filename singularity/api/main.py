@@ -46,6 +46,10 @@ Endpointy:
   POST /scheduler/jobs         Přidá nový opakovaný úkol (Fáze 15)
   GET  /scheduler/jobs         Vypíše naplánované joby (Fáze 15)
   DELETE /scheduler/jobs/{id}  Odstraní naplánovaný job (Fáze 15)
+  POST /tools                  Registruje HTTP-callback nástroj (Fáze 16)
+  GET  /tools                  Vypíše registrované nástroje (Fáze 16)
+  DELETE /tools/{name}         Odregistruje nástroj (Fáze 16)
+  POST /tools/{name}/invoke    Invokuje nástroj s parametry (Fáze 16)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
 """
@@ -73,6 +77,7 @@ from core.budget_manager import BudgetManager
 from core.cache import ResponseCache
 from core.persistence import Database
 from core.scheduler import TaskScheduler
+from core.tool_registry import ToolRegistry
 from core.tracing import get_finished_spans, setup_tracing
 from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
@@ -102,6 +107,7 @@ task_event_bus: TaskEventBus = TaskEventBus()
 response_cache: ResponseCache = ResponseCache()
 db: Database | None = None
 scheduler: TaskScheduler = TaskScheduler()
+tool_registry: ToolRegistry = ToolRegistry()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -231,6 +237,17 @@ class ScheduledJobRequest(BaseModel):
     force_provider: str = ""
     priority: str = "NORMAL"
     max_retries: int = 0
+
+
+class RegisterToolRequest(BaseModel):
+    name: str
+    description: str
+    params_schema: dict = {}
+    callback_url: str = ""  # non-empty → HTTP-callback tool; empty → rejected via API
+
+
+class InvokeToolRequest(BaseModel):
+    params: dict = {}
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -808,6 +825,55 @@ async def delete_scheduled_job(job_id: str) -> dict:
     if not removed:
         raise HTTPException(status_code=404, detail="Job nenalezen")
     return {"status": "removed", "job_id": job_id}
+
+
+# ── Tool Registry (Fáze 16) ───────────────────────────────────────────────────
+
+@app.post("/tools")
+async def register_tool(req: RegisterToolRequest) -> dict:
+    """Registruje HTTP-callback tool (Fáze 16). callback_url je povinný pro API registraci."""
+    if not req.callback_url:
+        raise HTTPException(status_code=422, detail="callback_url je povinný pro API registraci")
+    try:
+        tool_registry.register_http(
+            name=req.name,
+            description=req.description,
+            params_schema=req.params_schema,
+            callback_url=req.callback_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    audit_log.record("tool_registered", user_id="admin", tool_name=req.name)
+    return {"status": "registered", "name": req.name, "tool_type": "http"}
+
+
+@app.get("/tools")
+async def list_tools() -> dict:
+    """Vypíše všechny registrované nástroje (Fáze 16)."""
+    tools = tool_registry.list_tools()
+    return {"count": len(tools), "tools": tools}
+
+
+@app.delete("/tools/{name}")
+async def unregister_tool(name: str) -> dict:
+    """Odregistruje nástroj dle jména (Fáze 16)."""
+    removed = tool_registry.unregister(name)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Nástroj nenalezen")
+    audit_log.record("tool_unregistered", user_id="admin", tool_name=name)
+    return {"status": "unregistered", "name": name}
+
+
+@app.post("/tools/{name}/invoke")
+async def invoke_tool(name: str, req: InvokeToolRequest) -> dict:
+    """Invokuje registrovaný nástroj s danými parametry (Fáze 16)."""
+    try:
+        result = await tool_registry.invoke(name, **req.params)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Nástroj nenalezen")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Chyba nástroje: {exc}") from exc
+    return {"name": name, "result": result}
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
