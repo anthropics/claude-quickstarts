@@ -61,6 +61,7 @@ from core import telemetry
 from core.api_keys import ApiKeyManager
 from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
+from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
 from core.health_monitor import HealthMonitor
 from core.session_store import ConversationTurn, SessionStore, estimate_cost
@@ -109,11 +110,13 @@ async def lifespan(app: FastAPI):
     health_monitor.start()
     set_manager(api_key_manager)
     task_queue.start(core, audit=audit_log, num_workers=settings.task_workers)
+    shutdown = GracefulShutdown(task_queue, timeout_s=30.0)
+    shutdown.register()
     log.info("singularity_started", strategy=core.router.strategy,
              task_workers=settings.task_workers, require_api_key=settings.require_api_key)
     yield
     health_monitor.stop()
-    task_queue.stop()
+    await shutdown.drain()   # waits for in-flight tasks, then stops workers
     log.info("singularity_shutdown")
 
 
