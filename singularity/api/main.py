@@ -39,6 +39,8 @@ Endpointy:
   GET  /health/live            Liveness probe — vždy 200 (Fáze 8)
   GET  /health/ready           Readiness probe — 200 až po inicializaci (Fáze 8)
   GET  /logs/recent            Posledních N strukturovaných log událostí (Fáze 10)
+  GET  /cache/stats            Statistiky response cache (Fáze 12)
+  DELETE /cache                Vymaže celou response cache (Fáze 12)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
 """
@@ -63,6 +65,7 @@ from core import telemetry
 from core.api_keys import ApiKeyManager
 from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
+from core.cache import ResponseCache
 from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
 from core.log_buffer import LogBuffer
@@ -88,6 +91,7 @@ audit_log: AuditLog = AuditLog()
 api_key_manager: ApiKeyManager = ApiKeyManager()
 log_buffer: LogBuffer = LogBuffer(maxlen=500)
 task_event_bus: TaskEventBus = TaskEventBus()
+response_cache: ResponseCache = ResponseCache()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -111,10 +115,15 @@ def _build_session_context(user_id: str) -> str:
 async def lifespan(app: FastAPI):
     """Lifespan handler — inicializace singletonů, health monitoru a task queue."""
     global core, evaluator, health_monitor
+    global response_cache
     configure_logging(
         level=settings.log_level,
         log_format=settings.log_format,
         log_buffer=log_buffer,
+    )
+    response_cache = ResponseCache(
+        maxsize=settings.cache_max_size,
+        default_ttl_s=settings.cache_ttl_s,
     )
     core = SingularityCore()
     evaluator = OmegaEvaluator()
@@ -222,6 +231,19 @@ async def submit_task(req: TaskRequest, _auth: str = Depends(verify_api_key)) ->
     session_id = str(uuid.uuid4())
     log.info("task_received", user_id=req.user_id, session_id=session_id)
 
+    # Cache lookup (Fáze 12)
+    cache_key = ResponseCache.make_key(req.task, req.force_provider, req.approved)
+    if settings.enable_cache:
+        cached = await response_cache.get(cache_key)
+        if cached is not None:
+            log.info("cache_hit", session_id=session_id, user_id=req.user_id)
+            return TaskResponse(
+                session_id=session_id,
+                response=cached["response"],
+                eval_scores=cached["eval_scores"],
+                provider_log=cached["provider_log"],
+            )
+
     session_context = _build_session_context(req.user_id)
 
     try:
@@ -258,6 +280,14 @@ async def submit_task(req: TaskRequest, _auth: str = Depends(verify_api_key)) ->
             eval_scores=eval_scores,
         ),
     )
+
+    # Cache store (Fáze 12)
+    if settings.enable_cache:
+        await response_cache.set(cache_key, {
+            "response": result["response"],
+            "eval_scores": eval_scores,
+            "provider_log": result["provider_log"],
+        })
 
     return TaskResponse(
         session_id=session_id,
@@ -662,6 +692,22 @@ async def get_recent_logs(
     limit = min(max(limit, 1), 500)
     events = log_buffer.get_recent(limit=limit, level=level)
     return {"count": len(events), "events": events}
+
+
+# ── Response cache endpointy (Fáze 12) ────────────────────────────────────────
+
+@app.get("/cache/stats")
+async def get_cache_stats() -> dict:
+    """Vrátí statistiky response cache: hits, misses, evictions, hit_rate (Fáze 12)."""
+    return response_cache.stats()
+
+
+@app.delete("/cache")
+async def clear_cache() -> dict:
+    """Vymaže celou response cache (Fáze 12)."""
+    cleared = await response_cache.clear()
+    log.info("cache_cleared", entries=cleared)
+    return {"status": "ok", "cleared": cleared}
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────

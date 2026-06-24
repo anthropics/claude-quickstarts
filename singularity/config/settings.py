@@ -38,6 +38,11 @@ class SingularitySettings(BaseSettings):
     # ── Task queue ────────────────────────────────────────────
     task_workers: int = 1           # Fáze 7: počet paralelních workerů
 
+    # ── Response cache ────────────────────────────────────────
+    enable_cache: bool = True      # Fáze 12: LRU response cache
+    cache_ttl_s: float = 300.0    # Fáze 12: TTL per cache entry (seconds)
+    cache_max_size: int = 1000    # Fáze 12: max cached entries (LRU eviction)
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
