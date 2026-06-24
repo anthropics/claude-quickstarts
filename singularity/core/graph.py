@@ -50,6 +50,7 @@ class SingularityState(TypedDict):
     provider_log: dict          # AgentRole.value → provider name
     active_provider: str
     force_provider: str         # "" = nech routeru, jinak vynuť provider
+    session_context: str        # multi-turn: posledních N turnů (Fáze 2)
 
 
 def build_router(strategy: str | None = None) -> LLMRouter:
@@ -139,10 +140,15 @@ class SingularityCore:
             else "Žádné relevantní vzpomínky (paměť dočasně nedostupná)."
         )
 
+        session_ctx = state.get("session_context", "")
+        full_context = f"Dostupné vzpomínky:\n{memory_context}"
+        if session_ctx:
+            full_context = f"Historie konverzace:\n{session_ctx}\n\n{full_context}"
+
         output = await self.swarm.run_agent(
             AgentRole.PLANNER,
             state["task"],
-            context=f"Dostupné vzpomínky:\n{memory_context}",
+            context=full_context,
         )
 
         return {
@@ -304,6 +310,7 @@ class SingularityCore:
         session_id: str,
         approved: bool = False,
         force_provider: str = "",
+        session_context: str = "",
     ) -> SingularityState:
         return {
             "messages": [HumanMessage(content=task)],
@@ -320,6 +327,7 @@ class SingularityCore:
             "provider_log": {},
             "active_provider": "",
             "force_provider": force_provider,
+            "session_context": session_context,
         }
 
     async def run(
@@ -329,9 +337,12 @@ class SingularityCore:
         session_id: str,
         approved: bool = False,
         force_provider: str = "",
+        session_context: str = "",
     ) -> dict:
         """Spustí kompletní kognitivní smyčku; vrací final_response + provider_log."""
-        initial_state = self._make_initial_state(task, user_id, session_id, approved, force_provider)
+        initial_state = self._make_initial_state(
+            task, user_id, session_id, approved, force_provider, session_context
+        )
         final_state = await self.graph.ainvoke(initial_state)
         return {
             "response": final_state.get("final_response", "Bez výstupu."),
@@ -346,6 +357,7 @@ class SingularityCore:
         session_id: str,
         approved: bool = False,
         force_provider: str = "",
+        session_context: str = "",
     ):
         """
         AsyncGenerator: produkuje progress event po každém LangGraph uzlu.
@@ -354,7 +366,9 @@ class SingularityCore:
           - "node_completed"  po každém uzlu (node, provider, provider_log)
           - "completed"       finální výsledek (response, provider_log, risk_score)
         """
-        initial_state = self._make_initial_state(task, user_id, session_id, approved, force_provider)
+        initial_state = self._make_initial_state(
+            task, user_id, session_id, approved, force_provider, session_context
+        )
 
         accumulated_plog: dict[str, str] = {}
         last_response = ""

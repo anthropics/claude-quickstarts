@@ -2,7 +2,7 @@
 Singularity — FastAPI vrstva.
 
 Endpointy:
-  POST /task                 Zadání úkolu (volitelně force_provider)
+  POST /task                 Zadání úkolu (volitelně force_provider, multi-turn)
   POST /task/stream          SSE streaming verze /task (Fáze 1)
   POST /approve              Human-in-the-loop schválení/zamítnutí
   POST /e-stop               Nouzové zastavení
@@ -10,9 +10,11 @@ Endpointy:
   GET  /sessions/{uid}       Konverzační historie + náklady (Fáze 1)
   GET  /sessions             Seznam aktivních uživatelů (Fáze 1)
   GET  /providers            Stav providerů (health, cost, latency, cooldown)
+  GET  /health/providers     Okamžitý health check všech providerů (Fáze 2)
   POST /router/strategy      Runtime změna routing strategie
   GET  /metrics              Prometheus metriky
   GET  /tasks/{id}/providers Který model zpracoval který krok
+  GET  /dashboard            Admin dashboard (Fáze 2)
   WS   /ws/{uid}             Real-time node-level streaming (Fáze 1)
   GET  /health               Health check
 """
@@ -25,11 +27,13 @@ from contextlib import asynccontextmanager
 import structlog
 from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response, StreamingResponse
+from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
+from api.dashboard import get_dashboard_html
 from core import telemetry
 from core.graph import SingularityCore
+from core.health_monitor import HealthMonitor
 from core.session_store import ConversationTurn, SessionStore, estimate_cost
 from evals.evaluator import OmegaEvaluator
 
@@ -38,20 +42,38 @@ log = structlog.get_logger()
 # Singletony (jeden na proces)
 core: SingularityCore | None = None
 evaluator: OmegaEvaluator | None = None
+health_monitor: HealthMonitor | None = None
 session_store: SessionStore = SessionStore()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
 
+_MAX_CONTEXT_TURNS = 3  # kolik posledních turnů vstupuje jako kontext
+
+
+def _build_session_context(user_id: str) -> str:
+    """Sestaví řetězec posledních N turnů z session store pro multi-turn kontext."""
+    history = session_store.get_history(user_id)
+    turns = history["turns"][-_MAX_CONTEXT_TURNS:]
+    if not turns:
+        return ""
+    return "\n".join(
+        f"[Turn {i + 1}]\nTask: {t['task']}\nResponse: {t['response'][:300]}"
+        for i, t in enumerate(turns)
+    )
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Lifespan handler — inicializace singletonů (náhrada deprecated on_event)."""
-    global core, evaluator
+    """Lifespan handler — inicializace singletonů a health monitoru (Fáze 2)."""
+    global core, evaluator, health_monitor
     core = SingularityCore()
     evaluator = OmegaEvaluator()
+    health_monitor = HealthMonitor(core.router, interval_s=30.0)
+    health_monitor.start()
     log.info("singularity_started", strategy=core.router.strategy)
     yield
+    health_monitor.stop()
     log.info("singularity_shutdown")
 
 
@@ -110,6 +132,8 @@ async def submit_task(req: TaskRequest) -> TaskResponse:
     session_id = str(uuid.uuid4())
     log.info("task_received", user_id=req.user_id, session_id=session_id)
 
+    session_context = _build_session_context(req.user_id)
+
     try:
         result = await core.run(
             task=req.task,
@@ -117,6 +141,7 @@ async def submit_task(req: TaskRequest) -> TaskResponse:
             session_id=session_id,
             approved=req.approved,
             force_provider=req.force_provider,
+            session_context=session_context,
         )
     except Exception as exc:
         log.error("task_error", error=str(exc), session_id=session_id)
@@ -158,6 +183,8 @@ async def stream_task(req: TaskRequest) -> StreamingResponse:
     session_id = str(uuid.uuid4())
     log.info("task_stream_received", user_id=req.user_id, session_id=session_id)
 
+    session_context = _build_session_context(req.user_id)
+
     async def event_generator():
         started = json.dumps({"event": "started", "session_id": session_id})
         yield f"data: {started}\n\n"
@@ -168,6 +195,7 @@ async def stream_task(req: TaskRequest) -> StreamingResponse:
                 session_id=session_id,
                 approved=req.approved,
                 force_provider=req.force_provider,
+                session_context=session_context,
             ):
                 payload = {**event, "session_id": session_id}
                 yield f"data: {json.dumps(payload)}\n\n"
@@ -264,6 +292,20 @@ async def get_session(user_id: str) -> dict:
 async def list_sessions() -> dict:
     """Vrátí seznam uživatelů s aktivními session."""
     return {"users": session_store.list_users()}
+
+
+@app.get("/health/providers")
+async def health_check_providers() -> dict:
+    """Okamžitý health check všech providerů (Fáze 2)."""
+    assert health_monitor is not None
+    results = await health_monitor.run_once()
+    return {"results": results}
+
+
+@app.get("/dashboard", response_class=HTMLResponse)
+async def dashboard() -> HTMLResponse:
+    """Admin dashboard — live přehled providerů, sessionů a metrik (Fáze 2)."""
+    return HTMLResponse(content=get_dashboard_html())
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
