@@ -1,10 +1,10 @@
 """
-Singularity — Async task queue (Fáze 3 + 4 + 5).
+Singularity — Async task queue (Fáze 3 + 4 + 5 + 6).
 
 Fáze 3: POST /task/async → task_id, GET /task/{id}/status|result
 Fáze 4: webhook callback_url, dávkové odeslání
-Fáze 5: prioritní fronta (CRITICAL > HIGH > NORMAL > LOW),
-         event-based wait() bez busy-pollingu
+Fáze 5: prioritní fronta (CRITICAL > HIGH > NORMAL > LOW), event-based wait()
+Fáze 6: retry s exponenciálním backoffem, dead-letter queue (DLQ)
 """
 from __future__ import annotations
 
@@ -17,7 +17,10 @@ from typing import TYPE_CHECKING
 
 import structlog
 
+from core.retry_policy import NO_RETRY, RetryPolicy
+
 if TYPE_CHECKING:
+    from core.audit_log import AuditLog
     from core.graph import SingularityCore
 
 log = structlog.get_logger()
@@ -26,8 +29,10 @@ log = structlog.get_logger()
 class TaskStatus(str, Enum):
     QUEUED    = "queued"
     RUNNING   = "running"
+    RETRYING  = "retrying"   # Fáze 6
     COMPLETED = "completed"
     FAILED    = "failed"
+    DLQ       = "dlq"        # Fáze 6: dead-letter
 
 
 class TaskPriority(int, Enum):
@@ -47,6 +52,8 @@ class QueuedTask:
     session_context: str = ""
     callback_url: str = ""
     priority: TaskPriority = TaskPriority.NORMAL
+    retry_policy: RetryPolicy = field(default_factory=lambda: NO_RETRY)
+    attempt: int = 0             # kolikátý pokus právě běží (0-indexed)
     status: TaskStatus = TaskStatus.QUEUED
     result: dict | None = None
     error: str | None = None
@@ -55,26 +62,28 @@ class QueuedTask:
     )
     completed_at: str | None = None
 
-    # Priority queue comparison — lower priority value = higher urgency
     def __lt__(self, other: QueuedTask) -> bool:
         return self.priority < other.priority
 
 
 class TaskQueue:
     """
-    In-memory prioritní fronta s jedním asyncio workerem.
+    In-memory prioritní fronta s retry + DLQ.
     V produkci nahradit Celery / arq / Redis Streams.
     """
 
     def __init__(self) -> None:
         self._queue: asyncio.PriorityQueue[tuple[int, str]] = asyncio.PriorityQueue()
         self._tasks: dict[str, QueuedTask] = {}
+        self._dlq: dict[str, QueuedTask] = {}
         self._done_events: dict[str, asyncio.Event] = {}
         self._worker_task: asyncio.Task | None = None
         self._core: SingularityCore | None = None
+        self._audit: AuditLog | None = None
 
-    def start(self, core: SingularityCore) -> None:
+    def start(self, core: SingularityCore, audit: AuditLog | None = None) -> None:
         self._core = core
+        self._audit = audit
         self._worker_task = asyncio.create_task(self._worker(), name="task_queue_worker")
         log.info("task_queue_started")
 
@@ -92,9 +101,11 @@ class TaskQueue:
         session_context: str = "",
         callback_url: str = "",
         priority: TaskPriority | str = TaskPriority.NORMAL,
+        max_retries: int = 0,
     ) -> str:
         if isinstance(priority, str):
             priority = TaskPriority[priority.upper()]
+        retry_policy = RetryPolicy(max_attempts=max(1, max_retries + 1))
         task_id = str(uuid.uuid4())
         queued = QueuedTask(
             task_id=task_id,
@@ -105,21 +116,42 @@ class TaskQueue:
             session_context=session_context,
             callback_url=callback_url,
             priority=priority,
+            retry_policy=retry_policy,
         )
         self._tasks[task_id] = queued
         self._done_events[task_id] = asyncio.Event()
         await self._queue.put((priority.value, task_id))
         log.info("task_queued", task_id=task_id, user_id=user_id, priority=priority.name)
+        self._audit_record("task_submitted", user_id, task_id,
+                           priority=priority.name, max_retries=max_retries)
         return task_id
 
+    async def retry_from_dlq(self, task_id: str) -> bool:
+        """Přesune task z DLQ zpět do fronty. Vrátí True pokud úspěch."""
+        t = self._dlq.pop(task_id, None)
+        if t is None:
+            return False
+        t.attempt = 0
+        t.status = TaskStatus.QUEUED
+        t.error = None
+        t.completed_at = None
+        self._done_events[task_id] = asyncio.Event()
+        self._tasks[task_id] = t
+        await self._queue.put((t.priority.value, task_id))
+        self._audit_record("task_dlq_retried", t.user_id, task_id)
+        log.info("task_dlq_retried", task_id=task_id)
+        return True
+
     def get_status(self, task_id: str) -> dict | None:
-        t = self._tasks.get(task_id)
+        t = self._tasks.get(task_id) or self._dlq.get(task_id)
         if t is None:
             return None
         return {
             "task_id": t.task_id,
             "status": t.status,
             "priority": t.priority.name,
+            "attempt": t.attempt,
+            "max_attempts": t.retry_policy.max_attempts,
             "user_id": t.user_id,
             "created_at": t.created_at,
             "completed_at": t.completed_at,
@@ -137,12 +169,15 @@ class TaskQueue:
             "error": t.error,
         }
 
+    def get_dlq(self) -> list[dict]:
+        return [self.get_status(tid) for tid in self._dlq]
+
     async def wait(self, task_id: str, timeout: float = 60.0) -> dict | None:
-        """Čeká na dokončení tasku (event-based, bez busy-pollingu). None = timeout/neznámý task."""
+        """Čeká na dokončení tasku (event-based). None = timeout/neznámý."""
         t = self._tasks.get(task_id)
         if t is None:
             return None
-        if t.status in (TaskStatus.COMPLETED, TaskStatus.FAILED):
+        if t.status in (TaskStatus.COMPLETED, TaskStatus.FAILED, TaskStatus.DLQ):
             return self.get_result(task_id)
         event = self._done_events.get(task_id)
         if event is None:
@@ -171,7 +206,7 @@ class TaskQueue:
         assert self._core is not None
         t = self._tasks[task_id]
         t.status = TaskStatus.RUNNING
-        log.info("task_running", task_id=task_id, priority=t.priority.name)
+        log.info("task_running", task_id=task_id, attempt=t.attempt, priority=t.priority.name)
 
         try:
             result = await self._core.run(
@@ -185,22 +220,45 @@ class TaskQueue:
             t.result = result
             t.status = TaskStatus.COMPLETED
             t.completed_at = datetime.now(timezone.utc).isoformat()
-            log.info("task_completed", task_id=task_id)
+            log.info("task_completed", task_id=task_id, attempt=t.attempt)
+            self._audit_record("task_completed", t.user_id, task_id, attempt=t.attempt)
+
         except Exception as exc:
             t.error = str(exc)
-            t.status = TaskStatus.FAILED
-            t.completed_at = datetime.now(timezone.utc).isoformat()
-            log.error("task_failed", task_id=task_id, error=str(exc))
+            t.attempt += 1
+            if t.attempt < t.retry_policy.max_attempts:
+                delay = t.retry_policy.delay_for_attempt(t.attempt)
+                t.status = TaskStatus.RETRYING
+                log.warning("task_retrying", task_id=task_id, attempt=t.attempt, delay_s=delay)
+                self._audit_record("task_retried", t.user_id, task_id,
+                                   attempt=t.attempt, error=str(exc), delay_s=delay)
+                await asyncio.sleep(delay)
+                t.status = TaskStatus.QUEUED
+                await self._queue.put((t.priority.value, task_id))
+                return  # don't signal done_event yet
+            else:
+                t.status = TaskStatus.FAILED
+                t.completed_at = datetime.now(timezone.utc).isoformat()
+                log.error("task_failed", task_id=task_id, attempt=t.attempt, error=str(exc))
+                self._audit_record("task_failed", t.user_id, task_id,
+                                   attempt=t.attempt, error=str(exc))
+                if t.retry_policy.max_attempts > 1:
+                    t.status = TaskStatus.DLQ
+                    self._dlq[task_id] = t
+                    del self._tasks[task_id]
+                    log.warning("task_moved_to_dlq", task_id=task_id)
+                    self._audit_record("task_dlq", t.user_id, task_id, attempts=t.attempt)
+
         finally:
-            event = self._done_events.get(task_id)
-            if event:
-                event.set()
+            if t.status not in (TaskStatus.QUEUED, TaskStatus.RETRYING):
+                event = self._done_events.get(task_id)
+                if event:
+                    event.set()
 
         if t.callback_url:
             await self._fire_webhook(t)
 
     async def _fire_webhook(self, t: QueuedTask) -> None:
-        """Pošle výsledek na callback_url; chyby neblokují systém."""
         try:
             import httpx
 
@@ -216,3 +274,7 @@ class TaskQueue:
             log.info("webhook_sent", task_id=t.task_id, status_code=resp.status_code)
         except Exception as exc:
             log.warning("webhook_failed", task_id=t.task_id, url=t.callback_url, error=str(exc))
+
+    def _audit_record(self, event_type: str, user_id: str, task_id: str | None = None, **details) -> None:
+        if self._audit is not None:
+            self._audit.record(event_type, user_id, task_id=task_id, **details)

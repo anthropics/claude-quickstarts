@@ -29,6 +29,9 @@ Endpointy:
   POST /rate-limits/{uid}      Nastavení RPM limitu uživatele (Fáze 5)
   GET  /rate-limits/{uid}      Stav RPM limitu uživatele (Fáze 5)
   DELETE /rate-limits/{uid}    Odebrání RPM limitu uživatele (Fáze 5)
+  GET  /audit-log              Posledních N audit událostí (Fáze 6)
+  GET  /dead-letter-queue      Tasky, které vyčerpaly retry pokusy (Fáze 6)
+  POST /dead-letter-queue/{id}/retry  Manuální retry DLQ tasku (Fáze 6)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check
 """
@@ -47,6 +50,7 @@ from pydantic import BaseModel
 
 from api.dashboard import get_dashboard_html
 from core import telemetry
+from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.graph import SingularityCore
 from core.health_monitor import HealthMonitor
@@ -65,6 +69,7 @@ task_queue: TaskQueue = TaskQueue()
 session_store: SessionStore = SessionStore()
 budget_manager: BudgetManager = BudgetManager()
 user_limiter: UserRateLimiter = UserRateLimiter()
+audit_log: AuditLog = AuditLog()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -92,7 +97,7 @@ async def lifespan(app: FastAPI):
     evaluator = OmegaEvaluator()
     health_monitor = HealthMonitor(core.router, interval_s=30.0)
     health_monitor.start()
-    task_queue.start(core)
+    task_queue.start(core, audit=audit_log)
     log.info("singularity_started", strategy=core.router.strategy)
     yield
     health_monitor.stop()
@@ -126,6 +131,7 @@ class TaskRequest(BaseModel):
     force_provider: str = ""   # "" | "claude" | "gemini"
     callback_url: str = ""     # Fáze 4: webhook po dokončení async tasku
     priority: str = "NORMAL"   # Fáze 5: CRITICAL | HIGH | NORMAL | LOW
+    max_retries: int = 0       # Fáze 6: max retry pokusů (0 = žádný retry)
 
 
 class ApprovalRequest(BaseModel):
@@ -235,7 +241,10 @@ async def submit_task_async(req: TaskRequest) -> dict:
         session_context=session_context,
         callback_url=req.callback_url,
         priority=priority,
+        max_retries=max(0, req.max_retries),
     )
+    audit_log.record("task_submitted", req.user_id, task_id=task_id,
+                     priority=priority.name, max_retries=req.max_retries)
     return {"task_id": task_id, "status": "queued", "priority": priority.name, "queue_size": task_queue.queue_size()}
 
 
@@ -532,6 +541,37 @@ async def delete_rate_limit(user_id: str) -> dict:
     """Odebere RPM limit a resetuje counter uživatele (Fáze 5)."""
     user_limiter.reset(user_id)
     return user_limiter.get_status(user_id)
+
+
+# ── Audit log + DLQ endpointy (Fáze 6) ────────────────────────────────────────
+
+@app.get("/audit-log")
+async def get_audit_log(
+    limit: int = 100,
+    event_type: str | None = None,
+    user_id: str | None = None,
+) -> dict:
+    """Vrátí posledních N audit událostí (Fáze 6)."""
+    limit = min(max(limit, 1), 1000)
+    events = audit_log.get_events(limit=limit, event_type=event_type, user_id=user_id)
+    return {"count": len(events), "events": events}
+
+
+@app.get("/dead-letter-queue")
+async def get_dlq() -> dict:
+    """Vrátí tasky, které vyčerpaly všechny retry pokusy (Fáze 6)."""
+    items = task_queue.get_dlq()
+    return {"count": len(items), "tasks": items}
+
+
+@app.post("/dead-letter-queue/{task_id}/retry")
+async def retry_dlq_task(task_id: str) -> dict:
+    """Manuálně znovu zařadí DLQ task do fronty (Fáze 6)."""
+    success = await task_queue.retry_from_dlq(task_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Task není v DLQ")
+    audit_log.record("task_dlq_retried", user_id="admin", task_id=task_id)
+    return {"status": "requeued", "task_id": task_id}
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
