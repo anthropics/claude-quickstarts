@@ -1,10 +1,12 @@
 """
-Singularity — Async task queue (Fáze 3).
+Singularity — Async task queue (Fáze 3 + 4).
 
 Umožňuje odeslat úkol asynchronně a sledovat jeho stav:
   POST /task/async  → vrátí task_id okamžitě
   GET  /task/{id}/status → QUEUED | RUNNING | COMPLETED | FAILED
   GET  /task/{id}/result → výsledek po dokončení
+
+Fáze 4: webhook callback — po dokončení POSTuje výsledek na callback_url.
 """
 from __future__ import annotations
 
@@ -38,6 +40,7 @@ class QueuedTask:
     approved: bool
     force_provider: str
     session_context: str = ""
+    callback_url: str = ""         # Fáze 4: webhook callback URL
     status: TaskStatus = TaskStatus.QUEUED
     result: dict | None = None
     error: str | None = None
@@ -76,6 +79,7 @@ class TaskQueue:
         approved: bool = False,
         force_provider: str = "",
         session_context: str = "",
+        callback_url: str = "",
     ) -> str:
         task_id = str(uuid.uuid4())
         queued = QueuedTask(
@@ -85,6 +89,7 @@ class TaskQueue:
             approved=approved,
             force_provider=force_provider,
             session_context=session_context,
+            callback_url=callback_url,
         )
         self._tasks[task_id] = queued
         await self._queue.put(task_id)
@@ -153,3 +158,24 @@ class TaskQueue:
             t.status = TaskStatus.FAILED
             t.completed_at = datetime.now(timezone.utc).isoformat()
             log.error("task_failed", task_id=task_id, error=str(exc))
+
+        if t.callback_url:
+            await self._fire_webhook(t)
+
+    async def _fire_webhook(self, t: QueuedTask) -> None:
+        """Pošle výsledek na callback_url; chyby neblokují systém."""
+        try:
+            import httpx
+
+            payload = {
+                "task_id": t.task_id,
+                "status": t.status,
+                "result": t.result,
+                "error": t.error,
+                "completed_at": t.completed_at,
+            }
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                resp = await client.post(t.callback_url, json=payload)
+            log.info("webhook_sent", task_id=t.task_id, status_code=resp.status_code)
+        except Exception as exc:
+            log.warning("webhook_failed", task_id=t.task_id, url=t.callback_url, error=str(exc))

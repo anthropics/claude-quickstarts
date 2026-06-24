@@ -6,8 +6,10 @@ Endpointy:
   POST /task/stream            SSE streaming verze (Fáze 1)
   POST /task/async             Async fronta — vrátí task_id okamžitě (Fáze 3)
   POST /task/compare           Paralelní run na Claude + Gemini (Fáze 3)
+  POST /task/batch             Dávkové odeslání úkolů do fronty (Fáze 4)
   GET  /task/{id}/status       Stav async tasku (Fáze 3)
   GET  /task/{id}/result       Výsledek async tasku (Fáze 3)
+  GET  /queue/status           Stav fronty (Fáze 4)
   POST /approve                Human-in-the-loop schválení/zamítnutí
   POST /e-stop                 Nouzové zastavení
   GET  /memory/{uid}           Zobrazení paměti uživatele
@@ -20,6 +22,9 @@ Endpointy:
   GET  /metrics                Prometheus metriky
   GET  /tasks/{id}/providers   Který model zpracoval který krok
   GET  /dashboard              Admin dashboard (Fáze 2)
+  POST /budget/{uid}           Nastavení cost limitu uživatele (Fáze 4)
+  GET  /budget/{uid}           Zobrazení stavu budgetu uživatele (Fáze 4)
+  DELETE /budget/{uid}         Odstranění cost limitu uživatele (Fáze 4)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check
 """
@@ -38,6 +43,7 @@ from pydantic import BaseModel
 
 from api.dashboard import get_dashboard_html
 from core import telemetry
+from core.budget_manager import BudgetManager
 from core.graph import SingularityCore
 from core.health_monitor import HealthMonitor
 from core.session_store import ConversationTurn, SessionStore, estimate_cost
@@ -52,6 +58,7 @@ evaluator: OmegaEvaluator | None = None
 health_monitor: HealthMonitor | None = None
 task_queue: TaskQueue = TaskQueue()
 session_store: SessionStore = SessionStore()
+budget_manager: BudgetManager = BudgetManager()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -111,6 +118,7 @@ class TaskRequest(BaseModel):
     user_id: str = "default"
     approved: bool = False
     force_provider: str = ""   # "" | "claude" | "gemini"
+    callback_url: str = ""     # Fáze 4: webhook po dokončení async tasku
 
 
 class ApprovalRequest(BaseModel):
@@ -127,6 +135,14 @@ class TaskResponse(BaseModel):
     response: str
     eval_scores: dict
     provider_log: dict
+
+
+class BatchTaskRequest(BaseModel):
+    tasks: list[TaskRequest]
+
+
+class BudgetRequest(BaseModel):
+    limit_usd: float
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -191,6 +207,8 @@ async def submit_task(req: TaskRequest) -> TaskResponse:
 async def submit_task_async(req: TaskRequest) -> dict:
     """Zařadí úkol do fronty a okamžitě vrátí task_id (Fáze 3)."""
     assert core is not None
+    if not budget_manager.is_allowed(req.user_id):
+        raise HTTPException(status_code=402, detail="Budget exceeded")
     session_context = _build_session_context(req.user_id)
     task_id = await task_queue.submit(
         task=req.task,
@@ -198,6 +216,7 @@ async def submit_task_async(req: TaskRequest) -> dict:
         approved=req.approved,
         force_provider=req.force_provider,
         session_context=session_context,
+        callback_url=req.callback_url,
     )
     return {"task_id": task_id, "status": "queued", "queue_size": task_queue.queue_size()}
 
@@ -255,6 +274,42 @@ async def compare_task(req: TaskRequest) -> dict:
         "gemini": _fmt(results[1], sid_gemini),
         "gemini_enabled": core.router.gemini_enabled,
     }
+
+
+@app.post("/task/batch")
+async def submit_task_batch(req: BatchTaskRequest) -> dict:
+    """
+    Dávkové odeslání úkolů do fronty (Fáze 4).
+    Maximum 10 úkolů na požadavek.
+    """
+    assert core is not None
+    if len(req.tasks) == 0:
+        raise HTTPException(status_code=400, detail="Prázdná dávka")
+    if len(req.tasks) > 10:
+        raise HTTPException(status_code=400, detail="Maximum je 10 úkolů na dávku")
+
+    task_ids = []
+    for t in req.tasks:
+        if not budget_manager.is_allowed(t.user_id):
+            raise HTTPException(status_code=402, detail=f"Budget exceeded for user {t.user_id}")
+        session_context = _build_session_context(t.user_id)
+        task_id = await task_queue.submit(
+            task=t.task,
+            user_id=t.user_id,
+            approved=t.approved,
+            force_provider=t.force_provider,
+            session_context=session_context,
+            callback_url=t.callback_url,
+        )
+        task_ids.append(task_id)
+
+    return {"task_ids": task_ids, "count": len(task_ids), "queue_size": task_queue.queue_size()}
+
+
+@app.get("/queue/status")
+async def queue_status() -> dict:
+    """Vrátí aktuální stav fronty (Fáze 4)."""
+    return {"queue_size": task_queue.queue_size()}
 
 
 @app.post("/task/stream")
@@ -399,6 +454,28 @@ async def health_check_providers() -> dict:
 async def dashboard() -> HTMLResponse:
     """Admin dashboard — live přehled providerů, sessionů a metrik (Fáze 2)."""
     return HTMLResponse(content=get_dashboard_html())
+
+
+# ── Budget endpointy (Fáze 4) ──────────────────────────────────────────────────
+
+@app.post("/budget/{user_id}")
+async def set_budget(user_id: str, req: BudgetRequest) -> dict:
+    """Nastaví nebo aktualizuje cost limit uživatele (Fáze 4)."""
+    budget_manager.set_budget(user_id, req.limit_usd)
+    return budget_manager.get_status(user_id)
+
+
+@app.get("/budget/{user_id}")
+async def get_budget(user_id: str) -> dict:
+    """Vrátí stav budgetu uživatele (Fáze 4)."""
+    return budget_manager.get_status(user_id)
+
+
+@app.delete("/budget/{user_id}")
+async def delete_budget(user_id: str) -> dict:
+    """Odstraní cost limit uživatele (nastaví na neomezeno, Fáze 4)."""
+    budget_manager.set_budget(user_id, 0.0)  # 0 → None = neomezeno
+    return budget_manager.get_status(user_id)
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
