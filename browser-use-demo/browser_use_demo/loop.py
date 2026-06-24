@@ -113,6 +113,7 @@ async def sampling_loop(
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
+        image_truncation_threshold = only_n_most_recent_images or 0
         if enable_prompt_caching:
             betas.append(PROMPT_CACHING_BETA_FLAG)
             # Add cache control to system prompt
@@ -120,6 +121,16 @@ async def sampling_loop(
                 type="text",
                 text=system["text"],
                 cache_control=BetaCacheControlEphemeralParam(type="ephemeral"),
+            )
+            # Because cached reads are 10% of the price, we don't think it's
+            # ever sensible to break the cache by truncating images
+            only_n_most_recent_images = 0
+
+        if only_n_most_recent_images:
+            _maybe_filter_to_n_most_recent_images(
+                messages,
+                only_n_most_recent_images,
+                min_removal_threshold=image_truncation_threshold,
             )
 
         # Make API call
