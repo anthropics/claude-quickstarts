@@ -43,6 +43,9 @@ Endpointy:
   DELETE /cache                Vymaže celou response cache (Fáze 12)
   GET  /traces                 Posledních N OTel spanů (Fáze 13)
   GET  /db/status              Stav SQLite persistence (Fáze 14)
+  POST /scheduler/jobs         Přidá nový opakovaný úkol (Fáze 15)
+  GET  /scheduler/jobs         Vypíše naplánované joby (Fáze 15)
+  DELETE /scheduler/jobs/{id}  Odstraní naplánovaný job (Fáze 15)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
 """
@@ -69,6 +72,7 @@ from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.cache import ResponseCache
 from core.persistence import Database
+from core.scheduler import TaskScheduler
 from core.tracing import get_finished_spans, setup_tracing
 from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
@@ -97,6 +101,7 @@ log_buffer: LogBuffer = LogBuffer(maxlen=500)
 task_event_bus: TaskEventBus = TaskEventBus()
 response_cache: ResponseCache = ResponseCache()
 db: Database | None = None
+scheduler: TaskScheduler = TaskScheduler()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -144,12 +149,15 @@ async def lifespan(app: FastAPI):
     set_manager(api_key_manager)
     task_queue.start(core, audit=audit_log, num_workers=settings.task_workers,
                      event_bus=task_event_bus)
+    if settings.enable_scheduler:
+        scheduler.start(task_queue)
     shutdown = GracefulShutdown(task_queue, timeout_s=30.0)
     shutdown.register()
     log.info("singularity_started", strategy=core.router.strategy,
              task_workers=settings.task_workers, require_api_key=settings.require_api_key)
     yield
     health_monitor.stop()
+    scheduler.stop()
     await shutdown.drain()   # waits for in-flight tasks, then stops workers
     log.info("singularity_shutdown")
 
@@ -214,6 +222,15 @@ class RateLimitRequest(BaseModel):
 
 class ApiKeyRequest(BaseModel):
     user_id: str
+
+
+class ScheduledJobRequest(BaseModel):
+    task: str
+    user_id: str = "default"
+    interval_s: float = 60.0
+    force_provider: str = ""
+    priority: str = "NORMAL"
+    max_retries: int = 0
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -747,6 +764,50 @@ async def db_status() -> dict:
         "audit_events": audit_count.get("n", 0),
         "active_api_keys": key_count.get("n", 0),
     }
+
+
+# ── Scheduler endpointy (Fáze 15) ────────────────────────────────────────────
+
+@app.post("/scheduler/jobs")
+async def create_scheduled_job(req: ScheduledJobRequest) -> dict:
+    """Přidá nový opakovaný úkol do scheduleru (Fáze 15)."""
+    try:
+        job_id = scheduler.add_job(
+            task=req.task,
+            user_id=req.user_id,
+            interval_s=req.interval_s,
+            force_provider=req.force_provider,
+            priority=req.priority,
+            max_retries=req.max_retries,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"job_id": job_id, "status": "scheduled", "interval_s": req.interval_s}
+
+
+@app.get("/scheduler/jobs")
+async def list_scheduled_jobs() -> dict:
+    """Vypíše všechny naplánované joby (Fáze 15)."""
+    jobs = scheduler.list_jobs()
+    return {"count": len(jobs), "jobs": jobs}
+
+
+@app.get("/scheduler/jobs/{job_id}")
+async def get_scheduled_job(job_id: str) -> dict:
+    """Vrátí detail konkrétního jobu (Fáze 15)."""
+    job = scheduler.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job nenalezen")
+    return job
+
+
+@app.delete("/scheduler/jobs/{job_id}")
+async def delete_scheduled_job(job_id: str) -> dict:
+    """Odstraní naplánovaný job (Fáze 15)."""
+    removed = scheduler.remove_job(job_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Job nenalezen")
+    return {"status": "removed", "job_id": job_id}
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
