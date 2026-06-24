@@ -22,6 +22,7 @@ from core.retry_policy import NO_RETRY, RetryPolicy
 if TYPE_CHECKING:
     from core.audit_log import AuditLog
     from core.graph import SingularityCore
+    from core.task_events import TaskEventBus
 
 log = structlog.get_logger()
 
@@ -80,10 +81,18 @@ class TaskQueue:
         self._worker_tasks: list[asyncio.Task] = []
         self._core: SingularityCore | None = None
         self._audit: AuditLog | None = None
+        self._bus: TaskEventBus | None = None
 
-    def start(self, core: SingularityCore, audit: AuditLog | None = None, num_workers: int = 1) -> None:
+    def start(
+        self,
+        core: SingularityCore,
+        audit: AuditLog | None = None,
+        num_workers: int = 1,
+        event_bus: TaskEventBus | None = None,
+    ) -> None:
         self._core = core
         self._audit = audit
+        self._bus = event_bus
         self._worker_tasks = [
             asyncio.create_task(self._worker(), name=f"task_queue_worker_{i}")
             for i in range(max(1, num_workers))
@@ -196,6 +205,18 @@ class TaskQueue:
     def queue_size(self) -> int:
         return self._queue.qsize()
 
+    async def _publish(self, t: QueuedTask) -> None:
+        if self._bus is None:
+            return
+        await self._bus.publish(t.task_id, {
+            "task_id": t.task_id,
+            "status": t.status,
+            "attempt": t.attempt,
+            "error": t.error,
+            "result": t.result,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+
     async def _worker(self) -> None:
         while True:
             try:
@@ -211,6 +232,7 @@ class TaskQueue:
         assert self._core is not None
         t = self._tasks[task_id]
         t.status = TaskStatus.RUNNING
+        await self._publish(t)
         log.info("task_running", task_id=task_id, attempt=t.attempt, priority=t.priority.name)
 
         try:
@@ -225,6 +247,7 @@ class TaskQueue:
             t.result = result
             t.status = TaskStatus.COMPLETED
             t.completed_at = datetime.now(timezone.utc).isoformat()
+            await self._publish(t)
             log.info("task_completed", task_id=task_id, attempt=t.attempt)
             self._audit_record("task_completed", t.user_id, task_id, attempt=t.attempt)
 
@@ -234,6 +257,7 @@ class TaskQueue:
             if t.attempt < t.retry_policy.max_attempts:
                 delay = t.retry_policy.delay_for_attempt(t.attempt)
                 t.status = TaskStatus.RETRYING
+                await self._publish(t)
                 log.warning("task_retrying", task_id=task_id, attempt=t.attempt, delay_s=delay)
                 self._audit_record("task_retried", t.user_id, task_id,
                                    attempt=t.attempt, error=str(exc), delay_s=delay)
@@ -244,6 +268,7 @@ class TaskQueue:
             else:
                 t.status = TaskStatus.FAILED
                 t.completed_at = datetime.now(timezone.utc).isoformat()
+                await self._publish(t)
                 log.error("task_failed", task_id=task_id, attempt=t.attempt, error=str(exc))
                 self._audit_record("task_failed", t.user_id, task_id,
                                    attempt=t.attempt, error=str(exc))
