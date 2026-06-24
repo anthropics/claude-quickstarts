@@ -10,6 +10,7 @@ Endpointy:
   GET  /task/{id}/status       Stav async tasku (Fáze 3)
   GET  /task/{id}/result       Výsledek async tasku (Fáze 3)
   GET  /task/{id}/wait         Long-poll čekání na výsledek (Fáze 5)
+  GET  /task/{id}/stream       SSE stream lifecycle událostí tasku (Fáze 11)
   GET  /queue/status           Stav fronty (Fáze 4)
   POST /approve                Human-in-the-loop schválení/zamítnutí
   POST /e-stop                 Nouzové zastavení
@@ -66,6 +67,7 @@ from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
 from core.log_buffer import LogBuffer
 from core.logging_config import configure_logging
+from core.task_events import TaskEventBus
 from core.health_monitor import HealthMonitor
 from core.session_store import ConversationTurn, SessionStore, estimate_cost
 from core.task_queue import TaskPriority, TaskQueue
@@ -85,6 +87,7 @@ user_limiter: UserRateLimiter = UserRateLimiter()
 audit_log: AuditLog = AuditLog()
 api_key_manager: ApiKeyManager = ApiKeyManager()
 log_buffer: LogBuffer = LogBuffer(maxlen=500)
+task_event_bus: TaskEventBus = TaskEventBus()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -118,7 +121,8 @@ async def lifespan(app: FastAPI):
     health_monitor = HealthMonitor(core.router, interval_s=30.0)
     health_monitor.start()
     set_manager(api_key_manager)
-    task_queue.start(core, audit=audit_log, num_workers=settings.task_workers)
+    task_queue.start(core, audit=audit_log, num_workers=settings.task_workers,
+                     event_bus=task_event_bus)
     shutdown = GracefulShutdown(task_queue, timeout_s=30.0)
     shutdown.register()
     log.info("singularity_started", strategy=core.router.strategy,
@@ -323,6 +327,36 @@ async def wait_for_task(task_id: str, timeout: float = 60.0) -> dict:
             raise HTTPException(status_code=404, detail="Neznámé task_id")
         raise HTTPException(status_code=408, detail="Timeout — task ještě nedoběhl")
     return result
+
+
+@app.get("/task/{task_id}/stream")
+async def stream_task_events(task_id: str) -> StreamingResponse:
+    """SSE stream of task lifecycle events (Fáze 11)."""
+    status = task_queue.get_status(task_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail="Neznámé task_id")
+
+    async def event_generator():
+        if status["status"] in ("completed", "failed", "dlq"):
+            result = task_queue.get_result(task_id)
+            yield f"data: {json.dumps(result)}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+        q = await task_event_bus.subscribe(task_id)
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(q.get(), timeout=300.0)
+                except asyncio.TimeoutError:
+                    break
+                yield f"data: {json.dumps(event)}\n\n"
+                if event.get("status") in ("completed", "failed", "dlq"):
+                    break
+        finally:
+            await task_event_bus.unsubscribe(task_id, q)
+        yield "data: [DONE]\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.post("/task/compare")
