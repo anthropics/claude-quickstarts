@@ -47,6 +47,10 @@ class SingularitySettings(BaseSettings):
     enable_tracing: bool = True    # Fáze 13: OTel tracing
     otlp_endpoint: str = ""        # Fáze 13: gRPC OTLP collector (empty = in-memory)
 
+    # ── Persistence (SQLite) ──────────────────────────────────
+    enable_persistence: bool = False   # Fáze 14: SQLite durable storage
+    db_path: str = "./data/singularity.db"  # Fáze 14: path to SQLite file
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

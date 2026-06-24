@@ -1,9 +1,9 @@
 """
-Singularity — Append-only strukturovaný audit log (Fáze 6).
+Singularity — Append-only strukturovaný audit log (Fáze 6 + 14).
 
 Zaznamenává klíčové události: odeslání úkolu, dokončení, selhání,
 retry, přechod do DLQ, změny budgetu a rate-limitů.
-V produkci nahradit perzistentním logem (DB / SIEM).
+Fáze 14: volitelně persistuje do SQLite přes Database.
 """
 from __future__ import annotations
 
@@ -11,6 +11,10 @@ import threading
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from core.persistence import Database
 
 _MAX_EVENTS = 1_000  # in-memory ring buffer
 
@@ -36,11 +40,37 @@ class AuditEvent:
 
 
 class AuditLog:
-    """Thread-safe ring buffer pro audit události."""
+    """Thread-safe ring buffer pro audit události + volitelná SQLite persistence (Fáze 14)."""
 
-    def __init__(self, max_events: int = _MAX_EVENTS) -> None:
+    def __init__(
+        self,
+        max_events: int = _MAX_EVENTS,
+        db: Database | None = None,
+    ) -> None:
         self._events: deque[AuditEvent] = deque(maxlen=max_events)
         self._lock = threading.Lock()
+        self._db = db
+        if db is not None:
+            self._load_from_db()
+
+    def attach_db(self, db: Database) -> None:
+        """Attach a Database after construction (called from lifespan)."""
+        self._db = db
+        self._load_from_db()
+
+    def _load_from_db(self) -> None:
+        if self._db is None:
+            return
+        rows = self._db.load_audit_events(limit=self._events.maxlen or _MAX_EVENTS)
+        with self._lock:
+            for row in rows:
+                self._events.append(AuditEvent(
+                    event_type=row["event_type"],
+                    user_id=row["user_id"],
+                    task_id=row.get("task_id"),
+                    timestamp=row["timestamp"],
+                    details=row.get("details", {}),
+                ))
 
     def record(
         self,
@@ -57,6 +87,10 @@ class AuditLog:
         )
         with self._lock:
             self._events.append(event)
+        if self._db is not None:
+            self._db.persist_audit_event(
+                event_type, user_id, task_id, details, event.timestamp
+            )
 
     def get_events(
         self,
