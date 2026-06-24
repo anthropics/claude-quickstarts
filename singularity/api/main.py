@@ -35,8 +35,10 @@ Endpointy:
   POST /api-keys               Vytvoří nový API klíč pro uživatele (Fáze 7)
   GET  /api-keys               Vypíše klíče (filtrovatelné user_id) (Fáze 7)
   DELETE /api-keys/{key}       Revokuje API klíč (Fáze 7)
+  GET  /health/live            Liveness probe — vždy 200 (Fáze 8)
+  GET  /health/ready           Readiness probe — 200 až po inicializaci (Fáze 8)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
-  GET  /health                 Health check
+  GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
 """
 from __future__ import annotations
 
@@ -53,6 +55,7 @@ from pydantic import BaseModel
 
 from api.auth import set_manager, verify_api_key
 from api.dashboard import get_dashboard_html
+from api.middleware import RequestContextMiddleware
 from config.settings import settings
 from core import telemetry
 from core.api_keys import ApiKeyManager
@@ -123,6 +126,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(RequestContextMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],   # V produkci: omezit na konkrétní domény
@@ -180,6 +184,20 @@ class ApiKeyRequest(BaseModel):
 @app.get("/health")
 async def health_check() -> dict:
     return {"status": "ok", "version": "0.1.0"}
+
+
+@app.get("/health/live")
+async def health_live() -> dict:
+    """Liveness probe — vždy 200, signalizuje že process běží (Fáze 8)."""
+    return {"status": "alive"}
+
+
+@app.get("/health/ready")
+async def health_ready() -> dict:
+    """Readiness probe — 200 až po inicializaci core (Fáze 8)."""
+    if core is None:
+        raise HTTPException(status_code=503, detail="Initializing")
+    return {"status": "ready", "strategy": core.router.strategy}
 
 
 @app.post("/task", response_model=TaskResponse)

@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: singularity
+    static_configs:
+      - targets: ["singularity:8001"]
+    metrics_path: /metrics
