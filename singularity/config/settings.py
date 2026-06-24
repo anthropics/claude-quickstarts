@@ -33,6 +33,10 @@ class SingularitySettings(BaseSettings):
     max_iterations: int = 10
     require_human_approval: bool = True
     risk_threshold: float = 0.7
+    require_api_key: bool = False   # Fáze 7: True = endpointy vyžadují X-API-Key
+
+    # ── Task queue ────────────────────────────────────────────
+    task_workers: int = 1           # Fáze 7: počet paralelních workerů
 
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
