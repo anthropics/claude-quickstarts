@@ -14,9 +14,18 @@ class HashEmbeddingFunction:
 
     DIM = 128
 
-    # ChromaDB >=0.6 vyžaduje name() a is_legacy() na embedding functions
-    def name(self) -> str:
+    # ChromaDB >=0.6 volá name() na třídě i na instanci → classmethod
+    @classmethod
+    def name(cls) -> str:
         return "hash-embedding-128"
+
+    @classmethod
+    def supported_spaces(cls) -> list[str]:
+        return ["cosine", "l2", "ip"]
+
+    @classmethod
+    def get_config(cls) -> dict:
+        return {"model_name": cls.name(), "dimension": cls.DIM}
 
     def is_legacy(self) -> bool:
         return False
