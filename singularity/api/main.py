@@ -9,6 +9,7 @@ Endpointy:
   POST /task/batch             Dávkové odeslání úkolů do fronty (Fáze 4)
   GET  /task/{id}/status       Stav async tasku (Fáze 3)
   GET  /task/{id}/result       Výsledek async tasku (Fáze 3)
+  GET  /task/{id}/wait         Long-poll čekání na výsledek (Fáze 5)
   GET  /queue/status           Stav fronty (Fáze 4)
   POST /approve                Human-in-the-loop schválení/zamítnutí
   POST /e-stop                 Nouzové zastavení
@@ -25,6 +26,9 @@ Endpointy:
   POST /budget/{uid}           Nastavení cost limitu uživatele (Fáze 4)
   GET  /budget/{uid}           Zobrazení stavu budgetu uživatele (Fáze 4)
   DELETE /budget/{uid}         Odstranění cost limitu uživatele (Fáze 4)
+  POST /rate-limits/{uid}      Nastavení RPM limitu uživatele (Fáze 5)
+  GET  /rate-limits/{uid}      Stav RPM limitu uživatele (Fáze 5)
+  DELETE /rate-limits/{uid}    Odebrání RPM limitu uživatele (Fáze 5)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check
 """
@@ -47,7 +51,8 @@ from core.budget_manager import BudgetManager
 from core.graph import SingularityCore
 from core.health_monitor import HealthMonitor
 from core.session_store import ConversationTurn, SessionStore, estimate_cost
-from core.task_queue import TaskQueue
+from core.task_queue import TaskPriority, TaskQueue
+from core.user_limiter import UserRateLimiter
 from evals.evaluator import OmegaEvaluator
 
 log = structlog.get_logger()
@@ -59,6 +64,7 @@ health_monitor: HealthMonitor | None = None
 task_queue: TaskQueue = TaskQueue()
 session_store: SessionStore = SessionStore()
 budget_manager: BudgetManager = BudgetManager()
+user_limiter: UserRateLimiter = UserRateLimiter()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -119,6 +125,7 @@ class TaskRequest(BaseModel):
     approved: bool = False
     force_provider: str = ""   # "" | "claude" | "gemini"
     callback_url: str = ""     # Fáze 4: webhook po dokončení async tasku
+    priority: str = "NORMAL"   # Fáze 5: CRITICAL | HIGH | NORMAL | LOW
 
 
 class ApprovalRequest(BaseModel):
@@ -143,6 +150,10 @@ class BatchTaskRequest(BaseModel):
 
 class BudgetRequest(BaseModel):
     limit_usd: float
+
+
+class RateLimitRequest(BaseModel):
+    rpm: int
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -205,10 +216,16 @@ async def submit_task(req: TaskRequest) -> TaskResponse:
 
 @app.post("/task/async")
 async def submit_task_async(req: TaskRequest) -> dict:
-    """Zařadí úkol do fronty a okamžitě vrátí task_id (Fáze 3)."""
+    """Zařadí úkol do fronty a okamžitě vrátí task_id (Fáze 3 + 5)."""
     assert core is not None
     if not budget_manager.is_allowed(req.user_id):
         raise HTTPException(status_code=402, detail="Budget exceeded")
+    if not user_limiter.check_and_record(req.user_id):
+        raise HTTPException(status_code=429, detail="Rate limit exceeded")
+    try:
+        priority = TaskPriority[req.priority.upper()]
+    except KeyError:
+        raise HTTPException(status_code=400, detail=f"Neznámá priorita: {req.priority}")
     session_context = _build_session_context(req.user_id)
     task_id = await task_queue.submit(
         task=req.task,
@@ -217,8 +234,9 @@ async def submit_task_async(req: TaskRequest) -> dict:
         force_provider=req.force_provider,
         session_context=session_context,
         callback_url=req.callback_url,
+        priority=priority,
     )
-    return {"task_id": task_id, "status": "queued", "queue_size": task_queue.queue_size()}
+    return {"task_id": task_id, "status": "queued", "priority": priority.name, "queue_size": task_queue.queue_size()}
 
 
 @app.get("/task/{task_id}/status")
@@ -236,6 +254,22 @@ async def get_task_result(task_id: str) -> dict:
     result = task_queue.get_result(task_id)
     if result is None:
         raise HTTPException(status_code=404, detail="Neznámé task_id")
+    return result
+
+
+@app.get("/task/{task_id}/wait")
+async def wait_for_task(task_id: str, timeout: float = 60.0) -> dict:
+    """
+    Long-poll: blokuje až do dokončení tasku nebo vypršení timeoutu (Fáze 5).
+    timeout: maximální čekání v sekundách (výchozí 60, max 300).
+    """
+    timeout = min(max(timeout, 1.0), 300.0)
+    result = await task_queue.wait(task_id, timeout=timeout)
+    if result is None:
+        status = task_queue.get_status(task_id)
+        if status is None:
+            raise HTTPException(status_code=404, detail="Neznámé task_id")
+        raise HTTPException(status_code=408, detail="Timeout — task ještě nedoběhl")
     return result
 
 
@@ -476,6 +510,28 @@ async def delete_budget(user_id: str) -> dict:
     """Odstraní cost limit uživatele (nastaví na neomezeno, Fáze 4)."""
     budget_manager.set_budget(user_id, 0.0)  # 0 → None = neomezeno
     return budget_manager.get_status(user_id)
+
+
+# ── Per-user rate limit endpointy (Fáze 5) ────────────────────────────────────
+
+@app.post("/rate-limits/{user_id}")
+async def set_rate_limit(user_id: str, req: RateLimitRequest) -> dict:
+    """Nastaví RPM limit pro uživatele (Fáze 5). rpm=0 odebere omezení."""
+    user_limiter.set_limit(user_id, req.rpm)
+    return user_limiter.get_status(user_id)
+
+
+@app.get("/rate-limits/{user_id}")
+async def get_rate_limit(user_id: str) -> dict:
+    """Vrátí stav RPM limitu a počet požadavků za poslední minutu (Fáze 5)."""
+    return user_limiter.get_status(user_id)
+
+
+@app.delete("/rate-limits/{user_id}")
+async def delete_rate_limit(user_id: str) -> dict:
+    """Odebere RPM limit a resetuje counter uživatele (Fáze 5)."""
+    user_limiter.reset(user_id)
+    return user_limiter.get_status(user_id)
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
