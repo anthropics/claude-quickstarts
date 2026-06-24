@@ -43,6 +43,10 @@ class SingularitySettings(BaseSettings):
     cache_ttl_s: float = 300.0    # Fáze 12: TTL per cache entry (seconds)
     cache_max_size: int = 1000    # Fáze 12: max cached entries (LRU eviction)
 
+    # ── Distributed tracing (OpenTelemetry) ──────────────────
+    enable_tracing: bool = True    # Fáze 13: OTel tracing
+    otlp_endpoint: str = ""        # Fáze 13: gRPC OTLP collector (empty = in-memory)
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
