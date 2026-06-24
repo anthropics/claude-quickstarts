@@ -68,7 +68,7 @@ class QueuedTask:
 
 class TaskQueue:
     """
-    In-memory prioritní fronta s retry + DLQ.
+    In-memory prioritní fronta s retry + DLQ + multi-worker (Fáze 7).
     V produkci nahradit Celery / arq / Redis Streams.
     """
 
@@ -77,20 +77,25 @@ class TaskQueue:
         self._tasks: dict[str, QueuedTask] = {}
         self._dlq: dict[str, QueuedTask] = {}
         self._done_events: dict[str, asyncio.Event] = {}
-        self._worker_task: asyncio.Task | None = None
+        self._worker_tasks: list[asyncio.Task] = []
         self._core: SingularityCore | None = None
         self._audit: AuditLog | None = None
 
-    def start(self, core: SingularityCore, audit: AuditLog | None = None) -> None:
+    def start(self, core: SingularityCore, audit: AuditLog | None = None, num_workers: int = 1) -> None:
         self._core = core
         self._audit = audit
-        self._worker_task = asyncio.create_task(self._worker(), name="task_queue_worker")
-        log.info("task_queue_started")
+        self._worker_tasks = [
+            asyncio.create_task(self._worker(), name=f"task_queue_worker_{i}")
+            for i in range(max(1, num_workers))
+        ]
+        log.info("task_queue_started", num_workers=len(self._worker_tasks))
 
     def stop(self) -> None:
-        if self._worker_task and not self._worker_task.done():
-            self._worker_task.cancel()
-            log.info("task_queue_stopped")
+        for wt in self._worker_tasks:
+            if not wt.done():
+                wt.cancel()
+        self._worker_tasks.clear()
+        log.info("task_queue_stopped")
 
     async def submit(
         self,

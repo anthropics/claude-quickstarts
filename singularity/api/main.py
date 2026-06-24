@@ -32,6 +32,9 @@ Endpointy:
   GET  /audit-log              Posledních N audit událostí (Fáze 6)
   GET  /dead-letter-queue      Tasky, které vyčerpaly retry pokusy (Fáze 6)
   POST /dead-letter-queue/{id}/retry  Manuální retry DLQ tasku (Fáze 6)
+  POST /api-keys               Vytvoří nový API klíč pro uživatele (Fáze 7)
+  GET  /api-keys               Vypíše klíče (filtrovatelné user_id) (Fáze 7)
+  DELETE /api-keys/{key}       Revokuje API klíč (Fáze 7)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check
 """
@@ -43,13 +46,16 @@ import uuid
 from contextlib import asynccontextmanager
 
 import structlog
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
+from api.auth import set_manager, verify_api_key
 from api.dashboard import get_dashboard_html
+from config.settings import settings
 from core import telemetry
+from core.api_keys import ApiKeyManager
 from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.graph import SingularityCore
@@ -70,6 +76,7 @@ session_store: SessionStore = SessionStore()
 budget_manager: BudgetManager = BudgetManager()
 user_limiter: UserRateLimiter = UserRateLimiter()
 audit_log: AuditLog = AuditLog()
+api_key_manager: ApiKeyManager = ApiKeyManager()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -97,8 +104,10 @@ async def lifespan(app: FastAPI):
     evaluator = OmegaEvaluator()
     health_monitor = HealthMonitor(core.router, interval_s=30.0)
     health_monitor.start()
-    task_queue.start(core, audit=audit_log)
-    log.info("singularity_started", strategy=core.router.strategy)
+    set_manager(api_key_manager)
+    task_queue.start(core, audit=audit_log, num_workers=settings.task_workers)
+    log.info("singularity_started", strategy=core.router.strategy,
+             task_workers=settings.task_workers, require_api_key=settings.require_api_key)
     yield
     health_monitor.stop()
     task_queue.stop()
@@ -162,6 +171,10 @@ class RateLimitRequest(BaseModel):
     rpm: int
 
 
+class ApiKeyRequest(BaseModel):
+    user_id: str
+
+
 # ── REST endpointy ──────────────────────────────────────────────────────────────
 
 @app.get("/health")
@@ -170,7 +183,7 @@ async def health_check() -> dict:
 
 
 @app.post("/task", response_model=TaskResponse)
-async def submit_task(req: TaskRequest) -> TaskResponse:
+async def submit_task(req: TaskRequest, _auth: str = Depends(verify_api_key)) -> TaskResponse:
     assert core is not None and evaluator is not None
     session_id = str(uuid.uuid4())
     log.info("task_received", user_id=req.user_id, session_id=session_id)
@@ -221,7 +234,7 @@ async def submit_task(req: TaskRequest) -> TaskResponse:
 
 
 @app.post("/task/async")
-async def submit_task_async(req: TaskRequest) -> dict:
+async def submit_task_async(req: TaskRequest, _auth: str = Depends(verify_api_key)) -> dict:
     """Zařadí úkol do fronty a okamžitě vrátí task_id (Fáze 3 + 5)."""
     assert core is not None
     if not budget_manager.is_allowed(req.user_id):
@@ -572,6 +585,33 @@ async def retry_dlq_task(task_id: str) -> dict:
         raise HTTPException(status_code=404, detail="Task není v DLQ")
     audit_log.record("task_dlq_retried", user_id="admin", task_id=task_id)
     return {"status": "requeued", "task_id": task_id}
+
+
+# ── API key management (Fáze 7) ───────────────────────────────────────────────
+
+@app.post("/api-keys")
+async def create_api_key(req: ApiKeyRequest) -> dict:
+    """Vytvoří nový API klíč pro uživatele (Fáze 7)."""
+    raw_key = api_key_manager.create_key(req.user_id)
+    audit_log.record("api_key_created", req.user_id)
+    return {"key": raw_key, "user_id": req.user_id}
+
+
+@app.get("/api-keys")
+async def list_api_keys(user_id: str | None = None) -> dict:
+    """Vypíše API klíče; volitelně filtrovat dle user_id (Fáze 7)."""
+    keys = api_key_manager.list_keys(user_id=user_id)
+    return {"count": len(keys), "keys": keys}
+
+
+@app.delete("/api-keys/{key}")
+async def revoke_api_key(key: str) -> dict:
+    """Revokuje API klíč (Fáze 7)."""
+    success = api_key_manager.revoke_key(key)
+    if not success:
+        raise HTTPException(status_code=404, detail="Klíč nenalezen")
+    audit_log.record("api_key_revoked", user_id="admin", key_prefix=key[:12])
+    return {"status": "revoked"}
 
 
 # ── WebSocket ─────────────────────────────────────────────────────────────────
