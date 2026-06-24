@@ -37,6 +37,7 @@ class ConversationTurn:
     provider_log: dict
     risk_score: float
     cost_usd: float
+    eval_scores: dict = field(default_factory=dict)   # Fáze 3: skóre z OmegaEvaluator
     timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
 
 
@@ -66,6 +67,7 @@ class Session:
                     "provider_log": t.provider_log,
                     "risk_score": t.risk_score,
                     "cost_usd": t.cost_usd,
+                    "eval_scores": t.eval_scores,
                     "timestamp": t.timestamp,
                 }
                 for t in self.turns
