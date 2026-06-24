@@ -40,6 +40,8 @@ class SingularitySettings(BaseSettings):
 
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
+    log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
+    log_buffer_size: int = 500    # Fáze 10: max events in in-memory log ring buffer
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
