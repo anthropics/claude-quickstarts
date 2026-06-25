@@ -43,6 +43,26 @@ Endpointy:
   DELETE /cache                Vymaže celou response cache (Fáze 12)
   GET  /traces                 Posledních N OTel spanů (Fáze 13)
   GET  /db/status              Stav SQLite persistence (Fáze 14)
+  POST /scheduler/jobs         Přidá nový opakovaný úkol (Fáze 15)
+  GET  /scheduler/jobs         Vypíše naplánované joby (Fáze 15)
+  DELETE /scheduler/jobs/{id}  Odstraní naplánovaný job (Fáze 15)
+  POST /experiments            Vytvoří A/B experiment (Fáze 19)
+  GET  /experiments            Vypíše experimenty (Fáze 19)
+  GET  /experiments/{id}       Detail experimentu + metriky (Fáze 19)
+  PATCH /experiments/{id}      Aktualizuje status/split (Fáze 19)
+  POST /experiments/{id}/record Zaznamená výsledek varianty (Fáze 19)
+  DELETE /experiments/{id}     Smaže experiment (Fáze 19)
+  POST /workflows              Vytvoří workflow (Fáze 18)
+  GET  /workflows              Vypíše workflows (Fáze 18)
+  GET  /workflows/{id}         Detail workflow (Fáze 18)
+  POST /workflows/{id}/run     Spustí workflow asynchronně (Fáze 18)
+  POST /task/{id}/feedback     Uloží hodnocení tasku 1–5 + thumbs (Fáze 17)
+  GET  /task/{id}/feedback     Vrátí hodnocení tasku (Fáze 17)
+  GET  /feedback/stats         Agregované statistiky hodnocení (Fáze 17)
+  POST /tools                  Registruje HTTP-callback nástroj (Fáze 16)
+  GET  /tools                  Vypíše registrované nástroje (Fáze 16)
+  DELETE /tools/{name}         Odregistruje nástroj (Fáze 16)
+  POST /tools/{name}/invoke    Invokuje nástroj s parametry (Fáze 16)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
 """
@@ -69,6 +89,14 @@ from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.cache import ResponseCache
 from core.persistence import Database
+from core.ab_test import ABTestManager
+from core.alerting import AlertManager
+from core.batch import BatchProcessor
+from core.prompt_templates import PromptTemplateRegistry
+from core.feedback import FeedbackStore
+from core.scheduler import TaskScheduler
+from core.workflow import WorkflowEngine
+from core.tool_registry import ToolRegistry
 from core.tracing import get_finished_spans, setup_tracing
 from core.graceful_shutdown import GracefulShutdown
 from core.graph import SingularityCore
@@ -97,6 +125,14 @@ log_buffer: LogBuffer = LogBuffer(maxlen=500)
 task_event_bus: TaskEventBus = TaskEventBus()
 response_cache: ResponseCache = ResponseCache()
 db: Database | None = None
+scheduler: TaskScheduler = TaskScheduler()
+tool_registry: ToolRegistry = ToolRegistry()
+feedback_store: FeedbackStore = FeedbackStore()
+workflow_engine: WorkflowEngine = WorkflowEngine()
+ab_manager: ABTestManager = ABTestManager()
+alert_manager: AlertManager = AlertManager()
+prompt_registry: PromptTemplateRegistry = PromptTemplateRegistry()
+batch_processor: BatchProcessor = BatchProcessor()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -119,7 +155,7 @@ def _build_session_context(user_id: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan handler — inicializace singletonů, health monitoru a task queue."""
-    global core, evaluator, health_monitor, response_cache, db
+    global core, evaluator, health_monitor, response_cache, db, feedback_store
     configure_logging(
         level=settings.log_level,
         log_format=settings.log_format,
@@ -132,6 +168,7 @@ async def lifespan(app: FastAPI):
         db.init_schema()
         audit_log.attach_db(db)
         api_key_manager.attach_db(db)
+        feedback_store.attach_db(db)
         log.info("persistence_enabled", db_path=settings.db_path)
     response_cache = ResponseCache(
         maxsize=settings.cache_max_size,
@@ -144,12 +181,15 @@ async def lifespan(app: FastAPI):
     set_manager(api_key_manager)
     task_queue.start(core, audit=audit_log, num_workers=settings.task_workers,
                      event_bus=task_event_bus)
+    if settings.enable_scheduler:
+        scheduler.start(task_queue)
     shutdown = GracefulShutdown(task_queue, timeout_s=30.0)
     shutdown.register()
     log.info("singularity_started", strategy=core.router.strategy,
              task_workers=settings.task_workers, require_api_key=settings.require_api_key)
     yield
     health_monitor.stop()
+    scheduler.stop()
     await shutdown.drain()   # waits for in-flight tasks, then stops workers
     log.info("singularity_shutdown")
 
@@ -214,6 +254,103 @@ class RateLimitRequest(BaseModel):
 
 class ApiKeyRequest(BaseModel):
     user_id: str
+
+
+class ScheduledJobRequest(BaseModel):
+    task: str
+    user_id: str = "default"
+    interval_s: float = 60.0
+    force_provider: str = ""
+    priority: str = "NORMAL"
+    max_retries: int = 0
+
+
+class RegisterToolRequest(BaseModel):
+    name: str
+    description: str
+    params_schema: dict = {}
+    callback_url: str = ""  # non-empty → HTTP-callback tool; empty → rejected via API
+
+
+class InvokeToolRequest(BaseModel):
+    params: dict = {}
+
+
+class FeedbackRequest(BaseModel):
+    session_id: str = ""
+    rating: int             # 1–5
+    thumbs: str = ""        # "up" | "down" | ""
+    comment: str = ""
+
+
+class WorkflowStepRequest(BaseModel):
+    task: str
+    user_id: str = "workflow"
+    force_provider: str = ""
+    priority: str = "NORMAL"
+    max_retries: int = 0
+
+
+class CreateWorkflowRequest(BaseModel):
+    name: str
+    steps: list[WorkflowStepRequest]
+
+
+class CreateExperimentRequest(BaseModel):
+    name: str
+    control_provider: str
+    treatment_provider: str
+    traffic_split: float = 0.5
+
+
+class UpdateExperimentRequest(BaseModel):
+    status: str | None = None
+    traffic_split: float | None = None
+
+
+class RecordOutcomeRequest(BaseModel):
+    provider: str
+    success: bool
+    latency_ms: float = 0.0
+    rating: float | None = None
+
+
+class CreateAlertRequest(BaseModel):
+    name: str
+    condition: str
+    threshold: float
+    callback_url: str
+
+
+class UpdateAlertRequest(BaseModel):
+    status: str      # "active" | "muted"
+
+
+class EvaluateAlertRequest(BaseModel):
+    condition: str
+    value: float
+
+
+class RegisterPromptRequest(BaseModel):
+    name: str
+    template: str
+    description: str = ""
+    tags: list[str] = []
+
+
+class RenderPromptRequest(BaseModel):
+    variables: dict[str, str] = {}
+
+
+class BatchTaskInput(BaseModel):
+    task: str
+    user_id: str
+    force_provider: str = ""
+    priority: str = "NORMAL"
+
+
+class SubmitBatchRequest(BaseModel):
+    tasks: list[BatchTaskInput]
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -747,6 +884,414 @@ async def db_status() -> dict:
         "audit_events": audit_count.get("n", 0),
         "active_api_keys": key_count.get("n", 0),
     }
+
+
+# ── Scheduler endpointy (Fáze 15) ────────────────────────────────────────────
+
+@app.post("/scheduler/jobs")
+async def create_scheduled_job(req: ScheduledJobRequest) -> dict:
+    """Přidá nový opakovaný úkol do scheduleru (Fáze 15)."""
+    try:
+        job_id = scheduler.add_job(
+            task=req.task,
+            user_id=req.user_id,
+            interval_s=req.interval_s,
+            force_provider=req.force_provider,
+            priority=req.priority,
+            max_retries=req.max_retries,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"job_id": job_id, "status": "scheduled", "interval_s": req.interval_s}
+
+
+@app.get("/scheduler/jobs")
+async def list_scheduled_jobs() -> dict:
+    """Vypíše všechny naplánované joby (Fáze 15)."""
+    jobs = scheduler.list_jobs()
+    return {"count": len(jobs), "jobs": jobs}
+
+
+@app.get("/scheduler/jobs/{job_id}")
+async def get_scheduled_job(job_id: str) -> dict:
+    """Vrátí detail konkrétního jobu (Fáze 15)."""
+    job = scheduler.get_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job nenalezen")
+    return job
+
+
+@app.delete("/scheduler/jobs/{job_id}")
+async def delete_scheduled_job(job_id: str) -> dict:
+    """Odstraní naplánovaný job (Fáze 15)."""
+    removed = scheduler.remove_job(job_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Job nenalezen")
+    return {"status": "removed", "job_id": job_id}
+
+
+# ── Alerting (Fáze 20) ───────────────────────────────────────────────────────
+
+@app.post("/alerts")
+async def create_alert(req: CreateAlertRequest) -> dict:
+    """Vytvoří prahový alert s HTTP-callback (Fáze 20)."""
+    try:
+        aid = alert_manager.create_alert(
+            name=req.name,
+            condition=req.condition,
+            threshold=req.threshold,
+            callback_url=req.callback_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"alert_id": aid, "name": req.name, "condition": req.condition}
+
+
+@app.get("/alerts")
+async def list_alerts() -> dict:
+    """Vypíše všechny definované alerty (Fáze 20)."""
+    items = alert_manager.list_alerts()
+    return {"count": len(items), "alerts": items}
+
+
+@app.get("/alerts/{alert_id}")
+async def get_alert(alert_id: str) -> dict:
+    """Vrátí detail alertu včetně fire_count (Fáze 20)."""
+    a = alert_manager.get_alert(alert_id)
+    if a is None:
+        raise HTTPException(status_code=404, detail="Alert nenalezen")
+    return a
+
+
+@app.patch("/alerts/{alert_id}")
+async def update_alert_status(alert_id: str, req: UpdateAlertRequest) -> dict:
+    """Ztlumí nebo aktivuje alert (Fáze 20)."""
+    try:
+        ok = alert_manager.set_status(alert_id, req.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not ok:
+        raise HTTPException(status_code=404, detail="Alert nenalezen")
+    return {"status": "updated", "alert_id": alert_id, "new_status": req.status}
+
+
+@app.delete("/alerts/{alert_id}")
+async def delete_alert(alert_id: str) -> dict:
+    """Smaže alert (Fáze 20)."""
+    if not alert_manager.delete_alert(alert_id):
+        raise HTTPException(status_code=404, detail="Alert nenalezen")
+    return {"status": "deleted", "alert_id": alert_id}
+
+
+@app.post("/alerts/evaluate")
+async def evaluate_alerts(req: EvaluateAlertRequest) -> dict:
+    """Ručně spustí evaluaci alertů pro daný condition + value (Fáze 20)."""
+    fired = await alert_manager.evaluate(req.condition, req.value)
+    return {"condition": req.condition, "value": req.value, "fired_count": len(fired), "fired": fired}
+
+
+# ── A/B Testing (Fáze 19) ────────────────────────────────────────────────────
+
+@app.post("/experiments")
+async def create_experiment(req: CreateExperimentRequest) -> dict:
+    """Vytvoří A/B experiment pro dva providery (Fáze 19)."""
+    try:
+        eid = ab_manager.create_experiment(
+            name=req.name,
+            control_provider=req.control_provider,
+            treatment_provider=req.treatment_provider,
+            traffic_split=req.traffic_split,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"experiment_id": eid, "name": req.name}
+
+
+@app.get("/experiments")
+async def list_experiments() -> dict:
+    """Vypíše A/B experimenty (Fáze 19)."""
+    items = ab_manager.list_experiments()
+    return {"count": len(items), "experiments": items}
+
+
+@app.get("/experiments/{experiment_id}")
+async def get_experiment(experiment_id: str) -> dict:
+    """Vrátí detail A/B experimentu včetně metrik (Fáze 19)."""
+    exp = ab_manager.get_experiment(experiment_id)
+    if exp is None:
+        raise HTTPException(status_code=404, detail="Experiment nenalezen")
+    return exp
+
+
+@app.patch("/experiments/{experiment_id}")
+async def update_experiment(experiment_id: str, req: UpdateExperimentRequest) -> dict:
+    """Aktualizuje status nebo traffic_split experimentu (Fáze 19)."""
+    kwargs = {k: v for k, v in req.model_dump().items() if v is not None}
+    try:
+        ok = ab_manager.update_experiment(experiment_id, **kwargs)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not ok:
+        raise HTTPException(status_code=404, detail="Experiment nenalezen")
+    return {"status": "updated", "experiment_id": experiment_id}
+
+
+@app.post("/experiments/{experiment_id}/record")
+async def record_experiment_outcome(experiment_id: str, req: RecordOutcomeRequest) -> dict:
+    """Zaznamená výsledek požadavku pro daný variant (Fáze 19)."""
+    ok = ab_manager.record_outcome(
+        experiment_id=experiment_id,
+        provider=req.provider,
+        success=req.success,
+        latency_ms=req.latency_ms,
+        rating=req.rating,
+    )
+    if not ok:
+        raise HTTPException(status_code=404, detail="Experiment nebo provider nenalezen")
+    return {"status": "recorded"}
+
+
+@app.delete("/experiments/{experiment_id}")
+async def delete_experiment(experiment_id: str) -> dict:
+    """Smaže A/B experiment (Fáze 19)."""
+    if not ab_manager.delete_experiment(experiment_id):
+        raise HTTPException(status_code=404, detail="Experiment nenalezen")
+    return {"status": "deleted", "experiment_id": experiment_id}
+
+
+# ── Workflow Engine (Fáze 18) ─────────────────────────────────────────────────
+
+@app.post("/workflows")
+async def create_workflow(req: CreateWorkflowRequest) -> dict:
+    """Vytvoří nový workflow (Fáze 18)."""
+    try:
+        wid = workflow_engine.create_workflow(
+            name=req.name,
+            steps=[s.model_dump() for s in req.steps],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"workflow_id": wid, "name": req.name, "step_count": len(req.steps)}
+
+
+@app.get("/workflows")
+async def list_workflows() -> dict:
+    """Vypíše všechny workflows (Fáze 18)."""
+    items = workflow_engine.list_workflows()
+    return {"count": len(items), "workflows": items}
+
+
+@app.get("/workflows/{workflow_id}")
+async def get_workflow(workflow_id: str) -> dict:
+    """Vrátí detail workflow (Fáze 18)."""
+    wf = workflow_engine.get_workflow(workflow_id)
+    if wf is None:
+        raise HTTPException(status_code=404, detail="Workflow nenalezen")
+    return wf
+
+
+@app.post("/workflows/{workflow_id}/run")
+async def run_workflow(workflow_id: str) -> dict:
+    """Spustí workflow asynchronně (Fáze 18). Vrátí okamžitě."""
+    wf = workflow_engine.get_workflow(workflow_id)
+    if wf is None:
+        raise HTTPException(status_code=404, detail="Workflow nenalezen")
+    if wf["status"] == "running":
+        raise HTTPException(status_code=409, detail="Workflow již běží")
+
+    async def _run():
+        try:
+            await workflow_engine.run_workflow(workflow_id, task_queue)
+        except Exception as exc:
+            log.error("workflow_run_error", workflow_id=workflow_id, error=str(exc))
+
+    asyncio.create_task(_run(), name=f"workflow_{workflow_id}")
+    return {"status": "started", "workflow_id": workflow_id}
+
+
+# ── Human Feedback (Fáze 17) ─────────────────────────────────────────────────
+
+@app.post("/task/{task_id}/feedback")
+async def submit_feedback(task_id: str, req: FeedbackRequest) -> dict:
+    """Uloží hodnocení pro daný task (Fáze 17)."""
+    try:
+        fid = feedback_store.record(
+            task_id=task_id,
+            session_id=req.session_id,
+            user_id="user",
+            rating=req.rating,
+            thumbs=req.thumbs,
+            comment=req.comment,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"feedback_id": fid, "task_id": task_id}
+
+
+@app.get("/task/{task_id}/feedback")
+async def get_task_feedback(task_id: str) -> dict:
+    """Vrátí všechna hodnocení pro daný task (Fáze 17)."""
+    entries = feedback_store.get_by_task(task_id)
+    return {"task_id": task_id, "count": len(entries), "feedback": entries}
+
+
+@app.get("/feedback/stats")
+async def get_feedback_stats() -> dict:
+    """Agregované statistiky hodnocení (Fáze 17)."""
+    return feedback_store.get_stats()
+
+
+# ── Tool Registry (Fáze 16) ───────────────────────────────────────────────────
+
+@app.post("/tools")
+async def register_tool(req: RegisterToolRequest) -> dict:
+    """Registruje HTTP-callback tool (Fáze 16). callback_url je povinný pro API registraci."""
+    if not req.callback_url:
+        raise HTTPException(status_code=422, detail="callback_url je povinný pro API registraci")
+    try:
+        tool_registry.register_http(
+            name=req.name,
+            description=req.description,
+            params_schema=req.params_schema,
+            callback_url=req.callback_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    audit_log.record("tool_registered", user_id="admin", tool_name=req.name)
+    return {"status": "registered", "name": req.name, "tool_type": "http"}
+
+
+@app.get("/tools")
+async def list_tools() -> dict:
+    """Vypíše všechny registrované nástroje (Fáze 16)."""
+    tools = tool_registry.list_tools()
+    return {"count": len(tools), "tools": tools}
+
+
+@app.delete("/tools/{name}")
+async def unregister_tool(name: str) -> dict:
+    """Odregistruje nástroj dle jména (Fáze 16)."""
+    removed = tool_registry.unregister(name)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Nástroj nenalezen")
+    audit_log.record("tool_unregistered", user_id="admin", tool_name=name)
+    return {"status": "unregistered", "name": name}
+
+
+@app.post("/tools/{name}/invoke")
+async def invoke_tool(name: str, req: InvokeToolRequest) -> dict:
+    """Invokuje registrovaný nástroj s danými parametry (Fáze 16)."""
+    try:
+        result = await tool_registry.invoke(name, **req.params)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Nástroj nenalezen")
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Chyba nástroje: {exc}") from exc
+    return {"name": name, "result": result}
+
+
+# ── Prompt Template Registry (Fáze 21) ───────────────────────────────────────
+
+@app.post("/prompts")
+async def register_prompt(req: RegisterPromptRequest) -> dict:
+    """Registruje pojmenovanou prompt šablonu s {{proměnnými}} (Fáze 21)."""
+    try:
+        tid = prompt_registry.register(
+            name=req.name,
+            template=req.template,
+            description=req.description,
+            tags=req.tags,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    t = prompt_registry.get(tid)
+    return {"template_id": tid, "name": req.name, "version": t["version"],
+            "variables": t["variables"]}
+
+
+@app.get("/prompts")
+async def list_prompts(tag: str | None = None) -> dict:
+    """Vypíše všechny prompt šablony; volitelně filtrovat dle tagu (Fáze 21)."""
+    items = prompt_registry.list_templates(tag=tag)
+    return {"count": len(items), "templates": items}
+
+
+@app.get("/prompts/{template_id}")
+async def get_prompt(template_id: str) -> dict:
+    """Vrátí detail prompt šablony (Fáze 21)."""
+    t = prompt_registry.get(template_id)
+    if t is None:
+        raise HTTPException(status_code=404, detail="Šablona nenalezena")
+    return t
+
+
+@app.delete("/prompts/{template_id}")
+async def delete_prompt(template_id: str) -> dict:
+    """Smaže prompt šablonu (Fáze 21)."""
+    if not prompt_registry.delete(template_id):
+        raise HTTPException(status_code=404, detail="Šablona nenalezena")
+    return {"status": "deleted", "template_id": template_id}
+
+
+@app.post("/prompts/{template_id}/render")
+async def render_prompt(template_id: str, req: RenderPromptRequest) -> dict:
+    """Renderuje prompt šablonu s danými proměnnými (Fáze 21)."""
+    try:
+        result = prompt_registry.render(template_id, **req.variables)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Šablona nenalezena")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"template_id": template_id, "rendered": result}
+
+
+# ── Batch Processor (Fáze 22) ────────────────────────────────────────────────
+
+@app.post("/batch")
+async def submit_batch(req: SubmitBatchRequest) -> dict:
+    """Registruje dávku tasků; vrátí batch_id (Fáze 22)."""
+    try:
+        bid = batch_processor.submit([t.model_dump() for t in req.tasks])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    b = batch_processor.get_batch(bid)
+    return {"batch_id": bid, "total": b["total"], "status": b["status"]}
+
+
+@app.get("/batch")
+async def list_batches() -> dict:
+    """Vypíše všechny dávky (Fáze 22)."""
+    items = batch_processor.list_batches()
+    return {"count": len(items), "batches": items}
+
+
+@app.get("/batch/{batch_id}")
+async def get_batch(batch_id: str) -> dict:
+    """Vrátí stav a výsledky dávky (Fáze 22)."""
+    b = batch_processor.get_batch(batch_id)
+    if b is None:
+        raise HTTPException(status_code=404, detail="Dávka nenalezena")
+    return b
+
+
+@app.delete("/batch/{batch_id}")
+async def cancel_batch(batch_id: str) -> dict:
+    """Zruší čekající dávku (Fáze 22)."""
+    if not batch_processor.cancel(batch_id):
+        raise HTTPException(status_code=404, detail="Dávka nenalezena nebo již spuštěna")
+    return {"status": "cancelled", "batch_id": batch_id}
+
+
+@app.post("/batch/{batch_id}/run")
+async def run_batch(batch_id: str) -> dict:
+    """Odešle všechny tasky dávky do fronty a čeká na dokončení (Fáze 22)."""
+    try:
+        result = await batch_processor.run_batch(batch_id, task_queue)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Dávka nenalezena")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return result
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────

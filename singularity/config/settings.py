@@ -51,6 +51,9 @@ class SingularitySettings(BaseSettings):
     enable_persistence: bool = False   # Fáze 14: SQLite durable storage
     db_path: str = "./data/singularity.db"  # Fáze 14: path to SQLite file
 
+    # ── Scheduler ─────────────────────────────────────────────
+    enable_scheduler: bool = True      # Fáze 15: cron-style recurring tasks
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
