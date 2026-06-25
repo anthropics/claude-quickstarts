@@ -95,6 +95,7 @@ from core.batch import BatchProcessor
 from core.prompt_templates import PromptTemplateRegistry
 from core.secret_manager import SecretManager
 from core.quota_manager import QuotaManager
+from core.circuit_breaker import CircuitBreakerRegistry
 from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
 from core.workflow import WorkflowEngine
@@ -137,6 +138,7 @@ prompt_registry: PromptTemplateRegistry = PromptTemplateRegistry()
 batch_processor: BatchProcessor = BatchProcessor()
 secret_manager: SecretManager = SecretManager()
 quota_manager: QuotaManager = QuotaManager()
+circuit_breakers: CircuitBreakerRegistry = CircuitBreakerRegistry()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -382,6 +384,17 @@ class RecordQuotaUsageRequest(BaseModel):
     requests: float = 0.0
     tokens: float = 0.0
     cost_usd: float = 0.0
+
+
+class CreateBreakerRequest(BaseModel):
+    name: str
+    failure_threshold: int = 5
+    recovery_timeout_s: float = 60.0
+    success_threshold: int = 2
+
+
+class RecordBreakerEventRequest(BaseModel):
+    event: str   # "success" | "failure" | "rejected"
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -1450,6 +1463,63 @@ async def check_quota(user_id: str, metric: str = "requests") -> dict:
 async def get_quota_usage(user_id: str) -> dict:
     """Vrátí přehled spotřeby uživatele přes všechna okna (Fáze 24)."""
     return quota_manager.get_usage_summary(user_id)
+
+
+# ── Circuit Breakers (Fáze 25) ───────────────────────────────────────────────
+
+@app.post("/circuit-breakers")
+async def create_breaker(req: CreateBreakerRequest) -> dict:
+    """Vytvoří nebo vrátí existující circuit breaker (Fáze 25)."""
+    try:
+        circuit_breakers.get_or_create(
+            req.name,
+            failure_threshold=req.failure_threshold,
+            recovery_timeout_s=req.recovery_timeout_s,
+            success_threshold=req.success_threshold,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return circuit_breakers.get_state(req.name)
+
+
+@app.get("/circuit-breakers")
+async def list_breakers() -> dict:
+    """Vypíše všechny circuit breakers a jejich stav (Fáze 25)."""
+    items = circuit_breakers.list_breakers()
+    return {"count": len(items), "breakers": items}
+
+
+@app.get("/circuit-breakers/{name}")
+async def get_breaker(name: str) -> dict:
+    """Vrátí stav konkrétního circuit breakeru (Fáze 25)."""
+    s = circuit_breakers.get_state(name)
+    if s is None:
+        raise HTTPException(status_code=404, detail="Circuit breaker nenalezen")
+    return s
+
+
+@app.post("/circuit-breakers/{name}/event")
+async def record_breaker_event(name: str, req: RecordBreakerEventRequest) -> dict:
+    """Zaznamená success/failure/rejected do circuit breakeru (Fáze 25)."""
+    if name not in {cb["name"] for cb in circuit_breakers.list_breakers()}:
+        raise HTTPException(status_code=404, detail="Circuit breaker nenalezen")
+    if req.event == "success":
+        circuit_breakers.record_success(name)
+    elif req.event == "failure":
+        circuit_breakers.record_failure(name)
+    elif req.event == "rejected":
+        circuit_breakers.record_rejected(name)
+    else:
+        raise HTTPException(status_code=422, detail="event musí být success/failure/rejected")
+    return circuit_breakers.get_state(name)
+
+
+@app.post("/circuit-breakers/{name}/reset")
+async def reset_breaker(name: str) -> dict:
+    """Resetuje circuit breaker do stavu CLOSED (Fáze 25)."""
+    if not circuit_breakers.reset(name):
+        raise HTTPException(status_code=404, detail="Circuit breaker nenalezen")
+    return circuit_breakers.get_state(name)
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
