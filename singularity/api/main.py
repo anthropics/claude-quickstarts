@@ -91,6 +91,7 @@ from core.cache import ResponseCache
 from core.persistence import Database
 from core.ab_test import ABTestManager
 from core.alerting import AlertManager
+from core.batch import BatchProcessor
 from core.prompt_templates import PromptTemplateRegistry
 from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
@@ -131,6 +132,7 @@ workflow_engine: WorkflowEngine = WorkflowEngine()
 ab_manager: ABTestManager = ABTestManager()
 alert_manager: AlertManager = AlertManager()
 prompt_registry: PromptTemplateRegistry = PromptTemplateRegistry()
+batch_processor: BatchProcessor = BatchProcessor()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -338,6 +340,17 @@ class RegisterPromptRequest(BaseModel):
 
 class RenderPromptRequest(BaseModel):
     variables: dict[str, str] = {}
+
+
+class BatchTaskInput(BaseModel):
+    task: str
+    user_id: str
+    force_provider: str = ""
+    priority: str = "NORMAL"
+
+
+class SubmitBatchRequest(BaseModel):
+    tasks: list[BatchTaskInput]
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -1230,6 +1243,55 @@ async def render_prompt(template_id: str, req: RenderPromptRequest) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"template_id": template_id, "rendered": result}
+
+
+# ── Batch Processor (Fáze 22) ────────────────────────────────────────────────
+
+@app.post("/batch")
+async def submit_batch(req: SubmitBatchRequest) -> dict:
+    """Registruje dávku tasků; vrátí batch_id (Fáze 22)."""
+    try:
+        bid = batch_processor.submit([t.model_dump() for t in req.tasks])
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    b = batch_processor.get_batch(bid)
+    return {"batch_id": bid, "total": b["total"], "status": b["status"]}
+
+
+@app.get("/batch")
+async def list_batches() -> dict:
+    """Vypíše všechny dávky (Fáze 22)."""
+    items = batch_processor.list_batches()
+    return {"count": len(items), "batches": items}
+
+
+@app.get("/batch/{batch_id}")
+async def get_batch(batch_id: str) -> dict:
+    """Vrátí stav a výsledky dávky (Fáze 22)."""
+    b = batch_processor.get_batch(batch_id)
+    if b is None:
+        raise HTTPException(status_code=404, detail="Dávka nenalezena")
+    return b
+
+
+@app.delete("/batch/{batch_id}")
+async def cancel_batch(batch_id: str) -> dict:
+    """Zruší čekající dávku (Fáze 22)."""
+    if not batch_processor.cancel(batch_id):
+        raise HTTPException(status_code=404, detail="Dávka nenalezena nebo již spuštěna")
+    return {"status": "cancelled", "batch_id": batch_id}
+
+
+@app.post("/batch/{batch_id}/run")
+async def run_batch(batch_id: str) -> dict:
+    """Odešle všechny tasky dávky do fronty a čeká na dokončení (Fáze 22)."""
+    try:
+        result = await batch_processor.run_batch(batch_id, task_queue)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Dávka nenalezena")
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return result
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
