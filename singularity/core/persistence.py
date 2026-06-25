@@ -30,6 +30,17 @@ CREATE TABLE IF NOT EXISTS api_keys (
     created_at TEXT    NOT NULL,
     revoked    INTEGER NOT NULL DEFAULT 0
 );
+
+CREATE TABLE IF NOT EXISTS feedback (
+    feedback_id TEXT    PRIMARY KEY,
+    task_id     TEXT    NOT NULL,
+    session_id  TEXT    NOT NULL,
+    user_id     TEXT    NOT NULL,
+    rating      INTEGER NOT NULL,
+    thumbs      TEXT    NOT NULL DEFAULT '',
+    comment     TEXT    NOT NULL DEFAULT '',
+    created_at  TEXT    NOT NULL
+);
 """
 
 
@@ -120,3 +131,28 @@ class Database:
 
     def load_api_keys(self) -> list[dict]:
         return self.fetchall("SELECT * FROM api_keys WHERE revoked = 0")
+
+    # ── Feedback helpers ───────────────────────────────────────────────────────
+
+    def persist_feedback(
+        self,
+        feedback_id: str,
+        task_id: str,
+        session_id: str,
+        user_id: str,
+        rating: int,
+        thumbs: str,
+        comment: str,
+        created_at: str,
+    ) -> None:
+        self.execute(
+            "INSERT OR IGNORE INTO feedback "
+            "(feedback_id, task_id, session_id, user_id, rating, thumbs, comment, created_at) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (feedback_id, task_id, session_id, user_id, rating, thumbs, comment, created_at),
+        )
+
+    def load_feedback(self, limit: int = 1000) -> list[dict]:
+        return self.fetchall(
+            "SELECT * FROM feedback ORDER BY rowid DESC LIMIT ?", (limit,)
+        )

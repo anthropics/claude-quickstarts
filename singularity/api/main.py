@@ -46,6 +46,9 @@ Endpointy:
   POST /scheduler/jobs         Přidá nový opakovaný úkol (Fáze 15)
   GET  /scheduler/jobs         Vypíše naplánované joby (Fáze 15)
   DELETE /scheduler/jobs/{id}  Odstraní naplánovaný job (Fáze 15)
+  POST /task/{id}/feedback     Uloží hodnocení tasku 1–5 + thumbs (Fáze 17)
+  GET  /task/{id}/feedback     Vrátí hodnocení tasku (Fáze 17)
+  GET  /feedback/stats         Agregované statistiky hodnocení (Fáze 17)
   POST /tools                  Registruje HTTP-callback nástroj (Fáze 16)
   GET  /tools                  Vypíše registrované nástroje (Fáze 16)
   DELETE /tools/{name}         Odregistruje nástroj (Fáze 16)
@@ -76,6 +79,7 @@ from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.cache import ResponseCache
 from core.persistence import Database
+from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
 from core.tool_registry import ToolRegistry
 from core.tracing import get_finished_spans, setup_tracing
@@ -108,6 +112,7 @@ response_cache: ResponseCache = ResponseCache()
 db: Database | None = None
 scheduler: TaskScheduler = TaskScheduler()
 tool_registry: ToolRegistry = ToolRegistry()
+feedback_store: FeedbackStore = FeedbackStore()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -130,7 +135,7 @@ def _build_session_context(user_id: str) -> str:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Lifespan handler — inicializace singletonů, health monitoru a task queue."""
-    global core, evaluator, health_monitor, response_cache, db
+    global core, evaluator, health_monitor, response_cache, db, feedback_store
     configure_logging(
         level=settings.log_level,
         log_format=settings.log_format,
@@ -143,6 +148,7 @@ async def lifespan(app: FastAPI):
         db.init_schema()
         audit_log.attach_db(db)
         api_key_manager.attach_db(db)
+        feedback_store.attach_db(db)
         log.info("persistence_enabled", db_path=settings.db_path)
     response_cache = ResponseCache(
         maxsize=settings.cache_max_size,
@@ -248,6 +254,13 @@ class RegisterToolRequest(BaseModel):
 
 class InvokeToolRequest(BaseModel):
     params: dict = {}
+
+
+class FeedbackRequest(BaseModel):
+    session_id: str = ""
+    rating: int             # 1–5
+    thumbs: str = ""        # "up" | "down" | ""
+    comment: str = ""
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -825,6 +838,38 @@ async def delete_scheduled_job(job_id: str) -> dict:
     if not removed:
         raise HTTPException(status_code=404, detail="Job nenalezen")
     return {"status": "removed", "job_id": job_id}
+
+
+# ── Human Feedback (Fáze 17) ─────────────────────────────────────────────────
+
+@app.post("/task/{task_id}/feedback")
+async def submit_feedback(task_id: str, req: FeedbackRequest) -> dict:
+    """Uloží hodnocení pro daný task (Fáze 17)."""
+    try:
+        fid = feedback_store.record(
+            task_id=task_id,
+            session_id=req.session_id,
+            user_id="user",
+            rating=req.rating,
+            thumbs=req.thumbs,
+            comment=req.comment,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"feedback_id": fid, "task_id": task_id}
+
+
+@app.get("/task/{task_id}/feedback")
+async def get_task_feedback(task_id: str) -> dict:
+    """Vrátí všechna hodnocení pro daný task (Fáze 17)."""
+    entries = feedback_store.get_by_task(task_id)
+    return {"task_id": task_id, "count": len(entries), "feedback": entries}
+
+
+@app.get("/feedback/stats")
+async def get_feedback_stats() -> dict:
+    """Agregované statistiky hodnocení (Fáze 17)."""
+    return feedback_store.get_stats()
 
 
 # ── Tool Registry (Fáze 16) ───────────────────────────────────────────────────
