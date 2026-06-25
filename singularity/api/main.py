@@ -94,6 +94,7 @@ from core.alerting import AlertManager
 from core.batch import BatchProcessor
 from core.prompt_templates import PromptTemplateRegistry
 from core.secret_manager import SecretManager
+from core.quota_manager import QuotaManager
 from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
 from core.workflow import WorkflowEngine
@@ -135,6 +136,7 @@ alert_manager: AlertManager = AlertManager()
 prompt_registry: PromptTemplateRegistry = PromptTemplateRegistry()
 batch_processor: BatchProcessor = BatchProcessor()
 secret_manager: SecretManager = SecretManager()
+quota_manager: QuotaManager = QuotaManager()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -366,6 +368,20 @@ class StoreSecretRequest(BaseModel):
 
 class RotateSecretRequest(BaseModel):
     new_value: str
+
+
+class SetQuotaRequest(BaseModel):
+    user_id: str
+    metric: str
+    limit: float
+    window: str = "daily"
+
+
+class RecordQuotaUsageRequest(BaseModel):
+    user_id: str
+    requests: float = 0.0
+    tokens: float = 0.0
+    cost_usd: float = 0.0
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -1368,6 +1384,72 @@ async def delete_secret(secret_id: str, owner: str) -> dict:
     if not secret_manager.delete(secret_id, owner=owner):
         raise HTTPException(status_code=404, detail="Tajemství nenalezeno nebo přístup odepřen")
     return {"status": "deleted", "secret_id": secret_id}
+
+
+# ── Quota Manager (Fáze 24) ──────────────────────────────────────────────────
+
+@app.post("/quotas")
+async def set_quota(req: SetQuotaRequest) -> dict:
+    """Nastaví kvótu pro uživatele (requests/tokens/cost_usd × okno) (Fáze 24)."""
+    try:
+        rid = quota_manager.set_quota(
+            req.user_id, req.metric, req.limit, window=req.window
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"rule_id": rid, "user_id": req.user_id,
+            "metric": req.metric, "limit": req.limit, "window": req.window}
+
+
+@app.get("/quotas")
+async def list_quotas(user_id: str | None = None) -> dict:
+    """Vypíše kvóty; volitelně filtrovat dle user_id (Fáze 24)."""
+    items = quota_manager.list_quotas(user_id=user_id)
+    return {"count": len(items), "quotas": items}
+
+
+@app.get("/quotas/{rule_id}")
+async def get_quota(rule_id: str) -> dict:
+    """Vrátí kvótu podle rule_id (Fáze 24)."""
+    r = quota_manager.get_quota(rule_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="Kvóta nenalezena")
+    return r
+
+
+@app.delete("/quotas/{rule_id}")
+async def delete_quota(rule_id: str) -> dict:
+    """Smaže kvótu (Fáze 24)."""
+    if not quota_manager.delete_quota(rule_id):
+        raise HTTPException(status_code=404, detail="Kvóta nenalezena")
+    return {"status": "deleted", "rule_id": rule_id}
+
+
+@app.post("/quotas/usage")
+async def record_quota_usage(req: RecordQuotaUsageRequest) -> dict:
+    """Zaznamená spotřebu pro daného uživatele (Fáze 24)."""
+    quota_manager.record_usage(
+        req.user_id,
+        requests=req.requests,
+        tokens=req.tokens,
+        cost_usd=req.cost_usd,
+    )
+    return {"status": "recorded", "user_id": req.user_id}
+
+
+@app.get("/quotas/check/{user_id}")
+async def check_quota(user_id: str, metric: str = "requests") -> dict:
+    """Zkontroluje, zda uživatel nepřekročil kvótu pro danou metriku (Fáze 24)."""
+    try:
+        return quota_manager.check_quota(user_id, metric)  # type: ignore[arg-type]
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/quotas/usage/{user_id}")
+async def get_quota_usage(user_id: str) -> dict:
+    """Vrátí přehled spotřeby uživatele přes všechna okna (Fáze 24)."""
+    return quota_manager.get_usage_summary(user_id)
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
