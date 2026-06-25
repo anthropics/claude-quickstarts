@@ -93,6 +93,7 @@ from core.ab_test import ABTestManager
 from core.alerting import AlertManager
 from core.batch import BatchProcessor
 from core.prompt_templates import PromptTemplateRegistry
+from core.secret_manager import SecretManager
 from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
 from core.workflow import WorkflowEngine
@@ -133,6 +134,7 @@ ab_manager: ABTestManager = ABTestManager()
 alert_manager: AlertManager = AlertManager()
 prompt_registry: PromptTemplateRegistry = PromptTemplateRegistry()
 batch_processor: BatchProcessor = BatchProcessor()
+secret_manager: SecretManager = SecretManager()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -351,6 +353,19 @@ class BatchTaskInput(BaseModel):
 
 class SubmitBatchRequest(BaseModel):
     tasks: list[BatchTaskInput]
+
+
+class StoreSecretRequest(BaseModel):
+    name: str
+    value: str
+    owner: str
+    description: str = ""
+    tags: list[str] = []
+    ttl_s: float | None = None
+
+
+class RotateSecretRequest(BaseModel):
+    new_value: str
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -1292,6 +1307,67 @@ async def run_batch(batch_id: str) -> dict:
     except RuntimeError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return result
+
+
+# ── Secret Manager (Fáze 23) ─────────────────────────────────────────────────
+
+@app.post("/secrets")
+async def store_secret(req: StoreSecretRequest) -> dict:
+    """Uloží pojmenované tajemství s volitelným TTL (Fáze 23)."""
+    try:
+        sid = secret_manager.store(
+            req.name, req.value,
+            owner=req.owner, description=req.description,
+            tags=req.tags, ttl_s=req.ttl_s,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"secret_id": sid, "name": req.name, "owner": req.owner}
+
+
+@app.get("/secrets")
+async def list_secrets(owner: str, tag: str | None = None) -> dict:
+    """Vypíše tajemství daného vlastníka (hodnoty zamaskované) (Fáze 23)."""
+    items = secret_manager.list_secrets(owner=owner, tag=tag)
+    return {"count": len(items), "secrets": items}
+
+
+@app.get("/secrets/{secret_id}")
+async def get_secret(secret_id: str, owner: str) -> dict:
+    """Vrátí metadata tajemství (hodnota zamaskovaná) (Fáze 23)."""
+    s = secret_manager.get(secret_id, owner=owner)
+    if s is None:
+        raise HTTPException(status_code=404, detail="Tajemství nenalezeno nebo přístup odepřen")
+    return s
+
+
+@app.get("/secrets/{secret_id}/reveal")
+async def reveal_secret(secret_id: str, owner: str) -> dict:
+    """Vrátí plaintext hodnotu tajemství (Fáze 23)."""
+    value = secret_manager.reveal(secret_id, owner=owner)
+    if value is None:
+        raise HTTPException(status_code=404, detail="Tajemství nenalezeno, vypršelo nebo přístup odepřen")
+    return {"secret_id": secret_id, "value": value}
+
+
+@app.post("/secrets/{secret_id}/rotate")
+async def rotate_secret(secret_id: str, req: RotateSecretRequest, owner: str) -> dict:
+    """Nahradí hodnotu tajemství (Fáze 23)."""
+    try:
+        ok = secret_manager.rotate(secret_id, req.new_value, owner=owner)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not ok:
+        raise HTTPException(status_code=404, detail="Tajemství nenalezeno, vypršelo nebo přístup odepřen")
+    return {"status": "rotated", "secret_id": secret_id}
+
+
+@app.delete("/secrets/{secret_id}")
+async def delete_secret(secret_id: str, owner: str) -> dict:
+    """Smaže tajemství (Fáze 23)."""
+    if not secret_manager.delete(secret_id, owner=owner):
+        raise HTTPException(status_code=404, detail="Tajemství nenalezeno nebo přístup odepřen")
+    return {"status": "deleted", "secret_id": secret_id}
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
