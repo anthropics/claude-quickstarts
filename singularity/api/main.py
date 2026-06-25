@@ -46,6 +46,12 @@ Endpointy:
   POST /scheduler/jobs         Přidá nový opakovaný úkol (Fáze 15)
   GET  /scheduler/jobs         Vypíše naplánované joby (Fáze 15)
   DELETE /scheduler/jobs/{id}  Odstraní naplánovaný job (Fáze 15)
+  POST /experiments            Vytvoří A/B experiment (Fáze 19)
+  GET  /experiments            Vypíše experimenty (Fáze 19)
+  GET  /experiments/{id}       Detail experimentu + metriky (Fáze 19)
+  PATCH /experiments/{id}      Aktualizuje status/split (Fáze 19)
+  POST /experiments/{id}/record Zaznamená výsledek varianty (Fáze 19)
+  DELETE /experiments/{id}     Smaže experiment (Fáze 19)
   POST /workflows              Vytvoří workflow (Fáze 18)
   GET  /workflows              Vypíše workflows (Fáze 18)
   GET  /workflows/{id}         Detail workflow (Fáze 18)
@@ -83,6 +89,7 @@ from core.audit_log import AuditLog
 from core.budget_manager import BudgetManager
 from core.cache import ResponseCache
 from core.persistence import Database
+from core.ab_test import ABTestManager
 from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
 from core.workflow import WorkflowEngine
@@ -119,6 +126,7 @@ scheduler: TaskScheduler = TaskScheduler()
 tool_registry: ToolRegistry = ToolRegistry()
 feedback_store: FeedbackStore = FeedbackStore()
 workflow_engine: WorkflowEngine = WorkflowEngine()
+ab_manager: ABTestManager = ABTestManager()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -280,6 +288,25 @@ class WorkflowStepRequest(BaseModel):
 class CreateWorkflowRequest(BaseModel):
     name: str
     steps: list[WorkflowStepRequest]
+
+
+class CreateExperimentRequest(BaseModel):
+    name: str
+    control_provider: str
+    treatment_provider: str
+    traffic_split: float = 0.5
+
+
+class UpdateExperimentRequest(BaseModel):
+    status: str | None = None
+    traffic_split: float | None = None
+
+
+class RecordOutcomeRequest(BaseModel):
+    provider: str
+    success: bool
+    latency_ms: float = 0.0
+    rating: float | None = None
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -857,6 +884,75 @@ async def delete_scheduled_job(job_id: str) -> dict:
     if not removed:
         raise HTTPException(status_code=404, detail="Job nenalezen")
     return {"status": "removed", "job_id": job_id}
+
+
+# ── A/B Testing (Fáze 19) ────────────────────────────────────────────────────
+
+@app.post("/experiments")
+async def create_experiment(req: CreateExperimentRequest) -> dict:
+    """Vytvoří A/B experiment pro dva providery (Fáze 19)."""
+    try:
+        eid = ab_manager.create_experiment(
+            name=req.name,
+            control_provider=req.control_provider,
+            treatment_provider=req.treatment_provider,
+            traffic_split=req.traffic_split,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"experiment_id": eid, "name": req.name}
+
+
+@app.get("/experiments")
+async def list_experiments() -> dict:
+    """Vypíše A/B experimenty (Fáze 19)."""
+    items = ab_manager.list_experiments()
+    return {"count": len(items), "experiments": items}
+
+
+@app.get("/experiments/{experiment_id}")
+async def get_experiment(experiment_id: str) -> dict:
+    """Vrátí detail A/B experimentu včetně metrik (Fáze 19)."""
+    exp = ab_manager.get_experiment(experiment_id)
+    if exp is None:
+        raise HTTPException(status_code=404, detail="Experiment nenalezen")
+    return exp
+
+
+@app.patch("/experiments/{experiment_id}")
+async def update_experiment(experiment_id: str, req: UpdateExperimentRequest) -> dict:
+    """Aktualizuje status nebo traffic_split experimentu (Fáze 19)."""
+    kwargs = {k: v for k, v in req.model_dump().items() if v is not None}
+    try:
+        ok = ab_manager.update_experiment(experiment_id, **kwargs)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not ok:
+        raise HTTPException(status_code=404, detail="Experiment nenalezen")
+    return {"status": "updated", "experiment_id": experiment_id}
+
+
+@app.post("/experiments/{experiment_id}/record")
+async def record_experiment_outcome(experiment_id: str, req: RecordOutcomeRequest) -> dict:
+    """Zaznamená výsledek požadavku pro daný variant (Fáze 19)."""
+    ok = ab_manager.record_outcome(
+        experiment_id=experiment_id,
+        provider=req.provider,
+        success=req.success,
+        latency_ms=req.latency_ms,
+        rating=req.rating,
+    )
+    if not ok:
+        raise HTTPException(status_code=404, detail="Experiment nebo provider nenalezen")
+    return {"status": "recorded"}
+
+
+@app.delete("/experiments/{experiment_id}")
+async def delete_experiment(experiment_id: str) -> dict:
+    """Smaže A/B experiment (Fáze 19)."""
+    if not ab_manager.delete_experiment(experiment_id):
+        raise HTTPException(status_code=404, detail="Experiment nenalezen")
+    return {"status": "deleted", "experiment_id": experiment_id}
 
 
 # ── Workflow Engine (Fáze 18) ─────────────────────────────────────────────────
