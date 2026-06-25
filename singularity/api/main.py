@@ -91,6 +91,7 @@ from core.cache import ResponseCache
 from core.persistence import Database
 from core.ab_test import ABTestManager
 from core.alerting import AlertManager
+from core.prompt_templates import PromptTemplateRegistry
 from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
 from core.workflow import WorkflowEngine
@@ -129,6 +130,7 @@ feedback_store: FeedbackStore = FeedbackStore()
 workflow_engine: WorkflowEngine = WorkflowEngine()
 ab_manager: ABTestManager = ABTestManager()
 alert_manager: AlertManager = AlertManager()
+prompt_registry: PromptTemplateRegistry = PromptTemplateRegistry()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -325,6 +327,17 @@ class UpdateAlertRequest(BaseModel):
 class EvaluateAlertRequest(BaseModel):
     condition: str
     value: float
+
+
+class RegisterPromptRequest(BaseModel):
+    name: str
+    template: str
+    description: str = ""
+    tags: list[str] = []
+
+
+class RenderPromptRequest(BaseModel):
+    variables: dict[str, str] = {}
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -1162,6 +1175,61 @@ async def invoke_tool(name: str, req: InvokeToolRequest) -> dict:
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"Chyba nástroje: {exc}") from exc
     return {"name": name, "result": result}
+
+
+# ── Prompt Template Registry (Fáze 21) ───────────────────────────────────────
+
+@app.post("/prompts")
+async def register_prompt(req: RegisterPromptRequest) -> dict:
+    """Registruje pojmenovanou prompt šablonu s {{proměnnými}} (Fáze 21)."""
+    try:
+        tid = prompt_registry.register(
+            name=req.name,
+            template=req.template,
+            description=req.description,
+            tags=req.tags,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    t = prompt_registry.get(tid)
+    return {"template_id": tid, "name": req.name, "version": t["version"],
+            "variables": t["variables"]}
+
+
+@app.get("/prompts")
+async def list_prompts(tag: str | None = None) -> dict:
+    """Vypíše všechny prompt šablony; volitelně filtrovat dle tagu (Fáze 21)."""
+    items = prompt_registry.list_templates(tag=tag)
+    return {"count": len(items), "templates": items}
+
+
+@app.get("/prompts/{template_id}")
+async def get_prompt(template_id: str) -> dict:
+    """Vrátí detail prompt šablony (Fáze 21)."""
+    t = prompt_registry.get(template_id)
+    if t is None:
+        raise HTTPException(status_code=404, detail="Šablona nenalezena")
+    return t
+
+
+@app.delete("/prompts/{template_id}")
+async def delete_prompt(template_id: str) -> dict:
+    """Smaže prompt šablonu (Fáze 21)."""
+    if not prompt_registry.delete(template_id):
+        raise HTTPException(status_code=404, detail="Šablona nenalezena")
+    return {"status": "deleted", "template_id": template_id}
+
+
+@app.post("/prompts/{template_id}/render")
+async def render_prompt(template_id: str, req: RenderPromptRequest) -> dict:
+    """Renderuje prompt šablonu s danými proměnnými (Fáze 21)."""
+    try:
+        result = prompt_registry.render(template_id, **req.variables)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="Šablona nenalezena")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"template_id": template_id, "rendered": result}
 
 
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
