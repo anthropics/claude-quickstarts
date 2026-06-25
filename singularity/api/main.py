@@ -90,6 +90,7 @@ from core.budget_manager import BudgetManager
 from core.cache import ResponseCache
 from core.persistence import Database
 from core.ab_test import ABTestManager
+from core.alerting import AlertManager
 from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
 from core.workflow import WorkflowEngine
@@ -127,6 +128,7 @@ tool_registry: ToolRegistry = ToolRegistry()
 feedback_store: FeedbackStore = FeedbackStore()
 workflow_engine: WorkflowEngine = WorkflowEngine()
 ab_manager: ABTestManager = ABTestManager()
+alert_manager: AlertManager = AlertManager()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -307,6 +309,22 @@ class RecordOutcomeRequest(BaseModel):
     success: bool
     latency_ms: float = 0.0
     rating: float | None = None
+
+
+class CreateAlertRequest(BaseModel):
+    name: str
+    condition: str
+    threshold: float
+    callback_url: str
+
+
+class UpdateAlertRequest(BaseModel):
+    status: str      # "active" | "muted"
+
+
+class EvaluateAlertRequest(BaseModel):
+    condition: str
+    value: float
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -884,6 +902,66 @@ async def delete_scheduled_job(job_id: str) -> dict:
     if not removed:
         raise HTTPException(status_code=404, detail="Job nenalezen")
     return {"status": "removed", "job_id": job_id}
+
+
+# ── Alerting (Fáze 20) ───────────────────────────────────────────────────────
+
+@app.post("/alerts")
+async def create_alert(req: CreateAlertRequest) -> dict:
+    """Vytvoří prahový alert s HTTP-callback (Fáze 20)."""
+    try:
+        aid = alert_manager.create_alert(
+            name=req.name,
+            condition=req.condition,
+            threshold=req.threshold,
+            callback_url=req.callback_url,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"alert_id": aid, "name": req.name, "condition": req.condition}
+
+
+@app.get("/alerts")
+async def list_alerts() -> dict:
+    """Vypíše všechny definované alerty (Fáze 20)."""
+    items = alert_manager.list_alerts()
+    return {"count": len(items), "alerts": items}
+
+
+@app.get("/alerts/{alert_id}")
+async def get_alert(alert_id: str) -> dict:
+    """Vrátí detail alertu včetně fire_count (Fáze 20)."""
+    a = alert_manager.get_alert(alert_id)
+    if a is None:
+        raise HTTPException(status_code=404, detail="Alert nenalezen")
+    return a
+
+
+@app.patch("/alerts/{alert_id}")
+async def update_alert_status(alert_id: str, req: UpdateAlertRequest) -> dict:
+    """Ztlumí nebo aktivuje alert (Fáze 20)."""
+    try:
+        ok = alert_manager.set_status(alert_id, req.status)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if not ok:
+        raise HTTPException(status_code=404, detail="Alert nenalezen")
+    return {"status": "updated", "alert_id": alert_id, "new_status": req.status}
+
+
+@app.delete("/alerts/{alert_id}")
+async def delete_alert(alert_id: str) -> dict:
+    """Smaže alert (Fáze 20)."""
+    if not alert_manager.delete_alert(alert_id):
+        raise HTTPException(status_code=404, detail="Alert nenalezen")
+    return {"status": "deleted", "alert_id": alert_id}
+
+
+@app.post("/alerts/evaluate")
+async def evaluate_alerts(req: EvaluateAlertRequest) -> dict:
+    """Ručně spustí evaluaci alertů pro daný condition + value (Fáze 20)."""
+    fired = await alert_manager.evaluate(req.condition, req.value)
+    return {"condition": req.condition, "value": req.value, "fired_count": len(fired), "fired": fired}
 
 
 # ── A/B Testing (Fáze 19) ────────────────────────────────────────────────────
