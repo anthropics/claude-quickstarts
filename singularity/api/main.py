@@ -46,6 +46,10 @@ Endpointy:
   POST /scheduler/jobs         Přidá nový opakovaný úkol (Fáze 15)
   GET  /scheduler/jobs         Vypíše naplánované joby (Fáze 15)
   DELETE /scheduler/jobs/{id}  Odstraní naplánovaný job (Fáze 15)
+  POST /workflows              Vytvoří workflow (Fáze 18)
+  GET  /workflows              Vypíše workflows (Fáze 18)
+  GET  /workflows/{id}         Detail workflow (Fáze 18)
+  POST /workflows/{id}/run     Spustí workflow asynchronně (Fáze 18)
   POST /task/{id}/feedback     Uloží hodnocení tasku 1–5 + thumbs (Fáze 17)
   GET  /task/{id}/feedback     Vrátí hodnocení tasku (Fáze 17)
   GET  /feedback/stats         Agregované statistiky hodnocení (Fáze 17)
@@ -81,6 +85,7 @@ from core.cache import ResponseCache
 from core.persistence import Database
 from core.feedback import FeedbackStore
 from core.scheduler import TaskScheduler
+from core.workflow import WorkflowEngine
 from core.tool_registry import ToolRegistry
 from core.tracing import get_finished_spans, setup_tracing
 from core.graceful_shutdown import GracefulShutdown
@@ -113,6 +118,7 @@ db: Database | None = None
 scheduler: TaskScheduler = TaskScheduler()
 tool_registry: ToolRegistry = ToolRegistry()
 feedback_store: FeedbackStore = FeedbackStore()
+workflow_engine: WorkflowEngine = WorkflowEngine()
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -261,6 +267,19 @@ class FeedbackRequest(BaseModel):
     rating: int             # 1–5
     thumbs: str = ""        # "up" | "down" | ""
     comment: str = ""
+
+
+class WorkflowStepRequest(BaseModel):
+    task: str
+    user_id: str = "workflow"
+    force_provider: str = ""
+    priority: str = "NORMAL"
+    max_retries: int = 0
+
+
+class CreateWorkflowRequest(BaseModel):
+    name: str
+    steps: list[WorkflowStepRequest]
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -838,6 +857,56 @@ async def delete_scheduled_job(job_id: str) -> dict:
     if not removed:
         raise HTTPException(status_code=404, detail="Job nenalezen")
     return {"status": "removed", "job_id": job_id}
+
+
+# ── Workflow Engine (Fáze 18) ─────────────────────────────────────────────────
+
+@app.post("/workflows")
+async def create_workflow(req: CreateWorkflowRequest) -> dict:
+    """Vytvoří nový workflow (Fáze 18)."""
+    try:
+        wid = workflow_engine.create_workflow(
+            name=req.name,
+            steps=[s.model_dump() for s in req.steps],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"workflow_id": wid, "name": req.name, "step_count": len(req.steps)}
+
+
+@app.get("/workflows")
+async def list_workflows() -> dict:
+    """Vypíše všechny workflows (Fáze 18)."""
+    items = workflow_engine.list_workflows()
+    return {"count": len(items), "workflows": items}
+
+
+@app.get("/workflows/{workflow_id}")
+async def get_workflow(workflow_id: str) -> dict:
+    """Vrátí detail workflow (Fáze 18)."""
+    wf = workflow_engine.get_workflow(workflow_id)
+    if wf is None:
+        raise HTTPException(status_code=404, detail="Workflow nenalezen")
+    return wf
+
+
+@app.post("/workflows/{workflow_id}/run")
+async def run_workflow(workflow_id: str) -> dict:
+    """Spustí workflow asynchronně (Fáze 18). Vrátí okamžitě."""
+    wf = workflow_engine.get_workflow(workflow_id)
+    if wf is None:
+        raise HTTPException(status_code=404, detail="Workflow nenalezen")
+    if wf["status"] == "running":
+        raise HTTPException(status_code=409, detail="Workflow již běží")
+
+    async def _run():
+        try:
+            await workflow_engine.run_workflow(workflow_id, task_queue)
+        except Exception as exc:
+            log.error("workflow_run_error", workflow_id=workflow_id, error=str(exc))
+
+    asyncio.create_task(_run(), name=f"workflow_{workflow_id}")
+    return {"status": "started", "workflow_id": workflow_id}
 
 
 # ── Human Feedback (Fáze 17) ─────────────────────────────────────────────────
