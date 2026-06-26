@@ -71,6 +71,13 @@ Endpointy:
   GET  /hpc/cluster/status     Stav HPC clusteru + konfigurace (Fáze 26)
   POST /hpc/cascade/route      LLM Cascade routing Draft→Oracle (Fáze 26)
   GET  /hpc/cascade/metrics    Statistiky Cascade routeru (Fáze 26)
+  POST /guardrails/rules       Přidá vlastní moderační pravidlo (Fáze 27)
+  GET  /guardrails/rules       Vypíše pravidla (filtrovatelné category) (Fáze 27)
+  GET  /guardrails/rules/{id}  Detail pravidla (Fáze 27)
+  PATCH /guardrails/rules/{id} Zapne/vypne pravidlo (Fáze 27)
+  DELETE /guardrails/rules/{id} Smaže vlastní pravidlo (Fáze 27)
+  POST /guardrails/scan        Naskenuje text (input/output) (Fáze 27)
+  GET  /guardrails/stats       Statistiky skenování (Fáze 27)
 """
 from __future__ import annotations
 
@@ -102,6 +109,7 @@ from core.prompt_templates import PromptTemplateRegistry
 from core.secret_manager import SecretManager
 from core.quota_manager import QuotaManager
 from core.circuit_breaker import CircuitBreakerRegistry
+from core.guardrails import GuardrailManager
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -146,6 +154,7 @@ batch_processor: BatchProcessor = BatchProcessor()
 secret_manager: SecretManager = SecretManager()
 quota_manager: QuotaManager = QuotaManager()
 circuit_breakers: CircuitBreakerRegistry = CircuitBreakerRegistry()
+guardrails: GuardrailManager = GuardrailManager()
 
 # HPC Cascade router (Fáze 26) — initialized lazily on first use
 _cascade_router: CascadeRouter | None = None
@@ -1756,3 +1765,87 @@ async def hpc_cascade_metrics():
     if _cascade_router is None:
         return {"message": "Cascade router not yet initialized", "metrics": None}
     return {"metrics": _cascade_router.metrics()}
+
+
+# ── Guardrails / Content Moderation (Fáze 27) ─────────────────────────────────
+
+
+class GuardrailRuleRequest(BaseModel):
+    name: str
+    pattern: str
+    action: str          # allow | flag | redact | block
+    category: str = "custom"
+    placeholder: str = "[REDACTED]"
+
+
+class GuardrailToggleRequest(BaseModel):
+    enabled: bool
+
+
+class GuardrailScanRequest(BaseModel):
+    text: str
+    direction: str = "input"   # input | output
+
+
+@app.post("/guardrails/rules", tags=["Guardrails"])
+async def guardrails_add_rule(req: GuardrailRuleRequest):
+    """Register a custom content-moderation rule."""
+    try:
+        rule_id = guardrails.add_rule(
+            name=req.name,
+            pattern=req.pattern,
+            action=req.action,
+            category=req.category,
+            placeholder=req.placeholder,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"rule_id": rule_id, "rule": guardrails.get_rule(rule_id)}
+
+
+@app.get("/guardrails/rules", tags=["Guardrails"])
+async def guardrails_list_rules(category: str | None = None):
+    """List moderation rules, optionally filtered by category."""
+    return {"rules": guardrails.list_rules(category=category)}
+
+
+@app.get("/guardrails/rules/{rule_id}", tags=["Guardrails"])
+async def guardrails_get_rule(rule_id: str):
+    """Get a specific moderation rule."""
+    rule = guardrails.get_rule(rule_id)
+    if rule is None:
+        raise HTTPException(status_code=404, detail=f"Rule {rule_id} not found")
+    return rule
+
+
+@app.patch("/guardrails/rules/{rule_id}", tags=["Guardrails"])
+async def guardrails_toggle_rule(rule_id: str, req: GuardrailToggleRequest):
+    """Enable or disable a moderation rule."""
+    if not guardrails.set_enabled(rule_id, req.enabled):
+        raise HTTPException(status_code=404, detail=f"Rule {rule_id} not found")
+    return guardrails.get_rule(rule_id)
+
+
+@app.delete("/guardrails/rules/{rule_id}", tags=["Guardrails"])
+async def guardrails_delete_rule(rule_id: str):
+    """Delete a custom moderation rule (built-ins cannot be deleted)."""
+    try:
+        deleted = guardrails.delete_rule(rule_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Rule {rule_id} not found")
+    return {"deleted": rule_id}
+
+
+@app.post("/guardrails/scan", tags=["Guardrails"])
+async def guardrails_scan(req: GuardrailScanRequest):
+    """Scan text against all enabled moderation rules."""
+    result = guardrails.scan(req.text, direction=req.direction)
+    return result.to_dict()
+
+
+@app.get("/guardrails/stats", tags=["Guardrails"])
+async def guardrails_stats():
+    """Return guardrail scanning statistics."""
+    return guardrails.stats()
