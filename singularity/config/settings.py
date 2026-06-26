@@ -70,6 +70,12 @@ class SingularitySettings(BaseSettings):
     guardrails_scan_input: bool = True
     guardrails_scan_output: bool = True
 
+    # ── Semantic Cache (Fáze 29) ─────────────────────────────────────────────
+    enable_semantic_cache: bool = True
+    semantic_cache_threshold: float = 0.95   # cosine similarity threshold for hits
+    semantic_cache_max_size: int = 500       # max entries (LRU eviction)
+    semantic_cache_ttl_s: float = 300.0     # TTL per entry (seconds)
+
     # ── Multi-Agent Orchestrator (Fáze 28) ────────────────────────────────────
     orchestrator_max_parallel: int = 8       # max simultaneous sub-tasks per wave
     orchestrator_timeout_s: float = 60.0    # per-task timeout in seconds
