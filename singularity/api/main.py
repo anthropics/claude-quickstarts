@@ -94,6 +94,8 @@ Endpointy:
   POST /validate/metrics/reset Reset metrik validátoru (Fáze 31)
   POST /context/fit            Ořízne historii na token budget (Fáze 32)
   GET  /context/metrics        Metriky context manageru (Fáze 32)
+  POST /consensus              Konsenzus nad vzorky odpovědí (Fáze 33)
+  GET  /consensus/metrics      Metriky consensus enginu (Fáze 33)
 """
 from __future__ import annotations
 
@@ -144,6 +146,7 @@ from core.validator import (
     BannedWordsConstraint,
 )
 from core.context_manager import ContextWindowManager, TrimStrategy
+from core.consensus import ConsensusEngine
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -217,6 +220,13 @@ _context_manager: ContextWindowManager = ContextWindowManager(
     max_tokens=settings.context_max_tokens,
     keep_recent=settings.context_keep_recent,
     strategy=TrimStrategy(settings.context_trim_strategy),
+)
+
+# Consensus Engine (Fáze 33)
+_consensus: ConsensusEngine = ConsensusEngine(
+    n_samples=settings.consensus_n_samples,
+    similarity_threshold=settings.consensus_similarity_threshold,
+    agreement_threshold=settings.consensus_agreement_threshold,
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -2185,3 +2195,37 @@ async def context_fit(req: ContextFitRequest):
 async def context_metrics():
     """Context window manager metrics: trim rate, dropped/summarized counts."""
     return _context_manager.metrics()
+
+
+# ── Consensus Engine (Fáze 33) ─────────────────────────────────────────────────
+
+class ConsensusRequest(BaseModel):
+    samples: list[str]
+    similarity_threshold: float | None = None
+    agreement_threshold: float | None = None
+
+
+@app.post("/consensus", tags=["Consensus"])
+async def consensus(req: ConsensusRequest):
+    """Compute self-consistency consensus over a list of candidate answers."""
+    if req.similarity_threshold is not None or req.agreement_threshold is not None:
+        try:
+            engine = ConsensusEngine(
+                n_samples=max(1, len(req.samples)),
+                similarity_threshold=req.similarity_threshold
+                or settings.consensus_similarity_threshold,
+                agreement_threshold=req.agreement_threshold
+                or settings.consensus_agreement_threshold,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        engine = _consensus
+    result = engine.from_samples(req.samples)
+    return result.to_dict()
+
+
+@app.get("/consensus/metrics", tags=["Consensus"])
+async def consensus_metrics():
+    """Consensus engine metrics: agreement rate, average confidence."""
+    return _consensus.metrics()

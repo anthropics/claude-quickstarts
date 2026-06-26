@@ -96,6 +96,12 @@ class SingularitySettings(BaseSettings):
     context_keep_recent: int = 4              # always-keep most recent N turns
     context_trim_strategy: str = "drop_oldest"  # drop_oldest | summarize_oldest | keep_recent
 
+    # ── Consensus Engine (Fáze 33) ────────────────────────────────────────────
+    enable_consensus: bool = False            # self-consistency sampling (costly)
+    consensus_n_samples: int = 5              # samples per consensus run
+    consensus_similarity_threshold: float = 0.9  # cluster grouping similarity
+    consensus_agreement_threshold: float = 0.5   # confidence to count as agreement
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
