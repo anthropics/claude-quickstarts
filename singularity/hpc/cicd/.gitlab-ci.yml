@@ -1,0 +1,118 @@
+---
+# GitLab CI — Apptainer SIF build + sign + test + publish pipeline
+# Runs on a runner with `apptainer` >= 1.2 and fakeroot configured.
+# Artifacts: AGI_Core_Env.sif stored in GitLab / pushed to OCI Harbor + DVC.
+
+stages:
+  - build
+  - sign
+  - test
+  - publish
+
+variables:
+  SIF_NAME: "AGI_Core_Env.sif"
+  SIF_PATH: "${CI_PROJECT_DIR}/hpc/apptainer/${SIF_NAME}"
+  DEF_PATH: "${CI_PROJECT_DIR}/hpc/apptainer/AGI_Core_Env.def"
+  HARBOR_REGISTRY: "${HARBOR_HOST:-harbor.example.com}"
+  HARBOR_PROJECT: "agi"
+  DVC_REMOTE: "myremote"
+  # Secrets injected via CI/CD variables (masked):
+  #   HARBOR_USER, HARBOR_PASS, GPG_KEY_PASSPHRASE
+
+# ── Build ──────────────────────────────────────────────────────────────────────
+build_sif:
+  stage: build
+  tags: [hpc, apptainer, fakeroot]
+  script:
+    - echo "[CI] Building ${SIF_NAME} ..."
+    - apptainer build --fakeroot "${SIF_PATH}" "${DEF_PATH}"
+    - ls -lh "${SIF_PATH}"
+  artifacts:
+    paths:
+      - hpc/apptainer/${SIF_NAME}
+    expire_in: 1 week
+  cache:
+    key: apptainer-layers-${CI_COMMIT_REF_SLUG}
+    paths:
+      - /tmp/apptainer-cache/
+
+# ── Sign ───────────────────────────────────────────────────────────────────────
+sign_sif:
+  stage: sign
+  tags: [hpc, apptainer]
+  needs: [build_sif]
+  script:
+    - echo "[CI] Signing ${SIF_NAME} ..."
+    - echo "${GPG_KEY_PASSPHRASE}" | apptainer key import /dev/stdin 2>/dev/null || true
+    - bash hpc/security/sign_sif.sh "${SIF_PATH}" 0
+  artifacts:
+    paths:
+      - hpc/apptainer/${SIF_NAME}
+    expire_in: 1 week
+
+# ── Test ───────────────────────────────────────────────────────────────────────
+test_sif:
+  stage: test
+  tags: [hpc, apptainer, gpu]
+  needs: [sign_sif]
+  script:
+    - echo "[CI] Running container self-test ..."
+    - apptainer exec "${SIF_PATH}" python -c "
+import torch
+assert torch.cuda.is_available(), 'CUDA not available!'
+import lightning
+print(f'Lightning {lightning.__version__} OK')
+print('All checks passed.')
+"
+    - echo "[CI] Running unit tests inside container ..."
+    - apptainer exec "${SIF_PATH}" python -m pytest
+        singularity/tests/unit/test_cascade_router.py -v --tb=short
+
+test_cascade_router:
+  stage: test
+  tags: [hpc]
+  needs: []
+  image: python:3.10-slim
+  before_script:
+    - pip install -q pytest structlog
+  script:
+    - cd singularity
+    - python -m pytest tests/unit/test_cascade_router.py -v
+
+# ── Publish ────────────────────────────────────────────────────────────────────
+publish_harbor:
+  stage: publish
+  tags: [hpc, apptainer]
+  needs: [sign_sif, test_sif]
+  only:
+    - main
+    - /^release\/.*/
+  script:
+    - echo "[CI] Pushing to Harbor OCI registry ..."
+    - apptainer registry login
+        --username "${HARBOR_USER}"
+        --password "${HARBOR_PASS}"
+        "oras://${HARBOR_REGISTRY}"
+    - apptainer push "${SIF_PATH}"
+        "oras://${HARBOR_REGISTRY}/${HARBOR_PROJECT}/agi-core:${CI_COMMIT_SHORT_SHA}"
+    - apptainer push "${SIF_PATH}"
+        "oras://${HARBOR_REGISTRY}/${HARBOR_PROJECT}/agi-core:latest"
+
+publish_dvc:
+  stage: publish
+  tags: [hpc]
+  needs: [sign_sif, test_sif]
+  only:
+    - main
+    - /^release\/.*/
+  script:
+    - echo "[CI] Tracking SIF with DVC ..."
+    - dvc add "${SIF_PATH}"
+    - dvc push -r "${DVC_REMOTE}"
+    - git config user.email "ci@example.com"
+    - git config user.name "GitLab CI"
+    - git add "${SIF_PATH}.dvc" hpc/apptainer/.gitignore
+    - git diff --cached --quiet ||
+        git commit -m "ci: update DVC pointer for ${SIF_NAME} (${CI_COMMIT_SHORT_SHA})"
+    - git push "https://ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+        HEAD:"${CI_COMMIT_REF_NAME}"

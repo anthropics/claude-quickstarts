@@ -65,6 +65,12 @@ Endpointy:
   POST /tools/{name}/invoke    Invokuje nástroj s parametry (Fáze 16)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
+  POST /hpc/jobs               Odešle HPC/Slurm job (Fáze 26)
+  GET  /hpc/jobs               Vypíše HPC joby (Fáze 26)
+  GET  /hpc/jobs/{id}          Detail HPC jobu (Fáze 26)
+  GET  /hpc/cluster/status     Stav HPC clusteru + konfigurace (Fáze 26)
+  POST /hpc/cascade/route      LLM Cascade routing Draft→Oracle (Fáze 26)
+  GET  /hpc/cascade/metrics    Statistiky Cascade routeru (Fáze 26)
 """
 from __future__ import annotations
 
@@ -97,6 +103,7 @@ from core.secret_manager import SecretManager
 from core.quota_manager import QuotaManager
 from core.circuit_breaker import CircuitBreakerRegistry
 from core.feedback import FeedbackStore
+from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
 from core.workflow import WorkflowEngine
 from core.tool_registry import ToolRegistry
@@ -139,6 +146,9 @@ batch_processor: BatchProcessor = BatchProcessor()
 secret_manager: SecretManager = SecretManager()
 quota_manager: QuotaManager = QuotaManager()
 circuit_breakers: CircuitBreakerRegistry = CircuitBreakerRegistry()
+
+# HPC Cascade router (Fáze 26) — initialized lazily on first use
+_cascade_router: CascadeRouter | None = None
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -1604,3 +1614,145 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
                 await websocket.send_json({"event": "error", "message": str(exc)})
     except WebSocketDisconnect:
         log.info("ws_disconnected", user_id=user_id)
+
+
+# ── HPC (Fáze 26) ─────────────────────────────────────────────────────────────
+
+
+class HpcJobRequest(BaseModel):
+    script: str = "submit_ddp_agi.sh"
+    nodes: int = 1
+    gpus_per_node: int = 8
+    partition: str = ""
+    sif_path: str = ""
+    extra_args: dict = {}
+
+
+class HpcJobResponse(BaseModel):
+    job_id: str
+    status: str
+    script: str
+    nodes: int
+    gpus_per_node: int
+    partition: str
+    submitted_at: str
+
+
+class CascadeRouteRequest(BaseModel):
+    messages: list[dict]
+    confidence_threshold: float = 0.7
+
+
+class CascadeRouteResponse(BaseModel):
+    content: str
+    provider: str
+    confidence: float
+    latency_ms: float
+    tokens_used: int
+    metadata: dict
+
+
+# In-memory HPC job store (production: use Slurm REST API / DB)
+_hpc_jobs: dict[str, dict] = {}
+
+
+@app.post("/hpc/jobs", tags=["HPC"])
+async def hpc_submit_job(req: HpcJobRequest):
+    """Submit a simulated HPC job (Slurm sbatch). In production, calls sbatch directly."""
+    import uuid
+    from datetime import datetime, timezone
+    job_id = f"hpc-{uuid.uuid4().hex[:8]}"
+    partition = req.partition or settings.slurm_partition
+    sif_path = req.sif_path or settings.apptainer_sif_path
+    record = {
+        "job_id": job_id,
+        "status": "submitted",
+        "script": req.script,
+        "nodes": req.nodes,
+        "gpus_per_node": req.gpus_per_node,
+        "partition": partition,
+        "sif_path": sif_path,
+        "extra_args": req.extra_args,
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _hpc_jobs[job_id] = record
+    log.info("hpc_job_submitted", job_id=job_id, nodes=req.nodes, partition=partition)
+    return record
+
+
+@app.get("/hpc/jobs", tags=["HPC"])
+async def hpc_list_jobs():
+    """List all submitted HPC jobs."""
+    return {"jobs": list(_hpc_jobs.values()), "total": len(_hpc_jobs)}
+
+
+@app.get("/hpc/jobs/{job_id}", tags=["HPC"])
+async def hpc_get_job(job_id: str):
+    """Get status of a specific HPC job."""
+    job = _hpc_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return job
+
+
+@app.get("/hpc/cluster/status", tags=["HPC"])
+async def hpc_cluster_status():
+    """Return HPC cluster configuration status."""
+    return {
+        "hpc_enabled": settings.hpc_enabled,
+        "slurm_partition": settings.slurm_partition,
+        "apptainer_sif_path": settings.apptainer_sif_path,
+        "container_registry": settings.container_registry,
+        "nccl_ib_hca": settings.nccl_ib_hca,
+        "burst_buffer_path": settings.burst_buffer_path,
+        "cascade_confidence_threshold": settings.cascade_confidence_threshold,
+        "cascade_draft_provider": settings.cascade_draft_provider,
+        "cascade_oracle_provider": settings.cascade_oracle_provider,
+        "jobs_submitted": len(_hpc_jobs),
+    }
+
+
+def _get_or_create_cascade_router() -> CascadeRouter:
+    """Return or create the global cascade router using the main LLM providers."""
+    global _cascade_router
+    if _cascade_router is None and core is not None:
+        router = core.router
+        draft = (router._gemini if router._gemini else router._claude)
+        oracle = router._claude
+        _cascade_router = CascadeRouter(
+            draft_provider=draft,
+            oracle_provider=oracle,
+            confidence_threshold=settings.cascade_confidence_threshold,
+        )
+    if _cascade_router is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Core not initialized — cascade router unavailable",
+        )
+    return _cascade_router
+
+
+@app.post("/hpc/cascade/route", tags=["HPC"])
+async def hpc_cascade_route(req: CascadeRouteRequest):
+    """Route a prompt through the LLM Cascade (Draft → Oracle)."""
+    router = _get_or_create_cascade_router()
+    if req.confidence_threshold != router.confidence_threshold:
+        router.confidence_threshold = req.confidence_threshold
+    resp: CascadeLLMResponse = await router.route(req.messages)
+    return CascadeRouteResponse(
+        content=resp.content,
+        provider=resp.provider,
+        confidence=resp.confidence,
+        latency_ms=resp.latency_ms,
+        tokens_used=resp.tokens_used,
+        metadata=resp.metadata,
+    )
+
+
+@app.get("/hpc/cascade/metrics", tags=["HPC"])
+async def hpc_cascade_metrics():
+    """Return LLM Cascade routing statistics."""
+    global _cascade_router
+    if _cascade_router is None:
+        return {"message": "Cascade router not yet initialized", "metrics": None}
+    return {"metrics": _cascade_router.metrics()}

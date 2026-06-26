@@ -54,6 +54,17 @@ class SingularitySettings(BaseSettings):
     # ── Scheduler ─────────────────────────────────────────────
     enable_scheduler: bool = True      # Fáze 15: cron-style recurring tasks
 
+    # ── HPC / Apptainer (Fáze 26) ─────────────────────────────────────────────
+    hpc_enabled: bool = False
+    slurm_partition: str = "gpu_agi"
+    apptainer_sif_path: str = "/share/groupname/containers/AGI_Core_Env.sif"
+    container_registry: str = "harbor.example.com/agi"
+    nccl_ib_hca: str = "mlx5_0"
+    burst_buffer_path: str = "/dev/shm/agi"
+    cascade_confidence_threshold: float = 0.7
+    cascade_draft_provider: str = "gemini"
+    cascade_oracle_provider: str = "claude"
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

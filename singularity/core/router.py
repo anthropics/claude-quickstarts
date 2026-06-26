@@ -27,6 +27,17 @@ from providers.base import AbstractLLMProvider
 
 log = structlog.get_logger()
 
+# CascadeRouter is imported lazily to avoid circular imports at module load
+_cascade_router_cls = None
+
+
+def _get_cascade_router():
+    global _cascade_router_cls
+    if _cascade_router_cls is None:
+        from hpc.cascade.cascade_router import CascadeRouter  # noqa: PLC0415
+        _cascade_router_cls = CascadeRouter
+    return _cascade_router_cls
+
 VALID_STRATEGIES = (
     "static",
     "failover",
@@ -34,6 +45,7 @@ VALID_STRATEGIES = (
     "cost_optimized",
     "latency_optimized",
     "quality_first",
+    "cascade",
 )
 
 _STATIC_ROUTING: dict[AgentRole, str] = {
@@ -53,6 +65,7 @@ class LLMRouter:
         claude: AbstractLLMProvider,
         gemini: AbstractLLMProvider | None,
         strategy: str = "static",
+        cascade_confidence_threshold: float = 0.7,
     ) -> None:
         if strategy not in VALID_STRATEGIES:
             raise ValueError(f"Neznámá strategie: {strategy!r}")
@@ -61,6 +74,8 @@ class LLMRouter:
         self._gemini = gemini
         self._strategy = strategy
         self._rr_cycle = itertools.cycle(self.all_providers())
+        self._cascade_confidence_threshold = cascade_confidence_threshold
+        self._cascade_router = None  # instantiated on first use
 
         log.info("router_init", strategy=strategy, providers=[p.name for p in self.all_providers()])
 
@@ -81,6 +96,11 @@ class LLMRouter:
             return min(available, key=lambda p: p.typical_latency_ms)
         if self._strategy == "quality_first":
             return min(available, key=lambda p: p.quality_rank)
+        if self._strategy == "cascade":
+            # For synchronous get_provider() in cascade mode, return the draft provider.
+            # The async route() method on get_cascade_router() must be used for full cascade.
+            draft_name = "gemini" if self._gemini else "claude"
+            return self._resolve(draft_name)
 
         # static / failover — preferuj přiřazený provider, jinak první dostupný
         preferred = self._resolve(_STATIC_ROUTING.get(role, "claude"))
@@ -104,6 +124,18 @@ class LLMRouter:
 
     def available_providers(self) -> list[AbstractLLMProvider]:
         return [p for p in self.all_providers() if p.is_available()]
+
+    def get_cascade_router(self):
+        """Return (creating if needed) a CascadeRouter using draft=gemini, oracle=claude."""
+        if self._cascade_router is None:
+            CascadeRouter = _get_cascade_router()
+            draft = self._gemini if self._gemini else self._claude
+            self._cascade_router = CascadeRouter(
+                draft_provider=draft,
+                oracle_provider=self._claude,
+                confidence_threshold=self._cascade_confidence_threshold,
+            )
+        return self._cascade_router
 
     def set_strategy(self, strategy: str) -> None:
         if strategy not in VALID_STRATEGIES:
