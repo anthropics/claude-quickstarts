@@ -65,6 +65,11 @@ class SingularitySettings(BaseSettings):
     cascade_draft_provider: str = "gemini"
     cascade_oracle_provider: str = "claude"
 
+    # ── Guardrails / Content Moderation (Fáze 27) ─────────────────────────────
+    guardrails_enabled: bool = True
+    guardrails_scan_input: bool = True
+    guardrails_scan_output: bool = True
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
