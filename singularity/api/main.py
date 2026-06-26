@@ -65,6 +65,12 @@ Endpointy:
   POST /tools/{name}/invoke    Invokuje nástroj s parametry (Fáze 16)
   WS   /ws/{uid}               Real-time node-level streaming (Fáze 1)
   GET  /health                 Health check (zachováno pro zpětnou kompatibilitu)
+  POST /hpc/jobs               Odešle HPC/Slurm job (Fáze 26)
+  GET  /hpc/jobs               Vypíše HPC joby (Fáze 26)
+  GET  /hpc/jobs/{id}          Detail HPC jobu (Fáze 26)
+  GET  /hpc/cluster/status     Stav HPC clusteru + konfigurace (Fáze 26)
+  POST /hpc/cascade/route      LLM Cascade routing Draft→Oracle (Fáze 26)
+  GET  /hpc/cascade/metrics    Statistiky Cascade routeru (Fáze 26)
 """
 from __future__ import annotations
 
@@ -94,7 +100,10 @@ from core.alerting import AlertManager
 from core.batch import BatchProcessor
 from core.prompt_templates import PromptTemplateRegistry
 from core.secret_manager import SecretManager
+from core.quota_manager import QuotaManager
+from core.circuit_breaker import CircuitBreakerRegistry
 from core.feedback import FeedbackStore
+from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
 from core.workflow import WorkflowEngine
 from core.tool_registry import ToolRegistry
@@ -135,6 +144,11 @@ alert_manager: AlertManager = AlertManager()
 prompt_registry: PromptTemplateRegistry = PromptTemplateRegistry()
 batch_processor: BatchProcessor = BatchProcessor()
 secret_manager: SecretManager = SecretManager()
+quota_manager: QuotaManager = QuotaManager()
+circuit_breakers: CircuitBreakerRegistry = CircuitBreakerRegistry()
+
+# HPC Cascade router (Fáze 26) — initialized lazily on first use
+_cascade_router: CascadeRouter | None = None
 
 # Jednoduchý in-memory záznam provider_log per task (v produkci: Redis)
 _task_provider_log: dict[str, dict] = {}
@@ -366,6 +380,31 @@ class StoreSecretRequest(BaseModel):
 
 class RotateSecretRequest(BaseModel):
     new_value: str
+
+
+class SetQuotaRequest(BaseModel):
+    user_id: str
+    metric: str
+    limit: float
+    window: str = "daily"
+
+
+class RecordQuotaUsageRequest(BaseModel):
+    user_id: str
+    requests: float = 0.0
+    tokens: float = 0.0
+    cost_usd: float = 0.0
+
+
+class CreateBreakerRequest(BaseModel):
+    name: str
+    failure_threshold: int = 5
+    recovery_timeout_s: float = 60.0
+    success_threshold: int = 2
+
+
+class RecordBreakerEventRequest(BaseModel):
+    event: str   # "success" | "failure" | "rejected"
 
 
 # ── REST endpointy ──────────────────────────────────────────────────────────────
@@ -1370,6 +1409,129 @@ async def delete_secret(secret_id: str, owner: str) -> dict:
     return {"status": "deleted", "secret_id": secret_id}
 
 
+# ── Quota Manager (Fáze 24) ──────────────────────────────────────────────────
+
+@app.post("/quotas")
+async def set_quota(req: SetQuotaRequest) -> dict:
+    """Nastaví kvótu pro uživatele (requests/tokens/cost_usd × okno) (Fáze 24)."""
+    try:
+        rid = quota_manager.set_quota(
+            req.user_id, req.metric, req.limit, window=req.window
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"rule_id": rid, "user_id": req.user_id,
+            "metric": req.metric, "limit": req.limit, "window": req.window}
+
+
+@app.get("/quotas")
+async def list_quotas(user_id: str | None = None) -> dict:
+    """Vypíše kvóty; volitelně filtrovat dle user_id (Fáze 24)."""
+    items = quota_manager.list_quotas(user_id=user_id)
+    return {"count": len(items), "quotas": items}
+
+
+@app.get("/quotas/{rule_id}")
+async def get_quota(rule_id: str) -> dict:
+    """Vrátí kvótu podle rule_id (Fáze 24)."""
+    r = quota_manager.get_quota(rule_id)
+    if r is None:
+        raise HTTPException(status_code=404, detail="Kvóta nenalezena")
+    return r
+
+
+@app.delete("/quotas/{rule_id}")
+async def delete_quota(rule_id: str) -> dict:
+    """Smaže kvótu (Fáze 24)."""
+    if not quota_manager.delete_quota(rule_id):
+        raise HTTPException(status_code=404, detail="Kvóta nenalezena")
+    return {"status": "deleted", "rule_id": rule_id}
+
+
+@app.post("/quotas/usage")
+async def record_quota_usage(req: RecordQuotaUsageRequest) -> dict:
+    """Zaznamená spotřebu pro daného uživatele (Fáze 24)."""
+    quota_manager.record_usage(
+        req.user_id,
+        requests=req.requests,
+        tokens=req.tokens,
+        cost_usd=req.cost_usd,
+    )
+    return {"status": "recorded", "user_id": req.user_id}
+
+
+@app.get("/quotas/check/{user_id}")
+async def check_quota(user_id: str, metric: str = "requests") -> dict:
+    """Zkontroluje, zda uživatel nepřekročil kvótu pro danou metriku (Fáze 24)."""
+    try:
+        return quota_manager.check_quota(user_id, metric)  # type: ignore[arg-type]
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@app.get("/quotas/usage/{user_id}")
+async def get_quota_usage(user_id: str) -> dict:
+    """Vrátí přehled spotřeby uživatele přes všechna okna (Fáze 24)."""
+    return quota_manager.get_usage_summary(user_id)
+
+
+# ── Circuit Breakers (Fáze 25) ───────────────────────────────────────────────
+
+@app.post("/circuit-breakers")
+async def create_breaker(req: CreateBreakerRequest) -> dict:
+    """Vytvoří nebo vrátí existující circuit breaker (Fáze 25)."""
+    try:
+        circuit_breakers.get_or_create(
+            req.name,
+            failure_threshold=req.failure_threshold,
+            recovery_timeout_s=req.recovery_timeout_s,
+            success_threshold=req.success_threshold,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return circuit_breakers.get_state(req.name)
+
+
+@app.get("/circuit-breakers")
+async def list_breakers() -> dict:
+    """Vypíše všechny circuit breakers a jejich stav (Fáze 25)."""
+    items = circuit_breakers.list_breakers()
+    return {"count": len(items), "breakers": items}
+
+
+@app.get("/circuit-breakers/{name}")
+async def get_breaker(name: str) -> dict:
+    """Vrátí stav konkrétního circuit breakeru (Fáze 25)."""
+    s = circuit_breakers.get_state(name)
+    if s is None:
+        raise HTTPException(status_code=404, detail="Circuit breaker nenalezen")
+    return s
+
+
+@app.post("/circuit-breakers/{name}/event")
+async def record_breaker_event(name: str, req: RecordBreakerEventRequest) -> dict:
+    """Zaznamená success/failure/rejected do circuit breakeru (Fáze 25)."""
+    if name not in {cb["name"] for cb in circuit_breakers.list_breakers()}:
+        raise HTTPException(status_code=404, detail="Circuit breaker nenalezen")
+    if req.event == "success":
+        circuit_breakers.record_success(name)
+    elif req.event == "failure":
+        circuit_breakers.record_failure(name)
+    elif req.event == "rejected":
+        circuit_breakers.record_rejected(name)
+    else:
+        raise HTTPException(status_code=422, detail="event musí být success/failure/rejected")
+    return circuit_breakers.get_state(name)
+
+
+@app.post("/circuit-breakers/{name}/reset")
+async def reset_breaker(name: str) -> dict:
+    """Resetuje circuit breaker do stavu CLOSED (Fáze 25)."""
+    if not circuit_breakers.reset(name):
+        raise HTTPException(status_code=404, detail="Circuit breaker nenalezen")
+    return circuit_breakers.get_state(name)
+
+
 # ── API key management (Fáze 7) ───────────────────────────────────────────────
 
 @app.post("/api-keys")
@@ -1452,3 +1614,145 @@ async def websocket_endpoint(websocket: WebSocket, user_id: str) -> None:
                 await websocket.send_json({"event": "error", "message": str(exc)})
     except WebSocketDisconnect:
         log.info("ws_disconnected", user_id=user_id)
+
+
+# ── HPC (Fáze 26) ─────────────────────────────────────────────────────────────
+
+
+class HpcJobRequest(BaseModel):
+    script: str = "submit_ddp_agi.sh"
+    nodes: int = 1
+    gpus_per_node: int = 8
+    partition: str = ""
+    sif_path: str = ""
+    extra_args: dict = {}
+
+
+class HpcJobResponse(BaseModel):
+    job_id: str
+    status: str
+    script: str
+    nodes: int
+    gpus_per_node: int
+    partition: str
+    submitted_at: str
+
+
+class CascadeRouteRequest(BaseModel):
+    messages: list[dict]
+    confidence_threshold: float = 0.7
+
+
+class CascadeRouteResponse(BaseModel):
+    content: str
+    provider: str
+    confidence: float
+    latency_ms: float
+    tokens_used: int
+    metadata: dict
+
+
+# In-memory HPC job store (production: use Slurm REST API / DB)
+_hpc_jobs: dict[str, dict] = {}
+
+
+@app.post("/hpc/jobs", tags=["HPC"])
+async def hpc_submit_job(req: HpcJobRequest):
+    """Submit a simulated HPC job (Slurm sbatch). In production, calls sbatch directly."""
+    import uuid
+    from datetime import datetime, timezone
+    job_id = f"hpc-{uuid.uuid4().hex[:8]}"
+    partition = req.partition or settings.slurm_partition
+    sif_path = req.sif_path or settings.apptainer_sif_path
+    record = {
+        "job_id": job_id,
+        "status": "submitted",
+        "script": req.script,
+        "nodes": req.nodes,
+        "gpus_per_node": req.gpus_per_node,
+        "partition": partition,
+        "sif_path": sif_path,
+        "extra_args": req.extra_args,
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    _hpc_jobs[job_id] = record
+    log.info("hpc_job_submitted", job_id=job_id, nodes=req.nodes, partition=partition)
+    return record
+
+
+@app.get("/hpc/jobs", tags=["HPC"])
+async def hpc_list_jobs():
+    """List all submitted HPC jobs."""
+    return {"jobs": list(_hpc_jobs.values()), "total": len(_hpc_jobs)}
+
+
+@app.get("/hpc/jobs/{job_id}", tags=["HPC"])
+async def hpc_get_job(job_id: str):
+    """Get status of a specific HPC job."""
+    job = _hpc_jobs.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    return job
+
+
+@app.get("/hpc/cluster/status", tags=["HPC"])
+async def hpc_cluster_status():
+    """Return HPC cluster configuration status."""
+    return {
+        "hpc_enabled": settings.hpc_enabled,
+        "slurm_partition": settings.slurm_partition,
+        "apptainer_sif_path": settings.apptainer_sif_path,
+        "container_registry": settings.container_registry,
+        "nccl_ib_hca": settings.nccl_ib_hca,
+        "burst_buffer_path": settings.burst_buffer_path,
+        "cascade_confidence_threshold": settings.cascade_confidence_threshold,
+        "cascade_draft_provider": settings.cascade_draft_provider,
+        "cascade_oracle_provider": settings.cascade_oracle_provider,
+        "jobs_submitted": len(_hpc_jobs),
+    }
+
+
+def _get_or_create_cascade_router() -> CascadeRouter:
+    """Return or create the global cascade router using the main LLM providers."""
+    global _cascade_router
+    if _cascade_router is None and core is not None:
+        router = core.router
+        draft = (router._gemini if router._gemini else router._claude)
+        oracle = router._claude
+        _cascade_router = CascadeRouter(
+            draft_provider=draft,
+            oracle_provider=oracle,
+            confidence_threshold=settings.cascade_confidence_threshold,
+        )
+    if _cascade_router is None:
+        raise HTTPException(
+            status_code=503,
+            detail="Core not initialized — cascade router unavailable",
+        )
+    return _cascade_router
+
+
+@app.post("/hpc/cascade/route", tags=["HPC"])
+async def hpc_cascade_route(req: CascadeRouteRequest):
+    """Route a prompt through the LLM Cascade (Draft → Oracle)."""
+    router = _get_or_create_cascade_router()
+    if req.confidence_threshold != router.confidence_threshold:
+        router.confidence_threshold = req.confidence_threshold
+    resp: CascadeLLMResponse = await router.route(req.messages)
+    return CascadeRouteResponse(
+        content=resp.content,
+        provider=resp.provider,
+        confidence=resp.confidence,
+        latency_ms=resp.latency_ms,
+        tokens_used=resp.tokens_used,
+        metadata=resp.metadata,
+    )
+
+
+@app.get("/hpc/cascade/metrics", tags=["HPC"])
+async def hpc_cascade_metrics():
+    """Return LLM Cascade routing statistics."""
+    global _cascade_router
+    if _cascade_router is None:
+        return {"message": "Cascade router not yet initialized", "metrics": None}
+    return {"metrics": _cascade_router.metrics()}

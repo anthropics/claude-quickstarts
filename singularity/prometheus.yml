@@ -7,3 +7,32 @@ scrape_configs:
     static_configs:
       - targets: ["singularity:8001"]
     metrics_path: /metrics
+
+  # ── HPC (Fáze 26) ──────────────────────────────────────────────────────────
+
+  - job_name: gpu_dcgm
+    static_configs:
+      - targets: ["dcgm-exporter:9400"]
+
+  - job_name: slurm
+    static_configs:
+      - targets: ["slurm-exporter:8080"]
+    scrape_interval: 30s
+
+  - job_name: infiniband
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    params:
+      collect[]:
+        - infiniband
+
+  - job_name: apptainer
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    params:
+      collect[]:
+        - textfile
+    metric_relabel_configs:
+      - source_labels: [__name__]
+        regex: "apptainer_.*"
+        action: keep
