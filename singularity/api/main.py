@@ -85,6 +85,10 @@ Endpointy:
   GET  /cache/semantic/stats   Statistiky sémantické cache (Fáze 29)
   DELETE /cache/semantic       Vymaže sémantickou cache (Fáze 29)
   POST /cache/semantic/lookup  Testovací dotaz do sémantické cache (Fáze 29)
+  GET  /pipeline/steps         Seznam aktivních pipeline kroků (Fáze 30)
+  POST /pipeline/steps         Přidá krok do pipeline (Fáze 30)
+  DELETE /pipeline/steps/{name} Odstraní krok z pipeline (Fáze 30)
+  GET  /pipeline/metrics       Metriky pipeline (Fáze 30)
 """
 from __future__ import annotations
 
@@ -119,6 +123,13 @@ from core.circuit_breaker import CircuitBreakerRegistry
 from core.guardrails import GuardrailManager
 from core.orchestrator import MultiAgentOrchestrator, DependencyError as OrcDependencyError
 from core.semantic_cache import SemanticCache, HitType as SCHitType
+from core.pipeline import (
+    RequestPipeline,
+    PIIRedactionStep,
+    PromptInjectionStep,
+    TruncationStep,
+    TokenCounterStep,
+)
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -178,6 +189,11 @@ _semantic_cache: SemanticCache = SemanticCache(
     max_size=settings.semantic_cache_max_size,
     ttl_s=settings.semantic_cache_ttl_s,
 )
+
+# Request Pipeline (Fáze 30)
+_pipeline: RequestPipeline = RequestPipeline(fail_fast=settings.pipeline_fail_fast)
+if settings.pipeline_pii_redaction:
+    _pipeline.add_step(PIIRedactionStep())
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -1988,3 +2004,56 @@ async def semantic_cache_put(req: SemanticPutRequest):
     """Store a text→response pair in the semantic cache. Returns entry_id."""
     entry_id = _semantic_cache.put(req.text, req.response)
     return {"entry_id": entry_id}
+
+
+# ── Request Pipeline (Fáze 30) ─────────────────────────────────────────────────
+
+class PipelineStepAddRequest(BaseModel):
+    name: str  # "prompt_injection" | "pii_redaction" | "truncation" | "token_counter"
+    config: dict = {}
+
+
+@app.get("/pipeline/steps", tags=["Pipeline"])
+async def pipeline_list_steps():
+    """List all active pipeline steps in execution order."""
+    return {"steps": _pipeline.list_steps()}
+
+
+@app.post("/pipeline/steps", tags=["Pipeline"])
+async def pipeline_add_step(req: PipelineStepAddRequest):
+    """Add a built-in step to the pipeline. Supported names: prompt_injection, pii_redaction, truncation, token_counter."""
+    name = req.name
+    cfg = req.config
+    if name == "prompt_injection":
+        step = PromptInjectionStep(
+            injection=cfg.get("injection", ""),
+            role=cfg.get("role", "system"),
+        )
+    elif name == "pii_redaction":
+        step = PIIRedactionStep()
+    elif name == "truncation":
+        step = TruncationStep(
+            max_chars=cfg.get("max_chars", 2000),
+            suffix=cfg.get("suffix", "…"),
+        )
+    elif name == "token_counter":
+        step = TokenCounterStep()
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown step name: {name!r}")
+    _pipeline.add_step(step)
+    return {"steps": _pipeline.list_steps()}
+
+
+@app.delete("/pipeline/steps/{step_name}", tags=["Pipeline"])
+async def pipeline_remove_step(step_name: str):
+    """Remove a step from the pipeline by name. Returns 404 if not found."""
+    removed = _pipeline.remove_step(step_name)
+    if not removed:
+        raise HTTPException(status_code=404, detail=f"Step '{step_name}' not found")
+    return {"steps": _pipeline.list_steps()}
+
+
+@app.get("/pipeline/metrics", tags=["Pipeline"])
+async def pipeline_metrics():
+    """Pipeline execution metrics: total runs, abort count, per-step latency."""
+    return _pipeline.metrics()

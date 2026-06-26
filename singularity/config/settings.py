@@ -81,6 +81,11 @@ class SingularitySettings(BaseSettings):
     orchestrator_timeout_s: float = 60.0    # per-task timeout in seconds
     orchestrator_default_aggregation: str = "merge"  # merge | select_best | vote
 
+    # ── Request Pipeline (Fáze 30) ───────────────────────────────────────────
+    enable_pipeline: bool = True              # enable request/response pipeline
+    pipeline_fail_fast: bool = False          # raise on step error vs. skip
+    pipeline_pii_redaction: bool = False      # auto-add PIIRedactionStep
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
