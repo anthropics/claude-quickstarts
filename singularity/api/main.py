@@ -78,6 +78,10 @@ Endpointy:
   DELETE /guardrails/rules/{id} Smaže vlastní pravidlo (Fáze 27)
   POST /guardrails/scan        Naskenuje text (input/output) (Fáze 27)
   GET  /guardrails/stats       Statistiky skenování (Fáze 27)
+  POST /orchestrate            Vytvoří a spustí multi-agent plán (Fáze 28)
+  POST /orchestrate/plan       Validuje DAG, vrátí plán bez spuštění (Fáze 28)
+  GET  /orchestrate/metrics    Metriky orchestrátoru (Fáze 28)
+  POST /orchestrate/metrics/reset  Reset metrik orchestrátoru (Fáze 28)
 """
 from __future__ import annotations
 
@@ -110,6 +114,7 @@ from core.secret_manager import SecretManager
 from core.quota_manager import QuotaManager
 from core.circuit_breaker import CircuitBreakerRegistry
 from core.guardrails import GuardrailManager
+from core.orchestrator import MultiAgentOrchestrator, DependencyError as OrcDependencyError
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -155,6 +160,13 @@ secret_manager: SecretManager = SecretManager()
 quota_manager: QuotaManager = QuotaManager()
 circuit_breakers: CircuitBreakerRegistry = CircuitBreakerRegistry()
 guardrails: GuardrailManager = GuardrailManager()
+
+# Multi-Agent Orchestrator (Fáze 28)
+_orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
+    router=None,
+    max_parallel=settings.orchestrator_max_parallel,
+    timeout_s=settings.orchestrator_timeout_s,
+)
 
 # HPC Cascade router (Fáze 26) — initialized lazily on first use
 _cascade_router: CascadeRouter | None = None
@@ -1849,3 +1861,69 @@ async def guardrails_scan(req: GuardrailScanRequest):
 async def guardrails_stats():
     """Return guardrail scanning statistics."""
     return guardrails.stats()
+
+
+# ── Orchestrator (Fáze 28) ────────────────────────────────────────────────────
+
+class OrchestrateTaskRequest(BaseModel):
+    task_id: str | None = None
+    prompt: str
+    provider: str | None = None
+    depends_on: list[str] = []
+
+
+class OrchestrateRequest(BaseModel):
+    tasks: list[OrchestrateTaskRequest]
+    aggregation: str = "merge"
+
+
+@app.post("/orchestrate", tags=["Orchestrator"])
+async def orchestrate_run(req: OrchestrateRequest):
+    """Create and immediately execute a multi-agent plan. Returns OrchestrationResult."""
+    raw_tasks = [
+        {
+            "task_id": t.task_id or str(uuid.uuid4()),
+            "prompt": t.prompt,
+            "provider": t.provider,
+            "depends_on": t.depends_on,
+        }
+        for t in req.tasks
+    ]
+    try:
+        plan = _orchestrator.create_plan(raw_tasks, aggregation=req.aggregation)
+    except (ValueError, OrcDependencyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    result = await _orchestrator.execute(plan)
+    return result.to_dict()
+
+
+@app.post("/orchestrate/plan", tags=["Orchestrator"])
+async def orchestrate_validate_plan(req: OrchestrateRequest):
+    """Validate a task DAG and return the execution plan without running it."""
+    raw_tasks = [
+        {
+            "task_id": t.task_id or str(uuid.uuid4()),
+            "prompt": t.prompt,
+            "provider": t.provider,
+            "depends_on": t.depends_on,
+        }
+        for t in req.tasks
+    ]
+    try:
+        plan = _orchestrator.create_plan(raw_tasks, aggregation=req.aggregation)
+    except (ValueError, OrcDependencyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return plan.to_dict()
+
+
+@app.get("/orchestrate/metrics", tags=["Orchestrator"])
+async def orchestrate_metrics():
+    """Return orchestrator execution metrics."""
+    return _orchestrator.metrics()
+
+
+@app.post("/orchestrate/metrics/reset", tags=["Orchestrator"])
+async def orchestrate_metrics_reset():
+    """Reset orchestrator metrics counters."""
+    _orchestrator.reset_metrics()
+    return {"reset": True}
