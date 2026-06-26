@@ -99,6 +99,8 @@ Endpointy:
   POST /intent/classify        Klasifikace záměru dotazu (Fáze 34)
   GET  /intent/list            Seznam registrovaných záměrů (Fáze 34)
   GET  /intent/metrics         Metriky klasifikátoru záměrů (Fáze 34)
+  POST /citations/track        Ukotvení odpovědi ve zdrojích (Fáze 35)
+  GET  /citations/metrics      Metriky citation trackeru (Fáze 35)
 """
 from __future__ import annotations
 
@@ -151,6 +153,7 @@ from core.validator import (
 from core.context_manager import ContextWindowManager, TrimStrategy
 from core.consensus import ConsensusEngine
 from core.intent_classifier import IntentClassifier, IntentDefinition
+from core.citation_tracker import CitationTracker
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -237,6 +240,12 @@ _consensus: ConsensusEngine = ConsensusEngine(
 _intent_classifier: IntentClassifier = IntentClassifier(
     min_confidence=settings.intent_min_confidence,
     default_intent=settings.intent_default,
+)
+
+# Citation Tracker (Fáze 35)
+_citation_tracker: CitationTracker = CitationTracker(
+    threshold=settings.citation_threshold,
+    max_citations=settings.citation_max_per_sentence,
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -2263,3 +2272,33 @@ async def intent_list():
 async def intent_metrics():
     """Intent classifier metrics: per-intent counts, fallback rate."""
     return _intent_classifier.metrics()
+
+
+# ── Citation Tracker (Fáze 35) ──────────────────────────────────────────────────
+
+class CitationTrackRequest(BaseModel):
+    response: str
+    sources: list[dict]   # [{"source_id"/"id": str, "text": str}]
+    threshold: float | None = None
+
+
+@app.post("/citations/track", tags=["Citations"])
+async def citations_track(req: CitationTrackRequest):
+    """Annotate response sentences with supporting sources; flag unsupported claims."""
+    if req.threshold is not None:
+        try:
+            tracker = CitationTracker(
+                threshold=req.threshold,
+                max_citations=settings.citation_max_per_sentence,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        tracker = _citation_tracker
+    return tracker.track(req.response, req.sources).to_dict()
+
+
+@app.get("/citations/metrics", tags=["Citations"])
+async def citations_metrics():
+    """Citation tracker metrics: overall grounding score across reports."""
+    return _citation_tracker.metrics()
