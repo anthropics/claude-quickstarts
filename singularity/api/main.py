@@ -96,6 +96,9 @@ Endpointy:
   GET  /context/metrics        Metriky context manageru (Fáze 32)
   POST /consensus              Konsenzus nad vzorky odpovědí (Fáze 33)
   GET  /consensus/metrics      Metriky consensus enginu (Fáze 33)
+  POST /intent/classify        Klasifikace záměru dotazu (Fáze 34)
+  GET  /intent/list            Seznam registrovaných záměrů (Fáze 34)
+  GET  /intent/metrics         Metriky klasifikátoru záměrů (Fáze 34)
 """
 from __future__ import annotations
 
@@ -147,6 +150,7 @@ from core.validator import (
 )
 from core.context_manager import ContextWindowManager, TrimStrategy
 from core.consensus import ConsensusEngine
+from core.intent_classifier import IntentClassifier, IntentDefinition
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -227,6 +231,12 @@ _consensus: ConsensusEngine = ConsensusEngine(
     n_samples=settings.consensus_n_samples,
     similarity_threshold=settings.consensus_similarity_threshold,
     agreement_threshold=settings.consensus_agreement_threshold,
+)
+
+# Intent Classifier (Fáze 34)
+_intent_classifier: IntentClassifier = IntentClassifier(
+    min_confidence=settings.intent_min_confidence,
+    default_intent=settings.intent_default,
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -2229,3 +2239,27 @@ async def consensus(req: ConsensusRequest):
 async def consensus_metrics():
     """Consensus engine metrics: agreement rate, average confidence."""
     return _consensus.metrics()
+
+
+# ── Intent Classifier (Fáze 34) ────────────────────────────────────────────────
+
+class IntentClassifyRequest(BaseModel):
+    text: str
+
+
+@app.post("/intent/classify", tags=["Intent"])
+async def intent_classify(req: IntentClassifyRequest):
+    """Classify a query into an intent with confidence and a provider hint."""
+    return _intent_classifier.classify(req.text).to_dict()
+
+
+@app.get("/intent/list", tags=["Intent"])
+async def intent_list():
+    """List all registered intent names."""
+    return {"intents": _intent_classifier.list_intents()}
+
+
+@app.get("/intent/metrics", tags=["Intent"])
+async def intent_metrics():
+    """Intent classifier metrics: per-intent counts, fallback rate."""
+    return _intent_classifier.metrics()

@@ -102,6 +102,11 @@ class SingularitySettings(BaseSettings):
     consensus_similarity_threshold: float = 0.9  # cluster grouping similarity
     consensus_agreement_threshold: float = 0.5   # confidence to count as agreement
 
+    # ── Intent Classifier (Fáze 34) ───────────────────────────────────────────
+    enable_intent_classifier: bool = True     # content-based intent routing
+    intent_min_confidence: float = 0.0        # below this → fall back to general
+    intent_default: str = "general"           # fallback intent name
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
