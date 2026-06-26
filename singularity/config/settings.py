@@ -86,6 +86,10 @@ class SingularitySettings(BaseSettings):
     pipeline_fail_fast: bool = False          # raise on step error vs. skip
     pipeline_pii_redaction: bool = False      # auto-add PIIRedactionStep
 
+    # ── Output Validator (Fáze 31) ────────────────────────────────────────────
+    enable_validator: bool = True             # enable output validation
+    validator_max_retries: int = 2            # repair attempts on failure
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
