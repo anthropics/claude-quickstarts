@@ -89,6 +89,11 @@ Endpointy:
   POST /pipeline/steps         Přidá krok do pipeline (Fáze 30)
   DELETE /pipeline/steps/{name} Odstraní krok z pipeline (Fáze 30)
   GET  /pipeline/metrics       Metriky pipeline (Fáze 30)
+  POST /validate               Validuje text proti omezením (Fáze 31)
+  GET  /validate/metrics       Metriky validátoru (Fáze 31)
+  POST /validate/metrics/reset Reset metrik validátoru (Fáze 31)
+  POST /context/fit            Ořízne historii na token budget (Fáze 32)
+  GET  /context/metrics        Metriky context manageru (Fáze 32)
 """
 from __future__ import annotations
 
@@ -130,6 +135,15 @@ from core.pipeline import (
     TruncationStep,
     TokenCounterStep,
 )
+from core.validator import (
+    OutputValidator,
+    NonEmptyConstraint,
+    JSONConstraint,
+    LengthConstraint,
+    RegexConstraint,
+    BannedWordsConstraint,
+)
+from core.context_manager import ContextWindowManager, TrimStrategy
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -194,6 +208,16 @@ _semantic_cache: SemanticCache = SemanticCache(
 _pipeline: RequestPipeline = RequestPipeline(fail_fast=settings.pipeline_fail_fast)
 if settings.pipeline_pii_redaction:
     _pipeline.add_step(PIIRedactionStep())
+
+# Output Validator (Fáze 31)
+_validator: OutputValidator = OutputValidator(max_retries=settings.validator_max_retries)
+
+# Context Window Manager (Fáze 32)
+_context_manager: ContextWindowManager = ContextWindowManager(
+    max_tokens=settings.context_max_tokens,
+    keep_recent=settings.context_keep_recent,
+    strategy=TrimStrategy(settings.context_trim_strategy),
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2057,3 +2081,107 @@ async def pipeline_remove_step(step_name: str):
 async def pipeline_metrics():
     """Pipeline execution metrics: total runs, abort count, per-step latency."""
     return _pipeline.metrics()
+
+
+# ── Output Validator (Fáze 31) ─────────────────────────────────────────────────
+
+class ValidateRequest(BaseModel):
+    text: str
+    constraints: list[dict] = []
+    # Each constraint dict: {"type": "json"|"non_empty"|"length"|"regex"|"banned_words", ...config}
+
+
+def _build_constraint(spec: dict):
+    ctype = spec.get("type")
+    if ctype == "non_empty":
+        return NonEmptyConstraint()
+    if ctype == "json":
+        return JSONConstraint(spec.get("required_keys"))
+    if ctype == "length":
+        return LengthConstraint(
+            min_len=spec.get("min_len", 0),
+            max_len=spec.get("max_len"),
+        )
+    if ctype == "regex":
+        return RegexConstraint(
+            spec["pattern"],
+            should_match=spec.get("should_match", True),
+        )
+    if ctype == "banned_words":
+        return BannedWordsConstraint(
+            spec.get("words", []),
+            case_sensitive=spec.get("case_sensitive", False),
+        )
+    raise HTTPException(status_code=400, detail=f"Unknown constraint type: {ctype!r}")
+
+
+@app.post("/validate", tags=["Validator"])
+async def validate_text(req: ValidateRequest):
+    """Validate a text against an ad-hoc list of constraints (no LLM call)."""
+    try:
+        constraints = [_build_constraint(s) for s in req.constraints]
+    except (KeyError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    v = OutputValidator(constraints, max_retries=0)
+    results = v.validate(req.text)
+    return {
+        "valid": all(r.passed for r in results),
+        "constraint_results": [r.to_dict() for r in results],
+    }
+
+
+@app.get("/validate/metrics", tags=["Validator"])
+async def validate_metrics():
+    """Output validator metrics: success/repair/failure rates."""
+    return _validator.metrics()
+
+
+@app.post("/validate/metrics/reset", tags=["Validator"])
+async def validate_metrics_reset():
+    """Reset the output validator metrics."""
+    _validator.reset_metrics()
+    return {"status": "reset"}
+
+
+# ── Context Window Manager (Fáze 32) ───────────────────────────────────────────
+
+class ContextFitRequest(BaseModel):
+    messages: list[dict]
+    max_tokens: int | None = None
+    keep_recent: int | None = None
+    strategy: str | None = None  # drop_oldest | summarize_oldest | keep_recent
+
+
+@app.post("/context/fit", tags=["Context"])
+async def context_fit(req: ContextFitRequest):
+    """Trim a conversation history to fit a token budget. Returns the fitted messages."""
+    # Use a per-request manager if overrides are supplied, else the singleton.
+    if req.max_tokens is not None or req.keep_recent is not None:
+        try:
+            cm = ContextWindowManager(
+                max_tokens=req.max_tokens or settings.context_max_tokens,
+                keep_recent=req.keep_recent
+                if req.keep_recent is not None
+                else settings.context_keep_recent,
+                strategy=TrimStrategy(req.strategy or settings.context_trim_strategy),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        cm = _context_manager
+
+    strat = None
+    if req.strategy is not None:
+        try:
+            strat = TrimStrategy(req.strategy)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown strategy: {req.strategy!r}")
+
+    result = cm.fit(req.messages, strategy=strat)
+    return result.to_dict()
+
+
+@app.get("/context/metrics", tags=["Context"])
+async def context_metrics():
+    """Context window manager metrics: trim rate, dropped/summarized counts."""
+    return _context_manager.metrics()

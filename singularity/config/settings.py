@@ -86,6 +86,16 @@ class SingularitySettings(BaseSettings):
     pipeline_fail_fast: bool = False          # raise on step error vs. skip
     pipeline_pii_redaction: bool = False      # auto-add PIIRedactionStep
 
+    # ── Output Validator (Fáze 31) ────────────────────────────────────────────
+    enable_validator: bool = True             # enable output validation
+    validator_max_retries: int = 2            # repair attempts on failure
+
+    # ── Context Window Manager (Fáze 32) ──────────────────────────────────────
+    enable_context_manager: bool = True       # enable history trimming
+    context_max_tokens: int = 4000            # token budget per conversation
+    context_keep_recent: int = 4              # always-keep most recent N turns
+    context_trim_strategy: str = "drop_oldest"  # drop_oldest | summarize_oldest | keep_recent
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
