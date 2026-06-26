@@ -70,6 +70,11 @@ class SingularitySettings(BaseSettings):
     guardrails_scan_input: bool = True
     guardrails_scan_output: bool = True
 
+    # ── Multi-Agent Orchestrator (Fáze 28) ────────────────────────────────────
+    orchestrator_max_parallel: int = 8       # max simultaneous sub-tasks per wave
+    orchestrator_timeout_s: float = 60.0    # per-task timeout in seconds
+    orchestrator_default_aggregation: str = "merge"  # merge | select_best | vote
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
