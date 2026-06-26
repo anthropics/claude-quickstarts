@@ -92,6 +92,8 @@ Endpointy:
   POST /validate               Validuje text proti omezením (Fáze 31)
   GET  /validate/metrics       Metriky validátoru (Fáze 31)
   POST /validate/metrics/reset Reset metrik validátoru (Fáze 31)
+  POST /context/fit            Ořízne historii na token budget (Fáze 32)
+  GET  /context/metrics        Metriky context manageru (Fáze 32)
 """
 from __future__ import annotations
 
@@ -141,6 +143,7 @@ from core.validator import (
     RegexConstraint,
     BannedWordsConstraint,
 )
+from core.context_manager import ContextWindowManager, TrimStrategy
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -208,6 +211,13 @@ if settings.pipeline_pii_redaction:
 
 # Output Validator (Fáze 31)
 _validator: OutputValidator = OutputValidator(max_retries=settings.validator_max_retries)
+
+# Context Window Manager (Fáze 32)
+_context_manager: ContextWindowManager = ContextWindowManager(
+    max_tokens=settings.context_max_tokens,
+    keep_recent=settings.context_keep_recent,
+    strategy=TrimStrategy(settings.context_trim_strategy),
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2131,3 +2141,47 @@ async def validate_metrics_reset():
     """Reset the output validator metrics."""
     _validator.reset_metrics()
     return {"status": "reset"}
+
+
+# ── Context Window Manager (Fáze 32) ───────────────────────────────────────────
+
+class ContextFitRequest(BaseModel):
+    messages: list[dict]
+    max_tokens: int | None = None
+    keep_recent: int | None = None
+    strategy: str | None = None  # drop_oldest | summarize_oldest | keep_recent
+
+
+@app.post("/context/fit", tags=["Context"])
+async def context_fit(req: ContextFitRequest):
+    """Trim a conversation history to fit a token budget. Returns the fitted messages."""
+    # Use a per-request manager if overrides are supplied, else the singleton.
+    if req.max_tokens is not None or req.keep_recent is not None:
+        try:
+            cm = ContextWindowManager(
+                max_tokens=req.max_tokens or settings.context_max_tokens,
+                keep_recent=req.keep_recent
+                if req.keep_recent is not None
+                else settings.context_keep_recent,
+                strategy=TrimStrategy(req.strategy or settings.context_trim_strategy),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        cm = _context_manager
+
+    strat = None
+    if req.strategy is not None:
+        try:
+            strat = TrimStrategy(req.strategy)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown strategy: {req.strategy!r}")
+
+    result = cm.fit(req.messages, strategy=strat)
+    return result.to_dict()
+
+
+@app.get("/context/metrics", tags=["Context"])
+async def context_metrics():
+    """Context window manager metrics: trim rate, dropped/summarized counts."""
+    return _context_manager.metrics()
