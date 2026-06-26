@@ -82,6 +82,9 @@ Endpointy:
   POST /orchestrate/plan       Validuje DAG, vrátí plán bez spuštění (Fáze 28)
   GET  /orchestrate/metrics    Metriky orchestrátoru (Fáze 28)
   POST /orchestrate/metrics/reset  Reset metrik orchestrátoru (Fáze 28)
+  GET  /cache/semantic/stats   Statistiky sémantické cache (Fáze 29)
+  DELETE /cache/semantic       Vymaže sémantickou cache (Fáze 29)
+  POST /cache/semantic/lookup  Testovací dotaz do sémantické cache (Fáze 29)
 """
 from __future__ import annotations
 
@@ -115,6 +118,7 @@ from core.quota_manager import QuotaManager
 from core.circuit_breaker import CircuitBreakerRegistry
 from core.guardrails import GuardrailManager
 from core.orchestrator import MultiAgentOrchestrator, DependencyError as OrcDependencyError
+from core.semantic_cache import SemanticCache, HitType as SCHitType
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -160,6 +164,20 @@ secret_manager: SecretManager = SecretManager()
 quota_manager: QuotaManager = QuotaManager()
 circuit_breakers: CircuitBreakerRegistry = CircuitBreakerRegistry()
 guardrails: GuardrailManager = GuardrailManager()
+
+# Semantic Cache (Fáze 29) — uses hash-based embedding for offline use;
+# swap embed_fn for a real model in production via dependency injection
+def _hash_embed(text: str) -> list[float]:
+    import hashlib
+    h = hashlib.sha256(text.encode()).digest()
+    return [((b - 128) / 128.0) for b in h]
+
+_semantic_cache: SemanticCache = SemanticCache(
+    embed_fn=_hash_embed,
+    threshold=settings.semantic_cache_threshold,
+    max_size=settings.semantic_cache_max_size,
+    ttl_s=settings.semantic_cache_ttl_s,
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -1927,3 +1945,46 @@ async def orchestrate_metrics_reset():
     """Reset orchestrator metrics counters."""
     _orchestrator.reset_metrics()
     return {"reset": True}
+
+
+# ── Semantic Cache (Fáze 29) ──────────────────────────────────────────────────
+
+class SemanticLookupRequest(BaseModel):
+    text: str
+
+
+class SemanticPutRequest(BaseModel):
+    text: str
+    response: str
+
+
+@app.get("/cache/semantic/stats", tags=["Semantic Cache"])
+async def semantic_cache_stats():
+    """Return semantic cache statistics (queries, hit rates, entry count)."""
+    return _semantic_cache.stats()
+
+
+@app.delete("/cache/semantic", tags=["Semantic Cache"])
+async def semantic_cache_clear():
+    """Clear all semantic cache entries. Returns number of entries removed."""
+    n = _semantic_cache.clear()
+    return {"cleared": n}
+
+
+@app.post("/cache/semantic/lookup", tags=["Semantic Cache"])
+async def semantic_cache_lookup(req: SemanticLookupRequest):
+    """
+    Test a similarity lookup against the semantic cache.
+    Returns the matched entry or a miss indicator — does NOT call the LLM.
+    """
+    result = _semantic_cache.get(req.text)
+    if result is None:
+        return {"hit": False, "hit_type": "miss"}
+    return {"hit": True, **result.to_dict()}
+
+
+@app.post("/cache/semantic/put", tags=["Semantic Cache"])
+async def semantic_cache_put(req: SemanticPutRequest):
+    """Store a text→response pair in the semantic cache. Returns entry_id."""
+    entry_id = _semantic_cache.put(req.text, req.response)
+    return {"entry_id": entry_id}
