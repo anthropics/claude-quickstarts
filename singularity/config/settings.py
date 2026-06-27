@@ -132,6 +132,10 @@ class SingularitySettings(BaseSettings):
     # ── PII Anonymizer (Fáze 39) ──────────────────────────────────────────────
     enable_anonymizer: bool = True            # reversible PII de-identification
 
+    # ── Cost Estimator (Fáze 40) ──────────────────────────────────────────────
+    enable_cost_estimator: bool = True        # pre-flight cost projection
+    cost_default_output_tokens: int = 500     # assumed output size when unknown
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
