@@ -151,6 +151,10 @@ class SingularitySettings(BaseSettings):
     # ── Output Parser (Fáze 44) ───────────────────────────────────────────────
     enable_output_parser: bool = True         # extract structured data from text
 
+    # ── Sentiment Analyzer (Fáze 45) ──────────────────────────────────────────
+    enable_sentiment: bool = True             # lexicon-based sentiment scoring
+    sentiment_threshold: float = 0.05         # |score| above → pos/neg, else neutral
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
