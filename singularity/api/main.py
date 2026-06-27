@@ -94,6 +94,13 @@ Endpointy:
   POST /validate/metrics/reset Reset metrik validátoru (Fáze 31)
   POST /context/fit            Ořízne historii na token budget (Fáze 32)
   GET  /context/metrics        Metriky context manageru (Fáze 32)
+  POST /consensus              Konsenzus nad vzorky odpovědí (Fáze 33)
+  GET  /consensus/metrics      Metriky consensus enginu (Fáze 33)
+  POST /intent/classify        Klasifikace záměru dotazu (Fáze 34)
+  GET  /intent/list            Seznam registrovaných záměrů (Fáze 34)
+  GET  /intent/metrics         Metriky klasifikátoru záměrů (Fáze 34)
+  POST /citations/track        Ukotvení odpovědi ve zdrojích (Fáze 35)
+  GET  /citations/metrics      Metriky citation trackeru (Fáze 35)
 """
 from __future__ import annotations
 
@@ -144,6 +151,9 @@ from core.validator import (
     BannedWordsConstraint,
 )
 from core.context_manager import ContextWindowManager, TrimStrategy
+from core.consensus import ConsensusEngine
+from core.intent_classifier import IntentClassifier, IntentDefinition
+from core.citation_tracker import CitationTracker
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -217,6 +227,25 @@ _context_manager: ContextWindowManager = ContextWindowManager(
     max_tokens=settings.context_max_tokens,
     keep_recent=settings.context_keep_recent,
     strategy=TrimStrategy(settings.context_trim_strategy),
+)
+
+# Consensus Engine (Fáze 33)
+_consensus: ConsensusEngine = ConsensusEngine(
+    n_samples=settings.consensus_n_samples,
+    similarity_threshold=settings.consensus_similarity_threshold,
+    agreement_threshold=settings.consensus_agreement_threshold,
+)
+
+# Intent Classifier (Fáze 34)
+_intent_classifier: IntentClassifier = IntentClassifier(
+    min_confidence=settings.intent_min_confidence,
+    default_intent=settings.intent_default,
+)
+
+# Citation Tracker (Fáze 35)
+_citation_tracker: CitationTracker = CitationTracker(
+    threshold=settings.citation_threshold,
+    max_citations=settings.citation_max_per_sentence,
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -2185,3 +2214,91 @@ async def context_fit(req: ContextFitRequest):
 async def context_metrics():
     """Context window manager metrics: trim rate, dropped/summarized counts."""
     return _context_manager.metrics()
+
+
+# ── Consensus Engine (Fáze 33) ─────────────────────────────────────────────────
+
+class ConsensusRequest(BaseModel):
+    samples: list[str]
+    similarity_threshold: float | None = None
+    agreement_threshold: float | None = None
+
+
+@app.post("/consensus", tags=["Consensus"])
+async def consensus(req: ConsensusRequest):
+    """Compute self-consistency consensus over a list of candidate answers."""
+    if req.similarity_threshold is not None or req.agreement_threshold is not None:
+        try:
+            engine = ConsensusEngine(
+                n_samples=max(1, len(req.samples)),
+                similarity_threshold=req.similarity_threshold
+                or settings.consensus_similarity_threshold,
+                agreement_threshold=req.agreement_threshold
+                or settings.consensus_agreement_threshold,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        engine = _consensus
+    result = engine.from_samples(req.samples)
+    return result.to_dict()
+
+
+@app.get("/consensus/metrics", tags=["Consensus"])
+async def consensus_metrics():
+    """Consensus engine metrics: agreement rate, average confidence."""
+    return _consensus.metrics()
+
+
+# ── Intent Classifier (Fáze 34) ────────────────────────────────────────────────
+
+class IntentClassifyRequest(BaseModel):
+    text: str
+
+
+@app.post("/intent/classify", tags=["Intent"])
+async def intent_classify(req: IntentClassifyRequest):
+    """Classify a query into an intent with confidence and a provider hint."""
+    return _intent_classifier.classify(req.text).to_dict()
+
+
+@app.get("/intent/list", tags=["Intent"])
+async def intent_list():
+    """List all registered intent names."""
+    return {"intents": _intent_classifier.list_intents()}
+
+
+@app.get("/intent/metrics", tags=["Intent"])
+async def intent_metrics():
+    """Intent classifier metrics: per-intent counts, fallback rate."""
+    return _intent_classifier.metrics()
+
+
+# ── Citation Tracker (Fáze 35) ──────────────────────────────────────────────────
+
+class CitationTrackRequest(BaseModel):
+    response: str
+    sources: list[dict]   # [{"source_id"/"id": str, "text": str}]
+    threshold: float | None = None
+
+
+@app.post("/citations/track", tags=["Citations"])
+async def citations_track(req: CitationTrackRequest):
+    """Annotate response sentences with supporting sources; flag unsupported claims."""
+    if req.threshold is not None:
+        try:
+            tracker = CitationTracker(
+                threshold=req.threshold,
+                max_citations=settings.citation_max_per_sentence,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        tracker = _citation_tracker
+    return tracker.track(req.response, req.sources).to_dict()
+
+
+@app.get("/citations/metrics", tags=["Citations"])
+async def citations_metrics():
+    """Citation tracker metrics: overall grounding score across reports."""
+    return _citation_tracker.metrics()

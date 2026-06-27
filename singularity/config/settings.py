@@ -96,6 +96,22 @@ class SingularitySettings(BaseSettings):
     context_keep_recent: int = 4              # always-keep most recent N turns
     context_trim_strategy: str = "drop_oldest"  # drop_oldest | summarize_oldest | keep_recent
 
+    # ── Consensus Engine (Fáze 33) ────────────────────────────────────────────
+    enable_consensus: bool = False            # self-consistency sampling (costly)
+    consensus_n_samples: int = 5              # samples per consensus run
+    consensus_similarity_threshold: float = 0.9  # cluster grouping similarity
+    consensus_agreement_threshold: float = 0.5   # confidence to count as agreement
+
+    # ── Intent Classifier (Fáze 34) ───────────────────────────────────────────
+    enable_intent_classifier: bool = True     # content-based intent routing
+    intent_min_confidence: float = 0.0        # below this → fall back to general
+    intent_default: str = "general"           # fallback intent name
+
+    # ── Citation Tracker (Fáze 35) ────────────────────────────────────────────
+    enable_citation_tracker: bool = True      # ground responses in sources
+    citation_threshold: float = 0.2           # min Jaccard overlap to cite
+    citation_max_per_sentence: int = 3        # max citations per sentence
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
