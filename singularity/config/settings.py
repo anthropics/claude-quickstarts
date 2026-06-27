@@ -118,6 +118,12 @@ class SingularitySettings(BaseSettings):
     chunk_overlap: int = 100                  # overlap between chunks (chars)
     chunk_strategy: str = "sentence"          # character | sentence | paragraph
 
+    # ── BM25 Retriever (Fáze 37) ──────────────────────────────────────────────
+    enable_retriever: bool = True             # lexical BM25 retrieval
+    bm25_k1: float = 1.5                      # term-frequency saturation
+    bm25_b: float = 0.75                      # length normalization
+    retriever_top_k: int = 5                  # default results per search
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
