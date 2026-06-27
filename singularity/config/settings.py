@@ -148,6 +148,9 @@ class SingularitySettings(BaseSettings):
     enable_language_detector: bool = True     # heuristic language detection
     language_min_confidence: float = 0.0      # below → "unknown"
 
+    # ── Output Parser (Fáze 44) ───────────────────────────────────────────────
+    enable_output_parser: bool = True         # extract structured data from text
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

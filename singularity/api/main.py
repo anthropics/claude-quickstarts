@@ -124,6 +124,10 @@ Endpointy:
   POST /language/detect        Detekce jazyka textu (Fáze 43)
   GET  /language/list          Seznam podporovaných jazyků (Fáze 43)
   GET  /language/metrics       Metriky language detektoru (Fáze 43)
+  POST /parse/json             Extrakce JSON z textu (Fáze 44)
+  POST /parse/key-values       Extrakce key-value párů (Fáze 44)
+  POST /parse/list             Extrakce seznamu z textu (Fáze 44)
+  GET  /parse/metrics          Metriky output parseru (Fáze 44)
 """
 from __future__ import annotations
 
@@ -185,6 +189,7 @@ from core.cost_estimator import CostEstimator
 from core.response_diff import ResponseComparator
 from core.summarizer import ExtractiveSummarizer
 from core.language_detector import LanguageDetector
+from core.output_parser import OutputParser
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -314,6 +319,9 @@ _summarizer: ExtractiveSummarizer = ExtractiveSummarizer(
 _language_detector: LanguageDetector = LanguageDetector(
     min_confidence=settings.language_min_confidence,
 )
+
+# Output Parser (Fáze 44)
+_output_parser: OutputParser = OutputParser()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2657,3 +2665,33 @@ async def language_list():
 async def language_metrics():
     """Language detector metrics: per-language counts, unknown rate."""
     return _language_detector.metrics()
+
+
+# ── Output Parser (Fáze 44) ─────────────────────────────────────────────────────
+
+class ParseRequest(BaseModel):
+    text: str
+
+
+@app.post("/parse/json", tags=["Parser"])
+async def parse_json(req: ParseRequest):
+    """Extract JSON from free-form text (fences, balanced spans, light repair)."""
+    return _output_parser.extract_json(req.text).to_dict()
+
+
+@app.post("/parse/key-values", tags=["Parser"])
+async def parse_key_values(req: ParseRequest):
+    """Extract 'key: value' pairs from text into a dict."""
+    return _output_parser.extract_key_values(req.text).to_dict()
+
+
+@app.post("/parse/list", tags=["Parser"])
+async def parse_list(req: ParseRequest):
+    """Extract bullet / numbered list items from text."""
+    return _output_parser.extract_list(req.text).to_dict()
+
+
+@app.get("/parse/metrics", tags=["Parser"])
+async def parse_metrics():
+    """Output parser metrics: success/repair rates."""
+    return _output_parser.metrics()
