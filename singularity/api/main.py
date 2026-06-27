@@ -132,6 +132,8 @@ Endpointy:
   GET  /sentiment/metrics      Metriky sentiment analyzéru (Fáze 45)
   POST /keywords               Extrakce klíčových frází (Fáze 46)
   GET  /keywords/metrics       Metriky keyword extraktoru (Fáze 46)
+  POST /readability            Readability metriky textu (Fáze 47)
+  GET  /readability/metrics    Metriky readability analyzéru (Fáze 47)
 """
 from __future__ import annotations
 
@@ -196,6 +198,7 @@ from core.language_detector import LanguageDetector
 from core.output_parser import OutputParser
 from core.sentiment import SentimentAnalyzer
 from core.keyword_extractor import KeywordExtractor
+from core.readability import ReadabilityAnalyzer
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -337,6 +340,9 @@ _keyword_extractor: KeywordExtractor = KeywordExtractor(
     max_phrase_words=settings.keyword_max_phrase_words,
     min_word_length=settings.keyword_min_word_length,
 )
+
+# Readability Analyzer (Fáze 47)
+_readability: ReadabilityAnalyzer = ReadabilityAnalyzer()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2751,3 +2757,21 @@ async def extract_keywords(req: KeywordRequest):
 async def keywords_metrics():
     """Keyword extractor metrics: average keywords per extraction."""
     return _keyword_extractor.metrics()
+
+
+# ── Readability Analyzer (Fáze 47) ──────────────────────────────────────────────
+
+class ReadabilityRequest(BaseModel):
+    text: str
+
+
+@app.post("/readability", tags=["Readability"])
+async def analyze_readability(req: ReadabilityRequest):
+    """Compute Flesch readability metrics (ease, grade, syllables, averages)."""
+    return _readability.analyze(req.text).to_dict()
+
+
+@app.get("/readability/metrics", tags=["Readability"])
+async def readability_metrics():
+    """Readability analyzer metrics: average reading ease and grade level."""
+    return _readability.metrics()
