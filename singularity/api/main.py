@@ -128,6 +128,8 @@ Endpointy:
   POST /parse/key-values       Extrakce key-value párů (Fáze 44)
   POST /parse/list             Extrakce seznamu z textu (Fáze 44)
   GET  /parse/metrics          Metriky output parseru (Fáze 44)
+  POST /sentiment              Analýza sentimentu textu (Fáze 45)
+  GET  /sentiment/metrics      Metriky sentiment analyzéru (Fáze 45)
 """
 from __future__ import annotations
 
@@ -190,6 +192,7 @@ from core.response_diff import ResponseComparator
 from core.summarizer import ExtractiveSummarizer
 from core.language_detector import LanguageDetector
 from core.output_parser import OutputParser
+from core.sentiment import SentimentAnalyzer
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -322,6 +325,9 @@ _language_detector: LanguageDetector = LanguageDetector(
 
 # Output Parser (Fáze 44)
 _output_parser: OutputParser = OutputParser()
+
+# Sentiment Analyzer (Fáze 45)
+_sentiment: SentimentAnalyzer = SentimentAnalyzer(threshold=settings.sentiment_threshold)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2695,3 +2701,21 @@ async def parse_list(req: ParseRequest):
 async def parse_metrics():
     """Output parser metrics: success/repair rates."""
     return _output_parser.metrics()
+
+
+# ── Sentiment Analyzer (Fáze 45) ────────────────────────────────────────────────
+
+class SentimentRequest(BaseModel):
+    text: str
+
+
+@app.post("/sentiment", tags=["Sentiment"])
+async def analyze_sentiment(req: SentimentRequest):
+    """Lexicon-based sentiment: polarity + normalized score with negation handling."""
+    return _sentiment.analyze(req.text).to_dict()
+
+
+@app.get("/sentiment/metrics", tags=["Sentiment"])
+async def sentiment_metrics():
+    """Sentiment analyzer metrics: polarity distribution."""
+    return _sentiment.metrics()
