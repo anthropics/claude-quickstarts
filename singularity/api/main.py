@@ -113,6 +113,12 @@ Endpointy:
   POST /anonymize/detect       Detekce PII bez úpravy textu (Fáze 39)
   POST /anonymize/restore      Obnoví původní hodnoty z mapy (Fáze 39)
   GET  /anonymize/metrics      Metriky PII anonymizéru (Fáze 39)
+  POST /cost/estimate          Odhad ceny requestu pro model (Fáze 40)
+  POST /cost/compare           Porovná cenu napříč modely (Fáze 40)
+  GET  /cost/models            Ceník modelů (Fáze 40)
+  GET  /cost/metrics           Metriky cost estimátoru (Fáze 40)
+  POST /compare/responses      Sentence-level diff dvou odpovědí (Fáze 41)
+  GET  /compare/responses/metrics  Metriky comparatoru (Fáze 41)
 """
 from __future__ import annotations
 
@@ -170,6 +176,8 @@ from core.chunker import DocumentChunker, ChunkStrategy
 from core.retriever import BM25Retriever
 from core.reranker import HybridReranker, FusionMethod
 from core.anonymizer import PIIAnonymizer
+from core.cost_estimator import CostEstimator
+from core.response_diff import ResponseComparator
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -282,6 +290,12 @@ _reranker: HybridReranker = HybridReranker(
 
 # PII Anonymizer (Fáze 39)
 _anonymizer: PIIAnonymizer = PIIAnonymizer()
+
+# Cost Estimator (Fáze 40)
+_cost_estimator: CostEstimator = CostEstimator()
+
+# Response Comparator (Fáze 41)
+_comparator: ResponseComparator = ResponseComparator()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2488,3 +2502,86 @@ async def anonymize_restore(req: RestoreRequest):
 async def anonymize_metrics():
     """PII anonymizer metrics: entity counts by type."""
     return _anonymizer.metrics()
+
+
+# ── Cost Estimator (Fáze 40) ────────────────────────────────────────────────────
+
+class CostEstimateRequest(BaseModel):
+    model: str
+    prompt: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    budget: float | None = None
+
+
+class CostCompareRequest(BaseModel):
+    prompt: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    budget: float | None = None
+    models: list[str] | None = None
+
+
+@app.post("/cost/estimate", tags=["Cost"])
+async def cost_estimate(req: CostEstimateRequest):
+    """Project the USD cost of a request for a given model."""
+    try:
+        est = _cost_estimator.estimate(
+            req.model,
+            input_tokens=req.input_tokens,
+            output_tokens=req.output_tokens,
+            prompt=req.prompt,
+            expected_output_tokens=settings.cost_default_output_tokens,
+            budget=req.budget,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return est.to_dict()
+
+
+@app.post("/cost/compare", tags=["Cost"])
+async def cost_compare(req: CostCompareRequest):
+    """Compare projected cost across models; reports cheapest/most expensive."""
+    try:
+        result = _cost_estimator.compare(
+            input_tokens=req.input_tokens,
+            output_tokens=req.output_tokens,
+            prompt=req.prompt,
+            expected_output_tokens=settings.cost_default_output_tokens,
+            budget=req.budget,
+            models=req.models,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result.to_dict()
+
+
+@app.get("/cost/models", tags=["Cost"])
+async def cost_models():
+    """List models with known pricing."""
+    return {"models": _cost_estimator.list_models()}
+
+
+@app.get("/cost/metrics", tags=["Cost"])
+async def cost_metrics():
+    """Cost estimator metrics: total/avg projected cost."""
+    return _cost_estimator.metrics()
+
+
+# ── Response Comparator (Fáze 41) ───────────────────────────────────────────────
+
+class CompareResponsesRequest(BaseModel):
+    text_a: str
+    text_b: str
+
+
+@app.post("/compare/responses", tags=["Comparator"])
+async def compare_responses(req: CompareResponsesRequest):
+    """Sentence-level diff between two responses with similarity scores."""
+    return _comparator.compare(req.text_a, req.text_b).to_dict()
+
+
+@app.get("/compare/responses/metrics", tags=["Comparator"])
+async def compare_responses_metrics():
+    """Response comparator metrics: avg similarity, identical rate."""
+    return _comparator.metrics()
