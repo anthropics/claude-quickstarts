@@ -101,6 +101,12 @@ Endpointy:
   GET  /intent/metrics         Metriky klasifikátoru záměrů (Fáze 34)
   POST /citations/track        Ukotvení odpovědi ve zdrojích (Fáze 35)
   GET  /citations/metrics      Metriky citation trackeru (Fáze 35)
+  POST /chunk                  Rozdělí dokument na chunky pro RAG (Fáze 36)
+  GET  /chunk/metrics          Metriky document chunkeru (Fáze 36)
+  POST /retrieve/index         Zaindexuje dokumenty do BM25 (Fáze 37)
+  POST /retrieve/search        Vyhledá top-k relevantních dokumentů (Fáze 37)
+  DELETE /retrieve             Vymaže BM25 index (Fáze 37)
+  GET  /retrieve/metrics       Metriky BM25 retrieveru (Fáze 37)
 """
 from __future__ import annotations
 
@@ -154,6 +160,8 @@ from core.context_manager import ContextWindowManager, TrimStrategy
 from core.consensus import ConsensusEngine
 from core.intent_classifier import IntentClassifier, IntentDefinition
 from core.citation_tracker import CitationTracker
+from core.chunker import DocumentChunker, ChunkStrategy
+from core.retriever import BM25Retriever
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -247,6 +255,16 @@ _citation_tracker: CitationTracker = CitationTracker(
     threshold=settings.citation_threshold,
     max_citations=settings.citation_max_per_sentence,
 )
+
+# Document Chunker (Fáze 36)
+_chunker: DocumentChunker = DocumentChunker(
+    chunk_size=settings.chunk_size,
+    overlap=settings.chunk_overlap,
+    strategy=ChunkStrategy(settings.chunk_strategy),
+)
+
+# BM25 Retriever (Fáze 37)
+_retriever: BM25Retriever = BM25Retriever(k1=settings.bm25_k1, b=settings.bm25_b)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2302,3 +2320,83 @@ async def citations_track(req: CitationTrackRequest):
 async def citations_metrics():
     """Citation tracker metrics: overall grounding score across reports."""
     return _citation_tracker.metrics()
+
+
+# ── Document Chunker (Fáze 36) ──────────────────────────────────────────────────
+
+class ChunkRequest(BaseModel):
+    text: str
+    chunk_size: int | None = None
+    overlap: int | None = None
+    strategy: str | None = None  # character | sentence | paragraph
+
+
+@app.post("/chunk", tags=["Chunker"])
+async def chunk_document(req: ChunkRequest):
+    """Split a document into overlapping chunks for RAG ingestion."""
+    if req.chunk_size is not None or req.overlap is not None:
+        try:
+            chunker = DocumentChunker(
+                chunk_size=req.chunk_size or settings.chunk_size,
+                overlap=req.overlap if req.overlap is not None else settings.chunk_overlap,
+                strategy=ChunkStrategy(req.strategy or settings.chunk_strategy),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        chunker = _chunker
+
+    strat = None
+    if req.strategy is not None:
+        try:
+            strat = ChunkStrategy(req.strategy)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown strategy: {req.strategy!r}")
+
+    return chunker.chunk(req.text, strategy=strat).to_dict()
+
+
+@app.get("/chunk/metrics", tags=["Chunker"])
+async def chunk_metrics():
+    """Document chunker metrics: total docs/chunks, avg chunks per doc."""
+    return _chunker.metrics()
+
+
+# ── BM25 Retriever (Fáze 37) ────────────────────────────────────────────────────
+
+class RetrieveIndexRequest(BaseModel):
+    documents: list[dict]   # [{"doc_id"/"id", "text", "metadata"?}]
+
+
+class RetrieveSearchRequest(BaseModel):
+    query: str
+    top_k: int | None = None
+
+
+@app.post("/retrieve/index", tags=["Retriever"])
+async def retrieve_index(req: RetrieveIndexRequest):
+    """Index documents into the BM25 retriever. Returns counts."""
+    added = _retriever.add_many(req.documents)
+    return {"added": added, "indexed_documents": _retriever.size}
+
+
+@app.post("/retrieve/search", tags=["Retriever"])
+async def retrieve_search(req: RetrieveSearchRequest):
+    """Search the BM25 index for the top-k most relevant documents."""
+    try:
+        hits = _retriever.search(req.query, top_k=req.top_k or settings.retriever_top_k)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"query": req.query, "hits": [h.to_dict() for h in hits]}
+
+
+@app.delete("/retrieve", tags=["Retriever"])
+async def retrieve_clear():
+    """Clear the BM25 index. Returns number of documents removed."""
+    return {"removed": _retriever.clear()}
+
+
+@app.get("/retrieve/metrics", tags=["Retriever"])
+async def retrieve_metrics():
+    """BM25 retriever metrics: index size, vocabulary, search counts."""
+    return _retriever.metrics()

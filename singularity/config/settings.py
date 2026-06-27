@@ -112,6 +112,18 @@ class SingularitySettings(BaseSettings):
     citation_threshold: float = 0.2           # min Jaccard overlap to cite
     citation_max_per_sentence: int = 3        # max citations per sentence
 
+    # ── Document Chunker (Fáze 36) ────────────────────────────────────────────
+    enable_chunker: bool = True               # document chunking for RAG
+    chunk_size: int = 1000                    # target chunk size (chars)
+    chunk_overlap: int = 100                  # overlap between chunks (chars)
+    chunk_strategy: str = "sentence"          # character | sentence | paragraph
+
+    # ── BM25 Retriever (Fáze 37) ──────────────────────────────────────────────
+    enable_retriever: bool = True             # lexical BM25 retrieval
+    bm25_k1: float = 1.5                      # term-frequency saturation
+    bm25_b: float = 0.75                      # length normalization
+    retriever_top_k: int = 5                  # default results per search
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
