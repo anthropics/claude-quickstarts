@@ -107,6 +107,8 @@ Endpointy:
   POST /retrieve/search        Vyhledá top-k relevantních dokumentů (Fáze 37)
   DELETE /retrieve             Vymaže BM25 index (Fáze 37)
   GET  /retrieve/metrics       Metriky BM25 retrieveru (Fáze 37)
+  POST /rerank                 Fúze ranked listů (RRF / weighted) (Fáze 38)
+  GET  /rerank/metrics         Metriky hybrid rerankeru (Fáze 38)
 """
 from __future__ import annotations
 
@@ -162,6 +164,7 @@ from core.intent_classifier import IntentClassifier, IntentDefinition
 from core.citation_tracker import CitationTracker
 from core.chunker import DocumentChunker, ChunkStrategy
 from core.retriever import BM25Retriever
+from core.reranker import HybridReranker, FusionMethod
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -265,6 +268,12 @@ _chunker: DocumentChunker = DocumentChunker(
 
 # BM25 Retriever (Fáze 37)
 _retriever: BM25Retriever = BM25Retriever(k1=settings.bm25_k1, b=settings.bm25_b)
+
+# Hybrid Reranker (Fáze 38)
+_reranker: HybridReranker = HybridReranker(
+    rrf_k=settings.rrf_k,
+    default_method=FusionMethod(settings.reranker_method),
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2400,3 +2409,39 @@ async def retrieve_clear():
 async def retrieve_metrics():
     """BM25 retriever metrics: index size, vocabulary, search counts."""
     return _retriever.metrics()
+
+
+# ── Hybrid Reranker (Fáze 38) ───────────────────────────────────────────────────
+
+class RerankRequest(BaseModel):
+    ranked_lists: list[list[dict]]   # each list: [{doc_id/id, score?, text?, metadata?}]
+    method: str | None = None        # reciprocal_rank | weighted_score
+    weights: list[float] | None = None
+    top_k: int | None = None
+
+
+@app.post("/rerank", tags=["Reranker"])
+async def rerank(req: RerankRequest):
+    """Fuse multiple ranked result lists into one consensus ranking."""
+    method = None
+    if req.method is not None:
+        try:
+            method = FusionMethod(req.method)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown method: {req.method!r}")
+    try:
+        fused = _reranker.fuse(
+            req.ranked_lists,
+            method=method,
+            weights=req.weights,
+            top_k=req.top_k,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"results": [f.to_dict() for f in fused]}
+
+
+@app.get("/rerank/metrics", tags=["Reranker"])
+async def rerank_metrics():
+    """Hybrid reranker metrics: fusion counts, average output size."""
+    return _reranker.metrics()
