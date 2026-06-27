@@ -139,6 +139,11 @@ class SingularitySettings(BaseSettings):
     # ── Response Comparator (Fáze 41) ─────────────────────────────────────────
     enable_response_diff: bool = True         # sentence-level response diffing
 
+    # ── Extractive Summarizer (Fáze 42) ───────────────────────────────────────
+    enable_summarizer: bool = True            # frequency-based summarization
+    summarizer_ratio: float = 0.3             # fraction of sentences to keep
+    summarizer_max_sentences: int | None = None  # hard cap (None = no cap)
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

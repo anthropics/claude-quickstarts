@@ -119,6 +119,8 @@ Endpointy:
   GET  /cost/metrics           Metriky cost estimátoru (Fáze 40)
   POST /compare/responses      Sentence-level diff dvou odpovědí (Fáze 41)
   GET  /compare/responses/metrics  Metriky comparatoru (Fáze 41)
+  POST /summarize              Extraktivní sumarizace textu (Fáze 42)
+  GET  /summarize/metrics      Metriky summarizéru (Fáze 42)
 """
 from __future__ import annotations
 
@@ -178,6 +180,7 @@ from core.reranker import HybridReranker, FusionMethod
 from core.anonymizer import PIIAnonymizer
 from core.cost_estimator import CostEstimator
 from core.response_diff import ResponseComparator
+from core.summarizer import ExtractiveSummarizer
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -296,6 +299,12 @@ _cost_estimator: CostEstimator = CostEstimator()
 
 # Response Comparator (Fáze 41)
 _comparator: ResponseComparator = ResponseComparator()
+
+# Extractive Summarizer (Fáze 42)
+_summarizer: ExtractiveSummarizer = ExtractiveSummarizer(
+    ratio=settings.summarizer_ratio,
+    max_sentences=settings.summarizer_max_sentences,
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2585,3 +2594,33 @@ async def compare_responses(req: CompareResponsesRequest):
 async def compare_responses_metrics():
     """Response comparator metrics: avg similarity, identical rate."""
     return _comparator.metrics()
+
+
+# ── Extractive Summarizer (Fáze 42) ─────────────────────────────────────────────
+
+class SummarizeRequest(BaseModel):
+    text: str
+    ratio: float | None = None
+    max_sentences: int | None = None
+    top_keywords: int = 5
+
+
+@app.post("/summarize", tags=["Summarizer"])
+async def summarize_text(req: SummarizeRequest):
+    """Extractively summarize a text by selecting the most salient sentences."""
+    try:
+        result = _summarizer.summarize(
+            req.text,
+            ratio=req.ratio,
+            max_sentences=req.max_sentences,
+            top_keywords=req.top_keywords,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result.to_dict()
+
+
+@app.get("/summarize/metrics", tags=["Summarizer"])
+async def summarize_metrics():
+    """Summarizer metrics: overall compression across calls."""
+    return _summarizer.metrics()
