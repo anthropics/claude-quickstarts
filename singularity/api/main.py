@@ -130,6 +130,8 @@ Endpointy:
   GET  /parse/metrics          Metriky output parseru (Fáze 44)
   POST /sentiment              Analýza sentimentu textu (Fáze 45)
   GET  /sentiment/metrics      Metriky sentiment analyzéru (Fáze 45)
+  POST /keywords               Extrakce klíčových frází (Fáze 46)
+  GET  /keywords/metrics       Metriky keyword extraktoru (Fáze 46)
 """
 from __future__ import annotations
 
@@ -193,6 +195,7 @@ from core.summarizer import ExtractiveSummarizer
 from core.language_detector import LanguageDetector
 from core.output_parser import OutputParser
 from core.sentiment import SentimentAnalyzer
+from core.keyword_extractor import KeywordExtractor
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -328,6 +331,12 @@ _output_parser: OutputParser = OutputParser()
 
 # Sentiment Analyzer (Fáze 45)
 _sentiment: SentimentAnalyzer = SentimentAnalyzer(threshold=settings.sentiment_threshold)
+
+# Keyword Extractor (Fáze 46)
+_keyword_extractor: KeywordExtractor = KeywordExtractor(
+    max_phrase_words=settings.keyword_max_phrase_words,
+    min_word_length=settings.keyword_min_word_length,
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2719,3 +2728,26 @@ async def analyze_sentiment(req: SentimentRequest):
 async def sentiment_metrics():
     """Sentiment analyzer metrics: polarity distribution."""
     return _sentiment.metrics()
+
+
+# ── Keyword Extractor (Fáze 46) ─────────────────────────────────────────────────
+
+class KeywordRequest(BaseModel):
+    text: str
+    top_k: int = 10
+
+
+@app.post("/keywords", tags=["Keywords"])
+async def extract_keywords(req: KeywordRequest):
+    """Extract top keyphrases from text via RAKE-style scoring."""
+    try:
+        result = _keyword_extractor.extract(req.text, top_k=req.top_k)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result.to_dict()
+
+
+@app.get("/keywords/metrics", tags=["Keywords"])
+async def keywords_metrics():
+    """Keyword extractor metrics: average keywords per extraction."""
+    return _keyword_extractor.metrics()

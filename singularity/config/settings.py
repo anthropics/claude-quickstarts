@@ -155,6 +155,11 @@ class SingularitySettings(BaseSettings):
     enable_sentiment: bool = True             # lexicon-based sentiment scoring
     sentiment_threshold: float = 0.05         # |score| above → pos/neg, else neutral
 
+    # ── Keyword Extractor (Fáze 46) ───────────────────────────────────────────
+    enable_keyword_extractor: bool = True     # RAKE-style keyphrase extraction
+    keyword_max_phrase_words: int = 4         # drop candidate phrases longer than this
+    keyword_min_word_length: int = 2          # ignore words shorter than this
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
