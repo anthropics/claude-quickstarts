@@ -129,6 +129,9 @@ class SingularitySettings(BaseSettings):
     rrf_k: int = 60                           # reciprocal rank fusion constant
     reranker_method: str = "reciprocal_rank"  # reciprocal_rank | weighted_score
 
+    # ── PII Anonymizer (Fáze 39) ──────────────────────────────────────────────
+    enable_anonymizer: bool = True            # reversible PII de-identification
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

@@ -109,6 +109,10 @@ Endpointy:
   GET  /retrieve/metrics       Metriky BM25 retrieveru (Fáze 37)
   POST /rerank                 Fúze ranked listů (RRF / weighted) (Fáze 38)
   GET  /rerank/metrics         Metriky hybrid rerankeru (Fáze 38)
+  POST /anonymize              Reverzibilní anonymizace PII (Fáze 39)
+  POST /anonymize/detect       Detekce PII bez úpravy textu (Fáze 39)
+  POST /anonymize/restore      Obnoví původní hodnoty z mapy (Fáze 39)
+  GET  /anonymize/metrics      Metriky PII anonymizéru (Fáze 39)
 """
 from __future__ import annotations
 
@@ -165,6 +169,7 @@ from core.citation_tracker import CitationTracker
 from core.chunker import DocumentChunker, ChunkStrategy
 from core.retriever import BM25Retriever
 from core.reranker import HybridReranker, FusionMethod
+from core.anonymizer import PIIAnonymizer
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -274,6 +279,9 @@ _reranker: HybridReranker = HybridReranker(
     rrf_k=settings.rrf_k,
     default_method=FusionMethod(settings.reranker_method),
 )
+
+# PII Anonymizer (Fáze 39)
+_anonymizer: PIIAnonymizer = PIIAnonymizer()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2445,3 +2453,38 @@ async def rerank(req: RerankRequest):
 async def rerank_metrics():
     """Hybrid reranker metrics: fusion counts, average output size."""
     return _reranker.metrics()
+
+
+# ── PII Anonymizer (Fáze 39) ────────────────────────────────────────────────────
+
+class AnonymizeRequest(BaseModel):
+    text: str
+
+
+class RestoreRequest(BaseModel):
+    text: str
+    mapping: dict[str, str]
+
+
+@app.post("/anonymize", tags=["Anonymizer"])
+async def anonymize_text(req: AnonymizeRequest):
+    """Reversibly replace PII with stable placeholders; returns text + mapping."""
+    return _anonymizer.anonymize(req.text).to_dict()
+
+
+@app.post("/anonymize/detect", tags=["Anonymizer"])
+async def anonymize_detect(req: AnonymizeRequest):
+    """Detect PII entities without modifying the text."""
+    return {"entities": _anonymizer.detect(req.text)}
+
+
+@app.post("/anonymize/restore", tags=["Anonymizer"])
+async def anonymize_restore(req: RestoreRequest):
+    """Re-insert original values from a placeholder mapping."""
+    return {"restored_text": PIIAnonymizer.restore(req.text, req.mapping)}
+
+
+@app.get("/anonymize/metrics", tags=["Anonymizer"])
+async def anonymize_metrics():
+    """PII anonymizer metrics: entity counts by type."""
+    return _anonymizer.metrics()
