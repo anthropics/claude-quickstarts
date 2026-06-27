@@ -117,6 +117,8 @@ Endpointy:
   POST /cost/compare           Porovná cenu napříč modely (Fáze 40)
   GET  /cost/models            Ceník modelů (Fáze 40)
   GET  /cost/metrics           Metriky cost estimátoru (Fáze 40)
+  POST /compare/responses      Sentence-level diff dvou odpovědí (Fáze 41)
+  GET  /compare/responses/metrics  Metriky comparatoru (Fáze 41)
 """
 from __future__ import annotations
 
@@ -175,6 +177,7 @@ from core.retriever import BM25Retriever
 from core.reranker import HybridReranker, FusionMethod
 from core.anonymizer import PIIAnonymizer
 from core.cost_estimator import CostEstimator
+from core.response_diff import ResponseComparator
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -290,6 +293,9 @@ _anonymizer: PIIAnonymizer = PIIAnonymizer()
 
 # Cost Estimator (Fáze 40)
 _cost_estimator: CostEstimator = CostEstimator()
+
+# Response Comparator (Fáze 41)
+_comparator: ResponseComparator = ResponseComparator()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2560,3 +2566,22 @@ async def cost_models():
 async def cost_metrics():
     """Cost estimator metrics: total/avg projected cost."""
     return _cost_estimator.metrics()
+
+
+# ── Response Comparator (Fáze 41) ───────────────────────────────────────────────
+
+class CompareResponsesRequest(BaseModel):
+    text_a: str
+    text_b: str
+
+
+@app.post("/compare/responses", tags=["Comparator"])
+async def compare_responses(req: CompareResponsesRequest):
+    """Sentence-level diff between two responses with similarity scores."""
+    return _comparator.compare(req.text_a, req.text_b).to_dict()
+
+
+@app.get("/compare/responses/metrics", tags=["Comparator"])
+async def compare_responses_metrics():
+    """Response comparator metrics: avg similarity, identical rate."""
+    return _comparator.metrics()
