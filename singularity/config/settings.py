@@ -160,6 +160,9 @@ class SingularitySettings(BaseSettings):
     keyword_max_phrase_words: int = 4         # drop candidate phrases longer than this
     keyword_min_word_length: int = 2          # ignore words shorter than this
 
+    # ── Readability Analyzer (Fáze 47) ────────────────────────────────────────
+    enable_readability: bool = True           # Flesch readability metrics
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
