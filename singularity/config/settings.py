@@ -124,6 +124,14 @@ class SingularitySettings(BaseSettings):
     bm25_b: float = 0.75                      # length normalization
     retriever_top_k: int = 5                  # default results per search
 
+    # ── Hybrid Reranker (Fáze 38) ─────────────────────────────────────────────
+    enable_reranker: bool = True              # fuse lexical + semantic rankings
+    rrf_k: int = 60                           # reciprocal rank fusion constant
+    reranker_method: str = "reciprocal_rank"  # reciprocal_rank | weighted_score
+
+    # ── PII Anonymizer (Fáze 39) ──────────────────────────────────────────────
+    enable_anonymizer: bool = True            # reversible PII de-identification
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
