@@ -112,6 +112,12 @@ class SingularitySettings(BaseSettings):
     citation_threshold: float = 0.2           # min Jaccard overlap to cite
     citation_max_per_sentence: int = 3        # max citations per sentence
 
+    # ── Document Chunker (Fáze 36) ────────────────────────────────────────────
+    enable_chunker: bool = True               # document chunking for RAG
+    chunk_size: int = 1000                    # target chunk size (chars)
+    chunk_overlap: int = 100                  # overlap between chunks (chars)
+    chunk_strategy: str = "sentence"          # character | sentence | paragraph
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

@@ -101,6 +101,8 @@ Endpointy:
   GET  /intent/metrics         Metriky klasifikátoru záměrů (Fáze 34)
   POST /citations/track        Ukotvení odpovědi ve zdrojích (Fáze 35)
   GET  /citations/metrics      Metriky citation trackeru (Fáze 35)
+  POST /chunk                  Rozdělí dokument na chunky pro RAG (Fáze 36)
+  GET  /chunk/metrics          Metriky document chunkeru (Fáze 36)
 """
 from __future__ import annotations
 
@@ -154,6 +156,7 @@ from core.context_manager import ContextWindowManager, TrimStrategy
 from core.consensus import ConsensusEngine
 from core.intent_classifier import IntentClassifier, IntentDefinition
 from core.citation_tracker import CitationTracker
+from core.chunker import DocumentChunker, ChunkStrategy
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -246,6 +249,13 @@ _intent_classifier: IntentClassifier = IntentClassifier(
 _citation_tracker: CitationTracker = CitationTracker(
     threshold=settings.citation_threshold,
     max_citations=settings.citation_max_per_sentence,
+)
+
+# Document Chunker (Fáze 36)
+_chunker: DocumentChunker = DocumentChunker(
+    chunk_size=settings.chunk_size,
+    overlap=settings.chunk_overlap,
+    strategy=ChunkStrategy(settings.chunk_strategy),
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -2302,3 +2312,43 @@ async def citations_track(req: CitationTrackRequest):
 async def citations_metrics():
     """Citation tracker metrics: overall grounding score across reports."""
     return _citation_tracker.metrics()
+
+
+# ── Document Chunker (Fáze 36) ──────────────────────────────────────────────────
+
+class ChunkRequest(BaseModel):
+    text: str
+    chunk_size: int | None = None
+    overlap: int | None = None
+    strategy: str | None = None  # character | sentence | paragraph
+
+
+@app.post("/chunk", tags=["Chunker"])
+async def chunk_document(req: ChunkRequest):
+    """Split a document into overlapping chunks for RAG ingestion."""
+    if req.chunk_size is not None or req.overlap is not None:
+        try:
+            chunker = DocumentChunker(
+                chunk_size=req.chunk_size or settings.chunk_size,
+                overlap=req.overlap if req.overlap is not None else settings.chunk_overlap,
+                strategy=ChunkStrategy(req.strategy or settings.chunk_strategy),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    else:
+        chunker = _chunker
+
+    strat = None
+    if req.strategy is not None:
+        try:
+            strat = ChunkStrategy(req.strategy)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown strategy: {req.strategy!r}")
+
+    return chunker.chunk(req.text, strategy=strat).to_dict()
+
+
+@app.get("/chunk/metrics", tags=["Chunker"])
+async def chunk_metrics():
+    """Document chunker metrics: total docs/chunks, avg chunks per doc."""
+    return _chunker.metrics()
