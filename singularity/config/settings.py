@@ -144,6 +144,10 @@ class SingularitySettings(BaseSettings):
     summarizer_ratio: float = 0.3             # fraction of sentences to keep
     summarizer_max_sentences: int | None = None  # hard cap (None = no cap)
 
+    # ── Language Detector (Fáze 43) ───────────────────────────────────────────
+    enable_language_detector: bool = True     # heuristic language detection
+    language_min_confidence: float = 0.0      # below → "unknown"
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

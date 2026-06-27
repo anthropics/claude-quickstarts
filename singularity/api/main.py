@@ -121,6 +121,9 @@ Endpointy:
   GET  /compare/responses/metrics  Metriky comparatoru (Fáze 41)
   POST /summarize              Extraktivní sumarizace textu (Fáze 42)
   GET  /summarize/metrics      Metriky summarizéru (Fáze 42)
+  POST /language/detect        Detekce jazyka textu (Fáze 43)
+  GET  /language/list          Seznam podporovaných jazyků (Fáze 43)
+  GET  /language/metrics       Metriky language detektoru (Fáze 43)
 """
 from __future__ import annotations
 
@@ -181,6 +184,7 @@ from core.anonymizer import PIIAnonymizer
 from core.cost_estimator import CostEstimator
 from core.response_diff import ResponseComparator
 from core.summarizer import ExtractiveSummarizer
+from core.language_detector import LanguageDetector
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -304,6 +308,11 @@ _comparator: ResponseComparator = ResponseComparator()
 _summarizer: ExtractiveSummarizer = ExtractiveSummarizer(
     ratio=settings.summarizer_ratio,
     max_sentences=settings.summarizer_max_sentences,
+)
+
+# Language Detector (Fáze 43)
+_language_detector: LanguageDetector = LanguageDetector(
+    min_confidence=settings.language_min_confidence,
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -2624,3 +2633,27 @@ async def summarize_text(req: SummarizeRequest):
 async def summarize_metrics():
     """Summarizer metrics: overall compression across calls."""
     return _summarizer.metrics()
+
+
+# ── Language Detector (Fáze 43) ─────────────────────────────────────────────────
+
+class LanguageDetectRequest(BaseModel):
+    text: str
+
+
+@app.post("/language/detect", tags=["Language"])
+async def language_detect(req: LanguageDetectRequest):
+    """Detect the dominant language of a text with confidence + per-language scores."""
+    return _language_detector.detect(req.text).to_dict()
+
+
+@app.get("/language/list", tags=["Language"])
+async def language_list():
+    """List supported language codes."""
+    return {"languages": _language_detector.list_languages()}
+
+
+@app.get("/language/metrics", tags=["Language"])
+async def language_metrics():
+    """Language detector metrics: per-language counts, unknown rate."""
+    return _language_detector.metrics()
