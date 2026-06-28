@@ -178,6 +178,12 @@ class SingularitySettings(BaseSettings):
     enable_fuzzy_matcher: bool = True         # Levenshtein fuzzy matching
     fuzzy_threshold: float = 0.6              # min similarity ratio for a match
 
+    # ── Anomaly Detector (Fáze 52) ────────────────────────────────────────────
+    enable_anomaly_detector: bool = True      # statistical outlier detection
+    anomaly_method: str = "z_score"           # z_score | iqr
+    anomaly_window: int = 50                  # rolling window per metric
+    anomaly_z_threshold: float = 3.0          # z-score sensitivity
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
