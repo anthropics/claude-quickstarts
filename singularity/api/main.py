@@ -138,6 +138,8 @@ Endpointy:
   POST /dedup/batch            Deduplikace seznamu textů (Fáze 48)
   DELETE /dedup                Vymaže dedup index (Fáze 48)
   GET  /dedup/metrics          Metriky deduplikátoru (Fáze 48)
+  POST /entities               Extrakce pojmenovaných entit (Fáze 49)
+  GET  /entities/metrics       Metriky entity extraktoru (Fáze 49)
 """
 from __future__ import annotations
 
@@ -204,6 +206,7 @@ from core.sentiment import SentimentAnalyzer
 from core.keyword_extractor import KeywordExtractor
 from core.readability import ReadabilityAnalyzer
 from core.deduplicator import Deduplicator
+from core.entity_extractor import EntityExtractor
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -354,6 +357,9 @@ _deduplicator: Deduplicator = Deduplicator(
     threshold=settings.dedup_threshold,
     shingle_k=settings.dedup_shingle_k,
 )
+
+# Entity Extractor (Fáze 49)
+_entity_extractor: EntityExtractor = EntityExtractor()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2824,3 +2830,21 @@ async def dedup_clear():
 async def dedup_metrics():
     """Deduplicator metrics: exact/near counts, duplicate rate."""
     return _deduplicator.metrics()
+
+
+# ── Entity Extractor (Fáze 49) ──────────────────────────────────────────────────
+
+class EntityRequest(BaseModel):
+    text: str
+
+
+@app.post("/entities", tags=["Entities"])
+async def extract_entities(req: EntityRequest):
+    """Extract typed named entities (date, money, email, phone, proper noun, …)."""
+    return _entity_extractor.extract(req.text).to_dict()
+
+
+@app.get("/entities/metrics", tags=["Entities"])
+async def entities_metrics():
+    """Entity extractor metrics: counts by entity type."""
+    return _entity_extractor.metrics()
