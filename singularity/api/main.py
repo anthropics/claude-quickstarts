@@ -146,6 +146,10 @@ Endpointy:
   GET  /fuzzy/metrics          Metriky fuzzy matcheru (Fáze 51)
   POST /anomaly/observe        Detekce anomálie v metrice (Fáze 52)
   GET  /anomaly/metrics        Metriky anomaly detektoru (Fáze 52)
+  POST /sampler/add            Nabídne položku do reservoiru (Fáze 53)
+  GET  /sampler/sample         Vrátí aktuální vzorek (Fáze 53)
+  POST /sampler/reset          Vyprázdní reservoir (Fáze 53)
+  GET  /sampler/metrics        Metriky sampleru (Fáze 53)
 """
 from __future__ import annotations
 
@@ -153,6 +157,7 @@ import asyncio
 import json
 import uuid
 from contextlib import asynccontextmanager
+from typing import Any
 
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -216,6 +221,7 @@ from core.entity_extractor import EntityExtractor
 from core.text_analytics import TextAnalyticsSuite
 from core.fuzzy_matcher import FuzzyMatcher
 from core.anomaly_detector import AnomalyDetector, DetectionMethod
+from core.sampler import ReservoirSampler
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -388,6 +394,12 @@ _anomaly_detector: AnomalyDetector = AnomalyDetector(
     method=DetectionMethod(settings.anomaly_method),
     window=settings.anomaly_window,
     z_threshold=settings.anomaly_z_threshold,
+)
+
+# Reservoir Sampler (Fáze 53)
+_sampler: ReservoirSampler = ReservoirSampler(
+    capacity=settings.sampler_capacity,
+    seed=settings.sampler_seed,
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -2962,3 +2974,35 @@ async def anomaly_observe(req: AnomalyObserveRequest):
 async def anomaly_metrics():
     """Anomaly detector metrics: anomaly rate, tracked metric streams."""
     return _anomaly_detector.metrics()
+
+
+# ── Reservoir Sampler (Fáze 53) ─────────────────────────────────────────────────
+
+class SamplerAddRequest(BaseModel):
+    item: Any
+
+
+@app.post("/sampler/add", tags=["Sampler"])
+async def sampler_add(req: SamplerAddRequest):
+    """Offer an item to the reservoir; returns whether it is currently retained."""
+    kept = _sampler.add(req.item)
+    return {"kept": kept, "seen": _sampler.seen}
+
+
+@app.get("/sampler/sample", tags=["Sampler"])
+async def sampler_sample():
+    """Return the current reservoir sample and state."""
+    return _sampler.state().to_dict()
+
+
+@app.post("/sampler/reset", tags=["Sampler"])
+async def sampler_reset():
+    """Empty the reservoir."""
+    _sampler.reset()
+    return {"status": "reset"}
+
+
+@app.get("/sampler/metrics", tags=["Sampler"])
+async def sampler_metrics():
+    """Reservoir sampler metrics: seen, sample size, replacements, fill ratio."""
+    return _sampler.metrics()
