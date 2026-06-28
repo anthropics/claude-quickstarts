@@ -189,6 +189,10 @@ class SingularitySettings(BaseSettings):
     sampler_capacity: int = 100               # reservoir size
     sampler_seed: int | None = None           # RNG seed (None = nondeterministic)
 
+    # ── Percentile Tracker (Fáze 54) ──────────────────────────────────────────
+    enable_percentile_tracker: bool = True    # streaming percentile stats
+    percentile_window: int = 1000             # rolling samples per metric
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

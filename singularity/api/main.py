@@ -150,6 +150,9 @@ Endpointy:
   GET  /sampler/sample         Vrátí aktuální vzorek (Fáze 53)
   POST /sampler/reset          Vyprázdní reservoir (Fáze 53)
   GET  /sampler/metrics        Metriky sampleru (Fáze 53)
+  POST /percentile/observe     Zaznamená hodnotu metriky (Fáze 54)
+  GET  /percentile/summary     Distribuce + percentily metriky (Fáze 54)
+  GET  /percentile/metrics     Metriky percentile trackeru (Fáze 54)
 """
 from __future__ import annotations
 
@@ -222,6 +225,7 @@ from core.text_analytics import TextAnalyticsSuite
 from core.fuzzy_matcher import FuzzyMatcher
 from core.anomaly_detector import AnomalyDetector, DetectionMethod
 from core.sampler import ReservoirSampler
+from core.histogram import PercentileTracker
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -400,6 +404,11 @@ _anomaly_detector: AnomalyDetector = AnomalyDetector(
 _sampler: ReservoirSampler = ReservoirSampler(
     capacity=settings.sampler_capacity,
     seed=settings.sampler_seed,
+)
+
+# Percentile Tracker (Fáze 54)
+_percentile_tracker: PercentileTracker = PercentileTracker(
+    window=settings.percentile_window,
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -3006,3 +3015,32 @@ async def sampler_reset():
 async def sampler_metrics():
     """Reservoir sampler metrics: seen, sample size, replacements, fill ratio."""
     return _sampler.metrics()
+
+
+# ── Percentile Tracker (Fáze 54) ────────────────────────────────────────────────
+
+class PercentileObserveRequest(BaseModel):
+    metric: str
+    value: float
+
+
+@app.post("/percentile/observe", tags=["Percentile"])
+async def percentile_observe(req: PercentileObserveRequest):
+    """Record a value for a metric's rolling distribution."""
+    _percentile_tracker.observe(req.metric, req.value)
+    return {"metric": req.metric, "observed": req.value}
+
+
+@app.get("/percentile/summary", tags=["Percentile"])
+async def percentile_summary(metric: str):
+    """Return count/min/max/mean + percentiles (p50/p90/p95/p99) for a metric."""
+    summary = _percentile_tracker.summary(metric)
+    if summary is None:
+        raise HTTPException(status_code=404, detail=f"No data for metric {metric!r}")
+    return summary.to_dict()
+
+
+@app.get("/percentile/metrics", tags=["Percentile"])
+async def percentile_metrics():
+    """Percentile tracker metrics: total observations, tracked metrics."""
+    return _percentile_tracker.metrics()
