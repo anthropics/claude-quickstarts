@@ -142,6 +142,8 @@ Endpointy:
   GET  /entities/metrics       Metriky entity extraktoru (Fáze 49)
   POST /analyze/text           Kompletní NLP analýza textu (Fáze 50)
   GET  /analyze/text/metrics   Metriky text analytics suite (Fáze 50)
+  POST /fuzzy/match            Fuzzy match dotazu proti kandidátům (Fáze 51)
+  GET  /fuzzy/metrics          Metriky fuzzy matcheru (Fáze 51)
 """
 from __future__ import annotations
 
@@ -210,6 +212,7 @@ from core.readability import ReadabilityAnalyzer
 from core.deduplicator import Deduplicator
 from core.entity_extractor import EntityExtractor
 from core.text_analytics import TextAnalyticsSuite
+from core.fuzzy_matcher import FuzzyMatcher
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -373,6 +376,9 @@ _text_analytics: TextAnalyticsSuite = TextAnalyticsSuite(
     entity_extractor=_entity_extractor,
     summarizer=_summarizer,
 )
+
+# Fuzzy Matcher (Fáze 51)
+_fuzzy_matcher: FuzzyMatcher = FuzzyMatcher(threshold=settings.fuzzy_threshold)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2896,3 +2902,27 @@ async def analyze_text(req: TextAnalyticsRequest):
 async def analyze_text_metrics():
     """Text analytics suite metrics: total analyses, per-section counts."""
     return _text_analytics.metrics()
+
+
+# ── Fuzzy Matcher (Fáze 51) ─────────────────────────────────────────────────────
+
+class FuzzyMatchRequest(BaseModel):
+    query: str
+    candidates: list[str]
+    top_k: int = 5
+
+
+@app.post("/fuzzy/match", tags=["Fuzzy"])
+async def fuzzy_match(req: FuzzyMatchRequest):
+    """Fuzzy-match a query against candidates via Levenshtein similarity."""
+    try:
+        result = _fuzzy_matcher.match(req.query, req.candidates, top_k=req.top_k)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return result.to_dict()
+
+
+@app.get("/fuzzy/metrics", tags=["Fuzzy"])
+async def fuzzy_metrics():
+    """Fuzzy matcher metrics: hit rate across queries."""
+    return _fuzzy_matcher.metrics()

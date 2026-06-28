@@ -174,6 +174,10 @@ class SingularitySettings(BaseSettings):
     # ── Text Analytics Suite (Fáze 50) ────────────────────────────────────────
     enable_text_analytics: bool = True        # composed one-shot NLP report
 
+    # ── Fuzzy Matcher (Fáze 51) ───────────────────────────────────────────────
+    enable_fuzzy_matcher: bool = True         # Levenshtein fuzzy matching
+    fuzzy_threshold: float = 0.6              # min similarity ratio for a match
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
