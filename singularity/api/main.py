@@ -159,6 +159,12 @@ Endpointy:
   POST /webhooks/dispatch      Rozešle event odběratelům (Fáze 55)
   GET  /webhooks/dead-letters  Dead-letter fronta (Fáze 55)
   GET  /webhooks/metrics       Metriky webhook dispatcheru (Fáze 55)
+  POST /flags                  Registruje feature flag (Fáze 56)
+  GET  /flags                  Seznam feature flagů (Fáze 56)
+  POST /flags/{name}/evaluate  Vyhodnotí flag pro uživatele (Fáze 56)
+  PATCH /flags/{name}          Upraví flag (enabled/rollout/override) (Fáze 56)
+  DELETE /flags/{name}         Smaže flag (Fáze 56)
+  GET  /flags/metrics          Metriky feature flag manageru (Fáze 56)
 """
 from __future__ import annotations
 
@@ -233,6 +239,7 @@ from core.anomaly_detector import AnomalyDetector, DetectionMethod
 from core.sampler import ReservoirSampler
 from core.histogram import PercentileTracker
 from core.webhook_dispatcher import WebhookDispatcher
+from core.feature_flags import FeatureFlagManager
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -440,6 +447,9 @@ _webhook_dispatcher: WebhookDispatcher = WebhookDispatcher(
     backoff_base=settings.webhook_backoff_base,
     sleep_fn=_webhook_sleep,
 )
+
+# Feature Flag Manager (Fáze 56)
+_feature_flags: FeatureFlagManager = FeatureFlagManager()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -3130,3 +3140,75 @@ async def webhooks_dead_letters():
 async def webhooks_metrics():
     """Webhook dispatcher metrics: delivery rate, dead-letter count."""
     return _webhook_dispatcher.metrics()
+
+
+# ── Feature Flag Manager (Fáze 56) ──────────────────────────────────────────────
+
+class FlagRegisterRequest(BaseModel):
+    name: str
+    enabled: bool = False
+    rollout: int = 0
+    description: str = ""
+
+
+class FlagUpdateRequest(BaseModel):
+    enabled: bool | None = None
+    rollout: int | None = None
+    override_user: str | None = None
+    override_state: bool | None = None  # True=on, False=off, None=clear (with override_user)
+
+
+@app.post("/flags", tags=["Flags"])
+async def flags_register(req: FlagRegisterRequest):
+    """Register a feature flag."""
+    try:
+        flag = _feature_flags.register(
+            req.name, enabled=req.enabled, rollout=req.rollout,
+            description=req.description,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return flag.to_dict()
+
+
+@app.get("/flags", tags=["Flags"])
+async def flags_list():
+    """List all feature flags."""
+    return {"flags": _feature_flags.list_flags()}
+
+
+@app.post("/flags/{name}/evaluate", tags=["Flags"])
+async def flags_evaluate(name: str, user: str | None = None):
+    """Evaluate whether a flag is enabled for a given user."""
+    return {"name": name, "user": user, "enabled": _feature_flags.is_enabled(name, user)}
+
+
+@app.patch("/flags/{name}", tags=["Flags"])
+async def flags_update(name: str, req: FlagUpdateRequest):
+    """Update a flag: master switch, rollout percentage, or a user override."""
+    if _feature_flags.get(name) is None:
+        raise HTTPException(status_code=404, detail=f"Unknown flag {name!r}")
+    if req.enabled is not None:
+        _feature_flags.set_enabled(name, req.enabled)
+    if req.rollout is not None:
+        try:
+            _feature_flags.set_rollout(name, req.rollout)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc))
+    if req.override_user is not None:
+        _feature_flags.set_user_override(name, req.override_user, req.override_state)
+    return _feature_flags.get(name)
+
+
+@app.delete("/flags/{name}", tags=["Flags"])
+async def flags_delete(name: str):
+    """Delete a feature flag."""
+    if not _feature_flags.delete(name):
+        raise HTTPException(status_code=404, detail=f"Unknown flag {name!r}")
+    return {"status": "deleted", "name": name}
+
+
+@app.get("/flags/metrics", tags=["Flags"])
+async def flags_metrics():
+    """Feature flag manager metrics: evaluations, enabled rate."""
+    return _feature_flags.metrics()
