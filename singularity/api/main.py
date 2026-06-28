@@ -140,6 +140,8 @@ Endpointy:
   GET  /dedup/metrics          Metriky deduplikátoru (Fáze 48)
   POST /entities               Extrakce pojmenovaných entit (Fáze 49)
   GET  /entities/metrics       Metriky entity extraktoru (Fáze 49)
+  POST /analyze/text           Kompletní NLP analýza textu (Fáze 50)
+  GET  /analyze/text/metrics   Metriky text analytics suite (Fáze 50)
 """
 from __future__ import annotations
 
@@ -207,6 +209,7 @@ from core.keyword_extractor import KeywordExtractor
 from core.readability import ReadabilityAnalyzer
 from core.deduplicator import Deduplicator
 from core.entity_extractor import EntityExtractor
+from core.text_analytics import TextAnalyticsSuite
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -360,6 +363,16 @@ _deduplicator: Deduplicator = Deduplicator(
 
 # Entity Extractor (Fáze 49)
 _entity_extractor: EntityExtractor = EntityExtractor()
+
+# Text Analytics Suite (Fáze 50) — composes the NLP analyzers above
+_text_analytics: TextAnalyticsSuite = TextAnalyticsSuite(
+    language_detector=_language_detector,
+    sentiment_analyzer=_sentiment,
+    readability_analyzer=_readability,
+    keyword_extractor=_keyword_extractor,
+    entity_extractor=_entity_extractor,
+    summarizer=_summarizer,
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2848,3 +2861,38 @@ async def extract_entities(req: EntityRequest):
 async def entities_metrics():
     """Entity extractor metrics: counts by entity type."""
     return _entity_extractor.metrics()
+
+
+# ── Text Analytics Suite (Fáze 50) ──────────────────────────────────────────────
+
+class TextAnalyticsRequest(BaseModel):
+    text: str
+    language: bool = True
+    sentiment: bool = True
+    readability: bool = True
+    keywords: bool = True
+    entities: bool = True
+    summary: bool = True
+    top_keywords: int = 8
+
+
+@app.post("/analyze/text", tags=["Analytics"])
+async def analyze_text(req: TextAnalyticsRequest):
+    """One-shot composed NLP report: language, sentiment, readability, keywords, entities, summary."""
+    report = _text_analytics.analyze(
+        req.text,
+        language=req.language,
+        sentiment=req.sentiment,
+        readability=req.readability,
+        keywords=req.keywords,
+        entities=req.entities,
+        summary=req.summary,
+        top_keywords=req.top_keywords,
+    )
+    return report.to_dict()
+
+
+@app.get("/analyze/text/metrics", tags=["Analytics"])
+async def analyze_text_metrics():
+    """Text analytics suite metrics: total analyses, per-section counts."""
+    return _text_analytics.metrics()

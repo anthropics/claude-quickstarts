@@ -171,6 +171,9 @@ class SingularitySettings(BaseSettings):
     # ── Entity Extractor (Fáze 49) ────────────────────────────────────────────
     enable_entity_extractor: bool = True      # pattern-based NER
 
+    # ── Text Analytics Suite (Fáze 50) ────────────────────────────────────────
+    enable_text_analytics: bool = True        # composed one-shot NLP report
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
