@@ -204,6 +204,9 @@ class SingularitySettings(BaseSettings):
     # ── Health Aggregator (Fáze 57) ───────────────────────────────────────────
     enable_health_aggregator: bool = True     # unified subsystem health rollup
 
+    # ── SLO Monitor (Fáze 58) ─────────────────────────────────────────────────
+    enable_slo_monitor: bool = True           # SLO compliance + error budgets
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
