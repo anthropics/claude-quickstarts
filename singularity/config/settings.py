@@ -201,6 +201,9 @@ class SingularitySettings(BaseSettings):
     # ── Feature Flag Manager (Fáze 56) ────────────────────────────────────────
     enable_feature_flags: bool = True         # runtime feature gating
 
+    # ── Health Aggregator (Fáze 57) ───────────────────────────────────────────
+    enable_health_aggregator: bool = True     # unified subsystem health rollup
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

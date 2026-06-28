@@ -165,6 +165,9 @@ Endpointy:
   PATCH /flags/{name}          Upraví flag (enabled/rollout/override) (Fáze 56)
   DELETE /flags/{name}         Smaže flag (Fáze 56)
   GET  /flags/metrics          Metriky feature flag manageru (Fáze 56)
+  GET  /healthz                Agregovaný health všech subsystémů (Fáze 57)
+  GET  /health/components      Seznam health komponent (Fáze 57)
+  GET  /healthz/metrics        Metriky health agregátoru (Fáze 57)
 """
 from __future__ import annotations
 
@@ -240,6 +243,7 @@ from core.sampler import ReservoirSampler
 from core.histogram import PercentileTracker
 from core.webhook_dispatcher import WebhookDispatcher
 from core.feature_flags import FeatureFlagManager
+from core.health_aggregator import HealthAggregator, HealthStatus
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -450,6 +454,34 @@ _webhook_dispatcher: WebhookDispatcher = WebhookDispatcher(
 
 # Feature Flag Manager (Fáze 56)
 _feature_flags: FeatureFlagManager = FeatureFlagManager()
+
+# Health Aggregator (Fáze 57) — composes subsystem checks behind /healthz
+_health_aggregator: HealthAggregator = HealthAggregator()
+
+
+def _register_health_checks() -> None:
+    """Wire core subsystems into the aggregator. Optional components degrade
+    rather than fail the overall status."""
+    _health_aggregator.register(
+        "task_queue", lambda: HealthStatus.HEALTHY, required=True,
+    )
+    _health_aggregator.register(
+        "response_cache",
+        lambda: HealthStatus.HEALTHY if response_cache is not None else HealthStatus.UNHEALTHY,
+        required=False,
+    )
+    _health_aggregator.register(
+        "session_store", lambda: HealthStatus.HEALTHY, required=False,
+    )
+    _health_aggregator.register(
+        "webhooks",
+        lambda: (HealthStatus.DEGRADED, "dead-letters present")
+        if _webhook_dispatcher.metrics()["dead_letters"] > 0 else HealthStatus.HEALTHY,
+        required=False,
+    )
+
+
+_register_health_checks()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -3212,3 +3244,29 @@ async def flags_delete(name: str):
 async def flags_metrics():
     """Feature flag manager metrics: evaluations, enabled rate."""
     return _feature_flags.metrics()
+
+
+# ── Health Aggregator (Fáze 57) ─────────────────────────────────────────────────
+
+@app.get("/healthz", tags=["Health"])
+async def healthz():
+    """Aggregated health across all registered subsystems.
+
+    Returns 200 when healthy/degraded, 503 when unhealthy (a required
+    component is down) so orchestrators can gate traffic."""
+    report = await _health_aggregator.check()
+    if report.status == HealthStatus.UNHEALTHY:
+        raise HTTPException(status_code=503, detail=report.to_dict())
+    return report.to_dict()
+
+
+@app.get("/health/components", tags=["Health"])
+async def health_components():
+    """List registered health-check component names."""
+    return {"components": _health_aggregator.list_components()}
+
+
+@app.get("/healthz/metrics", tags=["Health"])
+async def healthz_metrics():
+    """Health aggregator metrics: report status distribution."""
+    return _health_aggregator.metrics()
