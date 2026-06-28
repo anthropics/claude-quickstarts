@@ -193,6 +193,11 @@ class SingularitySettings(BaseSettings):
     enable_percentile_tracker: bool = True    # streaming percentile stats
     percentile_window: int = 1000             # rolling samples per metric
 
+    # ── Webhook Dispatcher (Fáze 55) ──────────────────────────────────────────
+    enable_webhooks: bool = True              # outbound signed event delivery
+    webhook_max_retries: int = 3             # retry attempts per subscriber
+    webhook_backoff_base: float = 0.5        # exponential backoff base (s)
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

@@ -153,6 +153,12 @@ Endpointy:
   POST /percentile/observe     Zaznamená hodnotu metriky (Fáze 54)
   GET  /percentile/summary     Distribuce + percentily metriky (Fáze 54)
   GET  /percentile/metrics     Metriky percentile trackeru (Fáze 54)
+  POST /webhooks/subscribe     Registruje odběratele webhooku (Fáze 55)
+  DELETE /webhooks/{sub_id}    Zruší odběr (Fáze 55)
+  GET  /webhooks               Seznam odběratelů (Fáze 55)
+  POST /webhooks/dispatch      Rozešle event odběratelům (Fáze 55)
+  GET  /webhooks/dead-letters  Dead-letter fronta (Fáze 55)
+  GET  /webhooks/metrics       Metriky webhook dispatcheru (Fáze 55)
 """
 from __future__ import annotations
 
@@ -226,6 +232,7 @@ from core.fuzzy_matcher import FuzzyMatcher
 from core.anomaly_detector import AnomalyDetector, DetectionMethod
 from core.sampler import ReservoirSampler
 from core.histogram import PercentileTracker
+from core.webhook_dispatcher import WebhookDispatcher
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -409,6 +416,29 @@ _sampler: ReservoirSampler = ReservoirSampler(
 # Percentile Tracker (Fáze 54)
 _percentile_tracker: PercentileTracker = PercentileTracker(
     window=settings.percentile_window,
+)
+
+# Webhook Dispatcher (Fáze 55) — uses an httpx-backed sender at call time
+import asyncio as _asyncio
+
+
+async def _httpx_send(url: str, payload: str, headers: dict) -> int:
+    """Default async sender. Imports httpx lazily so the module stays importable
+    without the dependency in offline/test contexts (tests inject their own)."""
+    import httpx
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(url, content=payload, headers=headers)
+        return resp.status_code
+
+
+async def _webhook_sleep(seconds: float) -> None:
+    await _asyncio.sleep(seconds)
+
+
+_webhook_dispatcher: WebhookDispatcher = WebhookDispatcher(
+    max_retries=settings.webhook_max_retries,
+    backoff_base=settings.webhook_backoff_base,
+    sleep_fn=_webhook_sleep,
 )
 
 # Multi-Agent Orchestrator (Fáze 28)
@@ -3044,3 +3074,59 @@ async def percentile_summary(metric: str):
 async def percentile_metrics():
     """Percentile tracker metrics: total observations, tracked metrics."""
     return _percentile_tracker.metrics()
+
+
+# ── Webhook Dispatcher (Fáze 55) ────────────────────────────────────────────────
+
+class WebhookSubscribeRequest(BaseModel):
+    url: str
+    secret: str
+    events: list[str] | None = None
+
+
+class WebhookDispatchRequest(BaseModel):
+    event_type: str
+    data: dict
+
+
+@app.post("/webhooks/subscribe", tags=["Webhooks"])
+async def webhooks_subscribe(req: WebhookSubscribeRequest):
+    """Register an outbound webhook subscriber (HMAC-signed deliveries)."""
+    try:
+        sid = _webhook_dispatcher.subscribe(req.url, req.secret, events=req.events)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"sub_id": sid}
+
+
+@app.delete("/webhooks/{sub_id}", tags=["Webhooks"])
+async def webhooks_unsubscribe(sub_id: str):
+    """Remove a webhook subscriber."""
+    if not _webhook_dispatcher.unsubscribe(sub_id):
+        raise HTTPException(status_code=404, detail=f"Unknown subscriber {sub_id!r}")
+    return {"status": "unsubscribed", "sub_id": sub_id}
+
+
+@app.get("/webhooks", tags=["Webhooks"])
+async def webhooks_list():
+    """List registered webhook subscribers."""
+    return {"subscriptions": _webhook_dispatcher.list_subscriptions()}
+
+
+@app.post("/webhooks/dispatch", tags=["Webhooks"])
+async def webhooks_dispatch(req: WebhookDispatchRequest):
+    """Dispatch an event to all matching subscribers; returns delivery result."""
+    result = await _webhook_dispatcher.dispatch(req.event_type, req.data, _httpx_send)
+    return result.to_dict()
+
+
+@app.get("/webhooks/dead-letters", tags=["Webhooks"])
+async def webhooks_dead_letters():
+    """List failed deliveries in the dead-letter queue."""
+    return {"dead_letters": _webhook_dispatcher.dead_letters()}
+
+
+@app.get("/webhooks/metrics", tags=["Webhooks"])
+async def webhooks_metrics():
+    """Webhook dispatcher metrics: delivery rate, dead-letter count."""
+    return _webhook_dispatcher.metrics()
