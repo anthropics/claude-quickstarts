@@ -198,6 +198,9 @@ class SingularitySettings(BaseSettings):
     webhook_max_retries: int = 3             # retry attempts per subscriber
     webhook_backoff_base: float = 0.5        # exponential backoff base (s)
 
+    # ── Feature Flag Manager (Fáze 56) ────────────────────────────────────────
+    enable_feature_flags: bool = True         # runtime feature gating
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
