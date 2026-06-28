@@ -168,6 +168,11 @@ Endpointy:
   GET  /healthz                Agregovaný health všech subsystémů (Fáze 57)
   GET  /health/components      Seznam health komponent (Fáze 57)
   GET  /healthz/metrics        Metriky health agregátoru (Fáze 57)
+  POST /slo                     Registruje SLO (Fáze 58)
+  POST /slo/{name}/record       Zaznamená SLO událost (Fáze 58)
+  GET  /slo/{name}              Report jednoho SLO (Fáze 58)
+  GET  /slo                     Reporty všech SLO (Fáze 58)
+  DELETE /slo/{name}            Smaže SLO (Fáze 58)
 """
 from __future__ import annotations
 
@@ -244,6 +249,7 @@ from core.histogram import PercentileTracker
 from core.webhook_dispatcher import WebhookDispatcher
 from core.feature_flags import FeatureFlagManager
 from core.health_aggregator import HealthAggregator, HealthStatus
+from core.slo_monitor import SLOMonitor, SLOKind
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -482,6 +488,9 @@ def _register_health_checks() -> None:
 
 
 _register_health_checks()
+
+# SLO Monitor (Fáze 58)
+_slo_monitor: SLOMonitor = SLOMonitor()
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -3270,3 +3279,74 @@ async def health_components():
 async def healthz_metrics():
     """Health aggregator metrics: report status distribution."""
     return _health_aggregator.metrics()
+
+
+# ── SLO Monitor (Fáze 58) ───────────────────────────────────────────────────────
+
+class SLORegisterRequest(BaseModel):
+    name: str
+    kind: str = "availability"   # availability | latency
+    target: float = 0.99
+    window: int = 1000
+    threshold_ms: float | None = None
+
+
+class SLORecordRequest(BaseModel):
+    outcome: str | None = None   # "success" | "failure" (availability)
+    latency_ms: float | None = None  # (latency)
+
+
+@app.post("/slo", tags=["SLO"])
+async def slo_register(req: SLORegisterRequest):
+    """Register a Service-Level Objective (availability or latency)."""
+    try:
+        _slo_monitor.register(
+            req.name, kind=SLOKind(req.kind), target=req.target,
+            window=req.window, threshold_ms=req.threshold_ms,
+        )
+    except (ValueError, KeyError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"status": "registered", "name": req.name}
+
+
+@app.post("/slo/{name}/record", tags=["SLO"])
+async def slo_record(name: str, req: SLORecordRequest):
+    """Record an SLO event: success/failure (availability) or latency_ms (latency)."""
+    try:
+        if req.latency_ms is not None:
+            _slo_monitor.record_latency(name, req.latency_ms)
+        elif req.outcome == "success":
+            _slo_monitor.record_success(name)
+        elif req.outcome == "failure":
+            _slo_monitor.record_failure(name)
+        else:
+            raise HTTPException(status_code=400,
+                                detail="provide outcome=success/failure or latency_ms")
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"status": "recorded", "name": name}
+
+
+@app.get("/slo/{name}", tags=["SLO"])
+async def slo_report(name: str):
+    """Report a single SLO: SLI, error budget, burn rate, status."""
+    try:
+        return _slo_monitor.report(name).to_dict()
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.get("/slo", tags=["SLO"])
+async def slo_report_all():
+    """Report all registered SLOs."""
+    return {"slos": _slo_monitor.report_all()}
+
+
+@app.delete("/slo/{name}", tags=["SLO"])
+async def slo_delete(name: str):
+    """Delete an SLO."""
+    if not _slo_monitor.delete(name):
+        raise HTTPException(status_code=404, detail=f"Unknown SLO {name!r}")
+    return {"status": "deleted", "name": name}
