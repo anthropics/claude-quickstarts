@@ -1,6 +1,6 @@
 [project]
 name = "singularity"
-version = "0.1.0"
+version = "1.0.0"
 description = "Singularity — Multi-LLM Meta-Cognitive Core (Claude + Gemini)"
 requires-python = ">=3.11"
 

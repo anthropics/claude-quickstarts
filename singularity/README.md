@@ -134,3 +134,29 @@ Všech 8 kritických oprav z Omega je zachováno: lazy DeepEval init, lokální
 paměť bez API klíčů, offline hash embeddings (128-dim), `ASGITransport`,
 keyword-only `user_id`, tenacity retry, degraded fallback v `_plan_node`,
 `lifespan` handler místo `on_event`.
+
+## v1.0 — kompletní platforma
+
+Singularity v1.0 (viz [CHANGELOG.md](CHANGELOG.md)) je **production-ready**:
+**1259 testů**, 63 core modulů, ~190 API endpointů. Jádro je dependency-light —
+každý modul je offline-testovatelný.
+
+| Doména | Moduly |
+|--------|--------|
+| **Multi-LLM** | provider abstrakce, router (6 strategií + cascade), self-healing |
+| **Orchestrace** | multi-agent DAG, swarm, workflow engine, scheduler, task queue |
+| **RAG** | chunker → BM25 + semantic cache → hybrid reranker → citation grounding |
+| **NLP** | summarizer, language, sentiment, keywords, readability, entity, dedup, parser, fuzzy match + text-analytics suite |
+| **Bezpečnost** | guardrails, output validator, PII anonymizer, request pipeline, audit log |
+| **Observabilita** | telemetrie, tracing, percentily, anomálie, SLO budgety, health aggregator |
+| **Provoz** | rate limiting, circuit breakers, kvóty, cost estimator, sampler, persistence |
+| **Integrace** | webhook dispatcher (HMAC + dead-letter), feature flags (rollout), tool registry |
+| **HPC** | Apptainer, Slurm DDP, preemption handling, cascade routing (`hpc/`) |
+
+### Ověření
+
+```bash
+cd singularity
+pip install -e ".[test,dev]"
+pytest tests/unit/ tests/integration/ -q   # 1259 passed
+```
