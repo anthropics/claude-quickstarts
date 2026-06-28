@@ -163,6 +163,11 @@ class SingularitySettings(BaseSettings):
     # ── Readability Analyzer (Fáze 47) ────────────────────────────────────────
     enable_readability: bool = True           # Flesch readability metrics
 
+    # ── Deduplicator (Fáze 48) ────────────────────────────────────────────────
+    enable_deduplicator: bool = True          # SimHash near-duplicate detection
+    dedup_threshold: int = 3                  # max Hamming distance for near-dup
+    dedup_shingle_k: int = 2                  # token n-gram size for SimHash
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev

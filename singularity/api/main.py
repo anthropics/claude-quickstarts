@@ -134,6 +134,10 @@ Endpointy:
   GET  /keywords/metrics       Metriky keyword extraktoru (Fáze 46)
   POST /readability            Readability metriky textu (Fáze 47)
   GET  /readability/metrics    Metriky readability analyzéru (Fáze 47)
+  POST /dedup/check            Kontrola duplicity textu (Fáze 48)
+  POST /dedup/batch            Deduplikace seznamu textů (Fáze 48)
+  DELETE /dedup                Vymaže dedup index (Fáze 48)
+  GET  /dedup/metrics          Metriky deduplikátoru (Fáze 48)
 """
 from __future__ import annotations
 
@@ -199,6 +203,7 @@ from core.output_parser import OutputParser
 from core.sentiment import SentimentAnalyzer
 from core.keyword_extractor import KeywordExtractor
 from core.readability import ReadabilityAnalyzer
+from core.deduplicator import Deduplicator
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -343,6 +348,12 @@ _keyword_extractor: KeywordExtractor = KeywordExtractor(
 
 # Readability Analyzer (Fáze 47)
 _readability: ReadabilityAnalyzer = ReadabilityAnalyzer()
+
+# Deduplicator (Fáze 48)
+_deduplicator: Deduplicator = Deduplicator(
+    threshold=settings.dedup_threshold,
+    shingle_k=settings.dedup_shingle_k,
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2775,3 +2786,41 @@ async def analyze_readability(req: ReadabilityRequest):
 async def readability_metrics():
     """Readability analyzer metrics: average reading ease and grade level."""
     return _readability.metrics()
+
+
+# ── Deduplicator (Fáze 48) ──────────────────────────────────────────────────────
+
+class DedupCheckRequest(BaseModel):
+    text: str
+    add: bool = True   # register the text if not a duplicate
+
+
+class DedupBatchRequest(BaseModel):
+    texts: list[str]
+
+
+@app.post("/dedup/check", tags=["Dedup"])
+async def dedup_check(req: DedupCheckRequest):
+    """Check a text for exact/near duplicates; optionally register it."""
+    if req.add:
+        entry_id, check = _deduplicator.add(req.text)
+        return {"entry_id": entry_id, **check.to_dict()}
+    return _deduplicator.check(req.text).to_dict()
+
+
+@app.post("/dedup/batch", tags=["Dedup"])
+async def dedup_batch(req: DedupBatchRequest):
+    """Deduplicate a list of texts, keeping first occurrences."""
+    return _deduplicator.deduplicate(req.texts)
+
+
+@app.delete("/dedup", tags=["Dedup"])
+async def dedup_clear():
+    """Clear the deduplication index."""
+    return {"removed": _deduplicator.clear()}
+
+
+@app.get("/dedup/metrics", tags=["Dedup"])
+async def dedup_metrics():
+    """Deduplicator metrics: exact/near counts, duplicate rate."""
+    return _deduplicator.metrics()
