@@ -144,6 +144,8 @@ Endpointy:
   GET  /analyze/text/metrics   Metriky text analytics suite (Fáze 50)
   POST /fuzzy/match            Fuzzy match dotazu proti kandidátům (Fáze 51)
   GET  /fuzzy/metrics          Metriky fuzzy matcheru (Fáze 51)
+  POST /anomaly/observe        Detekce anomálie v metrice (Fáze 52)
+  GET  /anomaly/metrics        Metriky anomaly detektoru (Fáze 52)
 """
 from __future__ import annotations
 
@@ -213,6 +215,7 @@ from core.deduplicator import Deduplicator
 from core.entity_extractor import EntityExtractor
 from core.text_analytics import TextAnalyticsSuite
 from core.fuzzy_matcher import FuzzyMatcher
+from core.anomaly_detector import AnomalyDetector, DetectionMethod
 from core.feedback import FeedbackStore
 from hpc.cascade.cascade_router import CascadeRouter, LLMResponse as CascadeLLMResponse
 from core.scheduler import TaskScheduler
@@ -379,6 +382,13 @@ _text_analytics: TextAnalyticsSuite = TextAnalyticsSuite(
 
 # Fuzzy Matcher (Fáze 51)
 _fuzzy_matcher: FuzzyMatcher = FuzzyMatcher(threshold=settings.fuzzy_threshold)
+
+# Anomaly Detector (Fáze 52)
+_anomaly_detector: AnomalyDetector = AnomalyDetector(
+    method=DetectionMethod(settings.anomaly_method),
+    window=settings.anomaly_window,
+    z_threshold=settings.anomaly_z_threshold,
+)
 
 # Multi-Agent Orchestrator (Fáze 28)
 _orchestrator: MultiAgentOrchestrator = MultiAgentOrchestrator(
@@ -2926,3 +2936,29 @@ async def fuzzy_match(req: FuzzyMatchRequest):
 async def fuzzy_metrics():
     """Fuzzy matcher metrics: hit rate across queries."""
     return _fuzzy_matcher.metrics()
+
+
+# ── Anomaly Detector (Fáze 52) ──────────────────────────────────────────────────
+
+class AnomalyObserveRequest(BaseModel):
+    metric: str
+    value: float
+    method: str | None = None   # z_score | iqr
+
+
+@app.post("/anomaly/observe", tags=["Anomaly"])
+async def anomaly_observe(req: AnomalyObserveRequest):
+    """Record a metric value and report whether it is anomalous vs. recent history."""
+    method = None
+    if req.method is not None:
+        try:
+            method = DetectionMethod(req.method)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Unknown method: {req.method!r}")
+    return _anomaly_detector.observe(req.metric, req.value, method=method).to_dict()
+
+
+@app.get("/anomaly/metrics", tags=["Anomaly"])
+async def anomaly_metrics():
+    """Anomaly detector metrics: anomaly rate, tracked metric streams."""
+    return _anomaly_detector.metrics()
