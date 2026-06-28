@@ -184,6 +184,11 @@ class SingularitySettings(BaseSettings):
     anomaly_window: int = 50                  # rolling window per metric
     anomaly_z_threshold: float = 3.0          # z-score sensitivity
 
+    # ── Reservoir Sampler (Fáze 53) ───────────────────────────────────────────
+    enable_sampler: bool = True               # reservoir / rate sampling
+    sampler_capacity: int = 100               # reservoir size
+    sampler_seed: int | None = None           # RNG seed (None = nondeterministic)
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
