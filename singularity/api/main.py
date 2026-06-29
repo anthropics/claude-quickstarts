@@ -173,6 +173,9 @@ Endpointy:
   GET  /slo/{name}              Report jednoho SLO (Fáze 58)
   GET  /slo                     Reporty všech SLO (Fáze 58)
   DELETE /slo/{name}            Smaže SLO (Fáze 58)
+  POST /embeddings              Vektor textu (Fáze 61)
+  POST /embeddings/similarity   Kosinová podobnost dvou textů (Fáze 61)
+  GET  /embeddings/metrics      Metriky embedding provideru (Fáze 61)
 """
 from __future__ import annotations
 
@@ -208,6 +211,7 @@ from core.circuit_breaker import CircuitBreakerRegistry
 from core.guardrails import GuardrailManager
 from core.orchestrator import MultiAgentOrchestrator, DependencyError as OrcDependencyError
 from core.semantic_cache import SemanticCache, HitType as SCHitType
+from core.embeddings import build_embedding_provider, cosine_similarity
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -296,15 +300,19 @@ quota_manager: QuotaManager = QuotaManager()
 circuit_breakers: CircuitBreakerRegistry = CircuitBreakerRegistry()
 guardrails: GuardrailManager = GuardrailManager()
 
-# Semantic Cache (Fáze 29) — uses hash-based embedding for offline use;
-# swap embed_fn for a real model in production via dependency injection
-def _hash_embed(text: str) -> list[float]:
-    import hashlib
-    h = hashlib.sha256(text.encode()).digest()
-    return [((b - 128) / 128.0) for b in h]
+# Embedding Provider (Fáze 61, v2.0) — pluggable, offline feature-hashing
+# default with lexical locality; swap for an API-backed provider in production.
+_embedding_provider = build_embedding_provider(
+    settings.embedding_provider,
+    dim=settings.embedding_dim,
+    ngram=settings.embedding_ngram,
+    cache_size=settings.embedding_cache_size,
+)
 
+# Semantic Cache (Fáze 29) — now backed by the embedding provider (Fáze 61),
+# so near-duplicate matching reflects real lexical overlap, not whole-text hash.
 _semantic_cache: SemanticCache = SemanticCache(
-    embed_fn=_hash_embed,
+    embed_fn=_embedding_provider.embed,
     threshold=settings.semantic_cache_threshold,
     max_size=settings.semantic_cache_max_size,
     ttl_s=settings.semantic_cache_ttl_s,
@@ -3350,3 +3358,35 @@ async def slo_delete(name: str):
     if not _slo_monitor.delete(name):
         raise HTTPException(status_code=404, detail=f"Unknown SLO {name!r}")
     return {"status": "deleted", "name": name}
+
+
+# ── Embedding Provider (Fáze 61, v2.0) ──────────────────────────────────────────
+
+class EmbedRequest(BaseModel):
+    text: str
+
+
+class SimilarityRequest(BaseModel):
+    text_a: str
+    text_b: str
+
+
+@app.post("/embeddings", tags=["Embeddings"])
+async def embeddings_embed(req: EmbedRequest):
+    """Embed text into a vector (offline feature-hashing provider by default)."""
+    vec = _embedding_provider.embed(req.text)
+    return {"dim": _embedding_provider.dim, "embedding": vec}
+
+
+@app.post("/embeddings/similarity", tags=["Embeddings"])
+async def embeddings_similarity(req: SimilarityRequest):
+    """Cosine similarity between two texts' embeddings."""
+    a = _embedding_provider.embed(req.text_a)
+    b = _embedding_provider.embed(req.text_b)
+    return {"similarity": round(cosine_similarity(a, b), 6)}
+
+
+@app.get("/embeddings/metrics", tags=["Embeddings"])
+async def embeddings_metrics():
+    """Embedding provider metrics (incl. cache hit-rate when caching)."""
+    return _embedding_provider.metrics()
