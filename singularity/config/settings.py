@@ -207,6 +207,12 @@ class SingularitySettings(BaseSettings):
     # ── SLO Monitor (Fáze 58) ─────────────────────────────────────────────────
     enable_slo_monitor: bool = True           # SLO compliance + error budgets
 
+    # ── Embedding Provider (Fáze 61, v2.0) ────────────────────────────────────
+    embedding_provider: str = "hashing"       # hashing (offline, feature-hash)
+    embedding_dim: int = 256                  # vector dimension
+    embedding_ngram: int = 2                  # token n-gram size for features
+    embedding_cache_size: int = 1000          # LRU cache of computed vectors
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
