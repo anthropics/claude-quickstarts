@@ -192,6 +192,7 @@ Endpointy:
   POST /tenants/authorize       Ověří API-key proti permission (Fáze 65)
   GET  /tenants/metrics         Metriky tenancy registru (Fáze 65)
   GET  /coalesce/metrics        Metriky request coalesceru (Fáze 66)
+  POST /evals/score             Skóruje expected/actual + gate (Fáze 67)
 """
 from __future__ import annotations
 
@@ -257,6 +258,7 @@ from core.snapshot import SnapshotManager
 from core.streaming import StreamMetrics, stream_sse
 from core.tenancy import TenantRegistry, Role, Permission
 from core.coalescer import SingleFlight, make_key
+from core.eval_harness import EvalHarness, exact_match, contains, jaccard, numeric_close
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -3635,3 +3637,49 @@ async def tenants_metrics():
 async def coalesce_metrics():
     """Request coalescer metrics: calls, executions, coalesce rate."""
     return _coalescer.metrics()
+
+
+# ── Eval Harness (Fáze 67, v2.0 #7) ─────────────────────────────────────────────
+
+class EvalScoreRequest(BaseModel):
+    cases: list[dict]          # [{name, expected, actual}]
+    scorer: str = "exact_match"  # exact_match | contains | jaccard | numeric_close
+    threshold: float = 0.8
+    pass_score: float = 1.0
+    tolerance: float = 0.01    # for numeric_close
+
+
+_SCORERS = {
+    "exact_match": exact_match,
+    "contains": contains,
+    "jaccard": jaccard,
+}
+
+
+@app.post("/evals/score", tags=["Evals"])
+async def evals_score(req: EvalScoreRequest):
+    """Score pre-computed expected/actual pairs and return a pass/fail gate.
+
+    A CI regression gate — fail the build when mean score < threshold."""
+    if req.scorer == "numeric_close":
+        scorer = numeric_close(tolerance=req.tolerance)
+    elif req.scorer in _SCORERS:
+        scorer = _SCORERS[req.scorer]
+    else:
+        raise HTTPException(status_code=400, detail=f"unknown scorer {req.scorer!r}")
+
+    harness = EvalHarness()
+    actuals: dict[str, Any] = {}
+    for i, c in enumerate(req.cases):
+        name = c.get("name", f"case{i}")
+        harness.add_case(name, input=name, expected=c.get("expected"))
+        actuals[name] = c.get("actual")
+
+    try:
+        report = await harness.run(
+            lambda name: actuals.get(name),
+            scorer=scorer, threshold=req.threshold, pass_score=req.pass_score,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return report.to_dict()
