@@ -176,6 +176,11 @@ Endpointy:
   POST /embeddings              Vektor textu (Fáze 61)
   POST /embeddings/similarity   Kosinová podobnost dvou textů (Fáze 61)
   GET  /embeddings/metrics      Metriky embedding provideru (Fáze 61)
+  PUT  /state/{ns}/{key}        Uloží hodnotu do state store (Fáze 62)
+  GET  /state/{ns}/{key}        Načte hodnotu (Fáze 62)
+  DELETE /state/{ns}/{key}      Smaže hodnotu (Fáze 62)
+  GET  /state/{ns}              Klíče v namespace (Fáze 62)
+  GET  /state/metrics           Metriky state store (Fáze 62)
 """
 from __future__ import annotations
 
@@ -236,6 +241,7 @@ from core.guardrails import GuardrailManager
 from core.orchestrator import MultiAgentOrchestrator, DependencyError as OrcDependencyError
 from core.semantic_cache import SemanticCache, HitType as SCHitType
 from core.embeddings import build_embedding_provider, cosine_similarity
+from core.state_store import build_state_store
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -332,6 +338,10 @@ _embedding_provider = build_embedding_provider(
     ngram=settings.embedding_ngram,
     cache_size=settings.embedding_cache_size,
 )
+
+# State Store (Fáze 62, v2.0) — backend-agnostic shared state; defaults to
+# in-memory (identical to today), swappable to Redis for multi-instance.
+_state_store = build_state_store(settings.state_backend, redis_url=settings.redis_url)
 
 # Semantic Cache (Fáze 29) — now backed by the embedding provider (Fáze 61),
 # so near-duplicate matching reflects real lexical overlap, not whole-text hash.
@@ -3414,3 +3424,49 @@ async def embeddings_similarity(req: SimilarityRequest):
 async def embeddings_metrics():
     """Embedding provider metrics (incl. cache hit-rate when caching)."""
     return _embedding_provider.metrics()
+
+
+# ── State Store (Fáze 62, v2.0) ─────────────────────────────────────────────────
+
+class StateSetRequest(BaseModel):
+    value: Any
+    ttl_s: float | None = None
+
+
+@app.put("/state/{namespace}/{key}", tags=["State"])
+async def state_set(namespace: str, key: str, req: StateSetRequest):
+    """Store a JSON value under namespace:key, optionally with a TTL."""
+    try:
+        _state_store.set(namespace, key, req.value, ttl_s=req.ttl_s)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"status": "ok", "namespace": namespace, "key": key}
+
+
+@app.get("/state/{namespace}/{key}", tags=["State"])
+async def state_get(namespace: str, key: str):
+    """Fetch a value; 404 if absent or expired."""
+    val = _state_store.get(namespace, key)
+    if val is None and not _state_store.exists(namespace, key):
+        raise HTTPException(status_code=404, detail="not found")
+    return {"namespace": namespace, "key": key, "value": val}
+
+
+@app.delete("/state/{namespace}/{key}", tags=["State"])
+async def state_delete(namespace: str, key: str):
+    """Delete a value; 404 if absent."""
+    if not _state_store.delete(namespace, key):
+        raise HTTPException(status_code=404, detail="not found")
+    return {"status": "deleted", "namespace": namespace, "key": key}
+
+
+@app.get("/state/metrics", tags=["State"])
+async def state_metrics():
+    """State store metrics (backend, key count, hit rate)."""
+    return _state_store.metrics()
+
+
+@app.get("/state/{namespace}", tags=["State"])
+async def state_keys(namespace: str):
+    """List live keys within a namespace."""
+    return {"namespace": namespace, "keys": _state_store.keys(namespace)}
