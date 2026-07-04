@@ -183,7 +183,31 @@ import asyncio
 import json
 import uuid
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
+
+
+def _resolve_version() -> str:
+    """Single source of truth for the app version.
+
+    Prefer pyproject.toml (authoritative when running from source, as in this
+    quickstart), fall back to installed package metadata, then a constant.
+    Reading pyproject avoids drift when an editable install's metadata is
+    stale relative to the declared version.
+    """
+    try:
+        import tomllib
+        pyproject = Path(__file__).resolve().parents[1] / "pyproject.toml"
+        return tomllib.loads(pyproject.read_text())["project"]["version"]
+    except Exception:
+        try:
+            from importlib.metadata import version as _pkg_version
+            return _pkg_version("singularity")
+        except Exception:
+            return "1.0.0"
+
+
+APP_VERSION = _resolve_version()
 
 import structlog
 from fastapi import Depends, FastAPI, HTTPException, WebSocket, WebSocketDisconnect
@@ -572,7 +596,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Singularity API",
-    version="0.1.0",
+    version=APP_VERSION,
     description="Multi-LLM Meta-Cognitive Core (Claude + Gemini)",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -771,7 +795,7 @@ class RecordBreakerEventRequest(BaseModel):
 
 @app.get("/health")
 async def health_check() -> dict:
-    return {"status": "ok", "version": "0.1.0"}
+    return {"status": "ok", "version": APP_VERSION}
 
 
 @app.get("/health/live")
