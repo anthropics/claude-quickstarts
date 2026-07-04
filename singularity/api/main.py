@@ -186,6 +186,11 @@ Endpointy:
   GET  /snapshot/metrics        Metriky snapshot manageru (Fáze 63)
   POST /stream/tokens           Token-level SSE stream (Fáze 64)
   GET  /stream/metrics          Metriky token streamingu (Fáze 64)
+  POST /tenants                 Vytvoří tenanta (Fáze 65)
+  GET  /tenants                 Seznam tenantů (Fáze 65)
+  POST /tenants/{id}/principals Přidá principala s rolí (Fáze 65)
+  POST /tenants/authorize       Ověří API-key proti permission (Fáze 65)
+  GET  /tenants/metrics         Metriky tenancy registru (Fáze 65)
 """
 from __future__ import annotations
 
@@ -249,6 +254,7 @@ from core.embeddings import build_embedding_provider, cosine_similarity
 from core.state_store import build_state_store
 from core.snapshot import SnapshotManager
 from core.streaming import StreamMetrics, stream_sse
+from core.tenancy import TenantRegistry, Role, Permission
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -517,6 +523,9 @@ _snapshot_manager.register("feature_flags", _feature_flags.export, _feature_flag
 
 # Token streaming metrics (Fáze 64, v2.0 #4)
 _stream_metrics: StreamMetrics = StreamMetrics()
+
+# Multi-Tenancy & RBAC (Fáze 65, v2.0 #5)
+_tenants: TenantRegistry = TenantRegistry()
 
 # Health Aggregator (Fáze 57) — composes subsystem checks behind /healthz
 _health_aggregator: HealthAggregator = HealthAggregator()
@@ -3546,3 +3555,69 @@ async def stream_tokens(req: TokenStreamRequest):
 async def stream_metrics():
     """Token streaming metrics: stream count, tokens, avg per stream."""
     return _stream_metrics.snapshot()
+
+
+# ── Multi-Tenancy & RBAC (Fáze 65, v2.0 #5) ─────────────────────────────────────
+
+class TenantCreateRequest(BaseModel):
+    tenant_id: str
+    name: str
+
+
+class PrincipalCreateRequest(BaseModel):
+    principal_id: str
+    role: str            # admin | user | readonly
+    api_key: str | None = None
+
+
+class AuthorizeRequest(BaseModel):
+    api_key: str
+    permission: str      # read | write | admin
+
+
+@app.post("/tenants", tags=["Tenancy"])
+async def tenants_create(req: TenantCreateRequest):
+    """Create a tenant."""
+    try:
+        return _tenants.create_tenant(req.tenant_id, req.name).to_dict()
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/tenants", tags=["Tenancy"])
+async def tenants_list():
+    """List tenants (principals shown without API keys)."""
+    return {"tenants": _tenants.list_tenants()}
+
+
+@app.post("/tenants/{tenant_id}/principals", tags=["Tenancy"])
+async def tenants_add_principal(tenant_id: str, req: PrincipalCreateRequest):
+    """Add a principal to a tenant; returns the (one-time) API key."""
+    try:
+        role = Role(req.role)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"invalid role {req.role!r}")
+    try:
+        p = _tenants.add_principal(tenant_id, req.principal_id, role, api_key=req.api_key)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"principal_id": p.principal_id, "tenant_id": p.tenant_id,
+            "role": p.role.value, "api_key": p.api_key}
+
+
+@app.post("/tenants/authorize", tags=["Tenancy"])
+async def tenants_authorize(req: AuthorizeRequest):
+    """Authorize an API key against a permission (read/write/admin)."""
+    try:
+        perm = Permission(req.permission)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"invalid permission {req.permission!r}")
+    return _tenants.authorize(req.api_key, perm).to_dict()
+
+
+@app.get("/tenants/metrics", tags=["Tenancy"])
+async def tenants_metrics():
+    """Tenancy metrics: tenants, principals, authz deny rate."""
+    return _tenants.metrics()
