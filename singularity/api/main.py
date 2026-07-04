@@ -181,6 +181,9 @@ Endpointy:
   DELETE /state/{ns}/{key}      Smaže hodnotu (Fáze 62)
   GET  /state/{ns}              Klíče v namespace (Fáze 62)
   GET  /state/metrics           Metriky state store (Fáze 62)
+  POST /snapshot                Zazálohuje registrované komponenty (Fáze 63)
+  POST /snapshot/restore        Obnoví komponenty ze zálohy (Fáze 63)
+  GET  /snapshot/metrics        Metriky snapshot manageru (Fáze 63)
 """
 from __future__ import annotations
 
@@ -242,6 +245,7 @@ from core.orchestrator import MultiAgentOrchestrator, DependencyError as OrcDepe
 from core.semantic_cache import SemanticCache, HitType as SCHitType
 from core.embeddings import build_embedding_provider, cosine_similarity
 from core.state_store import build_state_store
+from core.snapshot import SnapshotManager
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -502,6 +506,11 @@ _webhook_dispatcher: WebhookDispatcher = WebhookDispatcher(
 
 # Feature Flag Manager (Fáze 56)
 _feature_flags: FeatureFlagManager = FeatureFlagManager()
+
+# Snapshot Manager (Fáze 63, v2.0 #3) — persists stateful subsystems through
+# the StateStore so they survive restarts (and, with Redis, are shared).
+_snapshot_manager: SnapshotManager = SnapshotManager(_state_store)
+_snapshot_manager.register("feature_flags", _feature_flags.export, _feature_flags.import_flags)
 
 # Health Aggregator (Fáze 57) — composes subsystem checks behind /healthz
 _health_aggregator: HealthAggregator = HealthAggregator()
@@ -3470,3 +3479,33 @@ async def state_metrics():
 async def state_keys(namespace: str):
     """List live keys within a namespace."""
     return {"namespace": namespace, "keys": _state_store.keys(namespace)}
+
+
+# ── Snapshot Manager (Fáze 63, v2.0 #3) ─────────────────────────────────────────
+
+class SnapshotRequest(BaseModel):
+    component: str | None = None   # None = all registered components
+
+
+@app.post("/snapshot", tags=["Snapshot"])
+async def snapshot_create(req: SnapshotRequest):
+    """Persist registered components to the state store."""
+    try:
+        return {"result": _snapshot_manager.snapshot(req.component)}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.post("/snapshot/restore", tags=["Snapshot"])
+async def snapshot_restore(req: SnapshotRequest):
+    """Restore registered components from the state store."""
+    try:
+        return {"result": _snapshot_manager.restore(req.component)}
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@app.get("/snapshot/metrics", tags=["Snapshot"])
+async def snapshot_metrics():
+    """Snapshot manager metrics: components, snapshot/restore counts."""
+    return _snapshot_manager.metrics()
