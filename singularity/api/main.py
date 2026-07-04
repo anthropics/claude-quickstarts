@@ -193,6 +193,10 @@ Endpointy:
   GET  /tenants/metrics         Metriky tenancy registru (Fáze 65)
   GET  /coalesce/metrics        Metriky request coalesceru (Fáze 66)
   POST /evals/score             Skóruje expected/actual + gate (Fáze 67)
+  POST /vectors/index           Zaindexuje dokumenty (dense) (Fáze 69)
+  POST /vectors/search          Sémantické k-NN vyhledávání (Fáze 69)
+  DELETE /vectors               Vymaže vektorový index (Fáze 69)
+  GET  /vectors/metrics         Metriky vector store (Fáze 69)
 """
 from __future__ import annotations
 
@@ -259,6 +263,7 @@ from core.streaming import StreamMetrics, stream_sse
 from core.tenancy import TenantRegistry, Role, Permission
 from core.coalescer import SingleFlight, make_key
 from core.eval_harness import EvalHarness, exact_match, contains, jaccard, numeric_close
+from core.vector_store import VectorStore
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -534,6 +539,10 @@ _tenants: TenantRegistry = TenantRegistry()
 # Request Coalescer (Fáze 66, v2.0 #6) — single-flight de-dup of concurrent
 # identical work (complements the response/semantic caches for burst load).
 _coalescer: SingleFlight = SingleFlight()
+
+# Vector Store (Fáze 69, v2.0 #9) — dense retriever sharing the embedding
+# provider (Fáze 61); semantic complement to BM25 (Fáze 37).
+_vector_store: VectorStore = VectorStore(embedder=_embedding_provider)
 
 # Health Aggregator (Fáze 57) — composes subsystem checks behind /healthz
 _health_aggregator: HealthAggregator = HealthAggregator()
@@ -3683,3 +3692,44 @@ async def evals_score(req: EvalScoreRequest):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return report.to_dict()
+
+
+# ── Vector Store / Dense Retriever (Fáze 69, v2.0 #9) ───────────────────────────
+
+class VectorIndexRequest(BaseModel):
+    documents: list[dict]   # [{doc_id/id, text, metadata?}]
+
+
+class VectorSearchRequest(BaseModel):
+    query: str
+    top_k: int = 5
+    min_score: float = 0.0
+
+
+@app.post("/vectors/index", tags=["Vectors"])
+async def vectors_index(req: VectorIndexRequest):
+    """Index documents into the dense vector store (embedded on ingest)."""
+    added = _vector_store.add_many(req.documents)
+    return {"added": added, "indexed": _vector_store.size}
+
+
+@app.post("/vectors/search", tags=["Vectors"])
+async def vectors_search(req: VectorSearchRequest):
+    """Semantic cosine k-NN search over the vector store."""
+    try:
+        hits = _vector_store.search(req.query, top_k=req.top_k, min_score=req.min_score)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"query": req.query, "hits": [h.to_dict() for h in hits]}
+
+
+@app.delete("/vectors", tags=["Vectors"])
+async def vectors_clear():
+    """Clear the vector index."""
+    return {"removed": _vector_store.clear()}
+
+
+@app.get("/vectors/metrics", tags=["Vectors"])
+async def vectors_metrics():
+    """Vector store metrics: index size, dim, search counts."""
+    return _vector_store.metrics()
