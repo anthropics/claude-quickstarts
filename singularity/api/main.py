@@ -191,6 +191,7 @@ Endpointy:
   POST /tenants/{id}/principals Přidá principala s rolí (Fáze 65)
   POST /tenants/authorize       Ověří API-key proti permission (Fáze 65)
   GET  /tenants/metrics         Metriky tenancy registru (Fáze 65)
+  GET  /coalesce/metrics        Metriky request coalesceru (Fáze 66)
 """
 from __future__ import annotations
 
@@ -255,6 +256,7 @@ from core.state_store import build_state_store
 from core.snapshot import SnapshotManager
 from core.streaming import StreamMetrics, stream_sse
 from core.tenancy import TenantRegistry, Role, Permission
+from core.coalescer import SingleFlight, make_key
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -526,6 +528,10 @@ _stream_metrics: StreamMetrics = StreamMetrics()
 
 # Multi-Tenancy & RBAC (Fáze 65, v2.0 #5)
 _tenants: TenantRegistry = TenantRegistry()
+
+# Request Coalescer (Fáze 66, v2.0 #6) — single-flight de-dup of concurrent
+# identical work (complements the response/semantic caches for burst load).
+_coalescer: SingleFlight = SingleFlight()
 
 # Health Aggregator (Fáze 57) — composes subsystem checks behind /healthz
 _health_aggregator: HealthAggregator = HealthAggregator()
@@ -3621,3 +3627,11 @@ async def tenants_authorize(req: AuthorizeRequest):
 async def tenants_metrics():
     """Tenancy metrics: tenants, principals, authz deny rate."""
     return _tenants.metrics()
+
+
+# ── Request Coalescer (Fáze 66, v2.0 #6) ────────────────────────────────────────
+
+@app.get("/coalesce/metrics", tags=["Coalescer"])
+async def coalesce_metrics():
+    """Request coalescer metrics: calls, executions, coalesce rate."""
+    return _coalescer.metrics()
