@@ -184,6 +184,8 @@ Endpointy:
   POST /snapshot                Zazálohuje registrované komponenty (Fáze 63)
   POST /snapshot/restore        Obnoví komponenty ze zálohy (Fáze 63)
   GET  /snapshot/metrics        Metriky snapshot manageru (Fáze 63)
+  POST /stream/tokens           Token-level SSE stream (Fáze 64)
+  GET  /stream/metrics          Metriky token streamingu (Fáze 64)
 """
 from __future__ import annotations
 
@@ -246,6 +248,7 @@ from core.semantic_cache import SemanticCache, HitType as SCHitType
 from core.embeddings import build_embedding_provider, cosine_similarity
 from core.state_store import build_state_store
 from core.snapshot import SnapshotManager
+from core.streaming import StreamMetrics, stream_sse
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -511,6 +514,9 @@ _feature_flags: FeatureFlagManager = FeatureFlagManager()
 # the StateStore so they survive restarts (and, with Redis, are shared).
 _snapshot_manager: SnapshotManager = SnapshotManager(_state_store)
 _snapshot_manager.register("feature_flags", _feature_flags.export, _feature_flags.import_flags)
+
+# Token streaming metrics (Fáze 64, v2.0 #4)
+_stream_metrics: StreamMetrics = StreamMetrics()
 
 # Health Aggregator (Fáze 57) — composes subsystem checks behind /healthz
 _health_aggregator: HealthAggregator = HealthAggregator()
@@ -3509,3 +3515,34 @@ async def snapshot_restore(req: SnapshotRequest):
 async def snapshot_metrics():
     """Snapshot manager metrics: components, snapshot/restore counts."""
     return _snapshot_manager.metrics()
+
+
+# ── Token Streaming (Fáze 64, v2.0 #4) ──────────────────────────────────────────
+
+class TokenStreamRequest(BaseModel):
+    text: str
+    by_sentence: bool = False
+
+
+@app.post("/stream/tokens", tags=["Streaming"])
+async def stream_tokens(req: TokenStreamRequest):
+    """Stream text back token-by-token as SSE.
+
+    Demonstrates the end-to-end token-streaming path with a whitespace
+    tokenizer as the source; in production the source is a provider's
+    ``astream``. Emits ``token`` (or ``sentence``) frames then a ``done`` frame.
+    """
+    async def _source():
+        for i, word in enumerate((req.text or "").split()):
+            yield (word if i == 0 else " " + word)
+
+    return StreamingResponse(
+        stream_sse(_source(), metrics=_stream_metrics, by_sentence=req.by_sentence),
+        media_type="text/event-stream",
+    )
+
+
+@app.get("/stream/metrics", tags=["Streaming"])
+async def stream_metrics():
+    """Token streaming metrics: stream count, tokens, avg per stream."""
+    return _stream_metrics.snapshot()
