@@ -24,6 +24,7 @@ Endpointy:
   GET  /metrics                Prometheus metriky
   GET  /tasks/{id}/providers   Který model zpracoval který krok
   GET  /dashboard              Admin dashboard (Fáze 2)
+  GET  /ui                     Jednoduché rozhraní pro pokládání tasků
   POST /budget/{uid}           Nastavení cost limitu uživatele (Fáze 4)
   GET  /budget/{uid}           Zobrazení stavu budgetu uživatele (Fáze 4)
   DELETE /budget/{uid}         Odstranění cost limitu uživatele (Fáze 4)
@@ -239,6 +240,7 @@ from pydantic import BaseModel
 from api.auth import set_manager, verify_api_key
 from api.dashboard import get_dashboard_html
 from api.middleware import RequestContextMiddleware
+from api.task_ui import get_task_ui_html
 from config.settings import settings
 from core import telemetry
 from core.api_keys import ApiKeyManager
@@ -1242,6 +1244,12 @@ async def health_check_providers() -> dict:
 async def dashboard() -> HTMLResponse:
     """Admin dashboard — live přehled providerů, sessionů a metrik (Fáze 2)."""
     return HTMLResponse(content=get_dashboard_html())
+
+
+@app.get("/ui", response_class=HTMLResponse)
+async def task_ui() -> HTMLResponse:
+    """Jednoduché rozhraní pro pokládání tasků — formulář odesílá na POST /task."""
+    return HTMLResponse(content=get_task_ui_html())
 
 
 # ── Budget endpointy (Fáze 4) ──────────────────────────────────────────────────
