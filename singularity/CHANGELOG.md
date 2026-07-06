@@ -10,6 +10,12 @@ versioning is [SemVer](https://semver.org/).
 - `GET /ui` — simple task-submission web interface served by the app (mirrors
   the `/dashboard` pattern). Same-origin form posts to `POST /task` and renders
   the response, provider log, eval scores, and readable error details.
+- `TaskQueue.submit()` accepts optional `backoff_base` / `max_backoff` / `jitter`
+  for per-task retry tuning (defaults unchanged — production behaviour identical).
+
+### Changed
+- Retry unit tests use a near-zero backoff, cutting `test_retry.py` from ~8 s to
+  ~0.2 s (no product behaviour change).
 
 ## [1.0.0] — 2026-06-29
 

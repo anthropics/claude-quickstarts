@@ -116,10 +116,22 @@ class TaskQueue:
         callback_url: str = "",
         priority: TaskPriority | str = TaskPriority.NORMAL,
         max_retries: int = 0,
+        backoff_base: float | None = None,
+        max_backoff: float | None = None,
+        jitter: bool | None = None,
     ) -> str:
         if isinstance(priority, str):
             priority = TaskPriority[priority.upper()]
-        retry_policy = RetryPolicy(max_attempts=max(1, max_retries + 1))
+        # backoff parametry jsou volitelné; None → zachová defaulty RetryPolicy
+        # (produkce beze změny). Umožňuje per-task ladění backoffu (a rychlé testy).
+        policy_kwargs: dict = {"max_attempts": max(1, max_retries + 1)}
+        if backoff_base is not None:
+            policy_kwargs["backoff_base"] = backoff_base
+        if max_backoff is not None:
+            policy_kwargs["max_backoff"] = max_backoff
+        if jitter is not None:
+            policy_kwargs["jitter"] = jitter
+        retry_policy = RetryPolicy(**policy_kwargs)
         task_id = str(uuid.uuid4())
         queued = QueuedTask(
             task_id=task_id,
