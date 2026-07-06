@@ -122,6 +122,28 @@ class FeatureFlagManager:
         with self._lock:
             return [f.to_dict() for f in self._flags.values()]
 
+    # ── Snapshot / restore (Fáze 63) ──────────────────────────────────────────────
+
+    def export(self) -> dict:
+        """Serialize all flags to a plain dict (for persistence)."""
+        with self._lock:
+            return {name: f.to_dict() for name, f in self._flags.items()}
+
+    def import_flags(self, data: dict) -> int:
+        """Replace flags from an exported dict. Returns the count loaded."""
+        with self._lock:
+            self._flags.clear()
+            for name, d in (data or {}).items():
+                self._flags[name] = Flag(
+                    name=d["name"],
+                    enabled=bool(d.get("enabled", False)),
+                    rollout=int(d.get("rollout", 0)),
+                    on_users=set(d.get("on_users", [])),
+                    off_users=set(d.get("off_users", [])),
+                    description=d.get("description", ""),
+                )
+            return len(self._flags)
+
     # ── Evaluation ────────────────────────────────────────────────────────────────
 
     def is_enabled(self, name: str, user: str | None = None) -> bool:

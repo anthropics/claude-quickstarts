@@ -44,7 +44,8 @@ async def test_task_succeeds_after_retry():
     # max_attempts=2 → 1 retry
     from core.retry_policy import RetryPolicy
     q.start(core)
-    task_id = await q.submit("task", user_id="alice", max_retries=2)
+    task_id = await q.submit("task", user_id="alice", max_retries=2,
+                             backoff_base=0.001, jitter=False)
     result = await asyncio.wait_for(q.wait(task_id, timeout=10.0), timeout=12.0)
     assert result is not None
     assert result["status"] == TaskStatus.COMPLETED
@@ -57,7 +58,8 @@ async def test_task_moves_to_dlq_after_exhaustion():
     """Task selže víckrát než max_retries → přejde do DLQ."""
     q, core, calls = _make_queue(fail_times=99)
     q.start(core)
-    task_id = await q.submit("task", user_id="bob", max_retries=2)
+    task_id = await q.submit("task", user_id="bob", max_retries=2,
+                             backoff_base=0.001, jitter=False)
     # Počkáme na DLQ
     for _ in range(200):
         await asyncio.sleep(0.05)
@@ -76,7 +78,8 @@ async def test_dlq_retry_requeues_task():
     """retry_from_dlq() vrátí task zpět do fronty."""
     q, core, calls = _make_queue(fail_times=99)
     q.start(core)
-    task_id = await q.submit("task", user_id="carol", max_retries=1)
+    task_id = await q.submit("task", user_id="carol", max_retries=1,
+                             backoff_base=0.001, jitter=False)
     for _ in range(100):
         await asyncio.sleep(0.05)
         if any(t["task_id"] == task_id for t in q.get_dlq()):

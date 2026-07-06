@@ -4,6 +4,23 @@ All notable changes to the Singularity quickstart are documented here.
 Format loosely follows [Keep a Changelog](https://keepachangelog.com/);
 versioning is [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- `GET /ui` — simple task-submission web interface served by the app (mirrors
+  the `/dashboard` pattern). Same-origin form posts to `POST /task` and renders
+  the response, provider log, eval scores, and readable error details.
+- `TaskQueue.submit()` accepts optional `backoff_base` / `max_backoff` / `jitter`
+  for per-task retry tuning (defaults unchanged — production behaviour identical).
+
+### Changed
+- Retry unit tests use a near-zero backoff, cutting `test_retry.py` from ~8 s to
+  ~0.2 s (no product behaviour change).
+- Maintainability refactor (start): shared runtime singletons moved to
+  `api/state.py`; the Vectors endpoints extracted into `api/routers/vectors.py`
+  as an `APIRouter`. Routes and behaviour are identical; `api/main.py` shrinks
+  from 3743 to 3702 lines. Establishes the pattern for splitting the monolith.
+
 ## [1.0.0] — 2026-06-29
 
 First stable release. Singularity is a production-ready, multi-LLM

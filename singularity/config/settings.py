@@ -213,6 +213,13 @@ class SingularitySettings(BaseSettings):
     embedding_ngram: int = 2                  # token n-gram size for features
     embedding_cache_size: int = 1000          # LRU cache of computed vectors
 
+    # ── State Store (Fáze 62, v2.0) ───────────────────────────────────────────
+    state_backend: str = "memory"             # memory | redis
+    redis_url: str = "redis://localhost:6379/0"  # used when state_backend=redis
+
+    # ── Multi-Tenancy & RBAC (Fáze 65, v2.0) ──────────────────────────────────
+    enable_multitenancy: bool = False         # tenant isolation + RBAC (opt-in)
+
     # ── Logging ───────────────────────────────────────────────
     log_level: str = "INFO"
     log_format: str = "console"   # Fáze 10: "json" for prod, "console" for dev
