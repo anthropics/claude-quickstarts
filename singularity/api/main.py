@@ -240,8 +240,15 @@ from pydantic import BaseModel
 from api.auth import set_manager, verify_api_key
 from api.dashboard import get_dashboard_html
 from api.middleware import RequestContextMiddleware
+from api.routers.coalescer import router as coalescer_router
+from api.routers.embeddings import router as embeddings_router
+from api.routers.evals import router as evals_router
+from api.routers.state_store import router as state_store_router
+from api.routers.streaming import router as streaming_router
+from api.routers.tenancy import router as tenancy_router
 from api.routers.vectors import router as vectors_router
 from api.state import embedding_provider as _embedding_provider
+from api.state import state_store as _state_store
 from api.task_ui import get_task_ui_html
 from config.settings import settings
 from core import telemetry
@@ -260,13 +267,7 @@ from core.circuit_breaker import CircuitBreakerRegistry
 from core.guardrails import GuardrailManager
 from core.orchestrator import MultiAgentOrchestrator, DependencyError as OrcDependencyError
 from core.semantic_cache import SemanticCache, HitType as SCHitType
-from core.embeddings import cosine_similarity
-from core.state_store import build_state_store
 from core.snapshot import SnapshotManager
-from core.streaming import StreamMetrics, stream_sse
-from core.tenancy import TenantRegistry, Role, Permission
-from core.coalescer import SingleFlight, make_key
-from core.eval_harness import EvalHarness, exact_match, contains, jaccard, numeric_close
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -358,9 +359,8 @@ guardrails: GuardrailManager = GuardrailManager()
 # Embedding Provider + Vector Store singletons live in api/state.py (imported
 # at the top) so the extracted api/routers/* modules share the same instances.
 
-# State Store (Fáze 62, v2.0) — backend-agnostic shared state; defaults to
-# in-memory (identical to today), swappable to Redis for multi-instance.
-_state_store = build_state_store(settings.state_backend, redis_url=settings.redis_url)
+# State Store singleton lives in api/state.py (imported above as _state_store);
+# still referenced here to build the Snapshot manager below.
 
 # Semantic Cache (Fáze 29) — now backed by the embedding provider (Fáze 61),
 # so near-duplicate matching reflects real lexical overlap, not whole-text hash.
@@ -527,15 +527,8 @@ _feature_flags: FeatureFlagManager = FeatureFlagManager()
 _snapshot_manager: SnapshotManager = SnapshotManager(_state_store)
 _snapshot_manager.register("feature_flags", _feature_flags.export, _feature_flags.import_flags)
 
-# Token streaming metrics (Fáze 64, v2.0 #4)
-_stream_metrics: StreamMetrics = StreamMetrics()
-
-# Multi-Tenancy & RBAC (Fáze 65, v2.0 #5)
-_tenants: TenantRegistry = TenantRegistry()
-
-# Request Coalescer (Fáze 66, v2.0 #6) — single-flight de-dup of concurrent
-# identical work (complements the response/semantic caches for burst load).
-_coalescer: SingleFlight = SingleFlight()
+# Streaming metrics, tenant registry, and request coalescer singletons live in
+# api/state.py (owned by their api/routers/* modules).
 
 # Vector Store singleton now lives in api/state.py (imported above).
 
@@ -658,6 +651,12 @@ app.add_middleware(
 )
 
 # Extracted endpoint groups (maintainability refactor).
+app.include_router(embeddings_router)
+app.include_router(state_store_router)
+app.include_router(streaming_router)
+app.include_router(tenancy_router)
+app.include_router(coalescer_router)
+app.include_router(evals_router)
 app.include_router(vectors_router)
 
 
@@ -3439,82 +3438,7 @@ async def slo_delete(name: str):
     return {"status": "deleted", "name": name}
 
 
-# ── Embedding Provider (Fáze 61, v2.0) ──────────────────────────────────────────
-
-class EmbedRequest(BaseModel):
-    text: str
-
-
-class SimilarityRequest(BaseModel):
-    text_a: str
-    text_b: str
-
-
-@app.post("/embeddings", tags=["Embeddings"])
-async def embeddings_embed(req: EmbedRequest):
-    """Embed text into a vector (offline feature-hashing provider by default)."""
-    vec = _embedding_provider.embed(req.text)
-    return {"dim": _embedding_provider.dim, "embedding": vec}
-
-
-@app.post("/embeddings/similarity", tags=["Embeddings"])
-async def embeddings_similarity(req: SimilarityRequest):
-    """Cosine similarity between two texts' embeddings."""
-    a = _embedding_provider.embed(req.text_a)
-    b = _embedding_provider.embed(req.text_b)
-    return {"similarity": round(cosine_similarity(a, b), 6)}
-
-
-@app.get("/embeddings/metrics", tags=["Embeddings"])
-async def embeddings_metrics():
-    """Embedding provider metrics (incl. cache hit-rate when caching)."""
-    return _embedding_provider.metrics()
-
-
-# ── State Store (Fáze 62, v2.0) ─────────────────────────────────────────────────
-
-class StateSetRequest(BaseModel):
-    value: Any
-    ttl_s: float | None = None
-
-
-@app.put("/state/{namespace}/{key}", tags=["State"])
-async def state_set(namespace: str, key: str, req: StateSetRequest):
-    """Store a JSON value under namespace:key, optionally with a TTL."""
-    try:
-        _state_store.set(namespace, key, req.value, ttl_s=req.ttl_s)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    return {"status": "ok", "namespace": namespace, "key": key}
-
-
-@app.get("/state/{namespace}/{key}", tags=["State"])
-async def state_get(namespace: str, key: str):
-    """Fetch a value; 404 if absent or expired."""
-    val = _state_store.get(namespace, key)
-    if val is None and not _state_store.exists(namespace, key):
-        raise HTTPException(status_code=404, detail="not found")
-    return {"namespace": namespace, "key": key, "value": val}
-
-
-@app.delete("/state/{namespace}/{key}", tags=["State"])
-async def state_delete(namespace: str, key: str):
-    """Delete a value; 404 if absent."""
-    if not _state_store.delete(namespace, key):
-        raise HTTPException(status_code=404, detail="not found")
-    return {"status": "deleted", "namespace": namespace, "key": key}
-
-
-@app.get("/state/metrics", tags=["State"])
-async def state_metrics():
-    """State store metrics (backend, key count, hit rate)."""
-    return _state_store.metrics()
-
-
-@app.get("/state/{namespace}", tags=["State"])
-async def state_keys(namespace: str):
-    """List live keys within a namespace."""
-    return {"namespace": namespace, "keys": _state_store.keys(namespace)}
+# ── Embeddings + State → api/routers/{embeddings,state_store}.py ────────────────
 
 
 # ── Snapshot Manager (Fáze 63, v2.0 #3) ─────────────────────────────────────────
@@ -3547,155 +3471,7 @@ async def snapshot_metrics():
     return _snapshot_manager.metrics()
 
 
-# ── Token Streaming (Fáze 64, v2.0 #4) ──────────────────────────────────────────
-
-class TokenStreamRequest(BaseModel):
-    text: str
-    by_sentence: bool = False
-
-
-@app.post("/stream/tokens", tags=["Streaming"])
-async def stream_tokens(req: TokenStreamRequest):
-    """Stream text back token-by-token as SSE.
-
-    Demonstrates the end-to-end token-streaming path with a whitespace
-    tokenizer as the source; in production the source is a provider's
-    ``astream``. Emits ``token`` (or ``sentence``) frames then a ``done`` frame.
-    """
-    async def _source():
-        for i, word in enumerate((req.text or "").split()):
-            yield (word if i == 0 else " " + word)
-
-    return StreamingResponse(
-        stream_sse(_source(), metrics=_stream_metrics, by_sentence=req.by_sentence),
-        media_type="text/event-stream",
-    )
-
-
-@app.get("/stream/metrics", tags=["Streaming"])
-async def stream_metrics():
-    """Token streaming metrics: stream count, tokens, avg per stream."""
-    return _stream_metrics.snapshot()
-
-
-# ── Multi-Tenancy & RBAC (Fáze 65, v2.0 #5) ─────────────────────────────────────
-
-class TenantCreateRequest(BaseModel):
-    tenant_id: str
-    name: str
-
-
-class PrincipalCreateRequest(BaseModel):
-    principal_id: str
-    role: str            # admin | user | readonly
-    api_key: str | None = None
-
-
-class AuthorizeRequest(BaseModel):
-    api_key: str
-    permission: str      # read | write | admin
-
-
-@app.post("/tenants", tags=["Tenancy"])
-async def tenants_create(req: TenantCreateRequest):
-    """Create a tenant."""
-    try:
-        return _tenants.create_tenant(req.tenant_id, req.name).to_dict()
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.get("/tenants", tags=["Tenancy"])
-async def tenants_list():
-    """List tenants (principals shown without API keys)."""
-    return {"tenants": _tenants.list_tenants()}
-
-
-@app.post("/tenants/{tenant_id}/principals", tags=["Tenancy"])
-async def tenants_add_principal(tenant_id: str, req: PrincipalCreateRequest):
-    """Add a principal to a tenant; returns the (one-time) API key."""
-    try:
-        role = Role(req.role)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"invalid role {req.role!r}")
-    try:
-        p = _tenants.add_principal(tenant_id, req.principal_id, role, api_key=req.api_key)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc))
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    return {"principal_id": p.principal_id, "tenant_id": p.tenant_id,
-            "role": p.role.value, "api_key": p.api_key}
-
-
-@app.post("/tenants/authorize", tags=["Tenancy"])
-async def tenants_authorize(req: AuthorizeRequest):
-    """Authorize an API key against a permission (read/write/admin)."""
-    try:
-        perm = Permission(req.permission)
-    except ValueError:
-        raise HTTPException(status_code=400, detail=f"invalid permission {req.permission!r}")
-    return _tenants.authorize(req.api_key, perm).to_dict()
-
-
-@app.get("/tenants/metrics", tags=["Tenancy"])
-async def tenants_metrics():
-    """Tenancy metrics: tenants, principals, authz deny rate."""
-    return _tenants.metrics()
-
-
-# ── Request Coalescer (Fáze 66, v2.0 #6) ────────────────────────────────────────
-
-@app.get("/coalesce/metrics", tags=["Coalescer"])
-async def coalesce_metrics():
-    """Request coalescer metrics: calls, executions, coalesce rate."""
-    return _coalescer.metrics()
-
-
-# ── Eval Harness (Fáze 67, v2.0 #7) ─────────────────────────────────────────────
-
-class EvalScoreRequest(BaseModel):
-    cases: list[dict]          # [{name, expected, actual}]
-    scorer: str = "exact_match"  # exact_match | contains | jaccard | numeric_close
-    threshold: float = 0.8
-    pass_score: float = 1.0
-    tolerance: float = 0.01    # for numeric_close
-
-
-_SCORERS = {
-    "exact_match": exact_match,
-    "contains": contains,
-    "jaccard": jaccard,
-}
-
-
-@app.post("/evals/score", tags=["Evals"])
-async def evals_score(req: EvalScoreRequest):
-    """Score pre-computed expected/actual pairs and return a pass/fail gate.
-
-    A CI regression gate — fail the build when mean score < threshold."""
-    if req.scorer == "numeric_close":
-        scorer = numeric_close(tolerance=req.tolerance)
-    elif req.scorer in _SCORERS:
-        scorer = _SCORERS[req.scorer]
-    else:
-        raise HTTPException(status_code=400, detail=f"unknown scorer {req.scorer!r}")
-
-    harness = EvalHarness()
-    actuals: dict[str, Any] = {}
-    for i, c in enumerate(req.cases):
-        name = c.get("name", f"case{i}")
-        harness.add_case(name, input=name, expected=c.get("expected"))
-        actuals[name] = c.get("actual")
-
-    try:
-        report = await harness.run(
-            lambda name: actuals.get(name),
-            scorer=scorer, threshold=req.threshold, pass_score=req.pass_score,
-        )
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    return report.to_dict()
+# ── Streaming / Tenancy / Coalescer / Evals → api/routers/* ─────────────────────
 
 
 # ── Vector Store / Dense Retriever (Fáze 69, v2.0 #9) ───────────────────────────
