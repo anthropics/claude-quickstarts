@@ -16,6 +16,10 @@ versioning is [SemVer](https://semver.org/).
 ### Changed
 - Retry unit tests use a near-zero backoff, cutting `test_retry.py` from ~8 s to
   ~0.2 s (no product behaviour change).
+- Maintainability refactor (start): shared runtime singletons moved to
+  `api/state.py`; the Vectors endpoints extracted into `api/routers/vectors.py`
+  as an `APIRouter`. Routes and behaviour are identical; `api/main.py` shrinks
+  from 3743 to 3702 lines. Establishes the pattern for splitting the monolith.
 
 ## [1.0.0] — 2026-06-29
 

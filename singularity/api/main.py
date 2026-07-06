@@ -240,6 +240,8 @@ from pydantic import BaseModel
 from api.auth import set_manager, verify_api_key
 from api.dashboard import get_dashboard_html
 from api.middleware import RequestContextMiddleware
+from api.routers.vectors import router as vectors_router
+from api.state import embedding_provider as _embedding_provider
 from api.task_ui import get_task_ui_html
 from config.settings import settings
 from core import telemetry
@@ -258,14 +260,13 @@ from core.circuit_breaker import CircuitBreakerRegistry
 from core.guardrails import GuardrailManager
 from core.orchestrator import MultiAgentOrchestrator, DependencyError as OrcDependencyError
 from core.semantic_cache import SemanticCache, HitType as SCHitType
-from core.embeddings import build_embedding_provider, cosine_similarity
+from core.embeddings import cosine_similarity
 from core.state_store import build_state_store
 from core.snapshot import SnapshotManager
 from core.streaming import StreamMetrics, stream_sse
 from core.tenancy import TenantRegistry, Role, Permission
 from core.coalescer import SingleFlight, make_key
 from core.eval_harness import EvalHarness, exact_match, contains, jaccard, numeric_close
-from core.vector_store import VectorStore
 from core.pipeline import (
     RequestPipeline,
     PIIRedactionStep,
@@ -354,14 +355,8 @@ quota_manager: QuotaManager = QuotaManager()
 circuit_breakers: CircuitBreakerRegistry = CircuitBreakerRegistry()
 guardrails: GuardrailManager = GuardrailManager()
 
-# Embedding Provider (Fáze 61, v2.0) — pluggable, offline feature-hashing
-# default with lexical locality; swap for an API-backed provider in production.
-_embedding_provider = build_embedding_provider(
-    settings.embedding_provider,
-    dim=settings.embedding_dim,
-    ngram=settings.embedding_ngram,
-    cache_size=settings.embedding_cache_size,
-)
+# Embedding Provider + Vector Store singletons live in api/state.py (imported
+# at the top) so the extracted api/routers/* modules share the same instances.
 
 # State Store (Fáze 62, v2.0) — backend-agnostic shared state; defaults to
 # in-memory (identical to today), swappable to Redis for multi-instance.
@@ -542,9 +537,7 @@ _tenants: TenantRegistry = TenantRegistry()
 # identical work (complements the response/semantic caches for burst load).
 _coalescer: SingleFlight = SingleFlight()
 
-# Vector Store (Fáze 69, v2.0 #9) — dense retriever sharing the embedding
-# provider (Fáze 61); semantic complement to BM25 (Fáze 37).
-_vector_store: VectorStore = VectorStore(embedder=_embedding_provider)
+# Vector Store singleton now lives in api/state.py (imported above).
 
 # Health Aggregator (Fáze 57) — composes subsystem checks behind /healthz
 _health_aggregator: HealthAggregator = HealthAggregator()
@@ -663,6 +656,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Extracted endpoint groups (maintainability refactor).
+app.include_router(vectors_router)
 
 
 # ── Modely ────────────────────────────────────────────────────────────────────
@@ -3703,41 +3699,4 @@ async def evals_score(req: EvalScoreRequest):
 
 
 # ── Vector Store / Dense Retriever (Fáze 69, v2.0 #9) ───────────────────────────
-
-class VectorIndexRequest(BaseModel):
-    documents: list[dict]   # [{doc_id/id, text, metadata?}]
-
-
-class VectorSearchRequest(BaseModel):
-    query: str
-    top_k: int = 5
-    min_score: float = 0.0
-
-
-@app.post("/vectors/index", tags=["Vectors"])
-async def vectors_index(req: VectorIndexRequest):
-    """Index documents into the dense vector store (embedded on ingest)."""
-    added = _vector_store.add_many(req.documents)
-    return {"added": added, "indexed": _vector_store.size}
-
-
-@app.post("/vectors/search", tags=["Vectors"])
-async def vectors_search(req: VectorSearchRequest):
-    """Semantic cosine k-NN search over the vector store."""
-    try:
-        hits = _vector_store.search(req.query, top_k=req.top_k, min_score=req.min_score)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    return {"query": req.query, "hits": [h.to_dict() for h in hits]}
-
-
-@app.delete("/vectors", tags=["Vectors"])
-async def vectors_clear():
-    """Clear the vector index."""
-    return {"removed": _vector_store.clear()}
-
-
-@app.get("/vectors/metrics", tags=["Vectors"])
-async def vectors_metrics():
-    """Vector store metrics: index size, dim, search counts."""
-    return _vector_store.metrics()
+# Extracted to api/routers/vectors.py — registered via app.include_router below.

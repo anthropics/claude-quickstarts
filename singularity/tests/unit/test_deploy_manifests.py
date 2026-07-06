@@ -62,9 +62,10 @@ def test_readiness_probe_uses_health_ready():
 
 
 def test_probe_endpoints_exist_in_app():
-    # the probe paths must be real routes on the app
+    # the probe paths must be real routes on the app. Some entries (e.g. mounts
+    # from include_router) have no `.path`, so read it defensively.
     from api.main import app
-    paths = {r.path for r in app.routes}
+    paths = {getattr(r, "path", None) for r in app.routes}
     assert "/healthz" in paths
     assert "/health/ready" in paths
 
