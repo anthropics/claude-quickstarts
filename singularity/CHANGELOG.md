@@ -20,6 +20,11 @@ versioning is [SemVer](https://semver.org/).
   `api/state.py`; the Vectors endpoints extracted into `api/routers/vectors.py`
   as an `APIRouter`. Routes and behaviour are identical; `api/main.py` shrinks
   from 3743 to 3702 lines. Establishes the pattern for splitting the monolith.
+- Maintainability refactor (cont.): Embeddings, State, Streaming, Tenancy,
+  Coalescer, and Evals endpoints extracted into `api/routers/*` (singletons in
+  `api/state.py`). Routes and behaviour identical (all verified live);
+  `api/main.py` shrinks from 3702 to 3479 lines. Snapshot stays in main.py for
+  now (coupled to the feature-flags singleton).
 
 ## [1.0.0] — 2026-06-29
 
