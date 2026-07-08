@@ -16,6 +16,10 @@ def computer_tool(request):
     return request.param()
 
 
+async def call_computer_tool(computer_tool, **kwargs):
+    return await computer_tool(**kwargs)
+
+
 @pytest.mark.asyncio
 async def test_computer_tool_mouse_move(computer_tool):
     with patch.object(computer_tool, "shell", new_callable=AsyncMock) as mock_shell:
@@ -25,6 +29,101 @@ async def test_computer_tool_mouse_move(computer_tool):
             f"{computer_tool.xdotool} mousemove --sync 100 200"
         )
         assert result.output == "Mouse moved"
+
+
+@pytest.mark.asyncio
+async def test_computer_tool_20250124_left_click_drag_accepts_text_modifier():
+    computer_tool = ComputerTool20250124()
+    with patch.object(computer_tool, "shell", new_callable=AsyncMock) as mock_shell:
+        mock_shell.return_value = ToolResult(output="Mouse dragged")
+        result = await call_computer_tool(
+            computer_tool,
+            action="left_click_drag",
+            start_coordinate=[0, 0],
+            coordinate=[100, 100],
+            text="ctrl",
+        )
+        mock_shell.assert_called_once_with(
+            f"{computer_tool.xdotool} mousemove --sync 0 0 keydown ctrl mousedown 1 mousemove --sync 100 100 mouseup 1 keyup ctrl"
+        )
+        assert result.output == "Mouse dragged"
+
+
+@pytest.mark.asyncio
+async def test_computer_tool_20250124_left_click_drag_accepts_key_modifier():
+    computer_tool = ComputerTool20250124()
+    with patch.object(computer_tool, "shell", new_callable=AsyncMock) as mock_shell:
+        mock_shell.return_value = ToolResult(output="Mouse dragged")
+        result = await call_computer_tool(
+            computer_tool,
+            action="left_click_drag",
+            start_coordinate=[0, 0],
+            coordinate=[100, 100],
+            key="ctrl",
+        )
+        mock_shell.assert_called_once_with(
+            f"{computer_tool.xdotool} mousemove --sync 0 0 keydown ctrl mousedown 1 mousemove --sync 100 100 mouseup 1 keyup ctrl"
+        )
+        assert result.output == "Mouse dragged"
+
+
+@pytest.mark.asyncio
+async def test_computer_tool_20250124_left_click_drag_without_modifier():
+    computer_tool = ComputerTool20250124()
+    with patch.object(computer_tool, "shell", new_callable=AsyncMock) as mock_shell:
+        mock_shell.return_value = ToolResult(output="Mouse dragged")
+        result = await call_computer_tool(
+            computer_tool,
+            action="left_click_drag",
+            start_coordinate=[0, 0],
+            coordinate=[100, 100],
+        )
+        mock_shell.assert_called_once_with(
+            f"{computer_tool.xdotool} mousemove --sync 0 0 mousedown 1 mousemove --sync 100 100 mouseup 1"
+        )
+        assert result.output == "Mouse dragged"
+
+
+@pytest.mark.asyncio
+async def test_computer_tool_20250124_left_click_drag_empty_text_uses_no_modifier():
+    computer_tool = ComputerTool20250124()
+    with patch.object(computer_tool, "shell", new_callable=AsyncMock) as mock_shell:
+        mock_shell.return_value = ToolResult(output="Mouse dragged")
+        result = await call_computer_tool(
+            computer_tool,
+            action="left_click_drag",
+            start_coordinate=[0, 0],
+            coordinate=[100, 100],
+            text="",
+        )
+        mock_shell.assert_called_once_with(
+            f"{computer_tool.xdotool} mousemove --sync 0 0 mousedown 1 mousemove --sync 100 100 mouseup 1"
+        )
+        assert result.output == "Mouse dragged"
+
+
+@pytest.mark.asyncio
+async def test_computer_tool_20250124_left_click_drag_requires_start_coordinate():
+    computer_tool = ComputerTool20250124()
+    with pytest.raises(
+        ToolError, match="start_coordinate is required for left_click_drag"
+    ):
+        await call_computer_tool(
+            computer_tool, action="left_click_drag", coordinate=[100, 100]
+        )
+
+
+@pytest.mark.asyncio
+async def test_computer_tool_20241022_left_click_drag_rejects_text_modifier():
+    computer_tool = ComputerTool20241022()
+    with pytest.raises(ToolError, match="text is not accepted for left_click_drag"):
+        await call_computer_tool(
+            computer_tool,
+            action="left_click_drag",
+            start_coordinate=[0, 0],
+            coordinate=[100, 100],
+            text="ctrl",
+        )
 
 
 @pytest.mark.asyncio
