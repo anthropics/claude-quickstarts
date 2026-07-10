@@ -1,7 +1,7 @@
 // Shared between the server (src/card.tsx, src/sessions.ts, the bridge) and
 // the browser bundle (web/app.tsx): the "brief ready" card's data shape and
 // the formatting both sides must agree on. Keep this module dependency-free
-// so Bun can bundle it into the page.
+// so esbuild can bundle it into the page.
 
 export type BriefStats = {
   searches: number; // web_search calls this turn

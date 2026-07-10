@@ -16,7 +16,7 @@ browser (useChat) ──▶ POST /api/chat ──▶ onDirectMessage
    (web_search: ..., thinking)                     agent.message, tool_use
 ```
 
-The only credential is Anthropic auth. The Chat SDK's [web adapter](https://chat-sdk.dev/adapters/official/web) speaks the AI SDK message stream protocol straight to the browser, so there is no Meta or Slack app to register, no webhook to verify, and no tunnel: `bun run dev` and open `localhost:3000`.
+The only credential is Anthropic auth. The Chat SDK's [web adapter](https://chat-sdk.dev/adapters/official/web) speaks the AI SDK message stream protocol straight to the browser, so there is no Meta or Slack app to register, no webhook to verify, and no tunnel: `npm run dev` and open `localhost:3000`.
 
 ## Why this pairing
 
@@ -80,7 +80,7 @@ then collapses them to "12 tool calls · 5 model requests" once the reply lands.
 
 ```bash
 cd managed-agents/chat-sdk
-bun install
+npm install
 claude
 ```
 
@@ -88,8 +88,8 @@ Then ask: **"walk me through setting this up."** Claude reads [`skill.md`](./ski
 
 ```bash
 cp .env.example .env      # add ANTHROPIC_API_KEY, or `ant auth login` once and leave it out
-bun run setup             # one-time: one agent + one environment; paste the printed IDs into .env
-bun run dev               # then open http://localhost:3000 and ask "look at Biome"
+npm run setup             # one-time: one agent + one environment; paste the printed IDs into .env
+npm run dev               # then open http://localhost:3000 and ask "look at Biome"
 ```
 
 Token previews (`event_deltas`) are part of the 2026-07-01 Managed Agents update and are gated per organization. Without the streaming gate everything still works and replies arrive whole instead of streaming.
@@ -100,13 +100,13 @@ Token previews (`event_deltas`) are part of the 2026-07-01 Managed Agents update
 |---|---|
 | `setup/agent-config.ts` | Model + system prompt: the agent's entire behavior |
 | `setup/create-agent.ts` | One-time provisioning: the analyst agent and its environment |
-| `src/main.ts` | Bun server: the chat page, `/api/chat`, `/api/sessions`, `/api/history`, `/api/activity` |
+| `src/main.ts` | The server (Hono on Node): the chat page, `/api/chat`, `/api/sessions`, `/api/history`, `/api/activity` |
 | `src/bot.ts` | Chat SDK instance, web adapter, `getUser` (the auth boundary), message handler |
 | `src/managed-agents.ts` | The bridge: the turn loop, token previews, the session ownership check |
 | `src/sessions.ts` | The sidebar's data source: list, create, and replay sessions |
 | `src/card.tsx` | The "brief ready" JSX card and its web fallback |
 | `src/activity.ts` | In-process fan-out of turn activity to live subscribers |
-| `web/` | The chat page: React + `useChat`, the sidebar, the activity feed, bundled by Bun |
+| `web/` | The chat page: React + `useChat`, the sidebar, the activity feed, bundled by esbuild |
 | `skill.md` | Setup walkthrough, gotchas, debugging |
 
-Runtime is Bun (1.2.3 or later: `src/main.ts` serves `web/index.html` through an HTML import). `chat`, `@chat-adapter/web`, and `@chat-adapter/state-memory` are pinned to 4.30.0 (the Chat SDK releases in lockstep and moves fast). `@anthropic-ai/sdk` needs 0.109.0 or later: that release (2026-06-30) is the first with `event_deltas` and the `accumulateManagedAgentsEvent` helper.
+Runtime is Node 22.9 or later (`--env-file-if-exists` in the npm scripts loads `.env`); `tsx` runs the TypeScript directly and `src/main.ts` bundles the page with esbuild on request, so there is no build step. `chat`, `@chat-adapter/web`, and `@chat-adapter/state-memory` are pinned to 4.30.0 (the Chat SDK releases in lockstep and moves fast). `@anthropic-ai/sdk` needs 0.109.0 or later: that release (2026-06-30) is the first with `event_deltas` and the `accumulateManagedAgentsEvent` helper.

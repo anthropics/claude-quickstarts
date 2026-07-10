@@ -12,7 +12,7 @@ import { memo, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import Markdown from "react-markdown";
 import { useChat, type UIMessage } from "@chat-adapter/web/react";
-// Bundled by Bun alongside the page: the same card shape and formatting the
+// Bundled into the page (esbuild, served as /app.js): the same card shape and formatting the
 // server uses, so live cards, replayed cards, and this renderer can't drift.
 import {
   consoleTraceUrl,

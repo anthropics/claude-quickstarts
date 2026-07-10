@@ -3,24 +3,31 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
   "scripts": {
-    "dev": "bun run --watch src/main.ts",
-    "start": "bun run src/main.ts",
-    "setup": "bun run setup/create-agent.ts"
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "start": "node --env-file-if-exists=.env --import tsx src/main.ts",
+    "setup": "node --env-file-if-exists=.env --import tsx setup/create-agent.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^3",
     "@anthropic-ai/sdk": ">=0.109.0 <1.0.0",
     "@chat-adapter/state-memory": "4.30.0",
     "@chat-adapter/web": "4.30.0",
+    "@hono/node-server": "^1",
     "ai": "^6",
     "chat": "4.30.0",
+    "esbuild": "^0.25",
+    "hono": "^4",
     "react": "^19",
     "react-dom": "^19",
-    "react-markdown": "^10"
+    "react-markdown": "^10",
+    "tsx": "^4"
   },
   "devDependencies": {
-    "@types/bun": "latest",
+    "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "typescript": "^5"

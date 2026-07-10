@@ -7,6 +7,6 @@
     "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
-    "types": ["bun-types"]
+    "types": ["node"]
   }
 }

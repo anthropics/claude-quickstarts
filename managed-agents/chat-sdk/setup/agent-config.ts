@@ -1,5 +1,5 @@
 // The agent's entire behavior lives here: model + system prompt. Changing it
-// and re-running `bun run setup` would create a duplicate resource -- update
+// and re-running `npm run setup` would create a duplicate resource -- update
 // the existing agent instead (see skill.md, Production notes).
 
 export const MODEL = process.env.QUICKSTART_MODEL || "claude-opus-4-8";

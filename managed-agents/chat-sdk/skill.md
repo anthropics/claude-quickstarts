@@ -60,7 +60,7 @@ There is no typing indicator on web (`startTyping` is a no-op in the web adapter
 
 ### getUser is the security boundary
 
-Slack and WhatsApp sign every webhook; a browser request proves nothing. The `getUser` function in `src/bot.ts` is where identity comes from, for every route that exposes a conversation: the web adapter calls it on each `/api/chat` POST, and `src/main.ts` runs the same check (via `authenticate`) before `/api/activity`, `/api/sessions`, and `/api/history`. Returning `null` produces a 401 everywhere. The demo's `getUser` accepts everyone as the same `local` user, which is exactly right on `localhost` and exactly wrong anywhere else: anyone who can reach the port can run research turns on your bill, list your sessions, and replay their transcripts. `src/main.ts` binds to `localhost` for that reason. Before exposing it, replace `getUser` with your real session lookup (NextAuth, Clerk, a session cookie) -- and scope the session routes to the resolved user, e.g. by writing the user ID into session `metadata` at create time and filtering on it in `listSessions` and `ownedSession`.
+Slack and WhatsApp sign every webhook; a browser request proves nothing. The `getUser` function in `src/bot.ts` is where identity comes from, for every route that exposes a conversation: the web adapter calls it on each `/api/chat` POST, and `src/main.ts` runs the same check (via `authenticate`) before `/api/activity`, `/api/sessions`, and `/api/history`. Returning `null` produces a 401 everywhere. The demo's `getUser` accepts everyone as the same `local` user, which is exactly right on `localhost` and exactly wrong anywhere else: anyone who can reach the port can run research turns on your bill, list your sessions, and replay their transcripts. `src/main.ts` binds to loopback (`127.0.0.1`) by default for that reason. Before exposing it, replace `getUser` with your real session lookup (NextAuth, Clerk, a session cookie) -- and scope the session routes to the resolved user, e.g. by writing the user ID into session `metadata` at create time and filtering on it in `listSessions` and `ownedSession`.
 
 ### Why bash is off
 
@@ -84,7 +84,7 @@ The Stop button (it replaces Send while a turn runs) aborts the browser's reques
 
 ### Restarts are free, but live turns aren't
 
-Because the state is the sessions API, restarting `bun run dev` costs nothing: the sidebar and every transcript come back. The exception is a turn in flight at restart -- its held response dies with the process, and the browser shows a network error. The session finishes the turn server-side anyway; reopen the chat from the sidebar and the replies are there.
+Because the state is the sessions API, restarting `npm run dev` costs nothing: the sidebar and every transcript come back. The exception is a turn in flight at restart -- its held response dies with the process, and the browser shows a network error. The session finishes the turn server-side anyway; reopen the chat from the sidebar and the replies are there.
 
 ### Markdown renders for real now
 
@@ -92,16 +92,16 @@ Because the state is the sessions API, restarting `bun run dev` costs nothing: t
 
 ### Don't put a default proxy in front of it
 
-The `/api/chat` response stays open for the whole research turn, minutes at a time. `src/main.ts` sets `idleTimeout: 0` for Bun itself, but a reverse proxy or load balancer in front will reap a quiet response at its own default (often 60 seconds) and the browser sees a network error right when the brief was due. Locally there is nothing in between; when you deploy, raise the proxy's idle/read timeout for this route.
+The `/api/chat` response stays open for the whole research turn, minutes at a time. `src/main.ts` disables Node's own request timeout (`requestTimeout: 0`; the socket inactivity timeout is already off by default), but a reverse proxy or load balancer in front will reap a quiet response at its own default (often 60 seconds) and the browser sees a network error right when the brief was due. Locally there is nothing in between; when you deploy, raise the proxy's idle/read timeout for this route.
 
 ---
 
 ## Setup checklist
 
 1. `cp .env.example .env`, then add Anthropic auth: uncomment and fill in `ANTHROPIC_API_KEY`, or run `ant auth login` once and leave it out (the SDK discovers CLI credentials). Token previews are part of the 2026-07-01 Managed Agents update; use an org that has it.
-2. `bun install` (needs `@anthropic-ai/sdk` ≥ 0.109.0; the range in `package.json` already says so).
-3. `bun run setup` → copy the printed `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID` into `.env`.
-4. `bun run dev` → open `http://localhost:3000` → **New chat** → ask "look at <devtools startup>". Expect the acknowledgment within seconds, the activity feed filling with searches for a minute or three, the brief typing itself out, then the **Brief ready** card with the turn's stats and a link to the session trace. Restart the server and reload to see the sidebar and transcript come back from the sessions API.
+2. `npm install` (needs Node ≥ 22.9 and `@anthropic-ai/sdk` ≥ 0.109.0; `package.json` already says so).
+3. `npm run setup` → copy the printed `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID` into `.env`.
+4. `npm run dev` → open `http://localhost:3000` → **New chat** → ask "look at <devtools startup>". Expect the acknowledgment within seconds, the activity feed filling with searches for a minute or three, the brief typing itself out, then the **Brief ready** card with the turn's stats and a link to the session trace. Restart the server and reload to see the sidebar and transcript come back from the sessions API.
 
 ---
 
@@ -111,13 +111,13 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 |---|---|
 | Every request fails with a generic `404 not found`, starting with the first one | The org has no Managed Agents access at all (the SDK sends the `managed-agents-2026-04-01` beta header on every call). Use an org that does; it's not your code |
 | Replies arrive but never stream | The org doesn't have session streaming enabled (no `event_start` ever arrives), or the SDK in `node_modules` is older than 0.109.0 and doesn't know `event_deltas`. Everything else still works |
-| Page loads but Send does nothing, `/api/chat` red in the network tab | The server isn't running, or the tab is pointed at a stale port. `bun run dev` and reload |
-| Code changes don't take effect, or behavior alternates between old and new per request | Two servers share the port: Bun reuses it, so a forgotten `bun run dev` silently splits requests with the new one. `lsof -ti:3000 -sTCP:LISTEN \| xargs kill`, then start exactly one |
+| Page loads but Send does nothing, `/api/chat` red in the network tab | The server isn't running, or the tab is pointed at a stale port. `npm run dev` and reload |
+| `EADDRINUSE` on startup | A forgotten server still holds the port. `lsof -ti:3000 -sTCP:LISTEN \| xargs kill`, then start exactly one |
 | `/api/chat` returns 401 | `getUser` returned `null` or threw. The shipped demo never 401s; this appears once you wire in real auth |
 | `/api/history` returns 404 for a session you can see in the Console | `ownedSession` rejected it: the session belongs to a different agent than `CLAUDE_AGENT_ID`, or it's archived. The sidebar only lists this agent's sessions for the same reason |
 | "This session has ended on the server" | The session behind the conversation was archived, deleted, or terminated (or `.env` now points at a different agent). Start a new chat; the old transcript is still in the Console |
-| `400 Invalid agent ID` | `.env` still has the `agent_...` placeholder. Re-paste from `bun run setup` |
-| Acknowledgment arrives, then a network error instead of the brief | Something between the browser and Bun reaped the long-lived response. Hit the server directly, or raise the proxy's idle timeout. The turn finished server-side: reopen the chat from the sidebar to see it |
+| `400 Invalid agent ID` | `.env` still has the `agent_...` placeholder. Re-paste from `npm run setup` |
+| Acknowledgment arrives, then a network error instead of the brief | Something between the browser and the server reaped the long-lived response. Hit the server directly, or raise the proxy's idle timeout. The turn finished server-side: reopen the chat from the sidebar to see it |
 | "I lost my connection mid-research, but the work continues on the server" | The Anthropic event stream dropped mid-turn. Don't resend (that would queue a duplicate research run); reopen the chat from the sidebar once the turn finishes |
 | Replaying the same request with `curl` returns an empty assistant turn | The Chat SDK dedupes processed message IDs through the state adapter. Mint a new message `id` per request; `useChat` always does |
 | `Research run stopped early (retries_exhausted)` | The model or sandbox hit repeated errors (`session.error` lines in the server log say which, commonly model overload). Transient: send the message again |
@@ -128,7 +128,7 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 ## Production notes
 
 - Replace the demo `getUser` with your real session lookup and return `null` for anonymous requests. This is the only thing between the public internet and your API budget. Then scope sessions per user: write the resolved user ID into session `metadata` on create and filter on it in `listSessions`/`ownedSession`, so one user cannot list or replay another's conversations.
-- Deploy anywhere that lets a response stream stay open for minutes: a VM or container running `bun src/main.ts` works once you change `hostname` in `src/main.ts` from `localhost` to your bind address. If the host caps request duration (most serverless platforms do, and free tiers aggressively), this shape does not fit; move the turn into a queue and notify the browser another way.
+- Deploy anywhere that lets a response stream stay open for minutes: a VM or container running `npm start` works once you set `HOST` to your bind address (the default `127.0.0.1` is loopback-only on purpose). The four `/api` routes are fetch-native Hono handlers, so they also drop into the Cloudflare Workers, Vercel, and Netlify adapters -- the page routes need a Node host (they read files and run esbuild at runtime), and if the host caps request duration (most serverless platforms do, and free tiers aggressively), this shape does not fit; move the turn into a queue and notify the browser another way.
 - Multiple server instances need two things: swap `createMemoryState()` for `createRedisState()` (set `REDIS_URL`) so the Chat SDK's message dedup holds across instances, and route each conversation to one instance (sticky sessions on the conversation ID) -- the turn serialization in `src/managed-agents.ts` is process-local, and two instances streaming the same session would each post every reply.
 - Gate spend even behind auth: check the resolved user ID against an allowlist in `getUser`, or rate-limit per thread in the message handler.
 - Proactive sends (scheduled briefs) have no path on web v1: the adapter can only write during a request it is answering. Use one of the push-capable adapters (Slack, Telegram, WhatsApp) for anything the bot initiates.
@@ -136,7 +136,7 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 - Cleanup when you're done with the demo (archive is permanent; archiving the agent also hides its sessions from the sidebar):
 
 ```bash
-bun -e 'const client = new (await import("@anthropic-ai/sdk")).default();
+node --env-file-if-exists=.env --input-type=module -e 'const client = new (await import("@anthropic-ai/sdk")).default();
 await client.beta.agents.archive(process.env.CLAUDE_AGENT_ID);
 await client.beta.environments.archive(process.env.CLAUDE_ENVIRONMENT_ID);'
 ```
