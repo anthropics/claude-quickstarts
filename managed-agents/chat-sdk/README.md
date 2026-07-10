@@ -79,9 +79,3 @@ Three shapes fit this server:
 | `src/activity.ts` | In-process fan-out of turn activity to live subscribers |
 | `web/` | The chat page: React + `useChat`, the sidebar, the activity feed, bundled by esbuild |
 | `skill.md` | Setup walkthrough, gotchas, debugging |
-
-## Versions
-
-- Node 22.9 or later. No build step: `tsx` runs the TypeScript, and `src/main.ts` bundles the page with esbuild on request.
-- `chat`, `@chat-adapter/web`, and `@chat-adapter/state-memory` are pinned to `4.30.0`. The Chat SDK releases in lockstep and moves fast.
-- `@anthropic-ai/sdk` 0.109.0 or later: the first release with `event_deltas` and the `accumulateManagedAgentsEvent` helper.
