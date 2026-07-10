@@ -31,7 +31,7 @@ const latestUserText = (input: RunAgentInput): string => {
   return '';
 };
 
-export class ManagedAgentFinancialAdvisor extends AbstractAgent {
+export class ManagedAgentFinancialAssistant extends AbstractAgent {
   /** Abort controller for the in-flight run, so abortRun() (the UI's Stop
    *  button, dispatched by the runtime) actually cancels the turn. */
   private currentRunAbort: AbortController | null = null;

@@ -46,7 +46,7 @@ An autonomous coding agent powered by the Claude Agent SDK. This project demonst
 
 ### Managed Agents with CopilotKit and AG-UI
 
-A financial advisor chat app built on a Claude Managed Agent and rendered with CopilotKit. This project demonstrates how to bridge a managed-agent session to the AG-UI protocol, stream replies token by token with event deltas, and render agent tool calls as interactive generative UI components in the chat.
+A personal finance assistant chat app built on a Claude Managed Agent and rendered with CopilotKit. This project demonstrates how to bridge a managed-agent session to the AG-UI protocol, stream replies token by token with event deltas, and render agent tool calls as interactive generative UI components in the chat.
 
 [Go to Managed Agents with CopilotKit Quickstart](./managed-agents/copilot-kit-ag-ui)
 

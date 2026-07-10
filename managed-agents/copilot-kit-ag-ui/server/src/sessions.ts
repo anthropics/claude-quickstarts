@@ -39,7 +39,7 @@ export function getOrCreateThread(client: Anthropic, threadId: string): Promise<
     const session = await client.beta.sessions.create({
       agent: { type: 'agent', id: ids.agentId, version: ids.agentVersion },
       environment_id: ids.environmentId,
-      title: `Financial advisor thread ${threadId}`,
+      title: `Finance assistant thread ${threadId}`,
     });
     // `default` resolves to the session's actual workspace when Console loads.
     const traceUrl = `https://platform.claude.com/workspaces/default/sessions/${session.id}`;

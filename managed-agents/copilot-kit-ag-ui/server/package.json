@@ -4,8 +4,9 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "setup": "tsx src/setup.ts",
-    "dev": "tsx watch src/index.ts",
+    "setup": "tsx --env-file-if-exists=../.env src/setup.ts",
+    "dev": "tsx watch --env-file-if-exists=../.env src/index.ts",
+    "start": "tsx --env-file-if-exists=../.env src/index.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -14,12 +15,12 @@
     "@anthropic-ai/sdk": "0.109.0",
     "@copilotkit/runtime": "1.62.1",
     "express": "5.2.1",
-    "rxjs": "7.8.1"
+    "rxjs": "7.8.1",
+    "tsx": "4.22.3"
   },
   "devDependencies": {
     "@types/express": "5.0.6",
     "@types/node": "25.9.3",
-    "tsx": "4.22.3",
     "typescript": "6.0.3"
   }
 }

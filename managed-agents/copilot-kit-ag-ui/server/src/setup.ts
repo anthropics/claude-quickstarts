@@ -3,7 +3,7 @@
  *
  * Managed agents are persistent, versioned resources: create them once, store
  * the IDs, and reference them on every session. This script provisions a
- * cloud environment and a single financial-advisor agent on claude-fable-5.
+ * cloud environment and a single financial-assistant agent on claude-fable-5.
  *
  * IDs land in agent-ids.json at the repo root (gitignored). Re-running with
  * --force re-provisions and overwrites the file.
@@ -25,7 +25,7 @@ export interface AgentIds {
 
 const MODEL = 'claude-fable-5';
 
-const ADVISOR_SYSTEM = `You are a careful, plain-spoken financial advisor chatbot. Your job is
+const ASSISTANT_SYSTEM = `You are a careful, plain-spoken personal finance assistant. Your job is
 to help people review their personal finances, brainstorm ideas, and think through best
 practices for planning their future.
 
@@ -55,11 +55,19 @@ How you work:
   generally applies and note what a licensed professional would need to know. Keep answers
   tight; one short disclaimer at most, and only where genuinely warranted.`;
 
+function printEnvExports(ids: AgentIds) {
+  console.log('Deploying somewhere without agent-ids.json? Set these instead:');
+  console.log(`  ANTHROPIC_ENVIRONMENT_ID=${ids.environmentId}`);
+  console.log(`  ANTHROPIC_AGENT_ID=${ids.agentId}`);
+  console.log(`  ANTHROPIC_AGENT_VERSION=${ids.agentVersion}`);
+}
+
 async function main() {
   const force = process.argv.includes('--force');
   if (fs.existsSync(AGENT_IDS_PATH) && !force) {
     console.log(`agent-ids.json already exists — agents are reusable, not per-run.`);
-    console.log(`Re-run with --force to re-provision.`);
+    console.log(`Re-run with --force to re-provision.\n`);
+    printEnvExports(JSON.parse(fs.readFileSync(AGENT_IDS_PATH, 'utf8')) as AgentIds);
     return;
   }
 
@@ -68,19 +76,19 @@ async function main() {
 
   console.log('Creating environment…');
   const environment = await client.beta.environments.create({
-    name: `financial-advisor-demo-${Date.now().toString(36)}`,
+    name: `financial-assistant-demo-${Date.now().toString(36)}`,
     config: { type: 'cloud', networking: { type: 'unrestricted' } },
   });
   console.log(`  environment ${environment.id}`);
 
   console.log('Creating agent…');
   const agent = await client.beta.agents.create({
-    name: 'financial-advisor',
+    name: 'financial-assistant',
     model: MODEL,
-    system: ADVISOR_SYSTEM,
+    system: ASSISTANT_SYSTEM,
     tools: [{ type: 'agent_toolset_20260401' }, ...vizToolDefinitions],
   });
-  console.log(`  financial-advisor ${agent.id} (version ${agent.version})`);
+  console.log(`  financial-assistant ${agent.id} (version ${agent.version})`);
 
   const ids: AgentIds = {
     environmentId: environment.id,
@@ -89,7 +97,8 @@ async function main() {
   };
   fs.writeFileSync(AGENT_IDS_PATH, JSON.stringify(ids, null, 2) + '\n');
   console.log(`\nWrote ${AGENT_IDS_PATH}`);
-  console.log('Setup complete. Start the demo with: npm run dev');
+  console.log('Setup complete. Start the demo with: npm run dev\n');
+  printEnvExports(ids);
 }
 
 const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
@@ -101,8 +110,35 @@ if (isMain) {
 }
 
 export function loadAgentIds(): AgentIds {
+  // Env vars first — deployment platforms without a persistent disk (Vercel,
+  // Netlify, containers built from a clean checkout) can't ship agent-ids.json.
+  const { ANTHROPIC_ENVIRONMENT_ID, ANTHROPIC_AGENT_ID, ANTHROPIC_AGENT_VERSION } = process.env;
+  const envVars = {
+    ANTHROPIC_ENVIRONMENT_ID,
+    ANTHROPIC_AGENT_ID,
+    ANTHROPIC_AGENT_VERSION,
+  };
+  const missing = Object.keys(envVars).filter((k) => !envVars[k as keyof typeof envVars]);
+  if (missing.length > 0 && missing.length < 3) {
+    // A partial set is a deploy-config mistake, not a fallback case.
+    throw new Error(`Agent env vars partially set: missing ${missing.join(', ')}.`);
+  }
+  if (ANTHROPIC_ENVIRONMENT_ID && ANTHROPIC_AGENT_ID && ANTHROPIC_AGENT_VERSION) {
+    const agentVersion = Number(ANTHROPIC_AGENT_VERSION);
+    if (!Number.isInteger(agentVersion)) {
+      throw new Error(`ANTHROPIC_AGENT_VERSION must be an integer, got "${ANTHROPIC_AGENT_VERSION}".`);
+    }
+    return {
+      environmentId: ANTHROPIC_ENVIRONMENT_ID,
+      agentId: ANTHROPIC_AGENT_ID,
+      agentVersion,
+    };
+  }
   if (!fs.existsSync(AGENT_IDS_PATH)) {
-    throw new Error('agent-ids.json not found — run `npm run setup` first.');
+    throw new Error(
+      'No agent configured — run `npm run setup` first, or set ' +
+        'ANTHROPIC_ENVIRONMENT_ID, ANTHROPIC_AGENT_ID, and ANTHROPIC_AGENT_VERSION.',
+    );
   }
   return JSON.parse(fs.readFileSync(AGENT_IDS_PATH, 'utf8')) as AgentIds;
 }

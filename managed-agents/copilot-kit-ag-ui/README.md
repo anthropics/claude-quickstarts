@@ -1,98 +1,86 @@
-# Financial advisor: Claude Managed Agents × CopilotKit
+# Finance assistant: Claude Managed Agents × CopilotKit
 
-A minimal chat app wiring three things together:
+A chat app where a Claude Managed Agent acts as a personal finance assistant. Anthropic hosts the agent loop and its container, CopilotKit renders the chat, and replies stream token by token. When the agent wants to show numbers, it renders interactive charts (payoff timelines, growth projections, budget breakdowns, scenario comparisons) inline in the conversation.
 
-1. **A Claude Managed Agent.** One `financial-advisor` agent on
-   `claude-fable-5` with the built-in toolset (bash, files, web search), so it
-   can pull current rates and run real calculations in its own workspace.
-   Anthropic hosts the agent loop and the container; sessions keep the
-   conversation state server-side.
-2. **Event delta streaming** in the Anthropic TypeScript SDK. The bridge opts
-   into live previews (`event_deltas: ['agent.message', 'agent.thinking']`) on
-   the session event stream and reconciles them with the SDK's
-   `accumulateManagedAgentsEvent` helper, so replies reach the browser token
-   by token instead of turn by turn.
-3. **[CopilotKit](https://docs.copilotkit.ai)** for the UI. The agent is a
-   plain AG-UI `AbstractAgent`, registered in a self-hosted `CopilotSseRuntime`
-   and rendered with the stock `CopilotChat` component. No custom chat code.
-4. **Generative UI.** The agent has four visual tools (payoff timeline, growth
-   projection, budget breakdown, scenario comparison) declared as managed-agent
-   custom tools. When it calls one, the bridge forwards the call as AG-UI
-   `TOOL_CALL_*` events and immediately acks the session; CopilotKit's
-   `useRenderTool` mounts an interactive React component inline in the chat,
-   with sliders that recompute the charts client-side ("what if I paid $600
-   instead").
-
-```
-browser (Vite + React)               server (Express)                   Anthropic
-┌────────────────────┐  runtime API  ┌─────────────────┐  user.message  ┌──────────────────┐
-│ CopilotKitProvider │ ────────────▶ │ CopilotSse-     │ ─────────────▶ │ Managed Agents   │
-│  └─ CopilotChat    │               │  Runtime        │                │  session         │
-│                    │  AG-UI events │  └─ AbstractAgent│  SSE w/ live  │  └─ financial-   │
-│                    │ ◀──────────── │     (bridge.ts) │ ◀───────────── │     advisor      │
-└────────────────────┘               └─────────────────┘   previews     └──────────────────┘
-```
-
-## Run it
-
-Requires Node 22+, and Anthropic API credentials with the Managed Agents beta.
-Either `ANTHROPIC_API_KEY` or an `ant auth login` profile works; the SDK finds
-both on its own. Note that `claude-fable-5` requires 30-day data retention on
-the org (not available under zero data retention).
+The fastest way to get running, from this directory:
 
 ```sh
-npm install
-
-# One time: create the environment + the agent, store IDs in agent-ids.json.
-# Agents are persistent, versioned resources: created once, referenced by ID
-# on every session. Re-run with `-- --force` to re-provision.
-npm run setup
-
-# Start the CopilotKit runtime (:8787) and the web app (:5173)
-npm run dev
+claude "walk me through setting up this demo"
 ```
 
-Open http://localhost:5173 and ask something like:
+Claude Code reads this project's [CLAUDE.md](CLAUDE.md) and walks you through prerequisites, provisioning, and the first conversation. Prefer to do it by hand? Read on.
+
+## Prerequisites
+
+- Node 22 or newer.
+- Anthropic API credentials with the Managed Agents beta: either `ANTHROPIC_API_KEY` or an `ant auth login` profile. The SDK finds both on its own.
+- An org with 30-day data retention. `claude-fable-5` is not available under zero data retention.
+
+## Commands
+
+```sh
+npm install        # install all workspaces
+npm run setup      # one time: provision the environment + agent
+npm run dev        # dev servers: runtime on :8787, web app on :5173
+```
+
+Open http://localhost:5173 and ask:
 
 > If I invest $500/month at a 7% annual return, what will I have in 20 years?
 
-Follow-ups work naturally: the CopilotKit thread maps to one managed session,
-so the agent remembers the conversation. The server logs a Console trace URL
-per session so you can watch the raw agent activity side by side.
+Follow-ups work naturally: each chat thread maps to one managed session, so the agent remembers the conversation. The server logs a Console trace URL per session so you can watch the raw agent activity side by side.
 
-## Where the interesting code is
+The other commands:
 
-| File | What it shows |
-| --- | --- |
-| `server/src/setup.ts` | Agent-first provisioning: environment + one agent with the built-in toolset |
-| `server/src/agent.ts` | The whole CopilotKit integration: an AG-UI `AbstractAgent` whose `run()` is one managed-session turn |
-| `server/src/bridge.ts` | Event translation: live previews to AG-UI text deltas, built-in tool activity to `TOOL_CALL_*`, the `requires_action` idle gate |
-| `server/src/index.ts` | Self-hosted `CopilotSseRuntime` on Express via `createCopilotExpressHandler` |
-| `server/src/vizTools.ts` | The generative-UI tool contracts the agent sees |
-| `web/src/viz/renderers.tsx` | `useRenderTool` registrations mapping tool calls to React components |
-| `web/src/viz/` | The interactive visuals: SVG charts, sliders, client-side finance math |
-| `web/src/App.tsx` | The frontend: `CopilotKitProvider` + `CopilotChat` + viz renderers |
+```sh
+npm run build              # build the frontend to web/dist
+npm start                  # production server: API + built frontend on one port
+npm run typecheck          # typecheck both workspaces
+npm run setup -- --force   # re-provision the agent from scratch
+```
 
-## Notes
+`npm run setup` creates two persistent resources (a cloud environment and the agent) and stores their IDs in `agent-ids.json`. Agents are created once and referenced by ID on every session, so you only run setup again to change the agent's definition.
 
-- `package.json` pins one `rxjs` version via `overrides` so the whole
-  workspace shares a single copy: the AG-UI client and the CopilotKit runtime
-  exchange RxJS observables, and two copies in the tree can break
-  `instanceof` checks.
-- CopilotKit's runtime clones registered agents per run, so the agent class
-  keeps no instance state; the Anthropic client is a module-level singleton
-  and per-thread state lives in `sessions.ts`.
-- Event delta streaming is best-effort by design: the bridge tracks what the
-  previews delivered and tops up from the buffered `agent.message`, which is
-  always canonical.
-- The visual tools are render-only: their result is the rendering itself, so
-  the bridge acks each call server-side ("rendered to the user") the moment it
-  arrives, and the `requires_action` idle that follows an acked call is
-  expected rather than treated as a hang. The agent supplies starting numbers;
-  the sliders recompute everything client-side without another agent turn.
-- The bridge also emits `TOOL_CALL_*` events for built-in tool use
-  (web_search, bash, file ops). The wildcard `useRenderTool` registration in
-  `web/src/viz/renderers.tsx` renders each as a compact expandable activity
-  row (`ToolActivity`).
-- The thread-to-session registry is in memory: a server restart starts fresh
-  sessions, and old ones are not deleted. Fine for a demo, not for production.
+## Configuration
+
+Everything is environment variables. Copy `.env.example` to `.env` for local overrides.
+
+| Variable | Where | Default | What it does |
+| --- | --- | --- | --- |
+| `ANTHROPIC_API_KEY` | server | `ant auth login` profile | API credentials |
+| `ANTHROPIC_ENVIRONMENT_ID` | server | read from `agent-ids.json` | Environment ID for platforms without a persistent disk |
+| `ANTHROPIC_AGENT_ID` | server | read from `agent-ids.json` | Agent ID, set together with the other two |
+| `ANTHROPIC_AGENT_VERSION` | server | read from `agent-ids.json` | Agent version (integer) |
+| `PORT` | server | `8787` | Runtime port |
+| `ALLOWED_ORIGINS` | server | allow all | Comma-separated CORS origins |
+| `VITE_COPILOT_RUNTIME_URL` | web build | `/api/copilotkit` | Runtime URL when the frontend is hosted separately |
+
+`npm run setup` prints the three `ANTHROPIC_*` ID values when it finishes (re-run it any time to print them again), ready to paste into a deployment platform's env config. When all three are set they take precedence over `agent-ids.json`, and setting only some of them is a boot error.
+
+## Deployment
+
+The app is two pieces: a static frontend (`web/dist`) and a Node server that streams SSE. Deploy them together or apart.
+
+**Single process** (Railway, Render, Fly.io, a VPS, any Docker host):
+
+```sh
+npm install && npm run build && npm start
+```
+
+One port serves both the API and the built frontend. Set `ANTHROPIC_API_KEY` and the three agent ID variables.
+
+**Split** (frontend on Vercel, Netlify, or Cloudflare Pages, server on any Node host):
+
+1. Build the frontend with `VITE_COPILOT_RUNTIME_URL` pointing at your server's `/api/copilotkit` and deploy `web/dist` as a static site.
+2. Run the server with `ALLOWED_ORIGINS` set to the frontend's origin.
+
+Platform notes:
+
+- A single agent turn can run for minutes (the agent runs bash and web searches in its workspace) and the reply streams over SSE. On serverless platforms, raise the function's max duration. The server caps each turn at 5 minutes. Platforms that buffer responses or cap requests at a few seconds can host the frontend, not the runtime.
+- The server keeps the thread-to-session map in memory. Every restart or serverless cold start starts fresh sessions. Fine for a demo, not for production.
+- Cloudflare Workers does not run this Express server. Host the frontend on Cloudflare Pages and the server on a Node platform.
+- The deployed runtime endpoint has no auth and every message spends your API credits. Set `ALLOWED_ORIGINS`, keep the URL private, or put auth in front before sharing it.
+
+## Architecture
+
+See [CLAUDE.md](CLAUDE.md) for the architecture diagram, a map of where the interesting code is, and the design notes.
