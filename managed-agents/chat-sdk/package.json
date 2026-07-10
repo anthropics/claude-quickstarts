@@ -1,0 +1,28 @@
+{
+  "name": "chat-sdk-web-analyst",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --watch src/main.ts",
+    "start": "bun run src/main.ts",
+    "setup": "bun run setup/create-agent.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/react": "^3",
+    "@anthropic-ai/sdk": ">=0.109.0 <1.0.0",
+    "@chat-adapter/state-memory": "4.30.0",
+    "@chat-adapter/web": "4.30.0",
+    "ai": "^6",
+    "chat": "4.30.0",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-markdown": "^10"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}
