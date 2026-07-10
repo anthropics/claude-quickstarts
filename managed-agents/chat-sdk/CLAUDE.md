@@ -2,6 +2,20 @@
 
 Long-running Node server (Hono): browser chat with a sessions sidebar (`useChat` → `/api/chat`) → Chat SDK web adapter `onDirectMessage` → one Managed Agents session per conversation, where **the conversation ID is the session ID** (no mapping, no database; the sidebar is `sessions.list`, transcript replay is `sessions.events.list`) → a held session event stream (opened with `event_deltas` token previews, always on) feeds each fragment back onto the same HTTP response while `/api/activity` streams the tool calls and thinking the page shows as a live feed. Each research turn closes with a Chat SDK JSX card ("Brief ready", `src/card.tsx`) whose web fallback the page renders as a styled card.
 
+```
+sidebar ──▶ GET/POST /api/sessions ─────▶ /v1/sessions (list, create)
+        ──▶ GET /api/history ───────────▶ /v1/sessions/{id}/events (replay)
+
+browser (useChat) ──▶ POST /api/chat ──▶ onDirectMessage
+                                              │ conversation ID
+                                              │ = session ID          ┌───────────────────┐
+   held HTTP response ◀── thread.post() ◀─────┴──▶ session ──────────▶│ VC analyst (opus) │
+   (the reply types itself out,               │                       │ web search, fetch │
+    then the "brief ready" card)              │                       └───────────────────┘
+   /api/activity (SSE) ◀── TurnHooks.activity ┘    event_start / event_delta,
+   (web_search: ..., thinking)                     agent.message, tool_use
+```
+
 Needs `@anthropic-ai/sdk` ≥ 0.109.0 (the first release with `event_deltas` and `accumulateManagedAgentsEvent`); streaming is gated per org while the 2026-07-01 update rolls out (`skill.md`, "Token previews are gated per org").
 
 ## When the user asks to set this up, get it working, or debug it
