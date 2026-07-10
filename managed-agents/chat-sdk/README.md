@@ -52,18 +52,9 @@ The agent's entire identity (name, model, and system prompt) lives in `setup/age
 
 ## Deployment
 
-Two things gate every deployment:
-
 - The demo `getUser` in `src/bot.ts` trusts every caller, which is why the default bind is loopback. Replace it with your real session lookup before setting `HOST`. See "getUser is the security boundary" in `skill.md`.
-- A research turn holds the `/api/chat` response open for minutes. The server never reaps it, but a reverse proxy in front will at its own idle default (often 60 seconds). Raise that timeout.
-
-Three shapes fit this server:
-
-| Target | Fit |
-|---|---|
-| VM or container | `npm start` with `HOST=0.0.0.0`. One long-lived process, streams held as long as a turn needs |
-| Cloudflare Workers, Vercel, Netlify | The `/api` routes are fetch-native [Hono](https://hono.dev/) handlers and drop into those adapters. Serve the page as a prebuilt static asset, and move turns into a queue: request-duration caps don't fit responses held open for minutes |
-| Multiple instances | Swap `createMemoryState()` for `createRedisState()` in `src/bot.ts`, and sticky-route each conversation to one instance |
+- `npm start` with `HOST=0.0.0.0`. One long-lived process, streams held as long as a turn needs.
+- The `/api` routes are fetch-native [Hono](https://hono.dev/) handlers and work well with all well-known hosting providers.
 
 ## Files
 
