@@ -2,7 +2,7 @@
 
 A research analyst in a browser chat window. Vercel's [Chat SDK](https://chat-sdk.dev/) owns the chat surface. One persistent [Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) session per conversation owns the research, streaming its reply token by token while a live feed shows the tool calls it makes.
 
-The pairing is the point. The Chat SDK normalizes Slack, Teams, Discord, Telegram, and WhatsApp behind one thread API, so the same `onDirectMessage` handler drives any of them: pick the adapter, and the platform's webhooks, signing, and markup are its problem. Managed Agents keeps the whole agent server-side either way: the tool loop, the sandboxed web research, session state, and optional memory stores that persist across sessions. The bridge between them (`src/managed-agents.ts`) is a few hundred surface-agnostic lines. Porting touches only `src/bot.ts`: the dispatch and where sessions come from (`skill.md`, "Two held streams").
+The Chat SDK is a universal chat layer: one type-safe handler, 15+ adapters, from Slack and Teams to Discord and WhatsApp. Managed Agents is the agent behind it, all server-side: the tool loop, the sandboxed web research, session state, and optional memory stores. Swapping the adapter moves the analyst to another surface. Only `src/bot.ts` changes (`skill.md`, "Two held streams").
 
 The server stores nothing: the `useChat` conversation ID is a Managed Agents session ID. The sidebar is the sessions API. Transcripts replay from the session's event log. Compaction and prompt caching happen inside the session.
 
