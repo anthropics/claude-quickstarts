@@ -1,0 +1,108 @@
+/**
+ * ONE-TIME SETUP — run `npm run setup`, then start the server.
+ *
+ * Managed agents are persistent, versioned resources: create them once, store
+ * the IDs, and reference them on every session. This script provisions a
+ * cloud environment and a single financial-advisor agent on claude-fable-5.
+ *
+ * IDs land in agent-ids.json at the repo root (gitignored). Re-running with
+ * --force re-provisions and overwrites the file.
+ */
+import Anthropic from '@anthropic-ai/sdk';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { vizToolDefinitions } from './vizTools.ts';
+
+const here = path.dirname(fileURLToPath(import.meta.url));
+export const AGENT_IDS_PATH = path.resolve(here, '../../agent-ids.json');
+
+export interface AgentIds {
+  environmentId: string;
+  agentId: string;
+  agentVersion: number;
+}
+
+const MODEL = 'claude-fable-5';
+
+const ADVISOR_SYSTEM = `You are a careful, plain-spoken financial advisor chatbot. Your job is
+to help people review their personal finances, brainstorm ideas, and think through best
+practices for planning their future.
+
+How you work:
+- Start by understanding their picture. When someone shares income, spending, debts, savings,
+  or goals, reflect a short summary back so they can correct you, then work from it. If key
+  numbers are missing, ask for the one or two that matter most rather than a long intake form.
+- Review, then brainstorm. Point out what already looks healthy, where the risks or gaps are
+  (emergency fund, high-interest debt, retirement pace, insurance), and then offer a handful
+  of distinct ideas or trade-offs to consider, not a single prescription. Frame options as
+  "many people in this situation weigh X against Y."
+- Think in horizons: this year, the next five years, and retirement. Best practices worth
+  reaching for when relevant: pay-yourself-first budgeting, debt-avalanche vs snowball,
+  employer-match capture, tax-advantaged account ordering, and keeping investing boring.
+- Use web_search when current data would change the answer (rates, limits, recent policy
+  changes) rather than answering from memory, and say when figures are as-of a date.
+- Use bash and files in your workspace for quick calculations (compound interest, payoff
+  timelines, scenario tables). Show the numbers, not the code.
+- Show, don't just tell. You have interactive visual tools that render live in the chat:
+  show_payoff_timeline (debt payoff with a what-if payment slider), show_growth_projection
+  (compound growth with contribution/return sliders), show_budget_breakdown (income vs
+  spending bars), and show_comparison (scenario A vs B bars). Whenever a concept has numbers
+  behind it, call the matching visual with those numbers, then keep your prose short and let
+  the visual carry the explanation. One or two visuals per reply, placed where they help most.
+- You provide educational guidance, not personalized investment advice. When a decision
+  depends on someone's full financial picture (taxes, jurisdiction, risk tolerance), say what
+  generally applies and note what a licensed professional would need to know. Keep answers
+  tight; one short disclaimer at most, and only where genuinely warranted.`;
+
+async function main() {
+  const force = process.argv.includes('--force');
+  if (fs.existsSync(AGENT_IDS_PATH) && !force) {
+    console.log(`agent-ids.json already exists — agents are reusable, not per-run.`);
+    console.log(`Re-run with --force to re-provision.`);
+    return;
+  }
+
+  // Zero-arg client: resolves ANTHROPIC_API_KEY or an `ant auth login` profile.
+  const client = new Anthropic();
+
+  console.log('Creating environment…');
+  const environment = await client.beta.environments.create({
+    name: `financial-advisor-demo-${Date.now().toString(36)}`,
+    config: { type: 'cloud', networking: { type: 'unrestricted' } },
+  });
+  console.log(`  environment ${environment.id}`);
+
+  console.log('Creating agent…');
+  const agent = await client.beta.agents.create({
+    name: 'financial-advisor',
+    model: MODEL,
+    system: ADVISOR_SYSTEM,
+    tools: [{ type: 'agent_toolset_20260401' }, ...vizToolDefinitions],
+  });
+  console.log(`  financial-advisor ${agent.id} (version ${agent.version})`);
+
+  const ids: AgentIds = {
+    environmentId: environment.id,
+    agentId: agent.id,
+    agentVersion: agent.version,
+  };
+  fs.writeFileSync(AGENT_IDS_PATH, JSON.stringify(ids, null, 2) + '\n');
+  console.log(`\nWrote ${AGENT_IDS_PATH}`);
+  console.log('Setup complete. Start the demo with: npm run dev');
+}
+
+const isMain = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (isMain) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
+
+export function loadAgentIds(): AgentIds {
+  if (!fs.existsSync(AGENT_IDS_PATH)) {
+    throw new Error('agent-ids.json not found — run `npm run setup` first.');
+  }
+  return JSON.parse(fs.readFileSync(AGENT_IDS_PATH, 'utf8')) as AgentIds;
+}
