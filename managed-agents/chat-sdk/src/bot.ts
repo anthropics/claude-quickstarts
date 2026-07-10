@@ -28,7 +28,7 @@ export { getUser as authenticate };
 
 const adapters = {
   web: createWebAdapter({
-    userName: "vc-analyst",
+    userName: "research-analyst",
     getUser,
     // The browser already holds the transcript and the Managed Agents session
     // holds the context; don't have the Chat SDK cache message bodies too.
@@ -52,7 +52,7 @@ export async function activityThreadId(
 }
 
 export const bot = new Chat<typeof adapters>({
-  userName: "vc-analyst",
+  userName: "research-analyst",
   adapters,
   // The Chat SDK requires a state adapter for its internals (locks, message
   // dedup), but no conversation state lives here anymore -- the Managed

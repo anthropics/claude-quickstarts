@@ -127,7 +127,7 @@ export function textOf(content: EventContent): string {
   return rawTextOf(content).trim();
 }
 
-// "web_search: biome funding" reads better than "web_search". Tool inputs are
+// "web_search: solid-state batteries" reads better than "web_search". Tool inputs are
 // free-form JSON; pull the first human-meaningful field and truncate it.
 function hintOf(input: unknown): string {
   const args = input as Record<string, unknown> | null | undefined;

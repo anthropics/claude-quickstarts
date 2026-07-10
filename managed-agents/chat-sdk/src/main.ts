@@ -122,7 +122,7 @@ serve(
     // 5-minute request timeout too.)
     serverOptions: { requestTimeout: 0 },
   },
-  () => console.log(`VC analyst running at http://${HOST}:${PORT}`),
+  () => console.log(`Research analyst running at http://${HOST}:${PORT}`),
 );
 
 async function activityTail(request: Request): Promise<Response> {

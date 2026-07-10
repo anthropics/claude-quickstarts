@@ -9,7 +9,8 @@
   "scripts": {
     "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
     "start": "node --env-file-if-exists=.env --import tsx src/main.ts",
-    "setup": "node --env-file-if-exists=.env --import tsx setup/create-agent.ts"
+    "setup": "node --env-file-if-exists=.env --import tsx setup/create-agent.ts",
+    "update-agent": "node --env-file-if-exists=.env --import tsx setup/update-agent.ts"
   },
   "dependencies": {
     "@ai-sdk/react": "^3",

@@ -3,14 +3,15 @@
 // persistent, versioned resources (see skill.md).
 
 import Anthropic from "@anthropic-ai/sdk";
-import { MODEL, SYSTEM_PROMPT } from "./agent-config";
+import { AGENT_DESCRIPTION, AGENT_NAME, MODEL, SYSTEM_PROMPT } from "./agent-config";
 
 for (const name of ["CLAUDE_AGENT_ID", "CLAUDE_ENVIRONMENT_ID"]) {
   const value = process.env[name];
   if (value && !value.endsWith("...")) {
     console.error(
       `${name} is already set (${value}). This quickstart needs exactly one copy of each ` +
-        `resource -- unset it in .env if you really want to re-provision.`,
+        `resource. To push config changes onto the existing agent, run \`npm run update-agent\`; ` +
+        `unset the .env entry only if you really want to re-provision.`,
     );
     process.exit(1);
   }
@@ -24,10 +25,10 @@ const client = new Anthropic();
 const metadata = { quickstart: "chat-sdk" };
 
 const environment = await client.beta.environments.create({
-  name: "quickstart-chat-vc-analyst-env",
+  name: "quickstart-chat-research-analyst-env",
   config: {
     type: "cloud",
-    // Unrestricted egress: the analyst fetches arbitrary startup sites, and the
+    // Unrestricted egress: the analyst fetches arbitrary web pages, and the
     // sandbox holds no secrets and no bash (see the tool config below), so
     // there is nothing for a hostile page to steal or run.
     networking: { type: "unrestricted" },
@@ -37,8 +38,8 @@ const environment = await client.beta.environments.create({
 console.log(`environment: ${environment.id}`);
 
 const agent = await client.beta.agents.create({
-  name: "VC analyst",
-  description: "Researches devtools startups and drafts investment briefs",
+  name: AGENT_NAME,
+  description: AGENT_DESCRIPTION,
   model: MODEL,
   system: SYSTEM_PROMPT,
   tools: [

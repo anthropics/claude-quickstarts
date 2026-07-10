@@ -9,7 +9,7 @@ sidebar ──▶ GET/POST /api/sessions ─────▶ /v1/sessions (list, 
 browser (useChat) ──▶ POST /api/chat ──▶ onDirectMessage
                                               │ conversation ID
                                               │ = session ID          ┌───────────────────┐
-   held HTTP response ◀── thread.post() ◀─────┴──▶ session ──────────▶│ VC analyst (opus) │
+   held HTTP response ◀── thread.post() ◀─────┴──▶ session ──────────▶│ analyst (opus)    │
    (the reply types itself out,               │                       │ web search, fetch │
     then the "brief ready" card)              │                       └───────────────────┘
    /api/activity (SSE) ◀── TurnHooks.activity ┘    event_start / event_delta,
@@ -24,11 +24,11 @@ Needs `@anthropic-ai/sdk` ≥ 0.109.0 (the first release with `event_deltas` and
 2. **Read `./skill.md`** and walk the user through it step by step. It has the ordered checklist, every gotcha (the awaited handler and why fire-and-forget breaks here, preview reconciliation, sessions-as-state and the `ownedSession` check on browser-supplied conversation IDs, `getUser` as the single auth boundary for all four API routes, the never-stored card and its strict client-side validation, the streaming org gate, proxies reaping the held response), and the debugging table.
 3. **After the base bot works, offer extensions.** Ask the user which (if any) they want, then edit `setup/agent-config.ts`, `setup/create-agent.ts`, and/or `src/managed-agents.ts` accordingly:
    - **Multiagent red-team pass**: a second toolless reviewer agent on the analyst's roster (`multiagent: {type: "coordinator", agents: [...]}`) that critiques every draft brief in a session thread; the handoff events (`session.thread_created`, `agent.thread_message_sent/received`) arrive on the same stream the bridge already reads, so they can feed the activity feed
-   - **Memory store**: the analyst remembers the partner's thesis and portfolio across sessions (`resources: [{type: "memory_store", ...}]` on `sessions.create`)
+   - **Memory store**: the analyst remembers the user's interests and past briefs across sessions (`resources: [{type: "memory_store", ...}]` on `sessions.create`)
    - **Outcomes**: rubric-grade each brief before it sends (`user.define_outcome` event instead of `user.message`)
-   - **GitHub repo mount**: diligence an open-source repo from the inside (`resources: [{type: "github_repository", ...}]`)
-   - **MCP tools**: wire a market-data MCP server (`mcp_servers` + `mcp_toolset` on the agent, credentials via a vault, `vault_ids` on the session)
-   - **Another surface**: add the Slack, Teams, Discord, or WhatsApp adapter next to the web one in `src/bot.ts`. The bridge doesn't change (and the JSX card starts rendering natively), but those are webhook surfaces: the handler must ack in seconds and post later, so dispatch their turns fire-and-forget instead of awaiting (see `skill.md`, "Two held streams")
+   - **GitHub repo mount**: research an open-source repo from the inside (`resources: [{type: "github_repository", ...}]`)
+   - **MCP tools**: wire an external data MCP server (`mcp_servers` + `mcp_toolset` on the agent, credentials via a vault, `vault_ids` on the session)
+   - **Another surface**: add the Slack, Teams, Discord, Telegram, or WhatsApp adapter next to the web one in `src/bot.ts`. The bridge doesn't change (and the JSX card starts rendering natively), but those are webhook surfaces: the handler must ack in seconds and post later, so dispatch their turns fire-and-forget instead of awaiting, and the handler must create a session per new platform thread and keep the mapping -- the web shortcut of conversation-ID-as-session-ID doesn't travel (see `skill.md`, "Two held streams")
    - **Re-enable bash**: only with an approval surface. It's disabled because the agent reads untrusted web pages (see `skill.md`, "Why bash is off")
 
    Pull exact shapes from the `/claude-api` skill's `shared/managed-agents-*.md` docs.

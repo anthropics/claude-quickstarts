@@ -2,6 +2,8 @@
 
 A research analyst in a browser chat window. Vercel's [Chat SDK](https://chat-sdk.dev/) owns the chat surface. One persistent [Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) session per conversation owns the research, streaming its reply token by token while a live feed shows the tool calls it makes.
 
+The pairing is the point. The Chat SDK normalizes Slack, Teams, Discord, Telegram, and WhatsApp behind one thread API, so the same `onDirectMessage` handler drives any of them: pick the adapter, and the platform's webhooks, signing, and markup are its problem. Managed Agents keeps the whole agent server-side either way: the tool loop, the sandboxed web research, session state, and optional memory stores that persist across sessions. The bridge between them (`src/managed-agents.ts`) is a few hundred surface-agnostic lines. Porting touches only `src/bot.ts`: the dispatch and where sessions come from (`skill.md`, "Two held streams").
+
 The server stores nothing: the `useChat` conversation ID is a Managed Agents session ID. The sidebar is the sessions API. Transcripts replay from the session's event log. Compaction and prompt caching happen inside the session.
 
 The only credential is Anthropic auth: no Meta or Slack app, no webhook, no tunnel. Design notes live in [`CLAUDE.md`](./CLAUDE.md) and [`skill.md`](./skill.md).
@@ -21,7 +23,7 @@ Claude reads [`skill.md`](./skill.md) and drives the whole setup. By hand instea
 ```bash
 cp .env.example .env      # add ANTHROPIC_API_KEY, or skip it after `ant auth login`
 npm run setup             # one-time: creates the agent + environment; paste the printed IDs into .env
-npm run dev               # open http://localhost:3000 and ask "look at Biome"
+npm run dev               # open http://localhost:3000 and ask for a brief on any topic
 ```
 
 Token previews (`event_deltas`) are gated per organization while the 2026-07-01 Managed Agents update rolls out. Without the gate, everything still works and replies arrive whole instead of streaming.
@@ -42,10 +44,11 @@ The npm scripts read every setting from `.env` (via `--env-file-if-exists`):
 | Command | What it does |
 |---|---|
 | `npm run setup` | One-time provisioning: creates the agent and its environment, prints their IDs |
+| `npm run update-agent` | Pushes an edited `setup/agent-config.ts` onto the existing agent as a new version |
 | `npm run dev` | Runs the server, restarting on change. Edits to `web/` apply on browser reload |
 | `npm start` | Runs the server once, no watcher |
 
-The agent's entire behavior (model and system prompt) lives in `setup/agent-config.ts`. Editing it and re-running `npm run setup` would create a duplicate agent. Update the existing agent instead (see `skill.md`, Production notes).
+The agent's entire identity (name, model, and system prompt) lives in `setup/agent-config.ts`. After editing it, run `npm run update-agent`: re-running `npm run setup` would create a duplicate agent.
 
 ## Deployment
 

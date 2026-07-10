@@ -28,6 +28,8 @@ The flip side of "the browser sends a session ID" is that the browser sends a se
 
 This is why `src/bot.ts` awaits the turn instead of firing and forgetting. The Slack and WhatsApp adapters need the opposite (ack the platform webhook in seconds, post through their API later); on web, returning early closes the only channel the reply can travel on.
 
+Porting to a webhook surface also changes where sessions come from. There is no browser to create one, so the handler creates a session for each new platform thread and keeps the mapping (thread metadata, or a small table) -- the web shortcut of using the session ID as the conversation ID doesn't travel.
+
 ### Previews stream the message being written
 
 The bridge opens the event stream with `event_deltas: ["agent.message"]` (`src/managed-agents.ts`). That one query param is the whole token-streaming feature, and it is always on here. With it, three things arrive for every agent message instead of one: `event_start` (the id a buffered `agent.message` will carry), a run of `event_delta` text fragments while the model writes, then the buffered `agent.message` itself. On `event_start` the bridge opens a streamed `thread.post(asyncIterable)` so the bubble appears immediately; each fragment is pushed straight through; the buffered event closes it.
@@ -101,7 +103,7 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 1. `cp .env.example .env`, then add Anthropic auth: uncomment and fill in `ANTHROPIC_API_KEY`, or run `ant auth login` once and leave it out (the SDK discovers CLI credentials). Token previews are part of the 2026-07-01 Managed Agents update; use an org that has it.
 2. `npm install` (needs Node ≥ 22.9 and `@anthropic-ai/sdk` ≥ 0.109.0; `package.json` already says so).
 3. `npm run setup` → copy the printed `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID` into `.env`.
-4. `npm run dev` → open `http://localhost:3000` → **New chat** → ask "look at <devtools startup>". Expect the acknowledgment within seconds, the activity feed filling with searches for a minute or three, the brief typing itself out, then the **Brief ready** card with the turn's stats and a link to the session trace. Restart the server and reload to see the sidebar and transcript come back from the sessions API.
+4. `npm run dev` → open `http://localhost:3000` → **New chat** → ask for a brief on any topic. Expect the acknowledgment within seconds, the activity feed filling with searches for a minute or three, the brief typing itself out, then the **Brief ready** card with the turn's stats and a link to the session trace. Restart the server and reload to see the sidebar and transcript come back from the sessions API.
 
 ---
 
@@ -127,6 +129,7 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 
 ## Production notes
 
+- Changed `setup/agent-config.ts`? Run `npm run update-agent`. It pushes the new name, model, and system prompt onto the existing agent as a new version (`agents.update`): running sessions keep their pinned version, new chats use the latest. Never re-run `npm run setup` for this -- it would create a duplicate agent.
 - Replace the demo `getUser` with your real session lookup and return `null` for anonymous requests. This is the only thing between the public internet and your API budget. Then scope sessions per user: write the resolved user ID into session `metadata` on create and filter on it in `listSessions`/`ownedSession`, so one user cannot list or replay another's conversations.
 - Deploy anywhere that lets a response stream stay open for minutes: a VM or container running `npm start` works once you set `HOST` to your bind address (the default `127.0.0.1` is loopback-only on purpose). The four `/api` routes are fetch-native Hono handlers, so they also drop into the Cloudflare Workers, Vercel, and Netlify adapters -- the page routes need a Node host (they read files and run esbuild at runtime), and if the host caps request duration (most serverless platforms do, and free tiers aggressively), this shape does not fit; move the turn into a queue and notify the browser another way.
 - Multiple server instances need two things: swap `createMemoryState()` for `createRedisState()` (set `REDIS_URL`) so the Chat SDK's message dedup holds across instances, and route each conversation to one instance (sticky sessions on the conversation ID) -- the turn serialization in `src/managed-agents.ts` is process-local, and two instances streaming the same session would each post every reply.

@@ -161,7 +161,7 @@ function Conversation({
   return (
     <>
       <section className="transcript">
-        {messages.length === 0 && <p className="hint">Try: look at Biome</p>}
+        {messages.length === 0 && <p className="hint">Try: give me a brief on solid-state batteries</p>}
         {messages.map((message) =>
           message.parts.map(
             (part, index) =>
@@ -195,7 +195,7 @@ function Conversation({
         <input
           value={input}
           onChange={(event) => setInput(event.target.value)}
-          placeholder="look at Warp"
+          placeholder="ask for a brief on any topic"
           autoFocus
         />
         {busy ? (
@@ -285,7 +285,7 @@ function App() {
     <div className="app">
       <aside className="sidebar">
         <header>
-          <h1>VC analyst</h1>
+          <h1>Research analyst</h1>
           <p>Chat SDK × Claude Managed Agents</p>
         </header>
         <button className="new-chat" onClick={() => void newChat()} disabled={pending}>
@@ -322,7 +322,7 @@ function App() {
           />
         ) : (
           <section className="empty">
-            <h2>Name a devtools company or ask a market question.</h2>
+            <h2>Name a topic or ask a question.</h2>
             <p>Briefs take a few minutes; the feed shows the research as it happens.</p>
             <button onClick={() => void newChat()} disabled={pending}>
               Start a chat
