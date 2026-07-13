@@ -1,0 +1,5 @@
+# Netlify config. The function under netlify/functions/ declares its own
+# /api/* path; everything else is the prebuilt page in public/.
+[build]
+  command = "npm run build"
+  publish = "public"

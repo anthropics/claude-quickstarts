@@ -52,9 +52,9 @@ The agent's entire identity (name, model, and system prompt) lives in `setup/age
 
 ## Deployment
 
-- The demo `getUser` in `src/bot.ts` trusts every caller, which is why the default bind is loopback. Replace it with your real session lookup before setting `HOST`. See "getUser is the security boundary" in `skill.md`.
+- The demo `getUser` in `src/bot.ts` trusts every caller, which is why the default bind is loopback. Replace it with your real session lookup before setting `HOST`, and keep platform-level protection (Vercel Authentication, Cloudflare Access) on any deploy that ships before it. See "getUser is the security boundary" in `skill.md`.
 - `npm start` with `HOST=0.0.0.0`. One long-lived process, streams held as long as a turn needs.
-- The `/api` routes are fetch-native [Hono](https://hono.dev/) handlers and work well with all well-known hosting providers.
+- The `/api` routes are one platform-neutral [Hono](https://hono.dev/) app (`src/app.ts`), and entrypoints for Vercel, Cloudflare Workers, and Netlify ship in the repo: `vercel.json`, `wrangler.jsonc`, and `netlify.toml` each pair a three-line shim with the page prebuilt by `npm run build`. Per-platform caveats live in `skill.md`, "Deploying off the Node server".
 
 ## Files
 
@@ -62,7 +62,8 @@ The agent's entire identity (name, model, and system prompt) lives in `setup/age
 |---|---|
 | `setup/agent-config.ts` | Model + system prompt: the agent's entire behavior |
 | `setup/create-agent.ts` | One-time provisioning: the analyst agent and its environment |
-| `src/main.ts` | The server (Hono on Node): the chat page, `/api/chat`, `/api/sessions`, `/api/history`, `/api/activity` |
+| `src/app.ts` | The platform-neutral API core: `/api/chat`, `/api/sessions`, `/api/history`, `/api/activity` |
+| `src/main.ts` | The local Node host: the chat page plus the API core, served by one process |
 | `src/bot.ts` | Chat SDK instance, web adapter, `getUser` (the auth boundary), message handler |
 | `src/managed-agents.ts` | The bridge: the turn loop, token previews, the session ownership check |
 | `src/sessions.ts` | The sidebar's data source: list, create, and replay sessions |

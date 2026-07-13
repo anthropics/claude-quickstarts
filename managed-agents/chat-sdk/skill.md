@@ -41,7 +41,7 @@ Two rules make this safe to copy:
 
 ### The activity feed is a second lane
 
-The web adapter v1 carries message text only (no tool or data parts), so progress does not travel through `thread.post`. Instead the bridge reports every interesting event -- `agent.tool_use` with a short input hint, `agent.tool_result`, `agent.thinking` (start-only: Managed Agents says that the model is reasoning, not what), `span.model_request_start`, retries -- through the `TurnHooks.activity` callback, and `src/main.ts` fans those out per thread on `GET /api/activity?conversation=...`. The page tails it with an `EventSource` while a turn runs and collapses it to a count afterward. Nothing is stored: a tab that attaches mid-turn sees the rest of the turn, a reload sees nothing, and the chat lane stays pure Chat SDK.
+The web adapter v1 carries message text only (no tool or data parts), so progress does not travel through `thread.post`. Instead the bridge reports every interesting event -- `agent.tool_use` with a short input hint, `agent.tool_result`, `agent.thinking` (start-only: Managed Agents says that the model is reasoning, not what), `span.model_request_start`, retries -- through the `TurnHooks.activity` callback, and `src/app.ts` fans those out per thread on `GET /api/activity?conversation=...`. The page tails it with an `EventSource` while a turn runs and collapses it to a count afterward. Nothing is stored: a tab that attaches mid-turn sees the rest of the turn, a reload sees nothing, and the chat lane stays pure Chat SDK.
 
 ### The card is one post, two renderings
 
@@ -62,7 +62,7 @@ There is no typing indicator on web (`startTyping` is a no-op in the web adapter
 
 ### getUser is the security boundary
 
-Slack and WhatsApp sign every webhook; a browser request proves nothing. The `getUser` function in `src/bot.ts` is where identity comes from, for every route that exposes a conversation: the web adapter calls it on each `/api/chat` POST, and `src/main.ts` runs the same check (via `authenticate`) before `/api/activity`, `/api/sessions`, and `/api/history`. Returning `null` produces a 401 everywhere. The demo's `getUser` accepts everyone as the same `local` user, which is exactly right on `localhost` and exactly wrong anywhere else: anyone who can reach the port can run research turns on your bill, list your sessions, and replay their transcripts. `src/main.ts` binds to loopback (`127.0.0.1`) by default for that reason. Before exposing it, replace `getUser` with your real session lookup (NextAuth, Clerk, a session cookie) -- and scope the session routes to the resolved user, e.g. by writing the user ID into session `metadata` at create time and filtering on it in `listSessions` and `ownedSession`.
+Slack and WhatsApp sign every webhook; a browser request proves nothing. The `getUser` function in `src/bot.ts` is where identity comes from, for every route that exposes a conversation: the web adapter calls it on each `/api/chat` POST, and `src/app.ts` runs the same check (via `authenticate`) before `/api/activity`, `/api/sessions`, and `/api/history`. Returning `null` produces a 401 everywhere. The demo's `getUser` accepts everyone as the same `local` user, which is exactly right on `localhost` and exactly wrong anywhere else: anyone who can reach the port can run research turns on your bill, list your sessions, and replay their transcripts. `src/main.ts` binds to loopback (`127.0.0.1`) by default for that reason. Before exposing it, replace `getUser` with your real session lookup (NextAuth, Clerk, a session cookie) -- and scope the session routes to the resolved user, e.g. by writing the user ID into session `metadata` at create time and filtering on it in `listSessions` and `ownedSession`.
 
 ### Why bash is off
 
@@ -107,6 +107,25 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 
 ---
 
+## Deploying off the Node server
+
+The four `/api` routes are one platform-neutral Hono app (`src/app.ts`) with no Node dependencies. `src/main.ts` is one host for it (the local Node server, which also builds the page on request). Three more ship in the repo, each a shim over the same app with the page prebuilt into `public/` by `npm run build`:
+
+| Platform | Entrypoint + config | The caveat that matters |
+|---|---|---|
+| Vercel | `api/index.ts` + `vercel.json` | `maxDuration` is set to 300s so the held `/api/chat` response isn't reaped mid-brief. Pro plans can raise it to 800. On a legacy Hobby project without Fluid Compute the plan cap is 60s and the deploy fails config validation: enable Fluid Compute or lower the value |
+| Cloudflare Workers | `src/worker.ts` + `wrangler.jsonc` | Best duration fit: Workers meter CPU time, not wall-clock, and the held response is mostly idle on the Anthropic stream. Needs `nodejs_compat` (already set) |
+| Netlify | `netlify/functions/api.ts` + `netlify.toml` | Synchronous function limits are seconds, not minutes. Verify your plan's streaming response limits before relying on it, or move the turn into a queue |
+
+What changes when you leave the Node server:
+
+- **Credentials travel as platform config.** Set `ANTHROPIC_API_KEY`, `CLAUDE_AGENT_ID`, and `CLAUDE_ENVIRONMENT_ID` as env vars or secrets on the platform. CLI credentials (`ant auth login`) only exist on your machine, which is why the shims mount `deployedApi()`: it 500s with a named variable when config is missing, instead of failing deep inside the SDK on the first call.
+- **Gate the deploy before it exists.** The demo `getUser` trusts every caller, so an unprotected URL lets anyone research on your bill and read every transcript. Turn on platform-level protection first (Vercel Authentication for all deployments, not just previews; Cloudflare Access), and treat it as a stopgap until `getUser` is real.
+- The activity feed's fan-out is in-process (`src/activity.ts`). A host that routes `/api/activity` to a different instance than the turn's `/api/chat` shows an empty feed for that turn. Cosmetic: the chat lane is unaffected.
+- The Chat SDK's message dedup lives in `createMemoryState()`, also per-instance. Duplicate deliveries of the same message ID could each start a turn. `useChat` sends each message once, so this matters when you add retries or a second surface; `createRedisState()` is the fix (see the multi-instance note below).
+
+---
+
 ## Debugging a failed run
 
 | Symptom | Likely cause |
@@ -131,7 +150,7 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 
 - Changed `setup/agent-config.ts`? Run `npm run update-agent`. It pushes the new name, model, and system prompt onto the existing agent as a new version (`agents.update`): running sessions keep their pinned version, new chats use the latest. Never re-run `npm run setup` for this -- it would create a duplicate agent.
 - Replace the demo `getUser` with your real session lookup and return `null` for anonymous requests. This is the only thing between the public internet and your API budget. Then scope sessions per user: write the resolved user ID into session `metadata` on create and filter on it in `listSessions`/`ownedSession`, so one user cannot list or replay another's conversations.
-- Deploy anywhere that lets a response stream stay open for minutes: a VM or container running `npm start` works once you set `HOST` to your bind address (the default `127.0.0.1` is loopback-only on purpose). The four `/api` routes are fetch-native Hono handlers, so they also drop into the Cloudflare Workers, Vercel, and Netlify adapters -- the page routes need a Node host (they read files and run esbuild at runtime), and if the host caps request duration (most serverless platforms do, and free tiers aggressively), this shape does not fit; move the turn into a queue and notify the browser another way.
+- Deploy anywhere that lets a response stream stay open for minutes: a VM or container running `npm start` works once you set `HOST` to your bind address (the default `127.0.0.1` is loopback-only on purpose). For serverless hosts, see "Deploying off the Node server" above.
 - Multiple server instances need two things: swap `createMemoryState()` for `createRedisState()` (set `REDIS_URL`) so the Chat SDK's message dedup holds across instances, and route each conversation to one instance (sticky sessions on the conversation ID) -- the turn serialization in `src/managed-agents.ts` is process-local, and two instances streaming the same session would each post every reply.
 - Gate spend even behind auth: check the resolved user ID against an allowlist in `getUser`, or rate-limit per thread in the message handler.
 - Proactive sends (scheduled briefs) have no path on web v1: the adapter can only write during a request it is answering. Use one of the push-capable adapters (Slack, Telegram, WhatsApp) for anything the bot initiates.
