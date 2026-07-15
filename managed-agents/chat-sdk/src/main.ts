@@ -1,16 +1,13 @@
-// The local Node host: the chat page and its two assets, plus the four
-// fetch-native /api routes mounted from src/app.ts. esbuild bundles
-// web/app.tsx on request, so one process serves all of it. The page routes
-// lean on node:fs and runtime esbuild, which is why they live here and not
-// in src/app.ts -- the API core has no Node dependencies and drops into the
-// serverless shims unchanged (see skill.md, "Deploying off the Node server").
+// The Node host: the chat page and its two assets, plus the four
+// fetch-native /api routes mounted from src/app.ts. One process
+// serves all of it.
 
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
 import * as esbuild from "esbuild";
 import { Hono } from "hono";
 import { api, missingConfig } from "./app";
-import { webBundleOptions, webFile } from "./bundle";
 
 const missing = missingConfig();
 if (missing) {
@@ -26,17 +23,29 @@ const PORT = Number(process.env.PORT) || 3000;
 // "localhost" to ::1 on some systems and refuse IPv4 connections.)
 const HOST = process.env.HOST || "127.0.0.1";
 
-// The page bundle, built from the shared recipe in src/bundle.ts. In
-// development it is rebuilt on every request -- a bundle this size takes
-// esbuild ~100ms, and it means edits to web/ show up on the next reload with
-// no build step and no server restart. In production the first build is
-// cached (sources can't change under a running deploy).
+const webFile = (name: string) => fileURLToPath(new URL(`../web/${name}`, import.meta.url));
+
+// The page bundle. In development it is rebuilt on every request -- a bundle
+// this size takes esbuild ~100ms, and it means edits to web/ show up on the
+// next reload with no build step and no server restart. In production the
+// first build is cached (sources can't change under a running deploy).
 const NODE_ENV = process.env.NODE_ENV || "development";
 const PRODUCTION = NODE_ENV === "production";
 let cachedBundle: string | undefined;
 async function bundleApp(): Promise<string> {
   if (PRODUCTION && cachedBundle) return cachedBundle;
-  const result = await esbuild.build({ ...webBundleOptions(NODE_ENV), write: false });
+  const result = await esbuild.build({
+    entryPoints: [webFile("app.tsx")],
+    bundle: true,
+    format: "esm",
+    // The sourcemap is most of the bundle's weight; production drops it.
+    sourcemap: PRODUCTION ? false : "inline",
+    minify: PRODUCTION,
+    // React's entry points branch on this at require time; without the
+    // define, the browser bundle would reference a `process` that isn't there.
+    define: { "process.env.NODE_ENV": JSON.stringify(NODE_ENV) },
+    write: false,
+  });
   const text = result.outputFiles![0].text;
   if (PRODUCTION) cachedBundle = text;
   return text;

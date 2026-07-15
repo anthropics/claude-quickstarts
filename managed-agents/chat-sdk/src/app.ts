@@ -1,14 +1,10 @@
 // The platform-neutral core: the four /api routes as one fetch-native Hono
-// app. Nothing in here touches node:fs, esbuild, or a server -- every import
-// is Web-standard -- so the same app drops into any host that can run a
-// fetch handler. src/main.ts mounts it behind the Node server that also
-// serves the page; the shims under deploy targets (api/index.ts for Vercel,
-// netlify/functions/api.ts, src/worker.ts for Cloudflare) mount it with the
-// page prebuilt into public/ instead (scripts/build-web.ts).
-//
-// Routes carry their full /api/... paths on purpose: rewrites on the
-// serverless platforms preserve the original request URL, so one route table
-// works everywhere without basePath juggling.
+// app. Every import is Web-standard, so the same app drops into any host
+// that can run a fetch handler -- with one ambient dependency: credentials
+// come from process.env, read at module scope (src/managed-agents.ts), so
+// the host must populate it before imports run. src/main.ts mounts this
+// behind the Node server that also serves the page; a deployed host mounts
+// deployedApi() below instead.
 
 import { Hono, type Context } from "hono";
 import { subscribeActivity } from "./activity";
@@ -36,6 +32,9 @@ function withUser(handler: (request: Request) => Promise<Response>) {
   };
 }
 
+// Routes carry their full /api/... paths: hosts' rewrites forward the
+// original request URL, so a plain route("/", api) mount matches with no
+// prefix juggling.
 export const api = new Hono();
 
 api.use("/api/*", async (c, next) => {
@@ -79,7 +78,7 @@ api.get(
 // cosmetic only, the chat lane is unaffected.
 api.get("/api/activity", (c) => activityTail(c.req.raw));
 
-// What the serverless shims mount instead of `api` directly. The one extra
+// What a deployed host mounts instead of `api` directly. The one extra
 // check: locally the Anthropic SDK can discover CLI credentials
 // (`ant auth login`), but a deployed host has no credential files, so a
 // missing key would otherwise pass the config guard and die deep inside the

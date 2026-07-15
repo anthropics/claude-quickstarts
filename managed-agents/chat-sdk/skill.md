@@ -109,18 +109,13 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 
 ## Deploying off the Node server
 
-The four `/api` routes are one platform-neutral Hono app (`src/app.ts`) with no Node dependencies. `src/main.ts` is one host for it (the local Node server, which also builds the page on request). Three more ship in the repo, each a shim over the same app with the page prebuilt into `public/` by `npm run build`:
-
-| Platform | Entrypoint + config | The caveat that matters |
-|---|---|---|
-| Vercel | `api/index.ts` + `vercel.json` | `maxDuration` is set to 300s so the held `/api/chat` response isn't reaped mid-brief. Pro plans can raise it to 800. On a legacy Hobby project without Fluid Compute the plan cap is 60s and the deploy fails config validation: enable Fluid Compute or lower the value |
-| Cloudflare Workers | `src/worker.ts` + `wrangler.jsonc` | Best duration fit: Workers meter CPU time, not wall-clock, and the held response is mostly idle on the Anthropic stream. Needs `nodejs_compat` (already set) |
-| Netlify | `netlify/functions/api.ts` + `netlify.toml` | Synchronous function limits are seconds, not minutes. Verify your plan's streaming response limits before relying on it, or move the turn into a queue |
+The four `/api` routes are one platform-neutral Hono app (`src/app.ts`) whose every import is Web-standard. `src/main.ts` is the shipped host (the local Node server, which also builds the page on request); any host that can run a fetch handler can mount the same app: use `deployedApi()` instead of `api`, and serve the page statically (lift the esbuild recipe from `bundleApp` in `src/main.ts` -- the `process.env.NODE_ENV` define is load-bearing for React).
 
 What changes when you leave the Node server:
 
-- **Credentials travel as platform config.** Set `ANTHROPIC_API_KEY`, `CLAUDE_AGENT_ID`, and `CLAUDE_ENVIRONMENT_ID` as env vars or secrets on the platform. CLI credentials (`ant auth login`) only exist on your machine, which is why the shims mount `deployedApi()`: it 500s with a named variable when config is missing, instead of failing deep inside the SDK on the first call.
-- **Gate the deploy before it exists.** The demo `getUser` trusts every caller, so an unprotected URL lets anyone research on your bill and read every transcript. Turn on platform-level protection first (Vercel Authentication for all deployments, not just previews; Cloudflare Access), and treat it as a stopgap until `getUser` is real.
+- **Credentials travel as platform config.** Set `ANTHROPIC_API_KEY`, `CLAUDE_AGENT_ID`, and `CLAUDE_ENVIRONMENT_ID` as env vars or secrets on the platform. CLI credentials (`ant auth login`) only exist on your machine, which is why a deployed host mounts `deployedApi()`: it 500s with a named variable when config is missing, instead of failing deep inside the SDK on the first call. One requirement on the host: the Anthropic client reads `process.env` at module scope (`src/managed-agents.ts`), so secrets must be in `process.env` before imports run -- on non-Node runtimes, enable the platform's Node-compat env shim.
+- **Mind the duration cap.** `/api/chat` holds its response open for the whole research turn, minutes at a time. Serverless synchronous function limits are often seconds; verify the platform allows long streaming responses before relying on it, or move the turn into a queue.
+- **Gate the deploy before it exists.** The demo `getUser` trusts every caller, so an unprotected URL lets anyone research on your bill and read every transcript. Turn on the platform's access protection first, and treat it as a stopgap until `getUser` is real.
 - The activity feed's fan-out is in-process (`src/activity.ts`). A host that routes `/api/activity` to a different instance than the turn's `/api/chat` shows an empty feed for that turn. Cosmetic: the chat lane is unaffected.
 - The Chat SDK's message dedup lives in `createMemoryState()`, also per-instance. Duplicate deliveries of the same message ID could each start a turn. `useChat` sends each message once, so this matters when you add retries or a second surface; `createRedisState()` is the fix (see the multi-instance note below).
 

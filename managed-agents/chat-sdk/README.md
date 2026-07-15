@@ -52,9 +52,9 @@ The agent's entire identity (name, model, and system prompt) lives in `setup/age
 
 ## Deployment
 
-- The demo `getUser` in `src/bot.ts` trusts every caller, which is why the default bind is loopback. Replace it with your real session lookup before setting `HOST`, and keep platform-level protection (Vercel Authentication, Cloudflare Access) on any deploy that ships before it. See "getUser is the security boundary" in `skill.md`.
+- The demo `getUser` in `src/bot.ts` trusts every caller, which is why the default bind is loopback. Replace it with your real session lookup before setting `HOST`, and keep platform-level access protection on any deploy that ships before it. See "getUser is the security boundary" in `skill.md`.
 - `npm start` with `HOST=0.0.0.0`. One long-lived process, streams held as long as a turn needs.
-- The `/api` routes are one platform-neutral [Hono](https://hono.dev/) app (`src/app.ts`), and entrypoints for Vercel, Cloudflare Workers, and Netlify ship in the repo: `vercel.json`, `wrangler.jsonc`, and `netlify.toml` each pair a three-line shim with the page prebuilt by `npm run build`. Per-platform caveats live in `skill.md`, "Deploying off the Node server".
+- The `/api` routes are one platform-neutral [Hono](https://hono.dev/) app (`src/app.ts`) that drops into any host that can run a fetch handler: mount `deployedApi()` and serve the page statically. Caveats live in `skill.md`, "Deploying off the Node server".
 
 ## Files
 
