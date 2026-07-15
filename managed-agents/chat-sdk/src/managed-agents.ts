@@ -8,7 +8,7 @@ import {
   accumulateManagedAgentsEvent,
   type AccumulatedEvent,
 } from "@anthropic-ai/sdk/lib/sessions/accumulate";
-import { truncate, TITLE_MAX, type BriefStats } from "./brief";
+import { toolLabel, toolsFence, truncate, TITLE_MAX, type BriefStats, type ToolCall } from "./brief";
 import { briefCard } from "./card";
 
 export const client = new Anthropic();
@@ -127,15 +127,18 @@ export function textOf(content: EventContent): string {
   return rawTextOf(content).trim();
 }
 
-// "web_search: solid-state batteries" reads better than "web_search". Tool inputs are
-// free-form JSON; pull the first human-meaningful field and truncate it.
-function hintOf(input: unknown): string {
+// "web_search: solid-state batteries" reads better than "web_search". Tool
+// inputs are free-form JSON; pull the first human-meaningful field and
+// truncate it. Shared with the /api/history replay (src/sessions.ts) so the
+// kept trace shows the same lines live and replayed.
+export function toolCallOf(name: string, input: unknown): ToolCall {
+  const called = truncate(name, 70);
   const args = input as Record<string, unknown> | null | undefined;
   for (const key of ["query", "url", "pattern", "path", "file_path", "command"]) {
     const value = args?.[key];
-    if (typeof value === "string" && value) return `: ${truncate(value, 70)}`;
+    if (typeof value === "string" && value) return { name: called, hint: truncate(value, 70) };
   }
-  return "";
+  return { name: called, hint: "" };
 }
 
 // One streamed reply in flight. `sent` is the exact text already handed to
@@ -214,13 +217,26 @@ export async function runTurn(
         .catch(() => {});
     }
     const stats: BriefStats = { searches: 0, seconds: 0, sessionId };
+    const tools: ToolCall[] = [];
     const startedAt = Date.now();
-    const { finished, replied } = await streamTurn(thread, sessionId, text, hooks, stats);
-    // A turn that searched the web and produced a brief closes with the card
-    // -- the same rule the /api/history replay applies (src/sessions.ts).
-    if (finished && replied && stats.searches > 0) {
-      stats.seconds = Math.round((Date.now() - startedAt) / 1000);
-      await thread.post(briefCard(stats));
+    const { finished, replied } = await streamTurn(thread, sessionId, text, hooks, stats, tools);
+    // A cleanly ended turn closes with its trailing messages: the kept
+    // tool-call trace (the live feed is progress-only and gone on reload),
+    // then the brief card. Gated and ordered exactly like the /api/history
+    // replay (src/sessions.ts), so live and replayed transcripts match. If
+    // the held response dies before these, the turn itself is complete and
+    // replay re-derives both -- their failure must never read as a failed
+    // turn ("send that again" would queue a duplicate research run).
+    if (finished && replied) {
+      try {
+        if (tools.length > 0) await thread.post(toolsFence(tools));
+        if (stats.searches > 0) {
+          stats.seconds = Math.round((Date.now() - startedAt) / 1000);
+          await thread.post(briefCard(stats));
+        }
+      } catch (err) {
+        console.warn(`[managed-agent] ${sessionId} trailing post failed:`, err);
+      }
     }
   } catch (err) {
     console.error(`[managed-agent] turn failed for ${sessionId}:`, err);
@@ -248,6 +264,7 @@ async function streamTurn(
   text: string,
   hooks: TurnHooks,
   stats: BriefStats,
+  tools: ToolCall[],
 ): Promise<{ finished: boolean; replied: boolean }> {
   const note = hooks.activity ?? (() => {});
   // Stream first, then send: the stream only delivers events emitted after it
@@ -287,8 +304,9 @@ async function streamTurn(
   // whose buffered event never arrives (an errored model request) does not
   // count: the card mirrors what the event log can replay.
   let replied = false;
-  // Tool-use event id -> tool name, so results can be reported by name.
-  const toolNames = new Map<string, string>();
+  // Tool-use event id -> its trace entry, so the matching result can report
+  // by name and mark the entry failed.
+  const openCalls = new Map<string, ToolCall>();
   // Fold one preview event into its snapshot and stream out the new suffix.
   // Deltas are best-effort: if they ever disagree with what we already sent,
   // stop forwarding and let the buffered event settle it.
@@ -385,18 +403,24 @@ async function streamTurn(
           // Start-only: Managed Agents announces that the model is reasoning, not what.
           note({ kind: "thinking", label: "thinking" });
           break;
-        case "agent.tool_use":
+        case "agent.tool_use": {
           if (event.name === "web_search") stats.searches++;
-          // The activity feed gets the tool name plus a short argument hint
-          // (the user's own query); the server log gets the name only --
-          // inputs are derived from user messages and do not belong there.
-          toolNames.set(event.id, event.name);
-          note({ kind: "tool", label: `${event.name}${hintOf(event.input)}` });
+          // The feed and the kept trace get the tool name plus a short
+          // argument hint (the user's own query); the server log gets the
+          // name only -- inputs are derived from user messages and do not
+          // belong there.
+          const call = toolCallOf(event.name, event.input);
+          tools.push(call);
+          openCalls.set(event.id, call);
+          note({ kind: "tool", label: toolLabel(call) });
           console.log(`[managed-agent] ${sessionId} tool: ${event.name}`);
           break;
+        }
         case "agent.tool_result": {
-          const name = toolNames.get(event.tool_use_id) ?? "tool";
-          toolNames.delete(event.tool_use_id);
+          const call = openCalls.get(event.tool_use_id);
+          openCalls.delete(event.tool_use_id);
+          if (event.is_error && call) call.error = true;
+          const name = call?.name ?? "tool";
           note(
             event.is_error
               ? { kind: "tool_error", label: `${name} failed` }

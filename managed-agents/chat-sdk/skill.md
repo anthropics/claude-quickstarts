@@ -41,7 +41,9 @@ Two rules make this safe to copy:
 
 ### The activity feed is a second lane
 
-The web adapter v1 carries message text only (no tool or data parts), so progress does not travel through `thread.post`. Instead the bridge reports every interesting event -- `agent.tool_use` with a short input hint, `agent.tool_result`, `agent.thinking` (start-only: Managed Agents says that the model is reasoning, not what), `span.model_request_start`, retries -- through the `TurnHooks.activity` callback, and `src/app.ts` fans those out per thread on `GET /api/activity?conversation=...`. The page tails it with an `EventSource` while a turn runs and collapses it to a count afterward. Nothing is stored: a tab that attaches mid-turn sees the rest of the turn, a reload sees nothing, and the chat lane stays pure Chat SDK.
+The web adapter v1 carries message text only (no tool or data parts), so progress does not travel through `thread.post`. Instead the bridge reports every interesting event -- `agent.tool_use` with a short input hint, `agent.tool_result`, `agent.thinking` (start-only: Managed Agents says that the model is reasoning, not what), `span.model_request_start`, retries -- through the `TurnHooks.activity` callback, and `src/app.ts` fans those out per thread on `GET /api/activity?conversation=...`. The page tails it with an `EventSource` while a turn runs. The feed itself stores nothing -- a tab that attaches mid-turn sees the rest of the turn, and the chat lane stays pure Chat SDK.
+
+What survives the turn is the **tool-call trace**. The bridge collects every `agent.tool_use` (name plus input hint, failures marked from `agent.tool_result`) and posts the list as a fenced ` ```tools ` message when the turn ends cleanly; `/api/history` re-derives the same trace from the event log, so a reload or replay keeps it. The page renders it as a collapsed, expandable list -- plain text only, because tool inputs can quote text from pages the agent read. Same never-stored pattern as the card below (`toolsFence` in `src/brief.ts`). One porting caveat: unlike the card, the trace is a plain text post, so a non-web adapter shows the raw fence -- filter it out or re-render it per surface before shipping there.
 
 ### The card is one post, two renderings
 
@@ -103,7 +105,7 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 1. `cp .env.example .env`, then add Anthropic auth: uncomment and fill in `ANTHROPIC_API_KEY`, or run `ant auth login` once and leave it out (the SDK discovers CLI credentials). Token previews are part of the 2026-07-01 Managed Agents update; use an org that has it.
 2. `npm install` (needs Node ≥ 22.9 and `@anthropic-ai/sdk` ≥ 0.109.0; `package.json` already says so).
 3. `npm run setup` → copy the printed `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID` into `.env`.
-4. `npm run dev` → open `http://localhost:3000` → **New chat** → ask for a brief on any topic. Expect the acknowledgment within seconds, the activity feed filling with searches for a minute or three, the brief typing itself out, then the **Brief ready** card with the turn's stats and a link to the session trace. Restart the server and reload to see the sidebar and transcript come back from the sessions API.
+4. `npm run dev` → open `http://localhost:3000` → **New chat** → ask for a brief on any topic. Expect the acknowledgment within seconds, the activity feed filling with searches for a minute or three, the brief typing itself out, then a collapsed tool-call trace and the **Brief ready** card with the turn's stats and a link to the session trace. Restart the server and reload to see the sidebar and transcript come back from the sessions API.
 
 ---
 

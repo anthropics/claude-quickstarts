@@ -1,6 +1,6 @@
 # Chat SDK × Claude Managed Agents
 
-A research analyst in a browser chat window. Vercel's [Chat SDK](https://chat-sdk.dev/) owns the chat surface. One persistent [Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) session per conversation owns the research, streaming its reply token by token while a live feed shows the tool calls it makes.
+A research analyst in a browser chat window. Vercel's [Chat SDK](https://chat-sdk.dev/) owns the chat surface. One persistent [Managed Agents](https://platform.claude.com/docs/en/managed-agents/overview) session per conversation owns the research, streaming its reply token by token while a live feed shows the tool calls it makes; each turn's tool calls stay in the transcript as a collapsible trace.
 
 The Chat SDK is a universal chat layer: one type-safe handler, 15+ adapters, from Slack and Teams to Discord and WhatsApp. Managed Agents is the agent behind it, all server-side: the tool loop, the sandboxed web research, session state, and optional memory stores. Swapping a few lines in `src/bot.ts` moves the analyst to another surface: set up the platform's app following the [adapter docs](https://chat-sdk.dev/adapters), then see the porting notes (`skill.md`, "Two held streams").
 

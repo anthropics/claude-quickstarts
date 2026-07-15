@@ -142,7 +142,6 @@ main {
 
 .hint,
 .pulse,
-.summary,
 .error {
   color: #6e6a61;
   font-size: 0.875rem;
@@ -199,9 +198,27 @@ main {
   color: #a3341f;
 }
 
-.summary {
+/* The kept per-turn tool-call trace, collapsed to one line in the transcript. */
+.tool-trace summary {
+  cursor: pointer;
+  color: #6e6a61;
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 0.75rem;
+}
+
+.tool-trace .activity {
+  margin-top: 0.4rem;
+}
+
+/* Trace lines are a record, not a fading feed: uniform, not dimmed. */
+.tool-trace .activity li,
+.tool-trace .activity li:last-child {
+  opacity: 1;
+  color: #6e6a61;
+}
+
+.tool-trace .activity li.tool_error {
+  color: #a3341f;
 }
 
 article {

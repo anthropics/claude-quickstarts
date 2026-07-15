@@ -17,15 +17,16 @@ import { useChat, type UIMessage } from "@chat-adapter/web/react";
 import {
   consoleTraceUrl,
   formatDuration,
+  toolLabel,
   truncate,
   TITLE_MAX,
+  TOOLS_MAX,
   type BriefStats,
+  type ToolCall,
 } from "../src/brief";
 
 type Activity = { kind: string; label: string };
 type SessionSummary = { id: string; title: string; status: string; created_at: string };
-
-const EMPTY_COUNTS = { tools: 0, requests: 0 };
 
 // The bridge closes each research turn with a Chat SDK card; the web adapter
 // delivers its fallbackText, a fenced ```card block of JSON. Only a message
@@ -53,6 +54,58 @@ function parseBriefStats(text: string): BriefStats | null {
   return null;
 }
 
+// The kept tool-call trace travels the same way as the card: a message that
+// is exactly a ```tools fence, posted by the bridge at the end of each turn
+// and re-derived from the event log on replay. Validation is as strict as
+// the card's, and stricter in one way: entries render as plain text only --
+// tool inputs can quote text from pages the agent read, so no markdown and
+// no links are ever built from them. A crafted agent message that fakes the
+// fence can at worst draw a cosmetic list of text lines.
+const TOOLS_MESSAGE = /^```tools\n(.*)\n```$/s;
+const FIELD_MAX = 200;
+
+function parseToolCalls(text: string): ToolCall[] | null {
+  const match = TOOLS_MESSAGE.exec(text.trim());
+  if (!match) return null;
+  try {
+    const value = JSON.parse(match[1]) as unknown;
+    if (!Array.isArray(value) || value.length === 0 || value.length > TOOLS_MAX) return null;
+    const valid = value.every((entry: Partial<ToolCall>) => {
+      return (
+        typeof entry === "object" &&
+        entry !== null &&
+        typeof entry.name === "string" &&
+        entry.name.length > 0 &&
+        entry.name.length <= FIELD_MAX &&
+        typeof entry.hint === "string" &&
+        entry.hint.length <= FIELD_MAX &&
+        (entry.error === undefined || typeof entry.error === "boolean")
+      );
+    });
+    return valid ? (value as ToolCall[]) : null;
+  } catch {}
+  return null;
+}
+
+function ToolTrace({ tools }: { tools: ToolCall[] }) {
+  const failures = tools.filter((tool) => tool.error).length;
+  return (
+    <details className="tool-trace">
+      <summary>
+        {tools.length} tool call{tools.length === 1 ? "" : "s"}
+        {failures > 0 ? ` (${failures} failed)` : ""}
+      </summary>
+      <ul className="activity">
+        {tools.map((tool, index) => (
+          <li key={index} className={tool.error ? "tool_error" : "tool"}>
+            {toolLabel(tool)}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 function BriefCard({ stats }: { stats: BriefStats }) {
   return (
     <aside className="brief-card">
@@ -67,11 +120,20 @@ function BriefCard({ stats }: { stats: BriefStats }) {
   );
 }
 
+// A message can only be a card or a trace if it opens with a fence; this
+// cheap test keeps the actively streaming bubble (whose text changes every
+// delta, so memo can't help) from running trim + regex on the full text.
+const FENCED = /^\s*```/;
+
 // Markdown parsing is the expensive part of a render; memo keeps a streaming
 // delta or an activity line from re-parsing every bubble in the transcript.
 const Bubble = memo(function Bubble({ role, text }: { role: string; text: string }) {
-  const stats = role === "assistant" ? parseBriefStats(text) : null;
-  if (stats) return <BriefCard stats={stats} />;
+  if (role === "assistant" && FENCED.test(text)) {
+    const stats = parseBriefStats(text);
+    if (stats) return <BriefCard stats={stats} />;
+    const tools = parseToolCalls(text);
+    if (tools) return <ToolTrace tools={tools} />;
+  }
   return (
     <article className={role}>
       <Markdown>{text}</Markdown>
@@ -81,21 +143,16 @@ const Bubble = memo(function Bubble({ role, text }: { role: string; text: string
 
 // Live progress for this conversation, isolated from the transcript so feed
 // events never re-render the messages. Shows the last few lines while a turn
-// runs and a count afterward. Counts are tallied as items arrive (not from
-// the trimmed display list), so long turns are not undercounted.
+// runs; once the turn ends, the bridge's kept tool-call trace lands in the
+// transcript (see ToolTrace), so the feed has nothing left to say.
 function ActivityFeed({ conversationId, busy }: { conversationId: string; busy: boolean }) {
   const [items, setItems] = useState<(Activity & { key: number })[]>([]);
-  const [counts, setCounts] = useState(EMPTY_COUNTS);
   const nextKey = useRef(0);
 
   useEffect(() => {
     const source = new EventSource(`/api/activity?conversation=${encodeURIComponent(conversationId)}`);
     source.onmessage = (event) => {
       const item = JSON.parse(event.data) as Activity;
-      setCounts((current) => ({
-        tools: current.tools + (item.kind === "tool" ? 1 : 0),
-        requests: current.requests + (item.kind === "model" ? 1 : 0),
-      }));
       setItems((current) => [...current, { ...item, key: nextKey.current++ }].slice(-6));
     };
     return () => source.close();
@@ -103,32 +160,21 @@ function ActivityFeed({ conversationId, busy }: { conversationId: string; busy: 
 
   // A new turn starts: drop the previous turn's feed.
   useEffect(() => {
-    if (busy) {
-      setItems([]);
-      setCounts(EMPTY_COUNTS);
-    }
+    if (busy) setItems([]);
   }, [busy]);
 
-  if (busy) {
-    return (
-      <div className="working">
-        <p className="pulse">researching</p>
-        <ul className="activity">
-          {items.map((item) => (
-            <li key={item.key} className={item.kind}>
-              {item.label}
-            </li>
-          ))}
-        </ul>
-      </div>
-    );
-  }
-  if (counts.tools + counts.requests === 0) return null;
+  if (!busy) return null;
   return (
-    <p className="summary">
-      {counts.tools} tool call{counts.tools === 1 ? "" : "s"} · {counts.requests} model request
-      {counts.requests === 1 ? "" : "s"}
-    </p>
+    <div className="working">
+      <p className="pulse">researching</p>
+      <ul className="activity">
+        {items.map((item) => (
+          <li key={item.key} className={item.kind}>
+            {item.label}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

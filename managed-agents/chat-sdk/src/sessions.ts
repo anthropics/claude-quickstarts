@@ -3,7 +3,7 @@
 // plain API calls against /v1/sessions -- restart the server and every
 // conversation is still here.
 
-import { cardFence } from "./brief";
+import { cardFence, toolsFence, type ToolCall } from "./brief";
 import {
   client,
   DEFAULT_SESSION_TITLE,
@@ -11,6 +11,7 @@ import {
   rawTextOf,
   requireEnv,
   textOf,
+  toolCallOf,
   type EventContent,
 } from "./managed-agents";
 
@@ -72,25 +73,38 @@ type UIMessageJSON = {
 
 // Rebuild a conversation's transcript from the session's event log -- the
 // single source of truth. user.message and agent.message events become chat
-// bubbles; each research turn's "brief ready" card is re-derived from the
-// same log (web_search tool events + processed_at timestamps), so even the
-// card survives a server restart without being stored anywhere. The card is
-// only re-derived for turns that ended cleanly -- `session.status_idle` with
-// `end_turn` persists in the log -- matching what the live path posted: a
-// stopped-early turn gets no card on replay either.
+// bubbles; each research turn's tool-call trace and "brief ready" card are
+// re-derived from the same log (tool events + processed_at timestamps), so
+// both survive a server restart without being stored anywhere. The trace is
+// re-derived only for turns that ended cleanly -- `session.status_idle`
+// with `end_turn` persists in the log -- matching what the live path
+// posted: a stopped-early turn gets neither on replay either.
 // Callers must have passed the session through ownedSession() first, and
 // pass its status along: a session still running its turn hasn't finished
-// the research, so the final turn doesn't get a card yet.
+// the research, so the final turn doesn't get its trace or card yet.
 export async function historyOf(sessionId: string, status?: string): Promise<UIMessageJSON[]> {
   const messages: UIMessageJSON[] = [];
   let searches = 0;
+  let tools: ToolCall[] = [];
+  const openCalls = new Map<string, ToolCall>();
   let endedClean = false;
   let turnStartedAt: string | null = null;
   let lastReplyAt: string | null = null;
   let lastReplyId = "";
 
-  const closeTurnCard = () => {
-    if (!endedClean || searches === 0 || !lastReplyId) return;
+  const closeTurn = () => {
+    // Only a cleanly ended turn gets its trailing messages -- the same
+    // `finished` gate the live bridge applies (src/managed-agents.ts) --
+    // and in the same order: trace, then card.
+    if (!endedClean || !lastReplyId) return;
+    if (tools.length > 0) {
+      messages.push({
+        id: `${lastReplyId}-tools`,
+        role: "assistant",
+        parts: [{ type: "text", text: toolsFence(tools) }],
+      });
+    }
+    if (searches === 0) return;
     const seconds =
       turnStartedAt && lastReplyAt
         ? Math.max(0, Math.round((Date.parse(lastReplyAt) - Date.parse(turnStartedAt)) / 1000))
@@ -105,8 +119,10 @@ export async function historyOf(sessionId: string, status?: string): Promise<UIM
   for await (const event of client.beta.sessions.events.list(sessionId)) {
     switch (event.type) {
       case "user.message": {
-        closeTurnCard();
+        closeTurn();
         searches = 0;
+        tools = [];
+        openCalls.clear();
         endedClean = false;
         turnStartedAt = event.processed_at ?? null;
         lastReplyId = "";
@@ -125,18 +141,28 @@ export async function historyOf(sessionId: string, status?: string): Promise<UIM
         }
         break;
       }
-      case "agent.tool_use":
+      case "agent.tool_use": {
         if (event.name === "web_search") searches++;
+        const call = toolCallOf(event.name, event.input);
+        tools.push(call);
+        openCalls.set(event.id, call);
         break;
+      }
+      case "agent.tool_result": {
+        const call = openCalls.get(event.tool_use_id);
+        openCalls.delete(event.tool_use_id);
+        if (event.is_error && call) call.error = true;
+        break;
+      }
       case "session.status_idle":
         if (event.stop_reason?.type === "end_turn") endedClean = true;
         break;
     }
   }
   // Earlier turns are closed by the next user.message; the final turn only
-  // gets its card once the session is done with it (the endedClean flag makes
-  // the status check belt-and-braces).
-  if (status !== "running") closeTurnCard();
+  // gets its trace and card once the session is done with it (the endedClean
+  // flag makes the status check belt-and-braces).
+  if (status !== "running") closeTurn();
   return messages;
 }
 
