@@ -14,13 +14,13 @@
     "update-agent": "node --env-file-if-exists=.env --import tsx setup/update-agent.ts"
   },
   "dependencies": {
-    "@ai-sdk/react": "^3",
+    "@ai-sdk/react": "^4",
     "@anthropic-ai/sdk": ">=0.109.0 <1.0.0",
-    "@chat-adapter/state-memory": "4.30.0",
-    "@chat-adapter/web": "4.30.0",
+    "@chat-adapter/state-memory": "4.34.0",
+    "@chat-adapter/web": "4.34.0",
     "@hono/node-server": "^1",
-    "ai": "^6",
-    "chat": "4.30.0",
+    "ai": "^7",
+    "chat": "4.34.0",
     "esbuild": "^0.25",
     "hono": "^4",
     "react": "^19",
