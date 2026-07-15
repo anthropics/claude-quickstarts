@@ -225,8 +225,7 @@ export async function runTurn(
     // then the brief card. Gated and ordered exactly like the /api/history
     // replay (src/sessions.ts), so live and replayed transcripts match. If
     // the held response dies before these, the turn itself is complete and
-    // replay re-derives both -- their failure must never read as a failed
-    // turn ("send that again" would queue a duplicate research run).
+    // replay re-derives both -- their failure must never read as a failed turn.
     if (finished && replied) {
       try {
         if (tools.length > 0) await thread.post(toolsFence(tools));
@@ -240,8 +239,6 @@ export async function runTurn(
     }
   } catch (err) {
     console.error(`[managed-agent] turn failed for ${sessionId}:`, err);
-    // A dropped stream is not a failed turn: the session finishes the
-    // research server-side, so "send that again" would run it twice.
     const message =
       err instanceof StreamDropped
         ? "I lost my connection mid-research, but the work continues on the server. Reopen this chat from the sidebar in a minute or two to see the reply."
@@ -375,8 +372,7 @@ async function streamTurn(
           // authoritative version separately: the persisted event always
           // wins over a best-effort preview.
           const preview = previews.get(event.id);
-          // Raw (untrimmed) throughout, the same shape the /api/history
-          // replay posts, so live and replayed transcripts match exactly.
+          // Untrimmed -- see rawTextOf: live and replayed transcripts must match.
           const full = rawTextOf(event.content as EventContent);
           const hasText = full.trim() !== "";
           if (hasText) replied = true;

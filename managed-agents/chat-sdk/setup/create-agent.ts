@@ -19,9 +19,8 @@ for (const name of ["CLAUDE_AGENT_ID", "CLAUDE_ENVIRONMENT_ID"]) {
 
 const client = new Anthropic();
 
-// Tags every resource so it stays findable in the Console even if this
-// script dies between creates. Each ID also prints as soon as its resource
-// exists, for the same reason.
+// Tag and print each ID as soon as its resource exists, so a crash between
+// creates leaves nothing unfindable in the Console.
 const metadata = { quickstart: "chat-sdk" };
 
 const environment = await client.beta.environments.create({

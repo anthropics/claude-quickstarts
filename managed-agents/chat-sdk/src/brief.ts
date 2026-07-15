@@ -49,9 +49,8 @@ export function toolLabel(call: ToolCall): string {
 export const TOOLS_MAX = 500;
 
 // The trace travels the same way as the card: a fenced block the page
-// parses back (see parseToolCalls in web/app.tsx), posted live at the end
-// of each turn and re-derived from the event log on replay -- kept without
-// the server storing anything.
+// parses back, posted live at the end of each turn and re-derived from the
+// event log on replay -- kept without the server storing anything.
 export function toolsFence(tools: ToolCall[]): string {
   const capped =
     tools.length > TOOLS_MAX

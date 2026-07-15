@@ -15,7 +15,7 @@ if (!agentId || agentId.endsWith("...")) {
 const client = new Anthropic();
 
 // Updates take the current version (optimistic concurrency) and return the
-// new one. Sessions already running keep the version they started with.
+// new one.
 const current = await client.beta.agents.retrieve(agentId);
 const agent = await client.beta.agents.update(agentId, {
   version: current.version,

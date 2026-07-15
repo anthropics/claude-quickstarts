@@ -99,8 +99,8 @@ export function deployedApi(): Hono {
 async function activityTail(request: Request): Promise<Response> {
   const conversation = new URL(request.url).searchParams.get("conversation");
   if (!conversation) return new Response("missing ?conversation", { status: 400 });
-  // Same identity check as /api/chat: an anonymous caller gets a 401, and the
-  // thread being watched is scoped to the caller getUser resolves.
+  // Beyond withUser's 401, the watched thread is scoped to the caller
+  // getUser resolves.
   const threadId = await activityThreadId(request, conversation);
   if (!threadId) return new Response("Unauthorized", { status: 401 });
   // Same ownership rule as /api/history: this route also takes a
@@ -116,8 +116,7 @@ async function activityTail(request: Request): Promise<Response> {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(item)}\n\n`));
         } catch {
-          // The tab is gone but cancel() has not run yet; never let a dead
-          // subscriber take down the turn that is publishing.
+          // The tab is gone but cancel() has not run yet -- drop the subscription.
           unsubscribe();
         }
       });

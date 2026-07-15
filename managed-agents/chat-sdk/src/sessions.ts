@@ -75,10 +75,8 @@ type UIMessageJSON = {
 // single source of truth. user.message and agent.message events become chat
 // bubbles; each research turn's tool-call trace and "brief ready" card are
 // re-derived from the same log (tool events + processed_at timestamps), so
-// both survive a server restart without being stored anywhere. The trace is
-// re-derived only for turns that ended cleanly -- `session.status_idle`
-// with `end_turn` persists in the log -- matching what the live path
-// posted: a stopped-early turn gets neither on replay either.
+// both survive a server restart without being stored anywhere (the
+// clean-turn gate is at closeTurn below).
 // Callers must have passed the session through ownedSession() first, and
 // pass its status along: a session still running its turn hasn't finished
 // the research, so the final turn doesn't get its trace or card yet.
@@ -159,9 +157,8 @@ export async function historyOf(sessionId: string, status?: string): Promise<UIM
         break;
     }
   }
-  // Earlier turns are closed by the next user.message; the final turn only
-  // gets its trace and card once the session is done with it (the endedClean
-  // flag makes the status check belt-and-braces).
+  // Earlier turns are closed by the next user.message; a still-running final
+  // turn is held back by the status check (endedClean is belt-and-braces).
   if (status !== "running") closeTurn();
   return messages;
 }

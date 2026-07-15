@@ -12,8 +12,8 @@ import { memo, useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import Markdown from "react-markdown";
 import { useChat, type UIMessage } from "@chat-adapter/web/react";
-// Bundled into the page (esbuild, served as /app.js): the same card shape and formatting the
-// server uses, so live cards, replayed cards, and this renderer can't drift.
+// Shared with the server: the same card and trace shapes, so live, replayed,
+// and rendered output can't drift.
 import {
   consoleTraceUrl,
   formatDuration,
@@ -120,13 +120,10 @@ function BriefCard({ stats }: { stats: BriefStats }) {
   );
 }
 
-// A message can only be a card or a trace if it opens with a fence; this
-// cheap test keeps the actively streaming bubble (whose text changes every
-// delta, so memo can't help) from running trim + regex on the full text.
+// Cheap pre-test so the streaming bubble doesn't run trim + regex on every delta.
 const FENCED = /^\s*```/;
 
-// Markdown parsing is the expensive part of a render; memo keeps a streaming
-// delta or an activity line from re-parsing every bubble in the transcript.
+// memo: don't re-parse every bubble's markdown on each streaming delta.
 const Bubble = memo(function Bubble({ role, text }: { role: string; text: string }) {
   if (role === "assistant" && FENCED.test(text)) {
     const stats = parseBriefStats(text);
@@ -158,7 +155,6 @@ function ActivityFeed({ conversationId, busy }: { conversationId: string; busy: 
     return () => source.close();
   }, [conversationId]);
 
-  // A new turn starts: drop the previous turn's feed.
   useEffect(() => {
     if (busy) setItems([]);
   }, [busy]);
@@ -293,7 +289,6 @@ function App() {
       setActive(session.id);
       setFault(null);
     } catch (err) {
-      // Leave the current conversation alone; say why the button didn't take.
       console.error("new chat failed", err);
       setFault("Couldn't create a session. Check the server log.");
     } finally {
@@ -311,7 +306,6 @@ function App() {
       setActive(id);
       setFault(null);
     } catch (err) {
-      // Keep whatever conversation is open instead of blanking the pane.
       console.error("open session failed", err);
       setFault("Couldn't open that conversation. It may have been archived; check the server log.");
     } finally {

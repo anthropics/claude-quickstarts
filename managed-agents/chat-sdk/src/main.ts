@@ -1,6 +1,4 @@
-// The Node host: the chat page and its two assets, plus the four
-// fetch-native /api routes mounted from src/app.ts. One process
-// serves all of it.
+// Serves the chat page and its assets, plus the /api routes from src/app.ts.
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
@@ -25,10 +23,8 @@ const HOST = process.env.HOST || "127.0.0.1";
 
 const webFile = (name: string) => fileURLToPath(new URL(`../web/${name}`, import.meta.url));
 
-// The page bundle. In development it is rebuilt on every request -- a bundle
-// this size takes esbuild ~100ms, and it means edits to web/ show up on the
-// next reload with no build step and no server restart. In production the
-// first build is cached (sources can't change under a running deploy).
+// Dev rebuilds the bundle on each request (~100ms), so web/ edits show on
+// reload -- production caches the first build.
 const NODE_ENV = process.env.NODE_ENV || "development";
 const PRODUCTION = NODE_ENV === "production";
 let cachedBundle: string | undefined;
@@ -38,7 +34,6 @@ async function bundleApp(): Promise<string> {
     entryPoints: [webFile("app.tsx")],
     bundle: true,
     format: "esm",
-    // The sourcemap is most of the bundle's weight; production drops it.
     sourcemap: PRODUCTION ? false : "inline",
     minify: PRODUCTION,
     // React's entry points branch on this at require time; without the
@@ -68,9 +63,8 @@ serve(
     fetch: app.fetch,
     port: PORT,
     hostname: HOST,
-    // Agent turns hold the response stream open for minutes; never reap.
-    // (Node's socket timeout is already off by default; this disables the
-    // 5-minute request timeout too.)
+    // Agent turns hold the response open for minutes -- requestTimeout: 0
+    // disables Node's 5-minute reap.
     serverOptions: { requestTimeout: 0 },
   },
   () => console.log(`Research analyst running at http://${HOST}:${PORT}`),

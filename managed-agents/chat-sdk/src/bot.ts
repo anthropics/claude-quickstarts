@@ -67,8 +67,8 @@ export const bot = new Chat<typeof adapters>({
 bot.onDirectMessage(async (thread, message) => {
   const text = message.text?.trim();
   if (!text || message.author.isMe) return;
-  // The conversation ID is the Managed Agents session ID; runTurn re-checks
-  // that it really is one of this agent's sessions before touching it.
+  // runTurn re-checks the ID really is one of this agent's sessions before
+  // touching it.
   const { conversationId } = adapters.web.decodeThreadId(thread.id);
   // The page tags the first message of a fresh conversation with a title
   // hint; the bridge writes it onto the session so the sidebar and the
