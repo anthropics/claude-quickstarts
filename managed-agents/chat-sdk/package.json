@@ -1,0 +1,36 @@
+{
+  "name": "chat-sdk-web-analyst",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "start": "node --env-file-if-exists=.env --import tsx src/main.ts",
+    "setup": "node --env-file-if-exists=.env --import tsx setup/create-agent.ts",
+    "update-agent": "node --env-file-if-exists=.env --import tsx setup/update-agent.ts"
+  },
+  "dependencies": {
+    "@ai-sdk/react": "^4",
+    "@anthropic-ai/sdk": ">=0.109.0 <1.0.0",
+    "@chat-adapter/state-memory": "4.34.0",
+    "@chat-adapter/web": "4.34.0",
+    "@hono/node-server": "^1",
+    "ai": "^7",
+    "chat": "4.34.0",
+    "esbuild": "^0.25",
+    "hono": "^4",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-markdown": "^10",
+    "tsx": "^4"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

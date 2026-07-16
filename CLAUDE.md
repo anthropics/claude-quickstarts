@@ -1,5 +1,10 @@
 # Claude Quickstarts Development Guide
 
+## Conventions (all quickstarts)
+
+- Name Anthropic SDK client instances `client` — e.g. `const client = new Anthropic();` in TypeScript, `client = Anthropic()` in Python. This applies to source files and code snippets in READMEs and guides alike.
+- Never use the "CMA" acronym. Write "Managed Agents" or "Claude Managed Agents" in prose and comments, and spell it out in identifiers, file names, and log prefixes (e.g. `managed-agents.ts`, not `cma.ts`; `[managed-agent]`, not `[cma]`).
+
 ## Legal
 
 - When changes are made to files that have a copyright notice add them to that subdirectory's CHANGELOG.md file.
