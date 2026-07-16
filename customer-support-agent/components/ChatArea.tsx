@@ -213,9 +213,12 @@ interface ConversationHeaderProps {
   knowledgeBases: KnowledgeBase[];
 }
 
+type KnowledgeBaseType = "VECTOR" | "MANAGED";
+
 type KnowledgeBase = {
   id: string;
   name: string;
+  type?: KnowledgeBaseType;
 };
 
 const ConversationHeader: React.FC<ConversationHeaderProps> = ({
@@ -311,8 +314,10 @@ function ChatArea() {
   );
 
   const knowledgeBases: KnowledgeBase[] = [
-    { id: "your-knowledge-base-id", name: "Your KB Name" },
+    { id: "your-knowledge-base-id", name: "Your KB Name", type: "MANAGED" },
     // Add more knowledge bases as needed
+    // Use type: "MANAGED" for managed knowledge bases (recommended)
+    // Use type: "VECTOR" or omit type for traditional vector search knowledge bases
   ];
 
   const models: Model[] = [
@@ -444,6 +449,9 @@ function ChatArea() {
     try {
       console.log("➡️ Sending message to API:", userMessage.content);
       const startTime = performance.now();
+      const selectedKB = knowledgeBases.find(
+        (kb) => kb.id === selectedKnowledgeBase,
+      );
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -451,6 +459,7 @@ function ChatArea() {
           messages: [...messages, userMessage],
           model: selectedModel,
           knowledgeBaseId: selectedKnowledgeBase,
+          knowledgeBaseType: selectedKB?.type,
         }),
       });
 
