@@ -56,6 +56,11 @@ RUN git clone --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
     git clone --branch v0.12.0 https://github.com/novnc/websockify /opt/noVNC/utils/websockify && \
     ln -s /opt/noVNC/vnc.html /opt/noVNC/index.html
 
+# Install the 'I still don't care about cookies' extension
+RUN curl -L -o /usr/lib/firefox-esr/browser/extensions/jid1-KKzOGWgsW3Ao4Q@jetpack.xpi \
+    "https://addons.mozilla.org/firefox/downloads/latest/istilldontcareaboutcookies/addon-920220-latest.xpi"
+RUN echo '{ "policies": { "Extensions": { "Install": [ "file:///usr/lib/firefox-esr/browser/extensions/jid1-KKzOGWgsW3Ao4Q@jetpack.xpi" ] } } }' > /usr/lib/firefox-esr/distribution/policies.json
+
 # setup user
 ENV USERNAME=computeruse
 ENV HOME=/home/$USERNAME
