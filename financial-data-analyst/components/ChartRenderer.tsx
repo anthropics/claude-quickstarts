@@ -22,6 +22,7 @@ import {
   Pie,
   PieChart,
   XAxis,
+  YAxis
 } from "recharts";
 import {
   ChartContainer,
@@ -48,6 +49,17 @@ function BarChartComponent({ data }: { data: ChartData }) {
               tickLine={false}
               tickMargin={10}
               axisLine={false}
+              tickFormatter={(value) => {
+                return value.length > 20
+                  ? `${value.substring(0, 17)}...`
+                  : value;
+              }}
+            />
+            <YAxis
+              dataKey={data.config.yAxisKey}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
               tickFormatter={(value) => {
                 return value.length > 20
                   ? `${value.substring(0, 17)}...`
@@ -104,6 +116,17 @@ function MultiBarChartComponent({ data }: { data: ChartData }) {
               tickLine={false}
               tickMargin={10}
               axisLine={false}
+              tickFormatter={(value) => {
+                return value.length > 20
+                  ? `${value.substring(0, 17)}...`
+                  : value;
+              }}
+            />
+            <YAxis
+              dataKey={data.config.yAxisKey}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
               tickFormatter={(value) => {
                 return value.length > 20
                   ? `${value.substring(0, 17)}...`
@@ -167,6 +190,17 @@ function LineChartComponent({ data }: { data: ChartData }) {
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey={data.config.xAxisKey}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={(value) => {
+                return value.length > 20
+                  ? `${value.substring(0, 17)}...`
+                  : value;
+              }}
+            />
+            <YAxis
+              dataKey={data.config.yAxisKey}
               tickLine={false}
               axisLine={false}
               tickMargin={8}
@@ -333,6 +367,17 @@ function AreaChartComponent({
             <CartesianGrid vertical={false} />
             <XAxis
               dataKey={data.config.xAxisKey}
+              tickLine={false}
+              axisLine={false}
+              tickMargin={8}
+              tickFormatter={(value) => {
+                return value.length > 20
+                  ? `${value.substring(0, 17)}...`
+                  : value;
+              }}
+            />
+            <YAxis
+              dataKey={data.config.yAxisKey}
               tickLine={false}
               axisLine={false}
               tickMargin={8}
