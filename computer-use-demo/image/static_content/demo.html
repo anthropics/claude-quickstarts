@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Computer Use Demo - API Frontend</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin-bottom: 10px;
+        }
+
+        .api-base {
+            font-size: 14px;
+            opacity: 0.8;
+        }
+
+        .section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .section h2 {
+            margin-bottom: 15px;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        textarea {
+            min-height: 80px;
+            resize: vertical;
+        }
+
+        button {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        button:disabled {
+            background: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        button.danger {
+            background: #e74c3c;
+        }
+
+        button.danger:hover {
+            background: #c0392b;
+        }
+
+        button.success {
+            background: #27ae60;
+        }
+
+        button.success:hover {
+            background: #229954;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .sessions-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .session-card {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .session-card.active {
+            border-color: #3498db;
+            background: #ebf5fb;
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .session-id {
+            font-family: monospace;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .session-info {
+            font-size: 14px;
+            color: #555;
+        }
+
+        .session-info strong {
+            color: #2c3e50;
+        }
+
+        .messages-container {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 15px;
+            background: #fafafa;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .message.user {
+            border-left: 4px solid #3498db;
+        }
+
+        .message.assistant {
+            border-left: 4px solid #27ae60;
+        }
+
+        .message.tool {
+            border-left: 4px solid #f39c12;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+
+        .message-content {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .message-content code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border-left: 4px solid #17a2b8;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+        }
+
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .event-log {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+        }
+
+        .event-log .event {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-left: 3px solid #3498db;
+            padding-left: 10px;
+        }
+
+        .event.tool_use {
+            border-left-color: #f39c12;
+        }
+
+        .event.tool_result {
+            border-left-color: #e67e22;
+        }
+
+        .event.error {
+            border-left-color: #e74c3c;
+        }
+
+        .event.message_complete {
+            border-left-color: #27ae60;
+        }
+
+        .vnc-info {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+        }
+
+        .vnc-link {
+            display: inline-block;
+            margin: 5px 10px 5px 0;
+            padding: 8px 15px;
+            background: #3498db;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .vnc-link:hover {
+            background: #2980b9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Computer Use Demo - API Frontend</h1>
+            <div class="api-base">API Base: <span id="apiBase">http://localhost:8501</span></div>
+        </header>
+
+        <!-- Session Management -->
+        <div class="section">
+            <h2>Session Management</h2>
+            <div id="sessionStatus" class="status info hidden"></div>
+            
+            <div class="form-group">
+                <label>API Key (optional, uses env if not provided):</label>
+                <input type="password" id="apiKey" placeholder="sk-ant-...">
+            </div>
+
+            <div class="form-group">
+                <label>Provider:</label>
+                <select id="provider">
+                    <option value="anthropic">Anthropic</option>
+                    <option value="bedrock">Bedrock</option>
+                    <option value="vertex">Vertex</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label>Model:</label>
+                <input type="text" id="model" placeholder="claude-sonnet-4-5-20250929">
+            </div>
+
+            <div class="button-group">
+                <button onclick="createSession()">Create New Session</button>
+                <button onclick="loadSessions()">Refresh Sessions</button>
+                <button onclick="getVNCInfo()" class="success">Get VNC Info</button>
+            </div>
+
+            <div id="sessionsList" class="sessions-list" style="margin-top: 20px;"></div>
+        </div>
+
+        <!-- Current Session -->
+        <div id="currentSessionSection" class="section hidden">
+            <h2>Current Session: <span id="currentSessionId" class="session-id"></span></h2>
+            <div class="button-group">
+                <button onclick="loadMessages()">Refresh Messages</button>
+                <button onclick="connectWebSocket()" id="wsButton">Connect WebSocket</button>
+                <button onclick="disconnectWebSocket()" id="wsDisconnectButton" class="hidden">Disconnect</button>
+                <button onclick="resetSession()" class="danger">Reset Session</button>
+                <button onclick="deleteSession()" class="danger">Delete Session</button>
+            </div>
+
+            <div id="sessionInfo" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- Send Message -->
+        <div id="messageSection" class="section hidden">
+            <h2>Send Message</h2>
+            <div class="form-group">
+                <label>Message:</label>
+                <textarea id="messageText" placeholder="Type your message here..."></textarea>
+            </div>
+            <button onclick="sendMessage()" id="sendButton">Send Message</button>
+        </div>
+
+        <!-- Messages -->
+        <div id="messagesSection" class="section hidden">
+            <h2>Messages</h2>
+            <div id="messagesContainer" class="messages-container"></div>
+        </div>
+
+        <!-- Real-time Events -->
+        <div id="eventsSection" class="section hidden">
+            <h2>Real-time Events</h2>
+            <div id="eventLog" class="event-log"></div>
+        </div>
+
+        <!-- VNC Info -->
+        <div id="vncSection" class="section hidden">
+            <h2>VNC Connection</h2>
+            <div id="vncInfo"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin.replace(':8080', ':8501');
+        document.getElementById('apiBase').textContent = API_BASE;
+
+        let currentSessionId = null;
+        let websocket = null;
+        let eventSource = null;
+
+        // Update API base if needed
+        function getApiUrl(path) {
+            return `${API_BASE}${path}`;
+        }
+
+        function showStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('sessionStatus');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+            statusDiv.classList.remove('hidden');
+            setTimeout(() => {
+                statusDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        async function createSession() {
+            const apiKey = document.getElementById('apiKey').value;
+            const provider = document.getElementById('provider').value;
+            const model = document.getElementById('model').value;
+
+            const payload = {
+                provider: provider,
+            };
+
+            if (apiKey) payload.api_key = apiKey;
+            if (model) payload.model = model;
+
+            try {
+                const response = await fetch(getApiUrl('/api/sessions'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to create session');
+                }
+
+                const session = await response.json();
+                currentSessionId = session.session_id;
+                showStatus(`Session created: ${session.session_id}`, 'success');
+                loadSessions();
+                selectSession(session.session_id);
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadSessions() {
+            try {
+                const response = await fetch(getApiUrl('/api/sessions'));
+                if (!response.ok) throw new Error('Failed to load sessions');
+
+                const data = await response.json();
+                const sessionsList = document.getElementById('sessionsList');
+                sessionsList.innerHTML = '';
+
+                if (data.sessions.length === 0) {
+                    sessionsList.innerHTML = '<p style="color: #7f8c8d;">No sessions found. Create one to get started.</p>';
+                    return;
+                }
+
+                data.sessions.forEach(session => {
+                    const card = document.createElement('div');
+                    card.className = `session-card ${session.session_id === currentSessionId ? 'active' : ''}`;
+                    card.innerHTML = `
+                        <div class="session-header">
+                            <div class="session-id">${session.session_id.substring(0, 8)}...</div>
+                            <button onclick="selectSession('${session.session_id}')" style="padding: 5px 10px; font-size: 12px;">Select</button>
+                        </div>
+                        <div class="session-info">
+                            <strong>Provider:</strong> ${session.provider} | 
+                            <strong>Model:</strong> ${session.model} | 
+                            <strong>Messages:</strong> ${session.message_count} |
+                            <strong>Status:</strong> ${session.in_sampling_loop ? 'Processing' : 'Idle'}
+                        </div>
+                        <div class="session-info" style="font-size: 12px; margin-top: 5px;">
+                            Created: ${new Date(session.created_at).toLocaleString()}
+                        </div>
+                    `;
+                    sessionsList.appendChild(card);
+                });
+            } catch (error) {
+                showStatus(`Error loading sessions: ${error.message}`, 'error');
+            }
+        }
+
+        function selectSession(sessionId) {
+            currentSessionId = sessionId;
+            document.getElementById('currentSessionId').textContent = sessionId;
+            document.getElementById('currentSessionSection').classList.remove('hidden');
+            document.getElementById('messageSection').classList.remove('hidden');
+            document.getElementById('messagesSection').classList.remove('hidden');
+            document.getElementById('eventsSection').classList.remove('hidden');
+            
+            loadSessionInfo();
+            loadMessages();
+        }
+
+        async function loadSessionInfo() {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch(getApiUrl(`/api/sessions/${currentSessionId}`));
+                if (!response.ok) throw new Error('Failed to load session info');
+
+                const session = await response.json();
+                const infoDiv = document.getElementById('sessionInfo');
+                infoDiv.innerHTML = `
+                    <div class="session-info">
+                        <strong>Provider:</strong> ${session.provider} | 
+                        <strong>Model:</strong> ${session.model} | 
+                        <strong>Messages:</strong> ${session.message_count} |
+                        <strong>Status:</strong> ${session.in_sampling_loop ? '<span style="color: #e74c3c;">Processing</span>' : '<span style="color: #27ae60;">Idle</span>'}
+                    </div>
+                `;
+            } catch (error) {
+                showStatus(`Error loading session info: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadMessages() {
+            if (!currentSessionId) return;
+
+            try {
+                const response = await fetch(getApiUrl(`/api/sessions/${currentSessionId}/messages`));
+                if (!response.ok) throw new Error('Failed to load messages');
+
+                const data = await response.json();
+                const container = document.getElementById('messagesContainer');
+                container.innerHTML = '';
+
+                if (data.messages.length === 0) {
+                    container.innerHTML = '<p style="color: #7f8c8d;">No messages yet. Send a message to start the conversation.</p>';
+                    return;
+                }
+
+                data.messages.forEach((msg, idx) => {
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `message ${msg.role}`;
+                    
+                    let content = '';
+                    if (Array.isArray(msg.content)) {
+                        content = msg.content.map(block => {
+                            if (block.type === 'text') return block.text;
+                            if (block.type === 'tool_use') return `[Tool: ${block.name}]`;
+                            if (block.type === 'thinking') return `[Thinking: ${block.thinking}]`;
+                            return JSON.stringify(block);
+                        }).join('\n');
+                    } else {
+                        content = msg.content;
+                    }
+
+                    messageDiv.innerHTML = `
+                        <div class="message-header">
+                            <span><strong>${msg.role.toUpperCase()}</strong></span>
+                            <span>Message #${idx + 1}</span>
+                        </div>
+                        <div class="message-content">${escapeHtml(content)}</div>
+                    `;
+                    container.appendChild(messageDiv);
+                });
+
+                container.scrollTop = container.scrollHeight;
+            } catch (error) {
+                showStatus(`Error loading messages: ${error.message}`, 'error');
+            }
+        }
+
+        async function sendMessage() {
+            if (!currentSessionId) {
+                showStatus('Please select or create a session first', 'warning');
+                return;
+            }
+
+            const messageText = document.getElementById('messageText').value.trim();
+            if (!messageText) {
+                showStatus('Please enter a message', 'warning');
+                return;
+            }
+
+            const sendButton = document.getElementById('sendButton');
+            sendButton.disabled = true;
+            sendButton.innerHTML = '<span class="loading"></span> Sending...';
+
+            try {
+                const response = await fetch(getApiUrl(`/api/sessions/${currentSessionId}/messages`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: messageText })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.detail || 'Failed to send message');
+                }
+
+                const result = await response.json();
+                showStatus('Message sent! Processing...', 'success');
+                document.getElementById('messageText').value = '';
+                
+                // Refresh messages after a short delay
+                setTimeout(() => {
+                    loadMessages();
+                    loadSessionInfo();
+                }, 1000);
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            } finally {
+                sendButton.disabled = false;
+                sendButton.textContent = 'Send Message';
+            }
+        }
+
+        function connectWebSocket() {
+            if (!currentSessionId) {
+                showStatus('Please select a session first', 'warning');
+                return;
+            }
+
+            const wsUrl = getApiUrl(`/ws/sessions/${currentSessionId}`).replace('http://', 'ws://').replace('https://', 'wss://');
+            websocket = new WebSocket(wsUrl);
+
+            websocket.onopen = () => {
+                showStatus('WebSocket connected', 'success');
+                document.getElementById('wsButton').classList.add('hidden');
+                document.getElementById('wsDisconnectButton').classList.remove('hidden');
+                addEvent('Connected to WebSocket', 'connected');
+            };
+
+            websocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                handleEvent(data);
+            };
+
+            websocket.onerror = (error) => {
+                showStatus('WebSocket error', 'error');
+                addEvent('WebSocket error', 'error');
+            };
+
+            websocket.onclose = () => {
+                showStatus('WebSocket disconnected', 'info');
+                document.getElementById('wsButton').classList.remove('hidden');
+                document.getElementById('wsDisconnectButton').classList.add('hidden');
+                addEvent('WebSocket disconnected', 'disconnected');
+            };
+        }
+
+        function disconnectWebSocket() {
+            if (websocket) {
+                websocket.close();
+                websocket = null;
+            }
+        }
+
+        function handleEvent(event) {
+            addEvent(`${event.event_type}: ${JSON.stringify(event.data)}`, event.event_type);
+            
+            // Auto-refresh messages on completion
+            if (event.event_type === 'message_complete') {
+                setTimeout(() => {
+                    loadMessages();
+                    loadSessionInfo();
+                }, 500);
+            }
+        }
+
+        function addEvent(message, type = 'info') {
+            const eventLog = document.getElementById('eventLog');
+            const eventDiv = document.createElement('div');
+            eventDiv.className = `event ${type}`;
+            eventDiv.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            eventLog.appendChild(eventDiv);
+            eventLog.scrollTop = eventLog.scrollHeight;
+        }
+
+        async function resetSession() {
+            if (!currentSessionId) return;
+
+            if (!confirm('Are you sure you want to reset this session? All messages will be cleared.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(getApiUrl(`/api/sessions/${currentSessionId}/reset`), {
+                    method: 'POST'
+                });
+
+                if (!response.ok) throw new Error('Failed to reset session');
+
+                showStatus('Session reset', 'success');
+                loadMessages();
+                loadSessionInfo();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteSession() {
+            if (!currentSessionId) return;
+
+            if (!confirm('Are you sure you want to delete this session? This cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(getApiUrl(`/api/sessions/${currentSessionId}`), {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) throw new Error('Failed to delete session');
+
+                showStatus('Session deleted', 'success');
+                currentSessionId = null;
+                document.getElementById('currentSessionSection').classList.add('hidden');
+                document.getElementById('messageSection').classList.add('hidden');
+                document.getElementById('messagesSection').classList.add('hidden');
+                document.getElementById('eventsSection').classList.add('hidden');
+                disconnectWebSocket();
+                loadSessions();
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        async function getVNCInfo() {
+            try {
+                const response = await fetch(getApiUrl('/api/vnc/info'));
+                if (!response.ok) throw new Error('Failed to get VNC info');
+
+                const vncInfo = await response.json();
+                const vncSection = document.getElementById('vncSection');
+                const vncInfoDiv = document.getElementById('vncInfo');
+                
+                vncSection.classList.remove('hidden');
+
+                let html = `
+                    <div class="vnc-info">
+                        <p><strong>VNC Status:</strong> ${vncInfo.vnc_running ? '✅ Running' : '❌ Not Running'}</p>
+                        <p><strong>noVNC Status:</strong> ${vncInfo.novnc_running ? '✅ Running' : '❌ Not Running'}</p>
+                        <p><strong>Display:</strong> ${vncInfo.display.width}x${vncInfo.display.height}</p>
+                        <div style="margin-top: 15px;">
+                `;
+
+                Object.values(vncInfo.connections).forEach(conn => {
+                    html += `<a href="${conn.url}" target="_blank" class="vnc-link">${conn.description}</a>`;
+                });
+
+                html += '</div></div>';
+                vncInfoDiv.innerHTML = html;
+            } catch (error) {
+                showStatus(`Error: ${error.message}`, 'error');
+            }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize
+        window.addEventListener('load', () => {
+            loadSessions();
+        });
+    </script>
+</body>
+</html>
+
