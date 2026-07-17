@@ -4,6 +4,7 @@ Entrypoint for streamlit, see https://docs.streamlit.io/
 
 import asyncio
 import base64
+import logging
 import os
 import subprocess
 import traceback
@@ -189,9 +190,7 @@ def setup_state():
             "ANTHROPIC_API_KEY", ""
         )
     if "provider" not in st.session_state:
-        st.session_state.provider = (
-            os.getenv("API_PROVIDER", "anthropic") or APIProvider.ANTHROPIC
-        )
+        st.session_state.provider = os.getenv("API_PROVIDER", "anthropic")
     if "provider_radio" not in st.session_state:
         st.session_state.provider_radio = st.session_state.provider
     if "model" not in st.session_state:
@@ -244,8 +243,6 @@ def _reset_model_conf():
 async def main():
     """Render loop for streamlit"""
     setup_state()
-
-    st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)
 
     st.title("Claude Computer Use Demo")
 
@@ -516,7 +513,7 @@ def load_from_storage(filename: str) -> str | None:
             if data:
                 return data
     except Exception as e:
-        st.write(f"Debug: Error loading {filename}: {e}")
+        logging.warning("Error loading %s: %s", filename, e)
     return None
 
 
@@ -529,7 +526,7 @@ def save_to_storage(filename: str, data: str) -> None:
         # Ensure only user can read/write the file
         file_path.chmod(0o600)
     except Exception as e:
-        st.write(f"Debug: Error saving {filename}: {e}")
+        logging.warning("Error saving %s: %s", filename, e)
 
 
 def _api_response_callback(
