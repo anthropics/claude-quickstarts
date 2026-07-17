@@ -6,7 +6,11 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from browser_use_demo.loop import APIProvider, sampling_loop
+from browser_use_demo.loop import (
+    APIProvider,
+    _maybe_filter_to_n_most_recent_images,
+    sampling_loop,
+)
 from browser_use_demo.message_handler import (
     MessageBuilder,
     ResponseProcessor,
@@ -510,3 +514,76 @@ class TestSamplingLoopIntegration:
             assert call_args["tool_choice"] == {"type": "auto"}
 
         asyncio.run(run_test())
+
+
+class TestImageFiltering:
+    """Tests for _maybe_filter_to_n_most_recent_images (issue #415)."""
+
+    @staticmethod
+    def _screenshot_tool_result(tag):
+        """Build a tool_result block shaped like a browser screenshot result."""
+        return {
+            "type": "tool_result",
+            "tool_use_id": tag,
+            "content": [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": f"img-{tag}",
+                    },
+                }
+            ],
+        }
+
+    def _messages_with_screenshots(self, n):
+        return [
+            {"role": "user", "content": [self._screenshot_tool_result(f"t{i}")]}
+            for i in range(n)
+        ]
+
+    @staticmethod
+    def _remaining_image_data(messages):
+        return [
+            content["source"]["data"]
+            for message in messages
+            for block in message["content"]
+            if isinstance(block, dict) and block.get("type") == "tool_result"
+            for content in block.get("content", [])
+            if isinstance(content, dict) and content.get("type") == "image"
+        ]
+
+    def test_filters_screenshots_nested_in_tool_results(self):
+        """Regression for #415: screenshots are nested inside tool_result blocks,
+        so the filter must descend into them. It previously scanned top-level
+        message blocks and removed nothing."""
+        messages = self._messages_with_screenshots(5)
+        _maybe_filter_to_n_most_recent_images(
+            messages, images_to_keep=2, min_removal_threshold=1
+        )
+        assert len(self._remaining_image_data(messages)) == 2
+
+    def test_keeps_most_recent_images(self):
+        """The oldest screenshots are dropped and the most recent are kept."""
+        messages = self._messages_with_screenshots(4)
+        _maybe_filter_to_n_most_recent_images(
+            messages, images_to_keep=1, min_removal_threshold=1
+        )
+        assert self._remaining_image_data(messages) == ["img-t3"]
+
+    def test_keeps_all_below_removal_threshold(self):
+        """Nothing is removed when fewer than min_removal_threshold images would
+        be dropped, to avoid needlessly breaking the prompt cache."""
+        messages = self._messages_with_screenshots(5)
+        _maybe_filter_to_n_most_recent_images(
+            messages, images_to_keep=2, min_removal_threshold=10
+        )
+        assert len(self._remaining_image_data(messages)) == 5
+
+    def test_rejects_non_positive_images_to_keep(self):
+        """images_to_keep must be > 0."""
+        with pytest.raises(ValueError):
+            _maybe_filter_to_n_most_recent_images(
+                [], images_to_keep=0, min_removal_threshold=1
+            )
