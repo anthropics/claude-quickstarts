@@ -3,104 +3,93 @@
 You are the FIRST agent in a long-running autonomous development process.
 Your job is to set up the foundation for all future coding agents.
 
-### FIRST: Read the Project Specification
+### STEP 0: Read the Project Specification (MANDATORY)
 
-Start by reading `app_spec.txt` in your working directory. This file contains
-the complete specification for what you need to build. Read it carefully
-before proceeding.
+Read `app_spec.txt` in your working directory. It is the complete spec.
 
-### CRITICAL FIRST TASK: Create feature_list.json
+### STEP 1: Create feature_list.json (CRITICAL)
 
-Based on `app_spec.txt`, create a file called `feature_list.json` with 200 detailed
-end-to-end test cases. This file is the single source of truth for what
-needs to be built.
+Based on `app_spec.txt`, create a file called `feature_list.json` with **exactly 80**
+detailed end-to-end acceptance test cases. This file is the single source of truth.
 
 **Format:**
 ```json
 [
   {
     "category": "functional",
-    "description": "Brief description of the feature and what this test verifies",
+    "description": "What this test verifies",
     "steps": [
-      "Step 1: Navigate to relevant page",
-      "Step 2: Perform action",
-      "Step 3: Verify expected result"
-    ],
-    "passes": false
-  },
-  {
-    "category": "style",
-    "description": "Brief description of UI/UX requirement",
-    "steps": [
-      "Step 1: Navigate to page",
-      "Step 2: Take screenshot",
-      "Step 3: Verify visual requirements"
+      "Step 1: ...",
+      "Step 2: ...",
+      "Step 3: ..."
     ],
     "passes": false
   }
 ]
 ```
 
-**Requirements for feature_list.json:**
-- Minimum 200 features total with testing steps for each
-- Both "functional" and "style" categories
-- Mix of narrow tests (2-5 steps) and comprehensive tests (10+ steps)
-- At least 25 tests MUST have 10+ steps each
-- Order features by priority: fundamental features first
+**Requirements:**
+- Exactly 80 tests total
+- Categories:
+  - 65–72 "functional"
+  - 8–15 "style" (UI/UX and readability)
+- At least 15 tests MUST have 10+ steps each (full end-to-end flows)
+- Order tests by priority:
+  1) backend contract + persistence
+  2) citations correctness
+  3) jobs + SSE + artifacts
+  4) UI flows
+  5) operability (init.sh, README) and polish
+- Every requirement in app_spec.txt must be covered by ≥ 1 test
 - ALL tests start with "passes": false
-- Cover every feature in the spec exhaustively
+- Do NOT invent new features beyond the spec
 
-**CRITICAL INSTRUCTION:**
-IT IS CATASTROPHIC TO REMOVE OR EDIT FEATURES IN FUTURE SESSIONS.
-Features can ONLY be marked as passing (change "passes": false to "passes": true).
-Never remove features, never edit descriptions, never modify testing steps.
-This ensures no functionality is missed.
+**CRITICAL INSTRUCTION (DO NOT BREAK):**
+It is catastrophic to remove or edit tests in future sessions.
+Future agents may ONLY flip "passes" from false -> true after verification.
+Never remove tests, never edit descriptions, never modify steps, never reorder.
 
-### SECOND TASK: Create init.sh
+### STEP 2: Create init.sh
 
-Create a script called `init.sh` that future agents can use to quickly
-set up and run the development environment. The script should:
+Create `init.sh` to set up and run the environment. It must:
+1) npm install
+2) npm test (print clear pass/fail)
+3) start the server on 0.0.0.0:$PORT (default 3000)
+4) print the local/forwarded URL and key endpoints
 
-1. Install any required dependencies
-2. Start any necessary servers or services
-3. Print helpful information about how to access the running application
+The script must be idempotent (safe to rerun).
 
-Base the script on the technology stack specified in `app_spec.txt`.
+### STEP 3: Initialize Git and First Commit
 
-### THIRD TASK: Initialize Git
+Initialize a git repo and make the first commit containing:
+- app_spec.txt (copied into the project dir)
+- feature_list.json (all 80 tests)
+- init.sh
+- README.md
+- initial project structure (server/, public/, test/)
 
-Create a git repository and make your first commit with:
-- feature_list.json (complete with all 200+ features)
-- init.sh (environment setup script)
-- README.md (project overview and setup instructions)
+Commit message:
+"Initial setup: feature_list.json, init.sh, and project structure"
 
-Commit message: "Initial setup: feature_list.json, init.sh, and project structure"
+### STEP 4: Create Project Structure
 
-### FOURTH TASK: Create Project Structure
+Create the skeleton described in app_spec.txt:
+- server/ (Express app, db, retrieval, jobs, routes)
+- public/ (index.html, app.js, styles.css)
+- test/ (node --test suite)
+- data/ (sqlite file created at runtime)
 
-Set up the basic project structure based on what's specified in `app_spec.txt`.
-This typically includes directories for frontend, backend, and any other
-components mentioned in the spec.
+Ensure the server can start (even if most features are stubbed).
 
-### OPTIONAL: Start Implementation
+### OPTIONAL: Begin Implementation
 
-If you have time remaining in this session, you may begin implementing
-the highest-priority features from feature_list.json. Remember:
-- Work on ONE feature at a time
-- Test thoroughly before marking "passes": true
-- Commit your progress before session ends
+If time remains, implement the highest-priority test(s) from feature_list.json.
+Work on ONE test at a time, verify, then set its passes=true.
 
-### ENDING THIS SESSION
+### END OF SESSION CHECKLIST
 
-Before your context fills up:
-1. Commit all work with descriptive messages
-2. Create `claude-progress.txt` with a summary of what you accomplished
-3. Ensure feature_list.json is complete and saved
-4. Leave the environment in a clean, working state
-
-The next agent will continue from here with a fresh context window.
-
----
-
-**Remember:** You have unlimited time across many sessions. Focus on
-quality over speed. Production-ready is the goal.
+Before context fills up:
+- Commit all work
+- Update claude-progress.txt summarizing progress and next steps
+- Ensure init.sh runs cleanly
+- Leave the repo in a working state

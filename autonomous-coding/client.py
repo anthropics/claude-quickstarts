@@ -54,11 +54,13 @@ def create_client(project_dir: Path, model: str) -> ClaudeSDKClient:
     3. Security hooks - Bash commands validated against an allowlist
        (see security.py for ALLOWED_COMMANDS)
     """
-    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    # Support both standard API and Azure Foundry
+    api_key = os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_FOUNDRY_API_KEY")
     if not api_key:
         raise ValueError(
-            "ANTHROPIC_API_KEY environment variable not set.\n"
-            "Get your API key from: https://console.anthropic.com/"
+            "No API key found.\n"
+            "For standard API: export ANTHROPIC_API_KEY='your-key'\n"
+            "For Azure Foundry: export ANTHROPIC_FOUNDRY_API_KEY='your-key'"
         )
 
     # Create comprehensive security settings
