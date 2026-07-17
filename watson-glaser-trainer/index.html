@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watson Glaser Critical Thinking Trainer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #2c3e50;
+            background-color: #f5f7fa;
+            padding: 20px;
+        }
+
+        .app {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e1e8ed;
+        }
+
+        h1 {
+            font-size: 1.8rem;
+            color: #1a202c;
+        }
+
+        .score {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #4a5568;
+        }
+
+        main {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .question-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #e1e8ed;
+        }
+
+        .question-type {
+            font-weight: 600;
+            color: #667eea;
+            text-transform: uppercase;
+            font-size: 0.9rem;
+        }
+
+        .question-number {
+            color: #718096;
+            font-size: 0.9rem;
+        }
+
+        .statement-box,
+        .assumption-box {
+            background: #f7fafc;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+
+        .statement-box h3,
+        .assumption-box h3 {
+            font-size: 1rem;
+            margin-bottom: 10px;
+            color: #4a5568;
+            font-weight: 600;
+        }
+
+        .statement-box p,
+        .assumption-box p {
+            font-size: 1.1rem;
+            line-height: 1.7;
+            color: #2d3748;
+        }
+
+        .answer-section {
+            margin: 30px 0;
+        }
+
+        .answer-section h3 {
+            margin-bottom: 15px;
+            font-size: 1.1rem;
+            color: #2d3748;
+        }
+
+        .answer-buttons {
+            display: flex;
+            gap: 15px;
+        }
+
+        .answer-btn {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #cbd5e0;
+            background: white;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #2d3748;
+        }
+
+        .answer-btn:hover:not(:disabled) {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
+        .answer-btn.selected {
+            border-color: #667eea;
+            background: #667eea;
+            color: white;
+        }
+
+        .answer-btn:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        .submit-btn,
+        .next-btn,
+        .reset-btn {
+            display: block;
+            margin: 20px auto 0;
+            padding: 12px 40px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .submit-btn:hover,
+        .next-btn:hover,
+        .reset-btn:hover {
+            background: #5a67d8;
+        }
+
+        .feedback {
+            margin-top: 25px;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid;
+        }
+
+        .feedback.correct {
+            background: #f0fdf4;
+            border-color: #10b981;
+        }
+
+        .feedback.incorrect {
+            background: #fef2f2;
+            border-color: #ef4444;
+        }
+
+        .feedback h3 {
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
+
+        .feedback.correct h3 {
+            color: #10b981;
+        }
+
+        .feedback.incorrect h3 {
+            color: #ef4444;
+        }
+
+        .feedback p {
+            margin: 10px 0;
+            line-height: 1.7;
+            color: #374151;
+        }
+
+        .feedback strong {
+            color: #1f2937;
+        }
+
+        .completion {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .completion h3 {
+            color: #1a202c;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+        }
+
+        .completion p {
+            font-size: 1.2rem;
+            color: #4a5568;
+            margin-bottom: 20px;
+        }
+
+        /* Section selector styles */
+        .section-selector {
+            text-align: center;
+            padding: 40px 20px;
+        }
+
+        .section-selector h2 {
+            margin-bottom: 30px;
+            color: #1a202c;
+        }
+
+        .section-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .section-card {
+            background: white;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            padding: 25px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .section-card:hover {
+            border-color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+        }
+
+        .section-card.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .section-card.disabled:hover {
+            border-color: #e1e8ed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .section-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .section-card p {
+            font-size: 0.9rem;
+            color: #718096;
+        }
+
+        .section-card .coming-soon {
+            font-style: italic;
+            color: #a0aec0;
+            margin-top: 10px;
+            font-size: 0.85rem;
+        }
+
+        .back-btn {
+            display: inline-block;
+            margin-bottom: 20px;
+            padding: 8px 16px;
+            background: transparent;
+            color: #667eea;
+            border: 1px solid #667eea;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .back-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="app" id="app"></div>
+
+    <script>
+        // Question Banks
+        const ASSUMPTIONS_QUESTIONS = [
+            {
+                id: 1,
+                statement: "The company will expand its operations to three new countries next year.",
+                assumption: "The company has sufficient capital to fund international expansion.",
+                correct: "made",
+                explanation: "The statement presupposes financial capability. Without adequate capital, expansion to three new countries would be impossible, making this assumption necessary for the statement to hold."
+            },
+            {
+                id: 2,
+                statement: "We should hire more software engineers because our product backlog keeps growing.",
+                assumption: "Hiring more engineers will reduce the product backlog.",
+                correct: "made",
+                explanation: "The causal link between hiring engineers and addressing the backlog is implicit in the 'because' structure. The statement assumes this relationship exists."
+            },
+            {
+                id: 3,
+                statement: "The new policy will be implemented across all departments starting Monday.",
+                assumption: "All department heads support the new policy.",
+                correct: "not_made",
+                explanation: "Implementation doesn't require universal support. Policies can be mandated regardless of whether department heads agree. The statement only requires authority to implement, not consensus."
+            },
+            {
+                id: 4,
+                statement: "Students who complete this training program will be better prepared for professional employment.",
+                assumption: "Professional employers value the skills taught in this program.",
+                correct: "made",
+                explanation: "For the program to improve employment preparation, the skills it teaches must be relevant to what employers want. This assumption is necessary for the statement to be meaningful."
+            },
+            {
+                id: 5,
+                statement: "The government should increase funding for renewable energy research.",
+                assumption: "Renewable energy is preferable to fossil fuels.",
+                correct: "not_made",
+                explanation: "The statement advocates for more research funding, not a preference. One might support research funding for various reasons including energy security, economic opportunity, or simply to understand options better, without assuming renewables are inherently preferable."
+            }
+        ];
+
+        const INFERENCES_QUESTIONS = [
+            {
+                id: 1,
+                passage: "A survey of 1,000 employees at a large technology company found that 78% reported experiencing stress related to deadlines. The same survey showed that only 45% felt their workload was manageable, while 82% said they would benefit from additional time-management training.",
+                inference: "Most employees at this company experience deadline-related stress.",
+                correct: "true",
+                explanation: "78% is a clear majority. The inference directly restates information from the passage."
+            },
+            {
+                id: 2,
+                passage: "A survey of 1,000 employees at a large technology company found that 78% reported experiencing stress related to deadlines. The same survey showed that only 45% felt their workload was manageable, while 82% said they would benefit from additional time-management training.",
+                inference: "Employees at other technology companies experience similar levels of deadline stress.",
+                correct: "insufficient_data",
+                explanation: "The passage only provides data about one specific company. We cannot generalize to other companies without additional information."
+            },
+            {
+                id: 3,
+                passage: "The city council voted 7-2 to approve the new traffic reduction plan, which includes congestion pricing in the downtown core. Local business owners have expressed concern that the pricing could reduce customer visits, while environmental groups praised the initiative.",
+                inference: "The traffic reduction plan was approved by a majority of the council.",
+                correct: "true",
+                explanation: "A 7-2 vote means 7 out of 9 council members voted in favor, which is definitively a majority."
+            },
+            {
+                id: 4,
+                passage: "The city council voted 7-2 to approve the new traffic reduction plan, which includes congestion pricing in the downtown core. Local business owners have expressed concern that the pricing could reduce customer visits, while environmental groups praised the initiative.",
+                inference: "The congestion pricing will harm local businesses.",
+                correct: "insufficient_data",
+                explanation: "Business owners expressed 'concern' that it 'could' reduce visits. This is worry about a possibility, not evidence that harm will actually occur."
+            },
+            {
+                id: 5,
+                passage: "The city council voted 7-2 to approve the new traffic reduction plan, which includes congestion pricing in the downtown core. Local business owners have expressed concern that the pricing could reduce customer visits, while environmental groups praised the initiative.",
+                inference: "Environmental groups consider traffic reduction to be beneficial.",
+                correct: "probably_true",
+                explanation: "Environmental groups praised the traffic reduction initiative, strongly suggesting they view it positively. However, we don't know their specific reasoning for the praise."
+            }
+        ];
+
+        class WatsonGlaserApp {
+            constructor() {
+                this.currentSection = null;
+                this.currentQuestion = 0;
+                this.selectedAnswer = null;
+                this.showFeedback = false;
+                this.score = { correct: 0, total: 0 };
+                this.render();
+            }
+
+            selectSection(section) {
+                this.currentSection = section;
+                this.currentQuestion = 0;
+                this.selectedAnswer = null;
+                this.showFeedback = false;
+                this.score = { correct: 0, total: 0 };
+                this.render();
+            }
+
+            backToMenu() {
+                this.currentSection = null;
+                this.render();
+            }
+
+            getQuestions() {
+                if (this.currentSection === 'assumptions') return ASSUMPTIONS_QUESTIONS;
+                if (this.currentSection === 'inferences') return INFERENCES_QUESTIONS;
+                return [];
+            }
+
+            selectAnswer(answer) {
+                if (!this.showFeedback) {
+                    this.selectedAnswer = answer;
+                    this.render();
+                }
+            }
+
+            submitAnswer() {
+                const questions = this.getQuestions();
+                const question = questions[this.currentQuestion];
+                const isCorrect = this.selectedAnswer === question.correct;
+                this.score.correct += isCorrect ? 1 : 0;
+                this.score.total += 1;
+                this.showFeedback = true;
+                this.render();
+            }
+
+            nextQuestion() {
+                const questions = this.getQuestions();
+                if (this.currentQuestion < questions.length - 1) {
+                    this.currentQuestion += 1;
+                    this.selectedAnswer = null;
+                    this.showFeedback = false;
+                    this.render();
+                }
+            }
+
+            reset() {
+                this.currentQuestion = 0;
+                this.selectedAnswer = null;
+                this.showFeedback = false;
+                this.score = { correct: 0, total: 0 };
+                this.render();
+            }
+
+            renderMenu() {
+                return `
+                    <header>
+                        <h1>Watson Glaser Critical Thinking Trainer</h1>
+                    </header>
+                    <main>
+                        <div class="section-selector">
+                            <h2>Select a Section to Practice</h2>
+                            <div class="section-grid">
+                                <div class="section-card" onclick="app.selectSection('assumptions')">
+                                    <h3>Assumptions</h3>
+                                    <p>Identify unstated premises that must be true for a statement to hold.</p>
+                                    <p style="font-size: 0.85rem; color: #10b981; margin-top: 8px;">5 questions</p>
+                                </div>
+                                <div class="section-card" onclick="app.selectSection('inferences')">
+                                    <h3>Inferences</h3>
+                                    <p>Evaluate conclusions drawn from given information.</p>
+                                    <p style="font-size: 0.85rem; color: #10b981; margin-top: 8px;">5 questions</p>
+                                </div>
+                                <div class="section-card disabled">
+                                    <h3>Deductions</h3>
+                                    <p>Determine if conclusions follow necessarily from premises.</p>
+                                    <p class="coming-soon">Coming soon</p>
+                                </div>
+                                <div class="section-card disabled">
+                                    <h3>Interpretation</h3>
+                                    <p>Assess whether conclusions follow beyond reasonable doubt.</p>
+                                    <p class="coming-soon">Coming soon</p>
+                                </div>
+                                <div class="section-card disabled">
+                                    <h3>Evaluation of Arguments</h3>
+                                    <p>Judge the strength and relevance of arguments.</p>
+                                    <p class="coming-soon">Coming soon</p>
+                                </div>
+                            </div>
+                        </div>
+                    </main>
+                `;
+            }
+
+            renderAssumptionsQuestion(question, questions) {
+                const isComplete = this.currentQuestion === questions.length - 1 && this.showFeedback;
+
+                return `
+                    <div class="question-header">
+                        <span class="question-type">Assumptions</span>
+                        <span class="question-number">Question ${this.currentQuestion + 1} of ${questions.length}</span>
+                    </div>
+                    <div class="statement-box">
+                        <h3>Statement:</h3>
+                        <p>${question.statement}</p>
+                    </div>
+                    <div class="assumption-box">
+                        <h3>Proposed Assumption:</h3>
+                        <p>${question.assumption}</p>
+                    </div>
+                    <div class="answer-section">
+                        <h3>Is this assumption made in the statement?</h3>
+                        <div class="answer-buttons">
+                            <button 
+                                class="answer-btn ${this.selectedAnswer === 'made' ? 'selected' : ''}" 
+                                onclick="app.selectAnswer('made')"
+                                ${this.showFeedback ? 'disabled' : ''}
+                            >
+                                Assumption Made
+                            </button>
+                            <button 
+                                class="answer-btn ${this.selectedAnswer === 'not_made' ? 'selected' : ''}" 
+                                onclick="app.selectAnswer('not_made')"
+                                ${this.showFeedback ? 'disabled' : ''}
+                            >
+                                Assumption Not Made
+                            </button>
+                        </div>
+                    </div>
+                    ${!this.showFeedback && this.selectedAnswer ? `
+                        <button class="submit-btn" onclick="app.submitAnswer()">Submit Answer</button>
+                    ` : ''}
+                    ${this.showFeedback ? this.renderFeedback(question, isComplete) : ''}
+                `;
+            }
+
+            renderInferencesQuestion(question, questions) {
+                const isComplete = this.currentQuestion === questions.length - 1 && this.showFeedback;
+                const options = [
+                    { value: 'true', label: 'True' },
+                    { value: 'probably_true', label: 'Probably True' },
+                    { value: 'insufficient_data', label: 'Insufficient Data' },
+                    { value: 'probably_false', label: 'Probably False' },
+                    { value: 'false', label: 'False' }
+                ];
+
+                return `
+                    <div class="question-header">
+                        <span class="question-type">Inferences</span>
+                        <span class="question-number">Question ${this.currentQuestion + 1} of ${questions.length}</span>
+                    </div>
+                    <div class="statement-box">
+                        <h3>Passage:</h3>
+                        <p>${question.passage}</p>
+                    </div>
+                    <div class="assumption-box">
+                        <h3>Proposed Inference:</h3>
+                        <p>${question.inference}</p>
+                    </div>
+                    <div class="answer-section">
+                        <h3>Based on the passage, this inference is:</h3>
+                        <div class="answer-buttons" style="flex-wrap: wrap;">
+                            ${options.map(opt => `
+                                <button 
+                                    class="answer-btn ${this.selectedAnswer === opt.value ? 'selected' : ''}" 
+                                    onclick="app.selectAnswer('${opt.value}')"
+                                    ${this.showFeedback ? 'disabled' : ''}
+                                    style="flex: 1 1 45%; min-width: 150px;"
+                                >
+                                    ${opt.label}
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                    ${!this.showFeedback && this.selectedAnswer ? `
+                        <button class="submit-btn" onclick="app.submitAnswer()">Submit Answer</button>
+                    ` : ''}
+                    ${this.showFeedback ? this.renderFeedback(question, isComplete) : ''}
+                `;
+            }
+
+            renderFeedback(question, isComplete) {
+                const isCorrect = this.selectedAnswer === question.correct;
+                const correctLabel = this.getAnswerLabel(question.correct);
+
+                return `
+                    <div class="feedback ${isCorrect ? 'correct' : 'incorrect'}">
+                        <h3>${isCorrect ? '✓ Correct' : '✗ Incorrect'}</h3>
+                        <p><strong>Correct Answer:</strong> ${correctLabel}</p>
+                        <p>${question.explanation}</p>
+                        ${!isComplete ? `
+                            <button class="next-btn" onclick="app.nextQuestion()">Next Question</button>
+                        ` : `
+                            <div class="completion">
+                                <h3>Section Complete!</h3>
+                                <p>Score: ${this.score.correct} / ${this.score.total} (${Math.round((this.score.correct / this.score.total) * 100)}%)</p>
+                                <button class="reset-btn" onclick="app.reset()" style="margin-right: 10px;">Try Again</button>
+                                <button class="back-btn" onclick="app.backToMenu()" style="margin-top: 10px;">Back to Menu</button>
+                            </div>
+                        `}
+                    </div>
+                `;
+            }
+
+            getAnswerLabel(value) {
+                const labels = {
+                    'made': 'Assumption Made',
+                    'not_made': 'Assumption Not Made',
+                    'true': 'True',
+                    'probably_true': 'Probably True',
+                    'insufficient_data': 'Insufficient Data',
+                    'probably_false': 'Probably False',
+                    'false': 'False'
+                };
+                return labels[value] || value;
+            }
+
+            render() {
+                if (!this.currentSection) {
+                    document.getElementById('app').innerHTML = this.renderMenu();
+                    return;
+                }
+
+                const questions = this.getQuestions();
+                const question = questions[this.currentQuestion];
+
+                let questionContent;
+                if (this.currentSection === 'assumptions') {
+                    questionContent = this.renderAssumptionsQuestion(question, questions);
+                } else if (this.currentSection === 'inferences') {
+                    questionContent = this.renderInferencesQuestion(question, questions);
+                }
+
+                document.getElementById('app').innerHTML = `
+                    <header>
+                        <h1>Watson Glaser Trainer</h1>
+                        <div class="score">Score: ${this.score.correct} / ${this.score.total}</div>
+                    </header>
+                    <main>
+                        <button class="back-btn" onclick="app.backToMenu()">← Back to Menu</button>
+                        ${questionContent}
+                    </main>
+                `;
+            }
+        }
+
+        const app = new WatsonGlaserApp();
+    </script>
+</body>
+</html>

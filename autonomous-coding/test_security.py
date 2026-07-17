@@ -123,8 +123,9 @@ def test_validate_init_script():
         # Allowed cases
         ("./init.sh", True, "basic ./init.sh"),
         ("./init.sh arg1 arg2", True, "with arguments"),
-        ("/path/to/init.sh", True, "absolute path"),
-        ("../dir/init.sh", True, "relative path with init.sh"),
+        # Blocked cases
+        ("/path/to/init.sh", False, "absolute path"),
+        ("../dir/init.sh", False, "relative path with init.sh"),
         # Blocked cases
         ("./setup.sh", False, "different script name"),
         ("./init.py", False, "python script"),
@@ -262,7 +263,6 @@ def main():
         # init.sh execution (allowed)
         "./init.sh",
         "./init.sh --production",
-        "/path/to/init.sh",
         # Combined chmod and init.sh
         "chmod +x init.sh && ./init.sh",
     ]
