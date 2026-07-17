@@ -280,7 +280,7 @@ def _response_to_params(
                 res.append(cast(BetaContentBlockParam, thinking_block))
         else:
             # Handle tool use blocks normally
-            res.append(cast(BetaToolUseBlockParam, block.model_dump()))
+            res.append(cast(BetaToolUseBlockParam, block.model_dump(exclude_none=True)))
     return res
 
 
@@ -299,8 +299,15 @@ def _inject_prompt_caching(
         ):
             if breakpoints_remaining:
                 breakpoints_remaining -= 1
+                # If the last content block is a Pydantic model (e.g. BetaTextBlock),
+                # convert it to a plain dict so we can assign cache_control to it.
+                # TextBlock objects do not support item assignment, only dicts do.
+                last_block = content[-1]
+                if not isinstance(last_block, dict):
+                    last_block = last_block.model_dump(exclude_none=True)
+                    content[-1] = last_block
                 # Use type ignore to bypass TypedDict check until SDK types are updated
-                content[-1]["cache_control"] = BetaCacheControlEphemeralParam(  # type: ignore
+                last_block["cache_control"] = BetaCacheControlEphemeralParam(  # type: ignore
                     {"type": "ephemeral"}
                 )
             else:
