@@ -141,6 +141,58 @@ Alternative access points:
 - Desktop view only: [http://localhost:6080/vnc.html](http://localhost:6080/vnc.html)
 - Direct VNC connection: `vnc://localhost:5900` (for VNC clients)
 
+## Custom port mapping
+
+By default the container exposes four ports:
+
+| Service | Container port | Environment variable |
+|---------|---------------|---------------------|
+| Combined WebUI (HTTP) | 8080 | `HTTP_PORT` |
+| Streamlit | 8501 | `STREAMLIT_PORT` |
+| noVNC (browser VNC) | 6080 | `NOVNC_PORT` |
+| VNC (raw) | 5900 | `VNC_PORT` |
+
+### Symmetric remapping (change all host ports uniformly)
+
+If you simply need to avoid port conflicts on your host and keep all mappings consistent, change only the host-side port numbers:
+
+```bash
+docker run \
+    -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+    -v $HOME/.anthropic:/home/computeruse/.anthropic \
+    -p 5901:5900 \
+    -p 9501:8501 \
+    -p 6081:6080 \
+    -p 9080:8080 \
+    -e HTTP_HOST_PORT=9080 \
+    -e STREAMLIT_HOST_PORT=9501 \
+    -e NOVNC_HOST_PORT=6081 \
+    -it ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
+```
+
+The `*_HOST_PORT` variables tell the landing page which host-side ports to reference in its iframes, so the browser can reach each service correctly even when Docker host and container ports differ.
+
+### Changing the container-internal ports
+
+If you also need to change the ports the services listen on inside the container (for example in Kubernetes or host-network mode), set the base port variables as well:
+
+```bash
+docker run \
+    -e ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY \
+    -v $HOME/.anthropic:/home/computeruse/.anthropic \
+    -p 5901:5901 \
+    -p 9501:9501 \
+    -p 6081:6081 \
+    -p 9080:9080 \
+    -e HTTP_PORT=9080 \
+    -e STREAMLIT_PORT=9501 \
+    -e VNC_PORT=5901 \
+    -e NOVNC_PORT=6081 \
+    -it ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
+```
+
+When the host and container ports are the same (as in the example above) the `*_HOST_PORT` variables are not needed — they default to the matching `*_PORT` value automatically.
+
 ## Screen size
 
 Environment variables `WIDTH` and `HEIGHT` can be used to set the screen size. For example:
