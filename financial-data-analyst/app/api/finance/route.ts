@@ -10,15 +10,6 @@ const anthropic = new Anthropic({
 
 export const runtime = "edge";
 
-// Helper to validate base64
-const isValidBase64 = (str: string) => {
-  try {
-    return btoa(atob(str)) === str;
-  } catch (err) {
-    return false;
-  }
-};
-
 // Add Type Definitions
 interface ChartToolResponse extends ChartData {
   // Any additional properties specific to the tool response
@@ -102,13 +93,11 @@ const tools: ToolSchema[] = [
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, fileData, model } = await req.json();
+    const { messages, model } = await req.json();
 
     console.log("🔍 Initial Request Data:", {
       hasMessages: !!messages,
       messageCount: messages?.length,
-      hasFileData: !!fileData,
-      fileType: fileData?.mediaType,
       model,
     });
 
@@ -128,69 +117,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Convert all previous messages
-    let anthropicMessages = messages.map((msg: any) => ({
+    const anthropicMessages = messages.map((msg: any) => ({
       role: msg.role,
       content: msg.content,
     }));
-
-    // Handle file in the latest message
-    if (fileData) {
-      const { base64, mediaType, isText } = fileData;
-
-      if (!base64) {
-        console.error("❌ No base64 data received");
-        return new Response(JSON.stringify({ error: "No file data" }), {
-          status: 400,
-        });
-      }
-
-      try {
-        if (isText) {
-          // Decode base64 text content
-          const textContent = decodeURIComponent(escape(atob(base64)));
-
-          // Replace only the last message with the file content
-          anthropicMessages[anthropicMessages.length - 1] = {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: `File contents of ${fileData.fileName}:\n\n${textContent}`,
-              },
-              {
-                type: "text",
-                text: messages[messages.length - 1].content,
-              },
-            ],
-          };
-        } else if (mediaType.startsWith("image/")) {
-          // Handle image files
-          anthropicMessages[anthropicMessages.length - 1] = {
-            role: "user",
-            content: [
-              {
-                type: "image",
-                source: {
-                  type: "base64",
-                  media_type: mediaType,
-                  data: base64,
-                },
-              },
-              {
-                type: "text",
-                text: messages[messages.length - 1].content,
-              },
-            ],
-          };
-        }
-      } catch (error) {
-        console.error("Error processing file content:", error);
-        return new Response(
-          JSON.stringify({ error: "Failed to process file content" }),
-          { status: 400 },
-        );
-      }
-    }
 
     console.log("🚀 Final Claude API Request:", {
       endpoint: "messages.create",
