@@ -1,0 +1,75 @@
+# T4: URL Shortener with Analytics
+# Complexity: Complex (full-stack, multiple services)
+
+## Goal
+Build a URL shortener service with click tracking and analytics dashboard.
+
+## Requirements
+
+### Core API Endpoints
+- `POST /shorten` - Create short URL (accepts long_url, optional custom_slug)
+- `GET /<slug>` - Redirect to original URL (tracks click)
+- `GET /api/urls` - List user's URLs (requires auth)
+- `GET /api/urls/<slug>/stats` - Get analytics for URL
+- `DELETE /api/urls/<slug>` - Delete URL
+
+### URL Features
+- Generate 6-character alphanumeric slugs by default
+- Allow custom slugs (validate: 3-20 chars, alphanumeric + hyphen)
+- Prevent duplicate slugs
+- Optional expiration date
+
+### Analytics Tracking
+Per click, record:
+- Timestamp
+- Referrer URL
+- User agent
+- Country (from IP, can mock)
+- Device type (mobile/desktop/tablet)
+
+### Analytics Dashboard API
+- `GET /api/urls/<slug>/stats` returns:
+  - Total clicks
+  - Clicks per day (last 30 days)
+  - Top referrers
+  - Device breakdown
+  - Country breakdown
+
+### Authentication
+- JWT-based auth (same as T3)
+- Anonymous users can create URLs (stored by IP)
+- Registered users get full management
+
+### Rate Limiting
+- 10 URLs per hour for anonymous
+- 100 URLs per hour for authenticated
+- Return 429 with retry-after header
+
+## Tech Stack
+- Python 3.11+
+- FastAPI
+- PostgreSQL with SQLAlchemy (use SQLite for tests)
+- Redis for rate limiting and caching
+- pytest + httpx for testing
+
+## Deliverables
+1. `src/shortener/main.py` - FastAPI app
+2. `src/shortener/routes/urls.py` - URL CRUD routes
+3. `src/shortener/routes/redirect.py` - Redirect handler
+4. `src/shortener/routes/analytics.py` - Stats endpoints
+5. `src/shortener/routes/auth.py` - Auth routes
+6. `src/shortener/models.py` - SQLAlchemy models
+7. `src/shortener/services/analytics.py` - Analytics logic
+8. `src/shortener/services/rate_limit.py` - Rate limiting
+9. `src/shortener/utils/slug.py` - Slug generation
+10. `tests/` - Comprehensive test suite (20+ tests)
+11. `pyproject.toml` - Dependencies
+12. `docker-compose.yml` - PostgreSQL + Redis
+
+## Success Criteria
+- All endpoints work correctly
+- Analytics accurately tracked
+- Rate limiting works
+- At least 20 tests passing
+- Can handle concurrent requests
+- Clean separation of concerns

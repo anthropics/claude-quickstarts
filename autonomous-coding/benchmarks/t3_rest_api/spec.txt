@@ -1,0 +1,72 @@
+# T3: REST API with Authentication
+# Complexity: Medium (multi-component, tests needed)
+
+## Goal
+Build a REST API for a simple notes application with JWT authentication.
+
+## Requirements
+
+### Authentication Endpoints
+- `POST /auth/register` - Register new user (email, password)
+- `POST /auth/login` - Login, returns JWT token
+- `POST /auth/logout` - Invalidate token (optional)
+
+### Notes Endpoints (all require auth)
+- `GET /notes` - List user's notes
+- `POST /notes` - Create a note (title, content)
+- `GET /notes/<id>` - Get single note
+- `PUT /notes/<id>` - Update note
+- `DELETE /notes/<id>` - Delete note
+
+### Data Models
+User: id, email, password_hash, created_at
+Note: id, user_id, title, content, created_at, updated_at
+
+### Security
+- Passwords hashed with bcrypt
+- JWT tokens expire in 1 hour
+- Users can only access their own notes
+- Return 401 for missing/invalid token
+- Return 403 for accessing others' notes
+
+### Response Format
+```json
+{
+  "success": true,
+  "data": { ... },
+  "message": "optional message"
+}
+```
+
+### Error Response
+```json
+{
+  "success": false,
+  "error": "error message"
+}
+```
+
+## Tech Stack
+- Python 3.11+
+- FastAPI
+- SQLite with SQLAlchemy
+- PyJWT for tokens
+- bcrypt for passwords
+- pytest + httpx for testing
+
+## Deliverables
+1. `src/api/main.py` - FastAPI app entry
+2. `src/api/routes/auth.py` - Auth routes
+3. `src/api/routes/notes.py` - Notes routes
+4. `src/api/models.py` - SQLAlchemy models
+5. `src/api/auth.py` - JWT utilities
+6. `tests/test_auth.py` - Auth tests
+7. `tests/test_notes.py` - Notes CRUD tests
+8. `pyproject.toml` - Dependencies
+
+## Success Criteria
+- All endpoints work correctly
+- Auth flow is secure
+- At least 15 tests passing
+- Proper error handling
+- API docs at /docs (Swagger)
