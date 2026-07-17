@@ -184,3 +184,16 @@ docker run \
 ```
 
 The docker run command above mounts the repo inside the docker image, such that you can edit files from the host. Streamlit is already configured with auto reloading.
+
+## ⚠️ Japanese Input Limitation
+
+When using Japanese input (kanji, hiragana, katakana) in the computer-use demo, characters may not register correctly due to input conversion delays.
+
+This happens because Japanese input requires a conversion step (IME), and the default typing delay may be too short.
+
+### Solution
+
+Increase the `TYPING_DELAY_MS` value in `computer.py`:
+
+```python
+TYPING_DELAY_MS = 300
