@@ -946,7 +946,7 @@ FOUND: 0
 ERROR: explanation of why no elements were found"""
 
                     response = await client.messages.create(
-                        model="claude-3-5-sonnet-20241022",
+                        model="claude-sonnet-4-5-20250929",
                         max_tokens=800,
                         temperature=1.0,
                         messages=[{"role": "user", "content": prompt}],
