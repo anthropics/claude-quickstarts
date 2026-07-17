@@ -1,11 +1,33 @@
 #!/bin/bash
 echo "starting vnc"
 
+# Function to check port availability
+check_port() {
+    local port=$1
+    if lsof -i :$port >/dev/null 2>&1; then
+        return 1  # Port is in use
+    else
+        return 0  # Port is available
+    fi
+}
+
+# Find an available port starting from 5900
+find_available_port() {
+    local port=5900
+    while ! check_port $port; do
+        ((port++))
+    done
+    echo $port
+}
+
+# Dynamically assign the VNC server port
+VNC_PORT=$(find_available_port)
+
 (x11vnc -display $DISPLAY \
     -forever \
     -shared \
     -wait 50 \
-    -rfbport 5900 \
+    -rfbport $VNC_PORT \
     -nopw \
     2>/tmp/x11vnc_stderr.log) &
 
@@ -14,7 +36,7 @@ x11vnc_pid=$!
 # Wait for x11vnc to start
 timeout=10
 while [ $timeout -gt 0 ]; do
-    if netstat -tuln | grep -q ":5900 "; then
+    if netstat -tuln | grep -q ":$VNC_PORT "; then
         break
     fi
     sleep 1
