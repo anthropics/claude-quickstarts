@@ -136,3 +136,47 @@ def test_force_prune_then_cycle_resumes():
         s(msgs)
         seen.append(len(_surviving(msgs)))
     assert seen == [3, 4, 5, 6, 7, 8, 9]
+
+
+def _top_level_msgs(n: int) -> list[MessageParam]:
+    """User turns with a text-only tool_result followed by a top-level image
+    block — the shape produced under cfg.relay_images_top_level."""
+    return [
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": str(i),
+                    "content": [{"type": "text", "text": "ok"}],
+                },
+                _img(str(i)),
+            ],
+        }
+        for i in range(n)
+    ]
+
+
+def _surviving_top_level(msgs: list[MessageParam]) -> list[str]:
+    out: list[str] = []
+    for m in msgs:
+        content = m["content"]
+        if not isinstance(content, list):
+            continue
+        for b in content:
+            if isinstance(b, dict) and b.get("type") == "image":
+                out.append(b["source"]["data"])
+    return out
+
+
+def test_simple_strips_top_level_images():
+    msgs = _top_level_msgs(5)
+    StripOldestImages(keep=2)(msgs)
+    assert _surviving_top_level(msgs) == ["3", "4"]
+
+
+def test_interval_strips_top_level_images():
+    msgs = _top_level_msgs(10)
+    StripImagesAtIntervals(min_images=2, interval=3)(msgs)
+    # keep = (10 % 3) + 2 = 3 -> the last three survive
+    assert _surviving_top_level(msgs) == ["7", "8", "9"]

@@ -134,6 +134,14 @@ class Config:
     image_prune_min: int = 3
     image_prune_interval: int = 40
 
+    # Workaround for Ollama's /v1/messages endpoint, which silently DROPS images
+    # nested inside a tool_result block, so the agent goes blind in the loop.
+    # When true, screenshots are sent as top-level image blocks appended to the
+    # same user turn (a position it DOES process), and the tool_result keeps
+    # only its text. Leave false for the first-party Anthropic API, where images
+    # belong in the tool_result. Set CU_RELAY_IMAGES_TOP_LEVEL=true for Ollama.
+    relay_images_top_level: bool = False
+
     # Include the computer / computer_batch / open_application tools.
     enable_computer_use_tools: bool = True
     # Include the browser / browser_batch tools.

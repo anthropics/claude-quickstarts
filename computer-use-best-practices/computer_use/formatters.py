@@ -21,22 +21,28 @@ _PLACEHOLDER: TextBlockParam = {"type": "text", "text": "[Image Omitted]"}
 
 
 def _image_slots(messages: list[MessageParam]) -> list[tuple[list[Any], int]]:
-    """Return (container, index) for every image block inside tool_result content,
-    in document order, so callers can replace them in place."""
+    """Return (container, index) for every image block, in document order, so
+    callers can replace them in place. Catches both images nested in a
+    tool_result (the default Anthropic shape) and top-level image blocks in a
+    user turn (the cfg.relay_images_top_level workaround for Ollama's
+    /v1/messages, which drops tool_result-nested media)."""
     slots: list[tuple[list[Any], int]] = []
     for msg in messages:
         content = msg["content"]
         if not isinstance(content, list):
             continue
-        for block in content:
-            if not isinstance(block, dict) or block.get("type") != "tool_result":
+        for i, block in enumerate(content):
+            if not isinstance(block, dict):
                 continue
-            inner = block.get("content")
-            if not isinstance(inner, list):
-                continue
-            for i, sub in enumerate(inner):
-                if isinstance(sub, dict) and sub.get("type") == "image":
-                    slots.append((inner, i))
+            if block.get("type") == "image":
+                slots.append((content, i))
+            elif block.get("type") == "tool_result":
+                inner = block.get("content")
+                if not isinstance(inner, list):
+                    continue
+                for j, sub in enumerate(inner):
+                    if isinstance(sub, dict) and sub.get("type") == "image":
+                        slots.append((inner, j))
     return slots
 
 
