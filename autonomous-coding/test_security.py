@@ -18,7 +18,7 @@ from security import (
 )
 
 
-def test_hook(command: str, should_block: bool) -> bool:
+def legacy_test_hook(command: str, should_block: bool) -> bool:
     """Test a single command against the security hook."""
     input_data = {"tool_name": "Bash", "tool_input": {"command": command}}
     result = asyncio.run(bash_security_hook(input_data))
@@ -41,7 +41,7 @@ def test_hook(command: str, should_block: bool) -> bool:
     return True
 
 
-def test_extract_commands():
+def legacy_test_extract_commands():
     """Test the command extraction logic."""
     print("\nTesting command extraction:\n")
     passed = 0
@@ -69,7 +69,7 @@ def test_extract_commands():
     return passed, failed
 
 
-def test_validate_chmod():
+def legacy_test_validate_chmod():
     """Test chmod command validation."""
     print("\nTesting chmod validation:\n")
     passed = 0
@@ -112,7 +112,7 @@ def test_validate_chmod():
     return passed, failed
 
 
-def test_validate_init_script():
+def legacy_test_validate_init_script():
     """Test init.sh script execution validation."""
     print("\nTesting init.sh validation:\n")
     passed = 0
@@ -123,9 +123,9 @@ def test_validate_init_script():
         # Allowed cases
         ("./init.sh", True, "basic ./init.sh"),
         ("./init.sh arg1 arg2", True, "with arguments"),
-        ("/path/to/init.sh", True, "absolute path"),
-        ("../dir/init.sh", True, "relative path with init.sh"),
         # Blocked cases
+        ("/path/to/init.sh", False, "absolute path"),
+        ("../dir/init.sh", False, "relative path outside project"),
         ("./setup.sh", False, "different script name"),
         ("./init.py", False, "python script"),
         ("bash init.sh", False, "bash invocation"),
@@ -160,17 +160,17 @@ def main():
     failed = 0
 
     # Test command extraction
-    ext_passed, ext_failed = test_extract_commands()
+    ext_passed, ext_failed = legacy_test_extract_commands()
     passed += ext_passed
     failed += ext_failed
 
     # Test chmod validation
-    chmod_passed, chmod_failed = test_validate_chmod()
+    chmod_passed, chmod_failed = legacy_test_validate_chmod()
     passed += chmod_passed
     failed += chmod_failed
 
     # Test init.sh validation
-    init_passed, init_failed = test_validate_init_script()
+    init_passed, init_failed = legacy_test_validate_init_script()
     passed += init_passed
     failed += init_failed
 
@@ -194,6 +194,14 @@ def main():
         "pkill bash",
         "pkill chrome",
         "pkill python",
+        # Project escape and unsafe package installs
+        "cat ../secret.txt",
+        "grep -r secret ../",
+        "sleep 9999",
+        "npm install malicious-package",
+        "pnpm add left-pad",
+        "../evil/init.sh",
+        "/tmp/init.sh",
         # Shell injection attempts
         "$(echo pkill) node",
         'eval "pkill node"',
@@ -210,7 +218,7 @@ def main():
     ]
 
     for cmd in dangerous:
-        if test_hook(cmd, should_block=True):
+        if legacy_test_hook(cmd, should_block=True):
             passed += 1
         else:
             failed += 1
@@ -262,13 +270,12 @@ def main():
         # init.sh execution (allowed)
         "./init.sh",
         "./init.sh --production",
-        "/path/to/init.sh",
         # Combined chmod and init.sh
         "chmod +x init.sh && ./init.sh",
     ]
 
     for cmd in safe:
-        if test_hook(cmd, should_block=False):
+        if legacy_test_hook(cmd, should_block=False):
             passed += 1
         else:
             failed += 1

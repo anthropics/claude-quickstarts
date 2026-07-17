@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["round_number", "features_in_scope", "acceptance_tests"],
+  "properties": {
+    "round_number": {"type": "integer", "minimum": 1},
+    "features_in_scope": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"type": "string"}
+    },
+    "acceptance_tests": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "criterion", "verification_method"],
+        "properties": {
+          "id": {"type": "string"},
+          "criterion": {"type": "string"},
+          "verification_method": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

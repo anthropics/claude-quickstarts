@@ -1,57 +1,54 @@
-"""
-Progress Tracking Utilities
-===========================
+"""Progress tracking utilities for autonomous coding harness."""
 
-Functions for tracking and displaying progress of the autonomous coding agent.
-"""
+from __future__ import annotations
 
 import json
 from pathlib import Path
 
 
 def count_passing_tests(project_dir: Path) -> tuple[int, int]:
-    """
-    Count passing and total tests in feature_list.json.
-
-    Args:
-        project_dir: Directory containing feature_list.json
-
-    Returns:
-        (passing_count, total_count)
-    """
     tests_file = project_dir / "feature_list.json"
-
     if not tests_file.exists():
         return 0, 0
-
     try:
-        with open(tests_file, "r") as f:
-            tests = json.load(f)
+        tests = json.loads(tests_file.read_text())
+        if not isinstance(tests, list):
+            return 0, 0
 
-        total = len(tests)
-        passing = sum(1 for test in tests if test.get("passes", False))
-
+        structured_tests = [test for test in tests if isinstance(test, dict)]
+        total = len(structured_tests)
+        passing = sum(1 for test in structured_tests if test.get("passes", False))
         return passing, total
-    except (json.JSONDecodeError, IOError):
+    except (json.JSONDecodeError, OSError):
         return 0, 0
 
 
 def print_session_header(session_num: int, is_initializer: bool) -> None:
-    """Print a formatted header for the session."""
     session_type = "INITIALIZER" if is_initializer else "CODING AGENT"
-
     print("\n" + "=" * 70)
     print(f"  SESSION {session_num}: {session_type}")
-    print("=" * 70)
-    print()
+    print("=" * 70 + "\n")
 
 
 def print_progress_summary(project_dir: Path) -> None:
-    """Print a summary of current progress."""
     passing, total = count_passing_tests(project_dir)
+    run_state = project_dir / "state" / "run_state.json"
+    if run_state.exists():
+        try:
+            state = json.loads(run_state.read_text())
+            if not isinstance(state, dict):
+                print("\nRun State: unexpected run_state.json structure")
+            else:
+                print(
+                    "\nRun State: "
+                    f"status={state.get('status')} "
+                    f"round={state.get('current_round')}/{state.get('max_rounds')} "
+                    f"planner_complete={state.get('planner_complete')}"
+                )
+        except (json.JSONDecodeError, OSError):
+            print("\nRun State: unreadable run_state.json")
 
     if total > 0:
-        percentage = (passing / total) * 100
-        print(f"\nProgress: {passing}/{total} tests passing ({percentage:.1f}%)")
+        print(f"Backlog progress: {passing}/{total} tests passing ({(passing/total)*100:.1f}%)")
     else:
-        print("\nProgress: feature_list.json not yet created")
+        print("Backlog progress: feature_list.json not yet created")

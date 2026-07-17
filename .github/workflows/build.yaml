@@ -4,13 +4,13 @@ name: build
 on:
   pull_request:
     paths:
-      - .github/**
+      - .github/workflows/reusable_build_step.yaml
       - computer-use-demo/**
   push:
     branches:
       - main
     paths:
-      - .github/**
+      - .github/workflows/reusable_build_step.yaml
       - computer-use-demo/**
 jobs:
   build-amd64:
