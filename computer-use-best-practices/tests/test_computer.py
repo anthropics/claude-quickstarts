@@ -93,3 +93,29 @@ def test_hold_key_releases_on_interrupt(monkeypatch):
         tool.execute(action="hold_key", text="shift+a", duration=5)
     assert downs == ["shift", "a"]
     assert ups == ["a", "shift"]
+
+
+@pytest.mark.parametrize(
+    "raw,expected",
+    [
+        ([500, 375], [500, 375]),
+        ((500, 375), [500, 375]),
+        ("500,375", [500, 375]),
+        ("500, 375", [500, 375]),
+        ("[500, 375]", [500, 375]),
+        ("(500, 375)", [500, 375]),
+        ([500.4, 375.6], [500, 376]),
+    ],
+)
+def test_as_xy_accepts_lists_tuples_and_strings(raw, expected):
+    """Claude emits arrays, but weaker / non-Claude models routed through the
+    same loop sometimes send a coordinate as a string. Accept both."""
+    assert computer._as_xy(raw) == expected
+
+
+@pytest.mark.parametrize("bad", ["500,375,9", "abc", "", 5, [1], [1, 2, 3]])
+def test_as_xy_rejects_malformed(bad):
+    """A malformed coordinate must raise a clear ValueError, not the opaque
+    'too many values to unpack' from a bare ``x, y = coord`` unpack."""
+    with pytest.raises(ValueError):
+        computer._as_xy(bad)
