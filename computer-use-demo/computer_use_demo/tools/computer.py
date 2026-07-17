@@ -320,6 +320,34 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
         key: str | None = None,
         **kwargs,
     ):
+        if action == "left_click_drag":
+            if coordinate is None:
+                raise ToolError(f"coordinate is required for {action}")
+            if start_coordinate is None:
+                raise ToolError(f"start_coordinate is required for {action}")
+
+            start_x, start_y = self.validate_and_get_coordinates(start_coordinate)
+            end_x, end_y = self.validate_and_get_coordinates(coordinate)
+            command_parts = [
+                self.xdotool,
+                f"mousemove --sync {start_x} {start_y}",
+            ]
+            modifier = text or key
+            escaped_modifier = shlex.quote(modifier) if modifier else None
+            if escaped_modifier is not None:
+                command_parts.append(f"keydown {escaped_modifier}")
+            command_parts.extend(
+                [
+                    "mousedown 1",
+                    f"mousemove --sync {end_x} {end_y}",
+                    "mouseup 1",
+                ]
+            )
+            if escaped_modifier is not None:
+                command_parts.append(f"keyup {escaped_modifier}")
+
+            return await self.shell(" ".join(command_parts))
+
         if action in ("left_mouse_down", "left_mouse_up"):
             if coordinate is not None:
                 raise ToolError(f"coordinate is not accepted for {action=}.")
