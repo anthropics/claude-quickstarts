@@ -6,7 +6,7 @@ An advanced, fully customizable customer support chat interface powered by Claud
 ## Key Features
 
 -  AI-powered chat using Anthropic's Claude model
--  Amazon Bedrock integration for contextual knowledge retrieval
+-  Amazon Bedrock integration for contextual knowledge retrieval (incurs daily AWS billing even if unused, cleanup on completeion!)
 -  Real-time thinking & debug information display
 -  Knowledge base source visualization
 -  User mood detection & appropriate agent redirection
@@ -106,6 +106,7 @@ To create your own knowledge base:
 10. Select "Quick create a new vector store".
 11. Confirm and create your knowledge base.
 12. Once you have done this, get your knowledge base ID from the knowledge base overview.
+13. IMPORTANT: To avoid getting billed everyday going forward, do not forget to remove this knowledge base and the Open Search Collection it creates in the background, after completeion of this project. 
 
 
 ##  Switching Models
