@@ -144,4 +144,4 @@ class BashTool20250124(BaseAnthropicTool):
 
 
 class BashTool20241022(BashTool20250124):
-    api_type: Literal["bash_20250124"] = "bash_20250124"  # pyright: ignore[reportIncompatibleVariableOverride]
+    api_type: Literal["bash_20241022"] = "bash_20241022"  # pyright: ignore[reportIncompatibleVariableOverride]
