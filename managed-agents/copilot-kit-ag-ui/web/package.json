@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@copilotkit/react-core": "1.62.1",
+    "@copilotkit/react-core": "1.62.3",
     "react": "19.2.7",
     "react-dom": "19.2.7",
     "zod": "4.4.3"

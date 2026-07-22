@@ -18,7 +18,7 @@ import {
   type AccumulatedEvent,
 } from '@anthropic-ai/sdk/lib/sessions/accumulate';
 import type { BetaManagedAgentsStreamSessionEvents } from '@anthropic-ai/sdk/resources/beta/sessions/events';
-import { EventType, type BaseEvent } from '@ag-ui/core';
+import { EventType, type AGUIEvent } from '@ag-ui/core';
 import { isVizTool } from './vizTools.ts';
 
 export interface BridgeOptions {
@@ -27,7 +27,7 @@ export interface BridgeOptions {
   /** Text of the user turn to send to the session. */
   userText: string;
   /** Emit one AG-UI event toward the CopilotKit frontend. */
-  emit: (event: BaseEvent) => void;
+  emit: (event: AGUIEvent) => void;
   /** Abort signal: client disconnect or the turn's wall-clock timeout. */
   signal: AbortSignal;
 }
@@ -117,7 +117,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
   const openThinking = new Set<string>();
 
   const closeMessage = (messageId: string) => {
-    emit({ type: EventType.TEXT_MESSAGE_END, messageId } as BaseEvent);
+    emit({ type: EventType.TEXT_MESSAGE_END, messageId });
     previews.delete(messageId);
     closed.add(messageId);
   };
@@ -133,8 +133,9 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
         type: EventType.ACTIVITY_SNAPSHOT,
         messageId: thinkingId,
         activityType: 'thinking',
+        replace: true,
         content: { state: 'done' },
-      } as BaseEvent);
+      });
     }
     openThinking.clear();
   };
@@ -149,7 +150,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
             type: EventType.TEXT_MESSAGE_START,
             messageId: event.event.id,
             role: 'assistant',
-          } as BaseEvent);
+          });
           previews.set(event.event.id, accumulateManagedAgentsEvent(undefined, event)!);
         } else if (event.event.type === 'agent.thinking') {
           // agent.thinking is a progress signal without the reasoning text in
@@ -159,22 +160,26 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
             type: EventType.ACTIVITY_SNAPSHOT,
             messageId: event.event.id,
             activityType: 'thinking',
+            replace: true,
             content: { state: 'thinking' },
-          } as BaseEvent);
+          });
         }
         break;
       }
 
-      // Buffered confirmation that a thinking stretch finished. Snapshots with
-      // an existing messageId update in place, so this flips the same row.
+      // Buffered confirmation that a thinking stretch finished. A snapshot for
+      // an existing messageId updates that row in place only when replace is
+      // true (replace: false makes the client keep the old content), so this
+      // flips the same row from 'thinking' to 'done'.
       case 'agent.thinking': {
         openThinking.delete(event.id);
         emit({
           type: EventType.ACTIVITY_SNAPSHOT,
           messageId: event.id,
           activityType: 'thinking',
+          replace: true,
           content: { state: 'done' },
-        } as BaseEvent);
+        });
         break;
       }
 
@@ -187,7 +192,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
             type: EventType.TEXT_MESSAGE_CONTENT,
             messageId: event.event_id,
             delta: event.delta.content.text,
-          } as BaseEvent);
+          });
         }
         break;
       }
@@ -203,13 +208,13 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
             type: EventType.TEXT_MESSAGE_START,
             messageId: event.id,
             role: 'assistant',
-          } as BaseEvent);
+          });
           if (finalText) {
             emit({
               type: EventType.TEXT_MESSAGE_CONTENT,
               messageId: event.id,
               delta: finalText,
-            } as BaseEvent);
+            });
           }
         } else {
           // Deltas are best-effort; the buffered event is canonical. Top up
@@ -221,7 +226,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
                 type: EventType.TEXT_MESSAGE_CONTENT,
                 messageId: event.id,
                 delta: finalText.slice(previewed.length),
-              } as BaseEvent);
+              });
             }
           } else {
             // The preview diverged from the canonical text. Close the
@@ -229,9 +234,9 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
             closeMessage(event.id);
             if (finalText) {
               const messageId = `corrected_${event.id}`;
-              emit({ type: EventType.TEXT_MESSAGE_START, messageId, role: 'assistant' } as BaseEvent);
-              emit({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: finalText } as BaseEvent);
-              emit({ type: EventType.TEXT_MESSAGE_END, messageId } as BaseEvent);
+              emit({ type: EventType.TEXT_MESSAGE_START, messageId, role: 'assistant' });
+              emit({ type: EventType.TEXT_MESSAGE_CONTENT, messageId, delta: finalText });
+              emit({ type: EventType.TEXT_MESSAGE_END, messageId });
             }
             break;
           }
@@ -242,9 +247,9 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
 
       // ---- generative UI: custom tools rendered by the browser ------------
       case 'agent.custom_tool_use': {
-        emit({ type: EventType.TOOL_CALL_START, toolCallId: event.id, toolCallName: event.name } as BaseEvent);
-        emit({ type: EventType.TOOL_CALL_ARGS, toolCallId: event.id, delta: JSON.stringify(event.input) } as BaseEvent);
-        emit({ type: EventType.TOOL_CALL_END, toolCallId: event.id } as BaseEvent);
+        emit({ type: EventType.TOOL_CALL_START, toolCallId: event.id, toolCallName: event.name });
+        emit({ type: EventType.TOOL_CALL_ARGS, toolCallId: event.id, delta: JSON.stringify(event.input) });
+        emit({ type: EventType.TOOL_CALL_END, toolCallId: event.id });
 
         // These tools ARE their rendering: CopilotKit draws the interactive
         // component from the args, so the session just needs an ack to keep
@@ -259,7 +264,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
           toolCallId: event.id,
           content: resultText,
           role: 'tool',
-        } as BaseEvent);
+        });
         try {
           await client.beta.sessions.events.send(sessionId, {
             events: [
@@ -285,9 +290,9 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
 
       // ---- built-in tool activity (web_search, bash, read, …) -------------
       case 'agent.tool_use': {
-        emit({ type: EventType.TOOL_CALL_START, toolCallId: event.id, toolCallName: event.name } as BaseEvent);
-        emit({ type: EventType.TOOL_CALL_ARGS, toolCallId: event.id, delta: JSON.stringify(event.input) } as BaseEvent);
-        emit({ type: EventType.TOOL_CALL_END, toolCallId: event.id } as BaseEvent);
+        emit({ type: EventType.TOOL_CALL_START, toolCallId: event.id, toolCallName: event.name });
+        emit({ type: EventType.TOOL_CALL_ARGS, toolCallId: event.id, delta: JSON.stringify(event.input) });
+        emit({ type: EventType.TOOL_CALL_END, toolCallId: event.id });
         break;
       }
       case 'agent.tool_result': {
@@ -299,7 +304,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
             event.content as ReadonlyArray<Record<string, unknown>> | undefined,
           ).slice(0, 2000),
           role: 'tool',
-        } as BaseEvent);
+        });
         break;
       }
 
@@ -319,7 +324,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
             String((event.error as { message?: unknown }).message)
           : 'session error';
         closeAllMessages();
-        emit({ type: EventType.RUN_ERROR, message } as BaseEvent);
+        emit({ type: EventType.RUN_ERROR, message });
         return { errored: true };
       }
 
@@ -337,7 +342,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
           emit({
             type: EventType.RUN_ERROR,
             message: 'The agent requested a client-side action this demo does not support.',
-          } as BaseEvent);
+          });
           return { errored: true };
         }
         closeAllMessages();
@@ -352,7 +357,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
         emit({
           type: EventType.RUN_ERROR,
           message: 'This session ended on the server. Send another message to start a fresh one.',
-        } as BaseEvent);
+        });
         return { errored: true, sessionEnded: true };
 
       default:
@@ -373,7 +378,7 @@ export async function runBridgeTurn(opts: BridgeOptions): Promise<BridgeOutcome>
   emit({
     type: EventType.RUN_ERROR,
     message: 'The session event stream ended before the reply completed.',
-  } as BaseEvent);
+  });
   return { errored: true };
   };
 

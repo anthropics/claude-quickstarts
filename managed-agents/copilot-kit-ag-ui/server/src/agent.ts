@@ -7,7 +7,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk';
 import { AbstractAgent } from '@ag-ui/client';
-import { EventType, type BaseEvent, type RunAgentInput } from '@ag-ui/core';
+import { EventType, type AGUIEvent, type BaseEvent, type RunAgentInput } from '@ag-ui/core';
 import { Observable } from 'rxjs';
 import { runBridgeTurn } from './bridge.ts';
 import { forgetThread, getOrCreateThread } from './sessions.ts';
@@ -46,7 +46,7 @@ export class ManagedAgentFinancialAssistant extends AbstractAgent {
       this.currentRunAbort = disconnect;
       const timeout = AbortSignal.timeout(TURN_TIMEOUT_MS);
       const signal = AbortSignal.any([disconnect.signal, timeout]);
-      const emit = (event: BaseEvent) => subscriber.next(event);
+      const emit = (event: AGUIEvent) => subscriber.next(event);
 
       (async () => {
         console.log(`[run ${input.runId}] start (thread ${input.threadId})`);
@@ -54,14 +54,14 @@ export class ManagedAgentFinancialAssistant extends AbstractAgent {
           type: EventType.RUN_STARTED,
           threadId: input.threadId,
           runId: input.runId,
-        } as BaseEvent);
+        });
 
         const userText = latestUserText(input).trim();
         if (!userText) {
           emit({
             type: EventType.RUN_ERROR,
             message: 'No user message text in this run — the managed session needs a prompt.',
-          } as BaseEvent);
+          });
           return;
         }
 
@@ -70,7 +70,7 @@ export class ManagedAgentFinancialAssistant extends AbstractAgent {
           emit({
             type: EventType.RUN_ERROR,
             message: 'A run is already in progress on this thread.',
-          } as BaseEvent);
+          });
           return;
         }
         thread.busy = true;
@@ -83,8 +83,9 @@ export class ManagedAgentFinancialAssistant extends AbstractAgent {
             type: EventType.ACTIVITY_SNAPSHOT,
             messageId: `trace_${thread.sessionId}`,
             activityType: 'session_trace',
+            replace: true,
             content: { url: thread.traceUrl, sessionId: thread.sessionId },
-          } as BaseEvent);
+          });
         }
 
         let outcome;
@@ -108,7 +109,7 @@ export class ManagedAgentFinancialAssistant extends AbstractAgent {
             emit({
               type: EventType.RUN_ERROR,
               message: `Turn exceeded the ${TURN_TIMEOUT_MS / 1000}s time cap and was interrupted.`,
-            } as BaseEvent);
+            });
             return;
           }
           throw err;
@@ -126,7 +127,7 @@ export class ManagedAgentFinancialAssistant extends AbstractAgent {
             type: EventType.RUN_FINISHED,
             threadId: input.threadId,
             runId: input.runId,
-          } as BaseEvent);
+          });
         }
       })()
         .then(() => {
@@ -141,7 +142,7 @@ export class ManagedAgentFinancialAssistant extends AbstractAgent {
             emit({
               type: EventType.RUN_ERROR,
               message: err instanceof Error ? err.message : 'run failed',
-            } as BaseEvent);
+            });
           }
           subscriber.complete();
         });

@@ -74,10 +74,23 @@ async function main() {
   // Zero-arg client: resolves ANTHROPIC_API_KEY or an `ant auth login` profile.
   const client = new Anthropic();
 
+  // The chat endpoint that fronts this agent is unauthenticated in the demo, so
+  // keep the blast radius small: the container gets no outbound network (bash
+  // and files still work for calculations), and web_fetch stays off because
+  // arbitrary URL fetches are the classic prompt-injection + exfil channel.
+  // web_search stays on for current rates and limits.
   console.log('Creating environment…');
   const environment = await client.beta.environments.create({
     name: `financial-assistant-demo-${Date.now().toString(36)}`,
-    config: { type: 'cloud', networking: { type: 'unrestricted' } },
+    config: {
+      type: 'cloud',
+      networking: {
+        type: 'limited',
+        allowed_hosts: [],
+        allow_package_managers: false,
+        allow_mcp_servers: false,
+      },
+    },
   });
   console.log(`  environment ${environment.id}`);
 
@@ -86,7 +99,13 @@ async function main() {
     name: 'financial-assistant',
     model: MODEL,
     system: ASSISTANT_SYSTEM,
-    tools: [{ type: 'agent_toolset_20260401' }, ...vizToolDefinitions],
+    tools: [
+      {
+        type: 'agent_toolset_20260401',
+        configs: [{ name: 'web_fetch', enabled: false }],
+      },
+      ...vizToolDefinitions,
+    ],
   });
   console.log(`  financial-assistant ${agent.id} (version ${agent.version})`);
 

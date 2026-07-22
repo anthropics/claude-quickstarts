@@ -41,6 +41,14 @@ npm run setup -- --force   # re-provision the agent from scratch
 
 `npm run setup` creates two persistent resources (a cloud environment and the agent) and stores their IDs in `agent-ids.json`. Agents are created once and referenced by ID on every session, so you only run setup again to change the agent's definition.
 
+## Security posture
+
+The chat endpoint has no auth, so setup provisions the agent for a small blast radius:
+
+- The environment's container has no outbound network (`networking: limited` with an empty `allowed_hosts`). Bash and files still work for calculations. Add hosts to `allowed_hosts` in `server/src/setup.ts` if your agent needs to reach specific APIs.
+- `web_fetch` is disabled. Fetching arbitrary URLs is the classic path for injected instructions to reach the model, and the tool has no domain allowlist. `web_search` stays on for current rates and limits.
+- The deployed runtime spends your API credits on every message. Set `ALLOWED_ORIGINS`, keep the URL private, or put auth in front before sharing it.
+
 ## Configuration
 
 Everything is environment variables. Copy `.env.example` to `.env` for local overrides.
@@ -79,7 +87,7 @@ Platform notes:
 - A single agent turn can run for minutes (the agent runs bash and web searches in its workspace) and the reply streams over SSE. On serverless platforms, raise the function's max duration. The server caps each turn at 5 minutes. Platforms that buffer responses or cap requests at a few seconds can host the frontend, not the runtime.
 - The server keeps the thread-to-session map in memory. Every restart or serverless cold start starts fresh sessions. Fine for a demo, not for production.
 - Cloudflare Workers does not run this Express server. Host the frontend on Cloudflare Pages and the server on a Node platform.
-- The deployed runtime endpoint has no auth and every message spends your API credits. Set `ALLOWED_ORIGINS`, keep the URL private, or put auth in front before sharing it.
+- The deployed runtime endpoint has no auth and every message spends your API credits. See [Security posture](#security-posture).
 
 ## Architecture
 
