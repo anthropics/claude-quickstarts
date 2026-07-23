@@ -1,0 +1,320 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #f4f2ed;
+  color: #1c1b18;
+  font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+.app {
+  display: grid;
+  grid-template-columns: 17rem 1fr;
+  height: 100dvh;
+}
+
+/* ---- Sidebar: the sessions list ---- */
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem 1rem;
+  border-right: 1px solid #e1ddd3;
+  background: #efece5;
+  overflow-y: auto;
+}
+
+.sidebar header h1 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.sidebar header p {
+  margin: 0.15rem 0 0;
+  color: #6e6a61;
+  font-size: 0.78rem;
+}
+
+.new-chat {
+  padding: 0.55rem 0.9rem;
+  border: 0;
+  border-radius: 10px;
+  background: #1c1b18;
+  color: #f4f2ed;
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.sidebar nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.session {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.05rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session:hover {
+  background: #e7e3d9;
+}
+
+.session.active {
+  background: #fff;
+  border-color: #e1ddd3;
+}
+
+.session .title {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: 0.85rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session .when {
+  color: #8a857a;
+  font-size: 0.7rem;
+}
+
+.sidenote {
+  margin: 0;
+  color: #8a857a;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+/* ---- Main pane ---- */
+
+main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 46rem;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+  overflow-y: auto;
+}
+
+.empty {
+  margin: auto;
+  max-width: 26rem;
+  text-align: center;
+}
+
+.empty h2 {
+  font-size: 1.15rem;
+}
+
+.empty p {
+  color: #6e6a61;
+  font-size: 0.9rem;
+}
+
+.empty button {
+  margin-top: 0.5rem;
+}
+
+.transcript {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1.5rem 0;
+}
+
+.hint,
+.pulse,
+.error {
+  color: #6e6a61;
+  font-size: 0.875rem;
+}
+
+.error {
+  color: #a3341f;
+}
+
+.working {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.working .pulse {
+  margin: 0;
+}
+
+.pulse::after {
+  content: "...";
+  animation: pulse 1.2s infinite;
+}
+
+@keyframes pulse {
+  50% {
+    opacity: 0.2;
+  }
+}
+
+/* The live feed: tool calls, model requests, thinking, retries. */
+.activity {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  list-style: none;
+  border-left: 2px solid #e1ddd3;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+  color: #8a857a;
+  overflow-wrap: anywhere;
+}
+
+.activity li {
+  opacity: 0.55;
+}
+
+.activity li:last-child {
+  opacity: 1;
+  color: #4f4b43;
+}
+
+.activity li.tool_error,
+.activity li.retry {
+  color: #a3341f;
+}
+
+/* The kept per-turn tool-call trace, collapsed to one line in the transcript. */
+.tool-trace summary {
+  cursor: pointer;
+  color: #6e6a61;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+}
+
+.tool-trace .activity {
+  margin-top: 0.4rem;
+}
+
+/* Trace lines are a record, not a fading feed: uniform, not dimmed. */
+.tool-trace .activity li,
+.tool-trace .activity li:last-child {
+  opacity: 1;
+  color: #6e6a61;
+}
+
+.tool-trace .activity li.tool_error {
+  color: #a3341f;
+}
+
+article {
+  max-width: 85%;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  overflow-wrap: anywhere;
+}
+
+article.user {
+  align-self: flex-end;
+  background: #1c1b18;
+  color: #f4f2ed;
+}
+
+article.assistant {
+  align-self: flex-start;
+  background: #fff;
+  border: 1px solid #e1ddd3;
+}
+
+article > :first-child {
+  margin-top: 0;
+}
+
+article > :last-child {
+  margin-bottom: 0;
+}
+
+article ul {
+  padding-left: 1.2rem;
+}
+
+/* The "brief ready" card the bridge posts after each research turn. */
+.brief-card {
+  align-self: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 15rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d8d2c4;
+  border-left: 3px solid #1c1b18;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #fffdf8, #f6f2e8);
+}
+
+.brief-title {
+  margin: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.brief-meta {
+  margin: 0;
+  color: #6e6a61;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.75rem;
+}
+
+.brief-card a {
+  margin-top: 0.4rem;
+  color: #1c1b18;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+form {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.75rem 0 1rem;
+  background: #f4f2ed;
+}
+
+input {
+  flex: 1;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid #c9c4b8;
+  border-radius: 10px;
+  font: inherit;
+  background: #fff;
+}
+
+button {
+  padding: 0.6rem 1.1rem;
+  border: 0;
+  border-radius: 10px;
+  background: #1c1b18;
+  color: #f4f2ed;
+  font: inherit;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

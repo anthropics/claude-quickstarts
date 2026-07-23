@@ -44,6 +44,12 @@ An autonomous coding agent powered by the Claude Agent SDK. This project demonst
 
 [Go to Autonomous Coding Agent Quickstart](./autonomous-coding)
 
+### Managed Agents: Chat SDK
+
+A browser chat app powered by Claude Managed Agents and Vercel's Chat SDK. This project demonstrates how to pair a persistent Managed Agents session per conversation with a chat surface: a research analyst researches with web search and streams its brief token by token while a live feed shows the tool calls. The same handler runs on Slack, Teams, Discord, Telegram, or WhatsApp by swapping the Chat SDK adapter.
+
+[Go to Managed Agents Chat SDK Quickstart](./managed-agents/chat-sdk)
+
 ### Managed Agents with CopilotKit and AG-UI
 
 A personal finance assistant chat app built on a Claude Managed Agent and rendered with CopilotKit. This project demonstrates how to bridge a managed-agent session to the AG-UI protocol, stream replies token by token with event deltas, and render agent tool calls as interactive generative UI components in the chat.
