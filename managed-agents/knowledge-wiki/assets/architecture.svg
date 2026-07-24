@@ -85,5 +85,5 @@ svg{background:#faf7f2}</style>
 <line class="d2-fl" x1="290" y1="610" x2="372" y2="610" marker-end="url(#ah)"/>
 <line class="d2-fl" x1="630" y1="614" x2="702" y2="614" marker-end="url(#ah)"/>
 
-<text class="d2-cap" x="480" y="692" text-anchor="middle">the two flows share exactly one thing: the knowledge wiki store. Build runs once per corpus; query runs per question (~69k tokens).</text>
+<text class="d2-cap" x="480" y="692" text-anchor="middle">the two flows share exactly one thing: the knowledge wiki store. Build runs once per corpus; query runs once per question.</text>
 </svg>

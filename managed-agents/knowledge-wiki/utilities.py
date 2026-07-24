@@ -1,4 +1,4 @@
-"""Shared helpers for the knowledge-graph cookbook notebook.
+"""Shared helpers for the knowledge-wiki cookbook notebook.
 
 Two functions the notebook imports:
 
@@ -87,7 +87,9 @@ def poll_until_end_turn(
     re-send the message to the same session to retry the turn. Pass `sink`
     to collect the agent's message text instead of printing it — useful
     when the reply is markdown you want to render properly. Pass `stats`
-    (a dict) to collect token usage and read counts for the turn.
+    (a dict) to collect token usage and the turn's `reads_searches` count
+    — every tool call that inspected the store rather than writing to it,
+    so reads *and* searches, not reads alone.
     """
     outcome = "end_turn"
     seen: set[str] = set()
@@ -115,7 +117,7 @@ def poll_until_end_turn(
                         else:
                             print(textwrap.fill(block.text, width=100))
             elif et == "agent.tool_use":
-                # semantic progress: name graph files as they are written,
+                # semantic progress: name wiki files as they are written,
                 # count everything else quietly
                 name = getattr(ev, "name", "?")
                 inp = getattr(ev, "input", None) or {}
@@ -167,7 +169,7 @@ def poll_until_end_turn(
     if not idle:
         raise TimeoutError(f"session {session_id} did not go idle within {timeout_s}s")
     if stats is not None:
-        stats["reads"] = searches[0]
+        stats["reads_searches"] = searches[0]
     if touched or searches[0]:
         ents = sum(1 for k in touched if k.startswith("entities/"))
         shared = sorted(k for k in touched if not k.startswith("entities/"))

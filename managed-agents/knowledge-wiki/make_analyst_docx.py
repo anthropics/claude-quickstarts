@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Generate analyst_note.docx — the Word-format document for the demo room.
 
-Content mirrors the study's synthetic analyst note (clearly marked): a flash
-note about the REAL Squarespace/Permira deal that quotes adjusted EBITDA on
-the Credit Agreement basis — deliberately non-comparable to the company's
-own reported figure. The graph must record both with their bases.
+The note is synthetic and clearly marked as such. It quotes adjusted EBITDA
+on the Credit Agreement basis, which is deliberately non-comparable to the
+figure the company reports itself. The wiki must record both numbers with
+the basis each one is measured on.
 
 Requires python-docx.
 """

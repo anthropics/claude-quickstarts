@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Build a REAL M&A data room from SEC EDGAR filings.
 
-Downloads public filings from the Squarespace / Permira take-private (2024)
-per the tier manifest (see build_manifest.py) and converts them to plain
-text for knowledge-graph extraction.
+Downloads the public filings named in the tier manifest (see
+build_manifest.py) and converts them to plain text for knowledge-wiki
+extraction.
 
 Usage:
     python3 fetch_data_room.py --tier=quickstart  # 8 docs — the ~40-minute path
