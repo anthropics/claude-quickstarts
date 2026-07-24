@@ -1,6 +1,6 @@
 # [SYNTHETIC DOCUMENT — created for this demo, not a real research note]
 
-## Meridian Capital Research — Flash Note (demo)
+## Example Capital Research — Flash Note (demo)
 **Squarespace (SQSP) — Permira's $44 looks like an opening bid, not a
 closing one**
 *May 14, 2024*

@@ -6,7 +6,7 @@ per the tier manifest (see build_manifest.py) and converts them to plain
 text for knowledge-graph extraction.
 
 Usage:
-    python3 fetch_data_room.py --tier=quickstart  # 8 docs — the 30-minute path
+    python3 fetch_data_room.py --tier=quickstart  # 8 docs — the ~40-minute path
     python3 fetch_data_room.py --tier=mini        # 26 docs, ~0.5 MB text (default)
     python3 fetch_data_room.py --tier=standard    # +proxy, tender docs, 10-Qs
     python3 fetch_data_room.py --tier=full        # everything

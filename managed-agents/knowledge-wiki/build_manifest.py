@@ -5,7 +5,7 @@ Queries the submissions index for Squarespace, Inc. (CIK 1496963) and emits
 four manifest_*.json files describing real public filings from the 2024
 Permira take-private:
 
-- quickstart (~8 docs)               — the 30-minute path.
+- quickstart (~8 docs)               — the ~40-minute path.
 - mini       (~26 docs, <1 MB text)  — announce/amend/close press releases,
              small schedules, a handful of insider Form 4s. Start here.
 - standard   (~37 docs, ~4 MB text)  — adds the merger proxy (DEFM14A), the
@@ -118,7 +118,7 @@ def main():
     # quickstart: ~8 docs chosen for cross-document connectivity — the merger
     # agreement + amendment pair, deal-window 8-Ks, the proxy, and two Form 4s
     # give entity resolution, temporal supersession, and code-name work in a
-    # ~30-minute build. Hand-ranked by form priority, then recency.
+    # ~40-minute build. Hand-ranked by form priority, then recency.
     mini_docs = [e for e in docs if e["tier"] == "mini"]
     # Drop the June 6 proxy-supplement 8-K so the eight slots keep the full
     # deal arc: original May 7 announcement -> September revised terms ->

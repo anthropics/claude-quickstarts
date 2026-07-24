@@ -19,7 +19,7 @@ OUT = HERE / "example_data" / "analyst_note.docx"
 
 def main():
     doc = Document()
-    doc.add_heading("Meridian Capital Research — Flash Note (demo)", level=1)
+    doc.add_heading("Example Capital Research — Flash Note (demo)", level=1)
     doc.add_paragraph(
         "SYNTHETIC DOCUMENT — created for this demo, not a real research note."
     )

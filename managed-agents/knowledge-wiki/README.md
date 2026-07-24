@@ -1,44 +1,57 @@
-# Knowledge graphs for cheap, correct agentic retrieval — customer preview
+# A knowledge wiki for cheap, correct agentic retrieval
 
 When agents answer questions by searching a document corpus, every question
-re-pays the reading tax. This cookbook builds the corpus **once** into a
-knowledge graph (Claude Managed Agents memory + the dreaming API), then
-answers from the graph — at a fraction of the per-question cost, with
-provenance on every fact. The pattern fits any slow-changing corpus agents
-query repeatedly — M&A due diligence (the worked example), legal discovery,
-support over product docs.
+re-pays the reading tax. This cookbook reads the corpus **once** into a
+knowledge wiki — plain markdown in a Claude Managed Agents memory store —
+then answers from the wiki instead of re-reading the documents. Answers cost
+a fraction of a raw-document search and carry provenance on every fact.
 
-The worked example is a real M&A data room (public SEC filings from a
-completed take-private), chosen because it is maximally adversarial:
-mid-process price changes, shell entities, code names, chart-only numbers.
+The pattern fits any slow-changing corpus that agents query repeatedly: M&A
+due diligence (the worked example), legal discovery, support over product
+docs.
 
-**Status: preview.** We're sharing this with a small group for feedback
-before publishing. Please don't redistribute yet; do tell us everything
-that's unclear, broken, or missing for your own document rooms.
+**What it costs to run.** The default `mini` tier is about **$35** and **an
+hour** end to end. The smaller `quickstart` tier is about **$25** and **40
+minutes**. Both figures are from the committed run and will move with your
+model choice, corpus, and current API pricing.
+
+**No preview access yet?** The consolidation step uses a gated research
+preview (see *Access* below), but every cell in the notebook ships with the
+real output from the committed run. You can read it top to bottom as a
+worked case study without running anything.
+
+## The corpus
+
+The worked example is a real, completed take-private transaction: 42 public
+SEC filings spanning 11 months, from deal announcement through closing. It
+was chosen because it is public, it has narrative structure worth mapping,
+and it is maximally adversarial — a price that changed mid-process,
+look-alike shell entities, code names, and numbers that exist only inside a
+chart.
+
+Every document is fetched live from SEC EDGAR by accession number; nothing
+is redistributed here. Two small synthetic files, marked as synthetic in
+their own text, stand in for the internal documents a real deal room adds —
+and one of them deliberately conflicts with the filings, so you can watch
+the wiki catch it.
 
 ## What's inside
 
 | file | what it is |
 |---|---|
-| `distill_documents_into_knowledge_graph.ipynb` | the cookbook — run top to bottom |
-| `build_manifest.py` | queries SEC EDGAR, writes tiered document manifests (mini/standard/full) |
+| `distill_documents_into_knowledge_wiki.ipynb` | the cookbook — run top to bottom |
+| `build_manifest.py` | queries SEC EDGAR, writes tiered document manifests |
 | `fetch_data_room.py` | downloads the filings for a tier and converts to provenance-stamped text |
 | `fetch_real_deck.py` | downloads a real board deck (scanned slides from 13E-3 exhibits) into a PDF |
 | `make_analyst_docx.py` | generates the marked-synthetic Word analyst note |
-| `utilities.py` | session streaming helpers |
+| `utilities.py` | session polling helpers |
 | `example_data/` | the synthetic companions (analyst note, vendor CSV) |
-
-The example corpus is the 2024 take-private of Squarespace, Inc. by Permira — every
-fetched document is a public SEC filing, referenced by accession number and
-fetched from the source (nothing redistributed). Two small synthetic files
-(clearly marked in their own text) stand in for the internal documents a
-real deal room adds.
 
 ## How it works
 
-The pipeline builds your corpus once into a knowledge wiki, then answers every
-question from the wiki instead of re-reading the documents. These are the main
-steps, in order; the notebook walks through each one.
+The pipeline builds your corpus once into a knowledge wiki, then answers
+every question from the wiki instead of re-reading the documents. These are
+the main steps, in order; the notebook walks through each one.
 
 1. **Assemble your corpus.** Gather the documents your agents will query
    repeatedly — a data room, a discovery set, a support knowledge base. The
@@ -57,9 +70,10 @@ steps, in order; the notebook walks through each one.
    cross-read the wiki and close the questions the extraction left open,
    marking anything genuinely missing as confirmed-unresolvable rather than
    guessing.
-5. **Consolidate with one steered dream.** The dream reads the extraction
-   sessions' transcripts and the store and writes a *new*, reorganized store:
-   deduplicated entities, an index meant to turn exploratory reads into one
+5. **Consolidate with one steered dream.** *Dreaming* is a server-side
+   consolidation pass — sleep-time compute: it reads the build sessions'
+   transcripts and the store, then writes a *new*, reorganized store with
+   deduplicated entities, an index that turns exploratory reads into one
    lookup, a ranked escalations file, and repaired links. It never sees the
    raw corpus, so everything true in the wiki was won at extraction.
 6. **Query read-only from a fresh session per question.** Attach the
@@ -68,103 +82,27 @@ steps, in order; the notebook walks through each one.
    needed, never guess).
 7. **Operate: periodically dream over real usage.** After enough real queries,
    dream over the work transcripts together with the wiki so it reorganizes
-   around what people actually ask; in the study behind this cookbook, one
-   such usage dream lowered the reading cost of later hard questions.
-8. **Evaluate and tune** *(not part of this preview package).* The full
-   process grades each deliverable against a fixed rubric with an evaluator,
-   then iterates the prompt files — extraction rules, store schema, analyst
-   instructions, dream steering — against the evaluator's failure reasons
-   until the scores hold. This package does not yet ship a grading harness or
-   a tuning loop; it is the natural next step once you have a rubric for your
-   own corpus.
+   around what people actually ask.
+8. **Evaluate and tune** *(not shipped here).* Grade each deliverable against
+   a fixed rubric with an evaluator, then iterate the prompt files —
+   extraction rules, store schema, analyst instructions, dream steering —
+   against the evaluator's failure reasons until the scores hold. This package
+   does not ship a grading harness or a tuning loop; it is the natural next
+   step once you have a rubric for your own corpus.
 
-## Lessons from the studies
+## Access
 
-Each lesson is tagged by where it comes from. **Deal-room study** is the
-13-arm ablation on this transaction described under "The numbers behind the
-design." **Legal study** is a companion study that applied the same method to a
-legal-tasks benchmark. **Both** means both studies bear it out.
+Two features must be enabled on your organization:
 
-- **(deal-room study)** Truth is won at extraction. The dream reorganizes
-  what extraction learned but cannot verify a claim against the source
-  documents, so extraction and resolution are where correctness is made.
-- **(deal-room study)** Resolve gaps before the dream, not after — a resolver
-  pass ahead of the dream was the single best architectural change tested.
-- **(deal-room study)** Steer the dream. A short steering instruction telling
-  the dream what the analysts will look for was the highest-leverage prompt in
-  the study.
-- **(deal-room study)** Dream with the wiki as its sole source, and query with
-  the wiki as the sole source. Both "let it also see the documents"
-  configurations backfired (see *Pitfalls and gotchas*).
-- **(both)** Coordination rules matter as much as writing rules. Parallel
-  writers clobber shared files; give each source its own single-writer path.
-- **(legal study)** The wiki pays off where questions are hard to answer from
-  raw text — answers that no single passage states and that span several
-  documents. On sources that are already well-organized, one-document lookups
-  dominate and the wiki is pure overhead; the pattern is not always a win, and
-  the wiki can grow larger than the source it maps.
-- **(legal study)** A good map is opinionated. Spend compute deciding what to
-  join and at what granularity of entity, shaped for the questions the wiki
-  will later be asked; prompting is what defines the entities the wiki
-  pre-joins.
-- **(legal study)** When the default schema is too coarse for a task, *add* a
-  purpose-built page — for example a per-document inventory of every defined
-  term, amount, and date with its source — so the facts the question needs
-  arrive pre-joined, without re-keying the entity schema.
-- **(legal study)** Dreaming buys organization and lower per-query cost more
-  reliably than a quality jump — most likely because the analyst needs fewer
-  reads, though the read count itself was not directly measured. Small quality
-  gaps between a dreamed and an undreamed wiki are within run-to-run noise
-  until replicated.
-- **(both)** Replicate before believing. In both studies, identical
-  configurations spread by several points of rubric score (the task's list of
-  graded criteria) from run to run; a single-run delta is noise until it
-  repeats.
-- **(deal-room study)** Treat absence claims as hypotheses. Record "not in
-  this document," never a global "not disclosed" — a false absence filed into
-  the wiki is nearly impossible to dislodge.
-- **(both)** For report-scale outputs, tell the agent that its reply is the
-  deliverable; otherwise an agent with file tools writes the report to a file
-  and hands you a summary.
+- **Managed Agents** — the memory stores and agent sessions the build runs on.
+- **Dreaming** — a gated research preview. Without it, `POST /v1/dreams`
+  returns 404 and the notebook stops at step 5; everything before that still
+  runs.
 
-## Pitfalls and gotchas
-
-- **Access and the SDK.** Dreaming is a gated research preview: if your
-  organization is not enrolled, `/v1/dreams` returns 404 even with the beta
-  header, and the Managed Agents beta must be enabled too. The public
-  `anthropic` package does not expose `client.beta.dreams` yet — install the
-  research-preview wheel and verify its checksum first (see *Quickstart*).
-- **Silent loader drops.** The costliest ingestion failure is the quiet one: a
-  loader that handles only the formats you anticipated drops the rest and the
-  wiki still looks complete. Make unhandled formats raise rather than skip, and
-  treat a transcription that hits a token limit as a truncation error, not a
-  success.
-- **False global-absence claims.** "Not disclosed" filed once becomes fact for
-  every later query. Scope every absence to the document it came from.
-- **Concurrent writers.** Sessions appending to a shared file or table invite
-  one session's wholesale rewrite to destroy another's work — it happened in
-  both studies. Single-writer paths per source are the fix.
-- **Two tempting configurations that backfired.** *Corpus-aware dreaming*
-  (telling the dream the analysts will also have the raw documents) gutted
-  the wiki — the dream took document access as license not to write things
-  down. *Query-time document fallback* (letting the analyst read raw
-  documents when the wiki is thin) cost quality and a large share of extra
-  tokens on the best wiki. Document access is insurance against a bad wiki,
-  not an enhancement of a good one.
-- **Query-time writes.** An analyst writing back into the wiki during a query
-  bypasses every quality gate; one analyst's plausible inference becomes the
-  next analyst's fact. Analyst writes should propose; a later dream disposes.
-- **Run-to-run noise.** Re-run before you conclude anything from a
-  one-or-two-point difference.
-- **Store lifecycle.** A dream never mutates its input — it writes a *new*
-  store and the input remains a separate store you own. Point the analyst at
-  the output store, and export every store you may want before any cleanup
-  step runs, since a deleted input cannot be recovered from the dream.
-- **Operational timeouts and retries.** Give the client a generous timeout
-  and a retry policy so a transient overloaded error costs a back-off rather
-  than a run; sessions can be rescheduled server-side mid-turn and still
-  finish, so keep polling; and respect source-site rate limits and User-Agent
-  requirements when fetching a corpus.
+Request access at <https://claude.com/form/claude-managed-agents>. Dreaming
+also ships in a dedicated preview SDK build rather than the public `anthropic`
+package on PyPI — the preview onboarding tells you how to install it once
+your organization is enrolled.
 
 ## Quickstart
 
@@ -175,50 +113,37 @@ cd managed-agents/knowledge-wiki
 claude "walk me through setting up the knowledge-wiki quickstart"
 ```
 
-Or follow the steps below by hand.
-
-**Access first:** dreaming is a gated research preview — request access for
-your organization at https://claude.com/form/claude-managed-agents, or
-`/v1/dreams` will 404. The Managed Agents beta must be enabled too.
+Or follow the steps below by hand, once you have access and the preview SDK
+installed.
 
 ```bash
-# dreaming ships in a dedicated research-preview SDK build (public PyPI
-# anthropic does not expose client.beta.dreams yet). Verify the wheel's
-# digest before installing (expected sha256 for the tested build:
-# b92fe0480cd15f52830b572343e6e4b0be7a9c4eea058b64c9dfca958c4af539):
-curl -sL -o anthropic-0.100.0-py3-none-any.whl "https://pkg.stainless.com/l/anthropic-python/5f5a2aac-6775-4d5f-bfac-fd747f5c661c"
-shasum -a 256 anthropic-0.100.0-py3-none-any.whl   # compare before installing
-pip install anthropic-0.100.0-py3-none-any.whl httpx python-docx pillow python-dotenv jupyter
-export ANTHROPIC_API_KEY=...            # key from an org with both features enabled
+pip install -r requirements.txt
+
 export EDGAR_USER_AGENT="your-name your-email"   # SEC asks for a contact
 
 python3 build_manifest.py
-python3 fetch_data_room.py --tier=mini   # 26 real documents, ~0.5 MB text
+python3 fetch_data_room.py --tier=mini   # 26 documents, ~0.5 MB text
 python3 fetch_real_deck.py               # 6 slides of a real board deck (~1 MB)
 python3 make_analyst_docx.py
 
-jupyter lab distill_documents_into_knowledge_graph.ipynb
+jupyter lab distill_documents_into_knowledge_wiki.ipynb
 ```
 
-## Cost expectations
+Authentication follows the standard Anthropic credential chain — construct
+the client with no arguments and it picks up whichever of an API key, an
+`ant auth login` profile, or Workload Identity Federation applies to you.
 
-- `mini` tier end-to-end: about **$35** on the committed run (extraction sessions + one dream + demo queries) — treat this as an order-of-magnitude estimate; your run will vary with model choice and corpus
-- `standard` tier (adds merger proxy, tender docs, 10-Qs): tens of dollars — study scale
-- Queries against the finished graph: ~70k tokens each at full scale, ~5x cheaper than raw-document search
+## Cost and tier expectations
 
-## The numbers behind the design
+| tier | documents | wall-clock | approx. cost |
+|---|---|---|---|
+| `quickstart` | 8 | ~40 min | ~$25 |
+| `mini` (default) | 26 | ~1 h | ~$35 |
+| `standard` | 37 | hours | tens of $ |
+| `full` | 42 | hours | more |
 
-This pipeline is the winning configuration from a 13-arm ablation study on
-this same transaction: 96.2% on a 21-question judged battery vs 85.7% for
-agentic search over raw documents, at one-fifth the per-question cost. The
-notebook's callout boxes carry the design rules the ablations produced —
-including the tempting configurations that backfired (corpus-aware dreaming,
-query-time document fallback).
-
-## Feedback we want
-
-1. Did the notebook run end-to-end for you? Where did it stall?
-2. Are the cost tiers right for evaluation?
-3. What do YOUR document rooms contain that this pattern doesn't cover
-   (formats, scale, access control, update cadence)?
-4. Would you run build+dream on a schedule as documents arrive?
+Every number in the notebook's saved outputs comes from the `mini` tier.
+Treat all costs as order-of-magnitude: your run will vary with model choice,
+corpus, and current pricing. A query against the finished wiki runs roughly
+five times cheaper than the same question answered by searching the raw
+documents — the notebook measures both and shows the breakeven.
