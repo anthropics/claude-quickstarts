@@ -1,0 +1,6 @@
+provider,provider_entity_id,company_name,ticker,country,hq_city,fy2023_revenue_usd_m,employees,note
+AlphaData,AD-778812,SQUARESPACE INC,SQSP,US,New York,1012.3,1750,"SYNTHETIC demo row — name style mimics EDGAR company index"
+BetaFeed,BF-10442,"Squarespace, Inc.",SQSP.N,US,"New York, NY",1012.336,,"SYNTHETIC demo row — Reuters-style ticker suffix"
+BetaFeed,BF-99120,"Spaceship Purchaser, Inc.",,US,Wilmington,,,"SYNTHETIC demo row — shell entity; provider has no financials"
+AlphaData,AD-201553,"Block, Inc. (fka Square, Inc.)",SQ,US,Oakland,21916.0,13000,"SYNTHETIC demo row — real unrelated company (payments); near-miss name distractor"
+AlphaData,AD-455201,Squarespace Technologies Ltd,,IE,Dublin,7.4,60,"SYNTHETIC demo row — fictional company; near-miss name distractor"

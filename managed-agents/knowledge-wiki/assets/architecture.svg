@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 700" font-family="Georgia, serif">
+<style>:root{--acc:#2a78d6;--bg:#fcfcfb;--card:#ffffff;--ink:#0b0b0b;--line:#dedcd5;--muted:#73726c;--s1:#2a78d6;--s3:#eda100;--sec:#52514e;}
+.d2-canvas{fill:color-mix(in srgb,var(--s3) 6%,var(--bg));}.d2-box{fill:var(--card);stroke:var(--ink);stroke-width:1.3;}.d2-hero{fill:#eb6834;stroke:var(--ink);stroke-width:1.6;stroke-dasharray:6 4;}.d2-bubble{fill:color-mix(in srgb,var(--s1) 14%,var(--card));stroke:color-mix(in srgb,var(--s1) 45%,var(--line));stroke-width:1.2;}.d2-web{fill:color-mix(in srgb,var(--s3) 14%,var(--card));stroke:var(--line);stroke-width:1.2;}.d2-t{font:700 17px Charter,Georgia,serif;fill:var(--ink);}.d2-hero-t{font:700 19px Charter,Georgia,serif;fill:#fff;}.d2-m{font:italic 11px Charter,Georgia,serif;fill:var(--muted);}.d2-hero-m{font:italic 11px Charter,Georgia,serif;fill:#ffe3d6;}.d2-b{font:12px Charter,Georgia,serif;fill:var(--sec);}.d2-hero-b{font:12px Charter,Georgia,serif;fill:#fff;}.d2-lbl{font:italic 11.5px Charter,Georgia,serif;fill:var(--muted);}.d2-cap{font:italic 12px Charter,Georgia,serif;fill:var(--muted);}.d2-fl{stroke:var(--ink);stroke-width:1.6;}.d2-fl2{stroke:var(--muted);stroke-width:1.4;opacity:.75;}.d2-db{fill:var(--card);stroke:var(--ink);stroke-width:1.3;}.d2-db-kg{fill:color-mix(in srgb,var(--s1) 10%,var(--card));stroke:var(--acc);stroke-width:2;}.d2-band{fill:none;stroke:var(--muted);stroke-width:1;stroke-dasharray:3 5;opacity:.6;}.d2-bandlbl{font:700 12px ui-monospace,Menlo,monospace;letter-spacing:.08em;fill:var(--muted);}.d2-step{fill:var(--ink);}.d2-stepn{font:700 12px ui-monospace,Menlo,monospace;fill:var(--bg);}
+svg{background:#faf7f2}</style>
+
+<defs>
+<marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--ink)"/></marker>
+<marker id="ah2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" fill="var(--muted)"/></marker>
+</defs>
+<rect class="d2-canvas" x="0" y="0" width="960" height="700" rx="12"/>
+
+<rect class="d2-band" x="16" y="16" width="928" height="256" rx="10"/>
+<text class="d2-bandlbl" x="32" y="40">FLOW 1 &#183; BUILD THE WIKI &#8212; extract &amp; resolve, then dream</text>
+
+<rect class="d2-band" x="16" y="516" width="928" height="168" rx="10"/>
+<text class="d2-bandlbl" x="32" y="540">FLOW 2 &#183; QUERY THE WIKI &#8212; every analyst question</text>
+
+<path class="d2-db" d="M 50,96 v 96 a 75.0,12 0 0 0 150,0 v -96"/><ellipse class="d2-db" cx="125.0" cy="96" rx="75.0" ry="12"/>
+<text class="d2-t" x="125" y="122" text-anchor="middle" style="font-size:14px">Document corpus</text>
+<text class="d2-b" x="125" y="142" text-anchor="middle">filings · deck · notes</text>
+<text class="d2-m" x="125" y="160" text-anchor="middle">fetched from public sources</text>
+
+<rect class="d2-box" x="270" y="66" width="240" height="156" rx="14"/>
+<circle class="d2-step" cx="270" cy="66" r="11"/><text class="d2-stepn" x="270" y="70" text-anchor="middle">1</text>
+<text class="d2-t" x="390" y="96" text-anchor="middle">Extract and Resolve Agent</text>
+<text class="d2-m" x="390" y="114" text-anchor="middle">Sonnet 5 &#183; one session per doc,</text>
+<text class="d2-m" x="390" y="130" text-anchor="middle">then a resolve pass over the gap list</text>
+<text class="d2-b" x="390" y="154" text-anchor="middle">files facts with [source | as-of]</text>
+<text class="d2-b" x="390" y="172" text-anchor="middle">gaps &#8594; open_questions.md, then</text>
+<text class="d2-b" x="390" y="190" text-anchor="middle">researched on SEC EDGAR (web tools)</text>
+
+<rect class="d2-hero" x="700" y="66" width="230" height="132" rx="14"/>
+<circle cx="700" cy="66" r="11" fill="#fff" stroke="var(--ink)" stroke-width="1"/><text x="700" y="70" text-anchor="middle" style="font:700 12px ui-monospace,Menlo,monospace;fill:#eb6834">2</text>
+<text class="d2-hero-t" x="815" y="100" text-anchor="middle">Steered dream</text>
+<text class="d2-hero-m" x="815" y="118" text-anchor="middle">POST /v1/dreams &#183; claude-sonnet-5</text>
+<text class="d2-hero-b" x="815" y="142" text-anchor="middle">dedupe &#183; index</text>
+<text class="d2-hero-b" x="815" y="160" text-anchor="middle">write ranked escalations.md</text>
+<text class="d2-hero-m" x="815" y="182" text-anchor="middle">reads the wiki + transcripts</text>
+
+<path class="d2-db-kg" d="M 410,360 v 116 a 95.0,12 0 0 0 190,0 v -116"/><ellipse class="d2-db-kg" cx="505.0" cy="360" rx="95.0" ry="12"/>
+<text class="d2-t" x="505" y="396" text-anchor="middle">Knowledge Wiki</text>
+<text class="d2-m" x="505" y="426" text-anchor="middle">versioned memory store</text>
+<text class="d2-b" x="505" y="446" text-anchor="middle">index &#183; entities &#183; escalations</text>
+
+<rect class="d2-box" x="380" y="564" width="250" height="104" rx="14"/>
+<circle class="d2-step" cx="380" cy="564" r="11"/><text class="d2-stepn" x="380" y="568" text-anchor="middle">3</text>
+<text class="d2-t" x="505" y="594" text-anchor="middle">Analyst agents (Sonnet 5)</text>
+<text class="d2-m" x="505" y="612" text-anchor="middle">fresh Managed Agents session per question</text>
+<text class="d2-b" x="505" y="634" text-anchor="middle">answer from the wiki only,</text>
+<text class="d2-b" x="505" y="652" text-anchor="middle">cite [source | as-of] provenance</text>
+
+<path class="d2-bubble" d="M60,572 h220 a10,10 0 0 1 10,10 v56 a10,10 0 0 1 -10,10 h-150 l-14,16 -2,-16 h-54 a10,10 0 0 1 -10,-10 v-56 a10,10 0 0 1 10,-10 z"/>
+<text class="d2-m" x="180" y="596" text-anchor="middle">analyst questions</text>
+<text class="d2-b" x="180" y="618" text-anchor="middle">"which EBITDA is comparable?"</text>
+<text class="d2-b" x="180" y="636" text-anchor="middle">"anything worth escalating?"</text>
+
+<rect class="d2-web" x="710" y="572" width="200" height="84" rx="14"/>
+<text class="d2-t" x="810" y="602" text-anchor="middle" style="font-size:14px">Sourced answers</text>
+<text class="d2-b" x="810" y="624" text-anchor="middle">every fact carries provenance;</text>
+<text class="d2-b" x="810" y="642" text-anchor="middle">"not in the corpus" on a miss</text>
+
+<line class="d2-fl" x1="200" y1="144" x2="262" y2="144" marker-end="url(#ah)"/>
+<text class="d2-lbl" x="231" y="132" text-anchor="middle">read once</text>
+
+<line class="d2-fl2" x1="510" y1="132" x2="692" y2="132" marker-end="url(#ah2)"/>
+<text class="d2-lbl" x="601" y="120" text-anchor="middle">transcripts feed the dream</text>
+
+<line class="d2-fl" x1="420" y1="222" x2="482" y2="342" marker-end="url(#ah)"/>
+<text class="d2-lbl" x="400" y="292" text-anchor="end">writes wiki + gap resolutions</text>
+
+<line class="d2-fl2" x1="560" y1="344" x2="742" y2="202" marker-end="url(#ah2)"/>
+<text class="d2-lbl" x="672" y="292" text-anchor="start">reads</text>
+
+<line class="d2-fl" x1="850" y1="198" x2="592" y2="358" marker-end="url(#ah)"/>
+<text class="d2-lbl" x="790" y="292" text-anchor="start">writes a new,</text>
+<text class="d2-lbl" x="790" y="308" text-anchor="start">consolidated version</text>
+
+<line class="d2-fl" x1="490" y1="500" x2="490" y2="556" marker-end="url(#ah)"/>
+<text class="d2-lbl" x="478" y="516" text-anchor="end">read_only attach</text>
+<line class="d2-fl2" x1="540" y1="556" x2="540" y2="500" marker-end="url(#ah2)" stroke-dasharray="5 4"/>
+<circle class="d2-step" cx="540" cy="552" r="11"/><text class="d2-stepn" x="540" y="556" text-anchor="middle">4</text>
+<text class="d2-lbl" x="556" y="524">Sonnet 5 dream &#183; analyst transcripts</text>
+<text class="d2-lbl" x="556" y="540">the wiki learns from usage</text>
+
+<line class="d2-fl" x1="290" y1="610" x2="372" y2="610" marker-end="url(#ah)"/>
+<line class="d2-fl" x1="630" y1="614" x2="702" y2="614" marker-end="url(#ah)"/>
+
+<text class="d2-cap" x="480" y="692" text-anchor="middle">the two flows share exactly one thing: the knowledge wiki store. Build runs once per corpus; query runs per question (~69k tokens).</text>
+</svg>

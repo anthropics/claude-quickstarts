@@ -1,0 +1,78 @@
+{
+ "deal": "Squarespace, Inc. / Permira take-private (2024) \u2014 all documents are public SEC EDGAR filings",
+ "tier": "quickstart",
+ "documents": [
+  {
+   "slug": "4_20241017_2596",
+   "form": "4",
+   "filed": "2024-10-17",
+   "accession": "0000950142-24-002596",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000095014224002596/xslF345X05/es240545781_4-sqsp.xml",
+   "bytes": 30681,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20241017",
+   "form": "8-K",
+   "filed": "2024-10-17",
+   "accession": "0001140361-24-043631",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124043631/ny20030653x27_8k.htm",
+   "bytes": 410535,
+   "tier": "mini"
+  },
+  {
+   "slug": "4_20241016_2586",
+   "form": "4",
+   "filed": "2024-10-16",
+   "accession": "0000950142-24-002586",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000095014224002586/xslF345X05/es240545269_4-sqsp.xml",
+   "bytes": 23597,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240909",
+   "form": "8-K",
+   "filed": "2024-09-09",
+   "accession": "0001140361-24-040626",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124040626/ny20030653x13_8k.htm",
+   "bytes": 1633560,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240802",
+   "form": "8-K",
+   "filed": "2024-08-02",
+   "accession": "0001496963-24-000070",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000070/sqsp-20240802.htm",
+   "bytes": 609335,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240703",
+   "form": "8-K",
+   "filed": "2024-07-03",
+   "accession": "0001496963-24-000061",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000061/sqsp-20240628.htm",
+   "bytes": 154904,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240621",
+   "form": "8-K",
+   "filed": "2024-06-21",
+   "accession": "0001496963-24-000057",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000057/sqsp-20240621.htm",
+   "bytes": 156237,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240507",
+   "form": "8-K",
+   "filed": "2024-05-07",
+   "accession": "0001496963-24-000029",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000029/sqsp-20240507.htm",
+   "bytes": 534075,
+   "tier": "mini"
+  }
+ ]
+}
