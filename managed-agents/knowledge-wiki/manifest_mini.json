@@ -1,0 +1,240 @@
+{
+ "deal": "Squarespace, Inc. / Permira take-private (2024) \u2014 all documents are public SEC EDGAR filings",
+ "tier": "mini",
+ "documents": [
+  {
+   "slug": "4_20241017_2596",
+   "form": "4",
+   "filed": "2024-10-17",
+   "accession": "0000950142-24-002596",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000095014224002596/xslF345X05/es240545781_4-sqsp.xml",
+   "bytes": 30681,
+   "tier": "mini"
+  },
+  {
+   "slug": "4_20241017_5390",
+   "form": "4",
+   "filed": "2024-10-17",
+   "accession": "0000950170-24-115390",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000095017024115390/xslF345X05/ownership.xml",
+   "bytes": 21066,
+   "tier": "mini"
+  },
+  {
+   "slug": "4_20241017_5385",
+   "form": "4",
+   "filed": "2024-10-17",
+   "accession": "0000950170-24-115385",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000095017024115385/xslF345X05/ownership.xml",
+   "bytes": 14926,
+   "tier": "mini"
+  },
+  {
+   "slug": "s-8pos_20241017",
+   "form": "S-8 POS",
+   "filed": "2024-10-17",
+   "accession": "0001140361-24-043633",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124043633/ny20030653x25_s8pos.htm",
+   "bytes": 26329,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc13e3a_20241017",
+   "form": "SC 13E3/A",
+   "filed": "2024-10-17",
+   "accession": "0001140361-24-043632",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124043632/ny20030653x23_sc13e3a.htm",
+   "bytes": 43437,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20241017",
+   "form": "8-K",
+   "filed": "2024-10-17",
+   "accession": "0001140361-24-043631",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124043631/ny20030653x27_8k.htm",
+   "bytes": 410535,
+   "tier": "mini"
+  },
+  {
+   "slug": "25-nse_20241017",
+   "form": "25-NSE",
+   "filed": "2024-10-17",
+   "accession": "0000876661-24-001010",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000087666124001010/xslF25X02/primary_doc.xml",
+   "bytes": 4154,
+   "tier": "mini"
+  },
+  {
+   "slug": "4_20241016_2586",
+   "form": "4",
+   "filed": "2024-10-16",
+   "accession": "0000950142-24-002586",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000095014224002586/xslF345X05/es240545269_4-sqsp.xml",
+   "bytes": 23597,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc14d9a_20241015",
+   "form": "SC 14D9/A",
+   "filed": "2024-10-15",
+   "accession": "0001140361-24-043368",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124043368/ny20030653x24_sc14d9a.htm",
+   "bytes": 35917,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc13e3a_20241015",
+   "form": "SC 13E3/A",
+   "filed": "2024-10-15",
+   "accession": "0001140361-24-043334",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124043334/ny20035858x6_sctota.htm",
+   "bytes": 467097,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc13e3a_20241001",
+   "form": "SC 13E3/A",
+   "filed": "2024-10-01",
+   "accession": "0001140361-24-042502",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124042502/ny20030653x21_sc13e3a.htm",
+   "bytes": 170358,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc14d9a_20241001",
+   "form": "SC 14D9/A",
+   "filed": "2024-10-01",
+   "accession": "0001140361-24-042490",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124042490/ny20030653x22_sc14d9a.htm",
+   "bytes": 75601,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc13e3a_20240926",
+   "form": "SC 13E3/A",
+   "filed": "2024-09-26",
+   "accession": "0001140361-24-041972",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124041972/ny20030653x18_sc13e3a.htm",
+   "bytes": 104493,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc13e3a_20240917",
+   "form": "SC 13E3/A",
+   "filed": "2024-09-17",
+   "accession": "0001140361-24-041290",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124041290/ny20035858x2_sctota.htm",
+   "bytes": 556034,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc13e3_20240917",
+   "form": "SC 13E3",
+   "filed": "2024-09-17",
+   "accession": "0001140361-24-041282",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124041282/ny20030653x17_sc13e3.htm",
+   "bytes": 251250,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240909",
+   "form": "8-K",
+   "filed": "2024-09-09",
+   "accession": "0001140361-24-040626",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124040626/ny20030653x13_8k.htm",
+   "bytes": 1633560,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc13e3a_20240802",
+   "form": "SC 13E3/A",
+   "filed": "2024-08-02",
+   "accession": "0001140361-24-035563",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124035563/ny20030653x7_sc13e3a.htm",
+   "bytes": 273157,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240802",
+   "form": "8-K",
+   "filed": "2024-08-02",
+   "accession": "0001496963-24-000070",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000070/sqsp-20240802.htm",
+   "bytes": 609335,
+   "tier": "mini"
+  },
+  {
+   "slug": "sc13e3a_20240722",
+   "form": "SC 13E3/A",
+   "filed": "2024-07-22",
+   "accession": "0001140361-24-033655",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000114036124033655/ny20030653x4_sc13e3a.htm",
+   "bytes": 274031,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240703",
+   "form": "8-K",
+   "filed": "2024-07-03",
+   "accession": "0001496963-24-000061",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000061/sqsp-20240628.htm",
+   "bytes": 154904,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240621",
+   "form": "8-K",
+   "filed": "2024-06-21",
+   "accession": "0001496963-24-000057",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000057/sqsp-20240621.htm",
+   "bytes": 156237,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240606",
+   "form": "8-K",
+   "filed": "2024-06-06",
+   "accession": "0001496963-24-000051",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000051/sqsp-20240604.htm",
+   "bytes": 178637,
+   "tier": "mini"
+  },
+  {
+   "slug": "defa14a_20240513",
+   "form": "DEFA14A",
+   "filed": "2024-05-13",
+   "accession": "0001496963-24-000046",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000046/sqsp-pre14a_2x05132024.htm",
+   "bytes": 33555,
+   "tier": "mini"
+  },
+  {
+   "slug": "defa14a_20240513_0044",
+   "form": "DEFA14A",
+   "filed": "2024-05-13",
+   "accession": "0001496963-24-000044",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000044/sqsp-pre14ax05132024.htm",
+   "bytes": 37457,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240507",
+   "form": "8-K",
+   "filed": "2024-05-07",
+   "accession": "0001496963-24-000029",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000029/sqsp-20240507.htm",
+   "bytes": 534075,
+   "tier": "mini"
+  },
+  {
+   "slug": "8-k_20240228",
+   "form": "8-K",
+   "filed": "2024-02-28",
+   "accession": "0001496963-24-000007",
+   "url": "https://www.sec.gov/Archives/edgar/data/1496963/000149696324000007/sqsp-20240228.htm",
+   "bytes": 644501,
+   "tier": "mini"
+  }
+ ]
+}

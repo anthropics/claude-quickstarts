@@ -1,0 +1,12 @@
+# The Anthropic SDK build with `client.beta.dreams` is not on PyPI yet.
+# Install the research-preview wheel per the README's Quickstart section
+# instead of `pip install anthropic`.
+httpx>=0.27
+python-docx>=1.1
+pillow>=10.0
+python-dotenv>=1.0
+jupyter>=1.0
+# Used by the normalize_any() helper for .xlsx / .pptx corpora; the
+# committed EDGAR run doesn't need them, but your own document rooms may.
+openpyxl>=3.1
+python-pptx>=0.6
