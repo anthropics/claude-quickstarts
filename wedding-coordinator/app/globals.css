@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html,
+body {
+  height: 100%;
+}
+
+::selection {
+  background: rgba(201, 162, 75, 0.35);
+}
+
+/* Thin gold scrollbar to match the coordinator's palette */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #c9a24b33 transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+}
+*::-webkit-scrollbar-thumb {
+  background-color: #c9a24b4d;
+  border-radius: 999px;
+}
+
+.prose-wedding table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+}
+.prose-wedding th,
+.prose-wedding td {
+  border: 1px solid rgba(201, 162, 75, 0.25);
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+}
+.prose-wedding th {
+  background: rgba(201, 162, 75, 0.12);
+  color: #e3caa0;
+  font-family: Georgia, Cambria, "Times New Roman", serif;
+  font-weight: 600;
+}
+.prose-wedding tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.prose-wedding h1,
+.prose-wedding h2,
+.prose-wedding h3 {
+  font-family: Georgia, Cambria, "Times New Roman", serif;
+  color: #e3caa0;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+}
+.prose-wedding p {
+  margin: 0.5rem 0;
+  line-height: 1.6;
+}
+.prose-wedding ul,
+.prose-wedding ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+.prose-wedding li {
+  margin: 0.25rem 0;
+  line-height: 1.5;
+}
+.prose-wedding li::marker {
+  color: #c9a24b;
+}
+.prose-wedding strong {
+  color: #f6f1e7;
+}
+.prose-wedding blockquote {
+  border-left: 2px solid #c9a24b;
+  padding-left: 1rem;
+  color: #a79c8b;
+  font-style: italic;
+  margin: 0.75rem 0;
+}
+.prose-wedding code {
+  background: rgba(201, 162, 75, 0.1);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+.prose-wedding hr {
+  border-color: rgba(201, 162, 75, 0.2);
+  margin: 1.25rem 0;
+}

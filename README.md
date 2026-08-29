@@ -56,6 +56,12 @@ The browser-based companion to the Antenna Azimuth Mapper above: a real-time web
 
 [Go to Antenna Azimuth Mapper Web App Quickstart](./antenna-azimuth-webapp)
 
+### Wedding Coordinator
+
+An elite VIP wedding coordinator powered by Claude. This project demonstrates how to turn a detailed persona system prompt into an app: a parameter intake form feeds the wedding's date, venue, budget, guest count, style, and priorities into the prompt, and a streaming chat interface renders Claude's plan, including Markdown tables for the budget breakdown and day-of timeline.
+
+[Go to Wedding Coordinator Quickstart](./wedding-coordinator)
+
 ### Managed Agents: Chat SDK
 
 A browser chat app powered by Claude Managed Agents and Vercel's Chat SDK. This project demonstrates how to pair a persistent Managed Agents session per conversation with a chat surface: a research analyst researches with web search and streams its brief token by token while a live feed shows the tool calls. The same handler runs on Slack, Teams, Discord, Telegram, or WhatsApp by swapping the Chat SDK adapter.
