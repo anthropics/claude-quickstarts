@@ -123,3 +123,22 @@ def test_shell_shares_scratch_dir() -> None:
         view = editor.execute(command="view", path="frombash.txt")
         assert view.output is not None
         assert "written-by-bash" in view.output
+
+
+@pytest.mark.parametrize(
+    "before,line,expected",
+    [
+        ("first", 1, "first\nsecond\n"),
+        ("first\n", 1, "first\nsecond\n"),
+        ("first", 0, "second\nfirst"),
+        ("", 0, "second\n"),
+    ],
+)
+def test_insert_preserves_line_boundary(
+    tool: EditorTool, tmp_path: Path, before: str, line: int, expected: str
+) -> None:
+    path = tmp_path / "boundary.txt"
+    path.write_text(before, encoding="utf-8")
+    result = tool.execute(command="insert", path="boundary.txt", insert_line=line, new_str="second")
+    assert not result.is_error
+    assert path.read_text(encoding="utf-8") == expected
