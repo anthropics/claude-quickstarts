@@ -67,10 +67,15 @@ class _BatchTool(Tool):
         self._inner = inner
 
     def execute(self, *, actions: list[dict[str, Any]], **_: Any) -> ToolResult:
+        if not isinstance(actions, list) or not actions:
+            return ToolResult(error="actions must be a non-empty list")
         done: list[tuple[str, ToolResult]] = []
         for i, step in enumerate(actions):
-            label = f"{i}:{step.get('action', '?')}"
+            label = f"{i}:?"
             try:
+                if not isinstance(step, dict):
+                    raise ValueError("each action must be an object")
+                label = f"{i}:{step.get('action', '?')}"
                 res = self._inner.execute(**step)
             except Exception as e:
                 res = ToolResult(error=f"{type(e).__name__}: {e}")
