@@ -62,6 +62,18 @@ A deal-room knowledge wiki built with Claude Managed Agents. This project demons
 
 [Go to Managed Agents Knowledge Wiki Quickstart](./managed-agents/knowledge-wiki)
 
+### Managed Agents: Sentry
+
+A scheduled Sentry triage agent built on Claude Managed Agents. This project demonstrates a deployment that starts a session on a cron schedule with no host process, and a vault environment-variable credential that lets `sentry-cli` authenticate inside the sandbox while the real token stays outside it: the egress proxy substitutes it only on requests to Sentry's hosts.
+
+[Go to Managed Agents Sentry Quickstart](./managed-agents/sentry)
+
+### Managed Agents: Slack
+
+A Slack bot backed by a Claude Managed Agent. This project demonstrates a stateless webhook bridge: an `@mention` creates a Managed Agents session with the channel and thread stored in session metadata, and the `session.status_idled` webhook reads that metadata back to post the reply in-thread. There is no database and no long-lived connection.
+
+[Go to Managed Agents Slack Quickstart](./managed-agents/slack)
+
 ## General Usage
 
 Each quickstart project comes with its own README and setup instructions. Generally, you'll follow these steps:
