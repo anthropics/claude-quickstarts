@@ -50,3 +50,18 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   container so each session mounts a memory store at `/mnt/memory`
   and syncs it back, and keeps the environment key out of the
   containers with a per-session token.
+
+- **[sentry/](sentry/)** runs a Sentry triage agent on a schedule
+  with no host process. A deployment starts a session on a cron
+  expression, the agent pulls the last 24 hours of issues with
+  `sentry-cli`, and writes a severity-ranked report. The Sentry token
+  lives in a vault: the sandbox holds only a placeholder, and the
+  egress proxy swaps in the real token on requests to Sentry's API
+  hosts and nowhere else.
+
+- **[slack/](slack/)** answers `@mentions` in Slack with a threaded
+  reply, over a stateless Bun webhook bridge. The Slack event creates
+  a session with the channel and thread stored in session `metadata`,
+  the handler acks inside Slack's 3-second window, and the
+  `session.status_idled` webhook reads that metadata back to post the
+  reply. No database and no held connection.
