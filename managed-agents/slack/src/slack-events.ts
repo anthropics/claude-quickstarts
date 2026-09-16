@@ -73,13 +73,17 @@ export async function handleSlackEvents(req: Request): Promise<Response> {
     channel: ev.channel,
     thread_ts: ev.thread_ts ?? ev.ts,
     user: ev.user,
-    text: stripMention(ev.text),
+    text: stripMention(ev.text, payload.authorizations?.[0]?.user_id),
     team: payload.team_id,
   }).catch((err) => console.error("[slack] kickoff error:", err));
 
   return new Response(null, { status: 204 });
 }
 
-function stripMention(text: string): string {
-  return text.replace(/<@[A-Z0-9]+>/g, "").trim();
+// Remove the bot's own @mention, which carries no meaning for the agent, and
+// leave everyone else's in place: "summarize what <@U0456> said" needs it.
+// Slack writes mentions as <@U123> or <@U123|name>.
+function stripMention(text: string, botUserId: string | undefined): string {
+  if (!botUserId) return text.trim();
+  return text.replace(new RegExp(`<@${botUserId}(\\|[^>]*)?>`, "g"), "").trim();
 }

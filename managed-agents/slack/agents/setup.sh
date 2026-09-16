@@ -5,6 +5,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 [ -f .env ] || cp .env.example .env
+# Only .env decides create vs update. An ID left exported in the shell by
+# another quickstart would otherwise send this YAML to that quickstart's agent.
+unset CLAUDE_AGENT_ID CLAUDE_ENVIRONMENT_ID
 set -a; . ./.env; set +a
 
 if [ -z "${CLAUDE_ENVIRONMENT_ID:-}" ]; then
