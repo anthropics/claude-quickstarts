@@ -1,115 +1,273 @@
 #!/usr/bin/env python3
-"""
-Autonomous Coding Agent Demo
-============================
+"""Autonomous coding harness entrypoint (V3.7.0 runtime, legacy/orchestrated CLI)."""
 
-A minimal harness demonstrating long-running autonomous coding with Claude.
-This script implements the two-agent pattern (initializer + coding agent) and
-incorporates all the strategies from the long-running agents guide.
-
-Example Usage:
-    python autonomous_agent_demo.py --project-dir ./claude_clone_demo
-    python autonomous_agent_demo.py --project-dir ./claude_clone_demo --max-iterations 5
-"""
+from __future__ import annotations
 
 import argparse
 import asyncio
-import os
+from functools import partial
 from pathlib import Path
+from typing import cast
 
-from agent import run_autonomous_agent
+from agent import run_autonomous_agent, run_phase_session
+from artifacts import ArtifactPaths, write_validated_json
+from client import AuthMode, create_client, validate_auth_configuration
+from orchestrator import ModelConfig, Orchestrator
+from provider_resolution import resolve_provider_backend
+from progress import print_progress_summary
+from prompts import copy_spec_to_project
+
+DEFAULT_MODEL = "claude-opus-4-6"
+DEFAULT_PLANNER_MODEL = "claude-opus-4-6"
+DEFAULT_BUILDER_MODEL = "claude-opus-4-6"
+DEFAULT_EVALUATOR_MODEL = "claude-opus-4-6"
+OFFICIAL_MODES = ("legacy", "orchestrated")
+DEPRECATED_MODE_ALIASES = {"v1": "legacy", "v3_1": "orchestrated"}
+LEGACY_DRY_RUN_EXIT_CODE = 2
 
 
-# Configuration
-DEFAULT_MODEL = "claude-sonnet-4-5-20250929"
+def _parse_mode(value: str) -> str:
+    if value in OFFICIAL_MODES or value in DEPRECATED_MODE_ALIASES:
+        return value
+    if value == "v2":
+        raise argparse.ArgumentTypeError("unsupported mode 'v2'; use 'legacy' or 'orchestrated'")
+    raise argparse.ArgumentTypeError(f"unsupported mode '{value}'; use 'legacy' or 'orchestrated'")
+
+
+def _resolve_mode(mode: str) -> str:
+    canonical = DEPRECATED_MODE_ALIASES.get(mode, mode)
+    if mode != canonical:
+        print(
+            f"[WARNING] --mode {mode} is a deprecated alias for {canonical}. "
+            "Use the canonical name; the alias will be removed in a future release."
+        )
+    return canonical
+
+
+class _DryRunClient:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return False
+
+
+def _dry_run_client_factory(project_dir: Path, model: str, phase: str):
+    del project_dir, model, phase
+    return _DryRunClient()
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command line arguments."""
-    parser = argparse.ArgumentParser(
-        description="Autonomous Coding Agent Demo - Long-running agent harness",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  # Start fresh project
-  python autonomous_agent_demo.py --project-dir ./claude_clone
-
-  # Use a specific model
-  python autonomous_agent_demo.py --project-dir ./claude_clone --model claude-sonnet-4-5-20250929
-
-  # Limit iterations for testing
-  python autonomous_agent_demo.py --project-dir ./claude_clone --max-iterations 5
-
-  # Continue existing project
-  python autonomous_agent_demo.py --project-dir ./claude_clone
-
-Environment Variables:
-  ANTHROPIC_API_KEY    Your Anthropic API key (required)
-        """,
+    parser = argparse.ArgumentParser(description="Autonomous Coding Harness")
+    parser.add_argument("--project-dir", type=Path, default=Path("./autonomous_demo_project"))
+    parser.add_argument(
+        "--mode",
+        type=_parse_mode,
+        default="orchestrated",
+        metavar="{legacy,orchestrated}",
+        help="Execution mode. Official modes: legacy, orchestrated. Deprecated aliases: v1, v3_1.",
     )
 
-    parser.add_argument(
-        "--project-dir",
-        type=Path,
-        default=Path("./autonomous_demo_project"),
-        help="Directory for the project (default: generations/autonomous_demo_project). Relative paths automatically placed in generations/ directory.",
-    )
+    parser.add_argument("--model", type=str, default=None, help="Single model override for all phases")
+    parser.add_argument("--planner-model", type=str, default=DEFAULT_PLANNER_MODEL)
+    parser.add_argument("--builder-model", type=str, default=DEFAULT_BUILDER_MODEL)
+    parser.add_argument("--evaluator-model", type=str, default=DEFAULT_EVALUATOR_MODEL)
 
+    parser.add_argument("--max-rounds", type=int, default=3)
+    parser.add_argument("--max-iterations", type=int, default=None, help="Legacy mode only")
     parser.add_argument(
-        "--max-iterations",
+        "--target-tests",
         type=int,
         default=None,
-        help="Maximum number of agent iterations (default: unlimited)",
-    )
+        help="Target minimum test count for planning/initialization prompts across modes (default: 200).",
 
+    )
+    parser.add_argument("--resume", action="store_true")
+    parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--planner-only", action="store_true")
+    parser.add_argument("--qa-only", action="store_true")
     parser.add_argument(
-        "--model",
-        type=str,
-        default=DEFAULT_MODEL,
-        help=f"Claude model to use (default: {DEFAULT_MODEL})",
+        "--provider",
+        choices=["claude", "openai"],
+        default="claude",
+        help="LLM provider to use for phase execution",
     )
-
+    parser.add_argument(
+        "--auth-mode",
+        choices=["api_key", "cli", "auto"],
+        default="api_key",
+        help="Authentication mode for the selected provider runtime",
+    )
+    parser.add_argument(
+        "--llm-contract-review",
+        action="store_true",
+        help="Enable optional evaluator-model arbitration during sprint contract negotiation.",
+    )
     return parser.parse_args()
 
 
-def main() -> None:
-    """Main entry point."""
-    args = parse_args()
+def _normalize_project_dir(project_dir: Path) -> Path:
+    if project_dir.is_absolute():
+        return project_dir
 
-    # Check for API key
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY environment variable not set")
-        print("\nGet your API key from: https://console.anthropic.com/")
-        print("\nThen set it:")
-        print("  export ANTHROPIC_API_KEY='your-api-key-here'")
+    if ".." in project_dir.parts:
+        raise ValueError("Relative --project-dir must stay within generations/ and cannot contain '..'.")
+
+    cleaned_parts = [part for part in project_dir.parts if part not in {".", ""}]
+    cleaned = Path(*cleaned_parts) if cleaned_parts else Path(".")
+    if ".." in cleaned.parts:
+        raise ValueError("Relative --project-dir must stay within generations/ and cannot contain '..'.")
+    if cleaned.parts and cleaned.parts[0] == "generations":
+        return cleaned
+
+    return Path("generations") / cleaned
+
+
+async def _run_orchestrated(args: argparse.Namespace, project_dir: Path) -> None:
+    copy_spec_to_project(project_dir)
+    auth_mode = cast(AuthMode, args.auth_mode)
+    resolved_backend = resolve_provider_backend(args.provider, auth_mode)
+
+    if args.model:
+        model_config = ModelConfig(args.model, args.model, args.model)
+    else:
+        model_config = ModelConfig(
+            planner_model=args.planner_model,
+            builder_model=args.builder_model,
+            evaluator_model=args.evaluator_model,
+        )
+
+    if args.dry_run:
+
+        async def dry_runner(
+            project_dir: Path,
+            model: str,
+            prompt: str,
+            phase: str,
+            client=None,
+        ) -> str:
+            del prompt, client
+            if phase == "planner":
+                paths = ArtifactPaths(project_dir)
+                paths.ensure_dirs()
+                write_validated_json(
+                    paths.acceptance_criteria,
+                    {
+                        "project_name": project_dir.name,
+                        "criteria": [
+                            {
+                                "id": "AC-DRYRUN-001",
+                                "description": "Dry-run planning artifact generated successfully.",
+                                "priority": "p0",
+                            }
+                        ],
+                    },
+                    "acceptance_criteria",
+                )
+                write_validated_json(
+                    paths.work_backlog,
+                    {
+                        "items": [
+                            {
+                                "id": "WB-DRYRUN-001",
+                                "title": "Dry-run backlog item",
+                                "status": "todo",
+                                "source_feature_index": 0,
+                            }
+                        ]
+                    },
+                    "work_backlog",
+                )
+                paths.expanded_spec.write_text("# Expanded Spec\n\nDry-run planner artifact.\n")
+                paths.architecture.write_text("# Architecture\n\nDry-run planner artifact.\n")
+            return f"[dry-run] phase={phase} model={model} project={project_dir}"
+
+        runner = dry_runner
+    else:
+        runner = partial(run_phase_session, auth_mode=args.auth_mode, provider=args.provider)
+
+    orchestrator_kwargs = {}
+    if args.dry_run:
+        orchestrator_kwargs["client_factory"] = _dry_run_client_factory
+    else:
+        orchestrator_kwargs["client_factory"] = partial(create_client, auth_mode=auth_mode)
+        orchestrator_kwargs["client_factory"] = partial(
+            create_client,
+            auth_mode=auth_mode,
+            provider=args.provider,
+        )
+    orchestrator_kwargs["shared_session_enabled"] = resolved_backend.capabilities.supports_shared_session
+
+    orchestrator = Orchestrator(
+        project_dir=project_dir,
+        model_config=model_config,
+        max_rounds=args.max_rounds,
+        phase_runner=runner,
+        llm_contract_review=args.llm_contract_review,
+        target_test_count=args.target_tests or 200,
+        **orchestrator_kwargs,
+    )
+    state = await orchestrator.run(
+        resume=args.resume,
+        planner_only=args.planner_only,
+        qa_only=args.qa_only,
+    )
+    print(f"Final status: {state.status.value}, completed={state.completed}")
+    print_progress_summary(project_dir)
+
+
+def main() -> None:
+    args = parse_args()
+    mode = _resolve_mode(args.mode)
+    auth_mode = cast(AuthMode, args.auth_mode)
+    target_tests = args.target_tests
+    if target_tests is None:
+        target_tests = 200
+        print("[WARNING] --target-tests not provided; defaulting to 200.")
+    elif target_tests <= 0:
+        print("Error: --target-tests must be a positive integer.")
         return
 
-    # Automatically place projects in generations/ directory unless already specified
-    project_dir = args.project_dir
-    if not str(project_dir).startswith("generations/"):
-        # Convert relative paths to be under generations/
-        if project_dir.is_absolute():
-            # If absolute path, use as-is
-            pass
-        else:
-            # Prepend generations/ to relative paths
-            project_dir = Path("generations") / project_dir
-
-    # Run the agent
-    try:
-        asyncio.run(
-            run_autonomous_agent(
-                project_dir=project_dir,
-                model=args.model,
-                max_iterations=args.max_iterations,
-            )
+    if mode == "legacy" and args.dry_run:
+        print(
+            "Error: --dry-run is not supported with --mode legacy. "
+            "The V1 runtime cannot complete a meaningful offline run; use --mode orchestrated --dry-run "
+            "or the workflow live manuel for real SDK/LLM verification."
         )
+        raise SystemExit(LEGACY_DRY_RUN_EXIT_CODE)
+
+    if not args.dry_run:
+        try:
+            validate_auth_configuration(auth_mode, provider=args.provider)
+        except ValueError as exc:
+            print(f"Error: {exc}")
+            return
+
+    try:
+        project_dir = _normalize_project_dir(args.project_dir)
+    except ValueError as exc:
+        print(f"Error: {exc}")
+        return
+
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    try:
+        if mode == "legacy":
+            model = args.model or DEFAULT_MODEL
+            asyncio.run(
+                run_autonomous_agent(
+                    project_dir=project_dir,
+                    model=model,
+                    max_iterations=args.max_iterations,
+                    auth_mode=auth_mode,
+                    provider=args.provider,
+                    target_test_count=target_tests,
+                )
+            )
+        else:
+            asyncio.run(_run_orchestrated(args, project_dir))
     except KeyboardInterrupt:
-        print("\n\nInterrupted by user")
-        print("To resume, run the same command again")
-    except Exception as e:
-        print(f"\nFatal error: {e}")
-        raise
+        print("\nInterrupted by user. Re-run with --resume to continue.")
 
 
 if __name__ == "__main__":

@@ -1,1 +1,3 @@
 claude-code-sdk>=0.0.25
+jsonschema>=4.22.0
+pytest>=8.0.0
