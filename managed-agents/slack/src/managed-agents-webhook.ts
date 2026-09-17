@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ErrorCode, WebClient } from "@slack/web-api";
+import { verifyRoute } from "./route-signature";
 
 const client = new Anthropic();
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
@@ -11,6 +12,13 @@ const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
 // would lose the reply with no retry left.
 const handledEventIds = new Set<string>();
 const inFlightEventIds = new Set<string>();
+
+// One delivery per Claude session, enforced here as well as by deleting the
+// signature remotely. The remote delete can fail, and two idle events for one
+// session carry different event ids, so both could verify before either
+// consumes. These are in memory: the remote delete is what survives a restart.
+const deliveredSessions = new Set<string>();
+const deliveringSessions = new Set<string>();
 
 export async function handleManagedAgentsWebhook(req: Request): Promise<Response> {
   const rawBody = await req.text();
@@ -69,10 +77,7 @@ async function postReply(event: Anthropic.Beta.BetaWebhookEvent): Promise<Respon
     throw err;
   }
 
-  // Metadata alone is not proof the session is ours: anyone who can create a
-  // session in this Anthropic workspace can set these two keys, and we would
-  // post their text into a Slack channel with the bot token. Only sessions
-  // started by this bridge's agent count.
+  // Cheap first filter: a session on some other agent is never ours.
   if (
     session.agent.id !== process.env.CLAUDE_AGENT_ID ||
     session.environment_id !== process.env.CLAUDE_ENVIRONMENT_ID
@@ -84,7 +89,60 @@ async function postReply(event: Anthropic.Beta.BetaWebhookEvent): Promise<Respon
   if (!channel || !thread_ts) {
     return new Response(null, { status: 204 });
   }
+  // The real ownership check. Matching agent and environment IDs is not proof:
+  // anyone with workspace credentials can start a session on this same agent
+  // with metadata of their choosing, and we would post their text into a Slack
+  // channel with the bot token. Only a route this bridge signed is trusted.
+  if (!verifyRoute(
+      claudeSessionId,
+      channel,
+      thread_ts,
+      session.metadata?.slack_route_iat,
+      session.metadata?.slack_route_sig,
+    )) {
+    console.warn(`[managed-agents-webhook] ignored claude=${claudeSessionId}: route signature missing, invalid, or expired`);
+    return new Response(null, { status: 204 });
+  }
 
+  // The route is good for one delivery. A signed session is still a session
+  // anyone with workspace credentials can send another message to, and its
+  // next idle would post their text here. So once this bridge has delivered,
+  // or decided it never will, the route is spent: remembered here, and the
+  // signature deleted remotely. deliver() throwing means "retry me", and then
+  // neither happens, so the retry can verify.
+  if (deliveredSessions.has(claudeSessionId)) return new Response(null, { status: 204 });
+  if (deliveringSessions.has(claudeSessionId)) {
+    return new Response("still delivering for this session", { status: 503 });
+  }
+  deliveringSessions.add(claudeSessionId);
+  try {
+    const res = await deliver(event, claudeSessionId, channel, thread_ts);
+    deliveredSessions.add(claudeSessionId);
+    await consumeRoute(claudeSessionId);
+    return res;
+  } finally {
+    deliveringSessions.delete(claudeSessionId);
+  }
+}
+
+async function consumeRoute(claudeSessionId: string): Promise<void> {
+  try {
+    // Metadata is a patch, and null deletes the key.
+    await client.beta.sessions.update(claudeSessionId, { metadata: { slack_route_sig: null, slack_route_iat: null } });
+  } catch (err) {
+    console.warn(
+      `[managed-agents-webhook] could not clear the route signature on claude=${claudeSessionId} (this process still refuses it):`,
+      (err as Error).message,
+    );
+  }
+}
+
+async function deliver(
+  event: Anthropic.Beta.BetaWebhookEvent,
+  claudeSessionId: string,
+  channel: string,
+  thread_ts: string,
+): Promise<Response> {
   if (event.data.type === "session.status_terminated") {
     return post(channel, thread_ts, claudeSessionId, ":warning: Agent session terminated unexpectedly.");
   }
