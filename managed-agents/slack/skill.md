@@ -67,17 +67,25 @@ Not only yours. If the Anthropic workspace is shared with other agents, scripts,
 - **Catch 404/403 on `sessions.retrieve`.** Sessions created under other API keys in the same workspace aren't readable by yours.
 - **For production, use a dedicated Anthropic workspace.** Each unrelated session costs one `retrieve()` call to discard it. A workspace that only contains this agent's sessions avoids that.
 
+### The idle webhook checks who started the session
+
+`metadata` says where to reply, but it does not prove the session is the bridge's. Anyone who can create sessions in the same Anthropic workspace can set `slack_channel` and `slack_thread_ts` on one of theirs, and a handler that trusted the keys alone would post their text into your Slack channel with your bot token. So `src/managed-agents-webhook.ts` also requires `session.agent.id` and `session.environment_id` to match this bridge's `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID`. If you fork this, keep that check next to the metadata read.
+
+### Message text is untrusted input
+
+The prompt is whatever a Slack user typed. The agent has the full toolset (`bash`, web fetch) with `always_allow`, in a sandbox with unrestricted egress, and nobody approves a step. `src/agent.ts` wraps the message in `<slack_message>` tags and the system prompt tells the agent that tagged text is data. That lowers the odds that an injected instruction is followed. It does not remove them. Keep secrets out of the sandbox, scope any repo or MCP credentials you add to what a hostile message should be able to touch, and consider switching `agents/slack-assistant/environment.yaml` to `limited` networking with an allowlist.
+
 ### `unwrap()` needs a plain header map
 
 `client.beta.webhooks.unwrap(body, {headers})` wants `Record<string, string>`, not a fetch `Headers` object. Pass `Object.fromEntries(req.headers)`.
 
 ### `event.id` is your idempotency key
 
-Anthropic retries failed deliveries with the **same** top-level `event.id`. Slack retries with the same `event_id` inside the body. Dedupe on both, but forget the id again if handling throws. Otherwise the retry of a failed delivery is deduped and the reply is lost. Return 2xx once you've either handled or ignored the event. Anything else triggers a retry, and ~20 consecutive Anthropic failures auto-disables your endpoint.
+Anthropic retries failed deliveries with the **same** top-level `event.id`. Slack retries with the same `event_id` inside the body. Dedupe on both, but only mark an Anthropic id handled once handling finished. If it threw, the retry has to be processed or the reply is lost. A duplicate that arrives while the first attempt is still running gets a 503, not a 204: acking it would mark the event delivered while the outcome is still unknown. Return 2xx once you've either handled or ignored the event. Anything else triggers a retry, and ~20 consecutive Anthropic failures auto-disables your endpoint.
 
 ### No approval surface, so tools are `always_allow`
 
-`agents/slack-assistant/agent.yaml` sets `permission_policy: {type: always_allow}` on the toolset. An `always_ask` tool idles the session to wait for a confirmation, the idle webhook fires, and the bridge posts whatever partial text exists. If you add an approval flow (a Slack button that sends `user.tool_confirmation`), switch the risky tools back to `always_ask`.
+`agents/slack-assistant/agent.yaml` sets `permission_policy: {type: always_allow}` on the toolset. An `always_ask` tool idles the session with `stop_reason: requires_action`. The bridge reads the idle event's `stop_reason`, so it posts a warning that the agent is waiting on an approval nobody can give, not the half-finished preamble. `budget_reached` and `retries_exhausted` get a warning too. Only `end_turn` posts the reply. If you add an approval flow (a Slack button that sends `user.tool_confirmation`), switch the risky tools back to `always_ask`.
 
 ---
 
