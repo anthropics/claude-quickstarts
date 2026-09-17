@@ -15,7 +15,11 @@ if ! command -v cargo &> /dev/null; then
 fi
 
 python3 -m venv .venv
-source .venv/bin/activate
+if [[ "$OSTYPE" == "msys" || "$OSTYPE" == "win32" ]]; then
+    source .venv/Scripts/activate  # Windows activation path
+else
+    source .venv/bin/activate  # Linux/macOS activation path
+fi
 pip install --upgrade pip
 pip install -r dev-requirements.txt
 pre-commit install
