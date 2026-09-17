@@ -62,6 +62,24 @@ A deal-room knowledge wiki built with Claude Managed Agents. This project demons
 
 [Go to Managed Agents Knowledge Wiki Quickstart](./managed-agents/knowledge-wiki)
 
+### Managed Agents: Linear
+
+An agent you can @mention or assign in Linear, backed by a Claude Managed Agent. This project demonstrates a stateless webhook bridge on Linear's Agent Platform: an `AgentSessionEvent` creates a Managed Agents session with the Linear session and organization IDs stored in session metadata, and the `session.status_idled` webhook reads that metadata back to post the reply as a comment. It installs through Linear OAuth with `actor=app`.
+
+[Go to Managed Agents Linear Quickstart](./managed-agents/linear)
+
+### Managed Agents: MCP Server (TypeScript)
+
+An MCP server that exposes the Claude Managed Agents Sessions API as nine tools. This project demonstrates how to let Claude Desktop, Claude Code, or claude.ai drive the agents already in your workspace: list them, start a session, send a message, and wait for the reply, over stdio or Streamable HTTP. One tool, `wait_for_idle`, turns the session's event stream into a single request/response call, and an agent allowlist limits what a bearer-token holder can reach.
+
+[Go to Managed Agents MCP Server (TypeScript) Quickstart](./managed-agents/mcp-server-typescript)
+
+### Managed Agents: Road Trip Planner
+
+A national-park road trip planner built directly on a Claude Managed Agents session, in Next.js with no chat framework and no database. This project demonstrates four API features on one screen: token-by-token streaming with `event_deltas` on the session event stream, vault credentials injected at a specific request location (`injection_location`), a per-session model override with `agent_with_overrides`, and a `multiagent` coordinator that hands its draft to a reviewer agent in a session thread.
+
+[Go to Managed Agents Road Trip Planner Quickstart](./managed-agents/roadtrip-planner)
+
 ### Managed Agents: Sentry
 
 A scheduled Sentry triage agent built on Claude Managed Agents. This project demonstrates a deployment that starts a session on a cron schedule with no host process, and a vault environment-variable credential that lets `sentry-cli` authenticate inside the sandbox while the real token stays outside it: the egress proxy substitutes it only on requests to Sentry's hosts.
