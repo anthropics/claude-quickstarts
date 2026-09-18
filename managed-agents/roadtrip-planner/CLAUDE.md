@@ -49,6 +49,10 @@ block in `setup.sh`, copied from the ones already there, and one more line in
   before any other API call, and refuses when it returns null. The cookie is
   browser input and the server's credentials can see every session in the
   workspace. A new route that touches a session uses it too.
+- `src/proxy.ts` gates every `/api/*` route: `Host` must be loopback or in
+  `ALLOWED_HOSTS`, and `Origin` must match `Host`. The routes spend the
+  server's credentials with no login, so a new route goes under `/api/` to
+  stay behind it.
 - The `model` override is checked against `src/lib/models.ts` on the server.
   The picker and the check share that one list.
 - `web_search` and `web_fetch` stay disabled on the agent. With them on, the
