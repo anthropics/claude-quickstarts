@@ -1,0 +1,61 @@
+# AppArmor profile for Apptainer container execution.
+# Install: sudo apparmor_parser -r /etc/apparmor.d/apptainer_agi
+# Reference: https://apptainer.org/docs/admin/main/security.html
+
+#include <tunables/global>
+
+profile apptainer_agi /usr/bin/apptainer {
+  #include <abstractions/base>
+  #include <abstractions/nameservice>
+
+  # ── Apptainer binary itself ──────────────────────────────────────────────
+  /usr/bin/apptainer mr,
+  /usr/lib/apptainer/** mr,
+  /etc/apptainer/** r,
+
+  # ── Allowed bind-mount source paths ─────────────────────────────────────
+  /share/groupname/** r,
+  /scratch/**         rw,
+  /dev/shm/agi_*/    rw,
+  /dev/shm/agi_*/**  rw,
+  /tmp/              rw,
+  /tmp/**            rw,
+
+  # ── SIF image store ───────────────────────────────────────────────────────
+  /share/groupname/containers/*.sif r,
+
+  # ── NVIDIA driver and device access ─────────────────────────────────────
+  /dev/nvidia*        rw,
+  /dev/nvidiactl      rw,
+  /dev/nvidia-uvm     rw,
+  /dev/nvidia-uvm-tools rw,
+  /usr/lib/x86_64-linux-gnu/libcuda.so* mr,
+  /usr/lib/x86_64-linux-gnu/libnvidia*.so* mr,
+
+  # ── Proc / sys (read-only, limited) ──────────────────────────────────────
+  /proc/               r,
+  /proc/cpuinfo        r,
+  /proc/meminfo        r,
+  /proc/*/status       r,
+  /sys/bus/            r,
+  /sys/class/          r,
+  /sys/devices/        r,
+
+  # ── Network (allow outbound for NCCL / RDMA) ─────────────────────────────
+  network inet  tcp,
+  network inet  udp,
+  network inet6 tcp,
+  network inet6 udp,
+
+  # ── Capabilities ─────────────────────────────────────────────────────────
+  capability sys_admin,     # needed for user namespaces (fakeroot mode)
+  capability net_admin,     # RDMA / IB operations
+  capability ipc_lock,      # GPU DMA pinning
+
+  # ── Explicitly DENY sensitive mounts ─────────────────────────────────────
+  deny /etc/shadow   r,
+  deny /etc/passwd   w,
+  deny /root/**      rw,
+  deny /proc/sys/**  w,
+  deny /proc/sysrq-trigger w,
+}
