@@ -1,0 +1,27 @@
+{
+  "name": "sentry-autofix",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.9"
+  },
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "start": "node --env-file-if-exists=.env --import tsx src/main.ts",
+    "fix": "node --env-file-if-exists=.env --import tsx src/cli.ts",
+    "sentry-login": "node --env-file-if-exists=.env --import tsx src/sentry-login.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test test/*.test.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": ">=0.125.0 <1.0.0",
+    "@hono/node-server": "^2",
+    "hono": "^4",
+    "tsx": "^4"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5"
+  }
+}

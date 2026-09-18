@@ -1,0 +1,9 @@
+# The vault definition. A vault is a named container for credentials that
+# Anthropic holds for you and injects at session runtime; src/fixer.ts passes
+# its ID as `vault_ids` on every session it creates. `ant apply` does not
+# manage vaults, so ./agents/setup.sh passes this file to `ant beta:vaults
+# create` once and saves CLAUDE_VAULT_ID to .env. There is nothing secret in here: the Sentry OAuth
+# tokens live in the credential `npm run sentry-login` adds.
+display_name: quickstart-sentry-autofix
+metadata:
+  quickstart: sentry-autofix

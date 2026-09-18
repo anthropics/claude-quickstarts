@@ -86,6 +86,12 @@ A scheduled Sentry triage agent built on Claude Managed Agents. This project dem
 
 [Go to Managed Agents Sentry Quickstart](./managed-agents/sentry)
 
+### Managed Agents: Sentry Autofix
+
+A production error fixed by pull request, with Claude Managed Agents and the Sentry MCP server. This project demonstrates a webhook-driven session per Sentry issue: the agent reads the stack trace and Seer's root cause analysis, reproduces the bug with a failing test in a mounted GitHub repository, and pushes a branch, and the host opens the pull request through a custom tool so a person reviews every fix. Credentials stay in a vault outside the sandbox, the sandbox has no route to the open internet, and each session has a hard spend cap.
+
+[Go to Managed Agents Sentry Autofix Quickstart](./managed-agents/sentry-autofix)
+
 ### Managed Agents: Slack
 
 A Slack bot backed by a Claude Managed Agent. This project demonstrates a stateless webhook bridge: an `@mention` creates a Managed Agents session with the channel and thread stored in session metadata, and the `session.status_idled` webhook reads that metadata back to post the reply in-thread. There is no database and no long-lived connection.
