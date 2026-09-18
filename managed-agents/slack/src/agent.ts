@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { signRoute } from "./route-signature";
 
 const client = new Anthropic();
 
@@ -27,6 +28,17 @@ export async function kickoffAgentSession(m: SlackMention) {
       slack_channel: m.channel,
       slack_thread_ts: m.thread_ts,
       slack_team: m.team,
+    },
+  });
+
+  // Sign the route now that the session has an ID, and store the signature
+  // next to it. The idle webhook refuses any route without a valid one. This
+  // happens before the prompt is sent, so the session cannot idle unsigned.
+  const issuedAt = String(Math.floor(Date.now() / 1000));
+  await client.beta.sessions.update(session.id, {
+    metadata: {
+      slack_route_iat: issuedAt,
+      slack_route_sig: signRoute(session.id, m.channel, m.thread_ts, issuedAt),
     },
   });
 
