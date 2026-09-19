@@ -25,7 +25,7 @@ def count_passing_tests(project_dir: Path) -> tuple[int, int]:
         return 0, 0
 
     try:
-        with open(tests_file, "r") as f:
+        with open(tests_file, "r", encoding="utf-8") as f:
             tests = json.load(f)
 
         total = len(tests)
