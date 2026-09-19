@@ -57,8 +57,8 @@ class MessageHistory:
         if role == "assistant" and usage:
             total_input = (
                 usage.input_tokens
-                + getattr(usage, "cache_read_input_tokens", 0)
-                + getattr(usage, "cache_creation_input_tokens", 0)
+                + (getattr(usage, "cache_read_input_tokens", 0) or 0)
+                + (getattr(usage, "cache_creation_input_tokens", 0) or 0)
             )
             output_tokens = usage.output_tokens
 
