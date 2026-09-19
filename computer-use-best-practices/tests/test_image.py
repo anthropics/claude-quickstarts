@@ -64,3 +64,37 @@ def test_screenshot_too_small():
     )
     b64, _ = resize_and_encode(noise)
     assert len(b64) > cfg.min_screenshot_bytes
+
+
+@pytest.mark.parametrize("field", ["width", "height", "px_per_token", "max_edge_px", "max_tokens"])
+@pytest.mark.parametrize("value", [0, -1])
+def test_nonpositive_dimensions_and_limits_are_rejected(field: str, value: int) -> None:
+    params = {
+        "width": 800,
+        "height": 600,
+        "px_per_token": 28,
+        "max_edge_px": 1568,
+        "max_tokens": 1568,
+    }
+    params[field] = value
+    with pytest.raises(ValueError, match="positive"):
+        target_image_size(**params)
+
+
+def test_impossible_one_pixel_budget_terminates() -> None:
+    import subprocess
+    import sys
+
+    program = """from computer_use.image import target_image_size
+try:
+    target_image_size(1, 1, max_tokens=0)
+except ValueError:
+    pass
+else:
+    raise AssertionError('expected ValueError for an impossible budget')
+"""
+    subprocess.run([sys.executable, "-c", program], check=True, timeout=5)
+
+
+def test_one_pixel_budget_remains_valid() -> None:
+    assert target_image_size(1, 1, px_per_token=1, max_edge_px=1, max_tokens=1) == (1, 1)
