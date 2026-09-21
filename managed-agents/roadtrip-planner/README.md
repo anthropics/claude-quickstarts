@@ -73,9 +73,10 @@ Same credential type, same vault, opposite `injection_location`. The model never
 
 ## Before you deploy
 
-This demo has no user accounts. The cookie ties one browser to one session and nothing more, so run it on localhost. Two things are in place, and both need to stay if you fork it:
+This demo has no user accounts. The cookie ties one browser to one session and nothing more, so run it on localhost. Three things are in place, and all three need to stay if you fork it:
 
 - **Every route checks that the session belongs to this app.** The cookie value comes from the browser and becomes an API path parameter, and the server's Anthropic credentials can see every session in the workspace. `ownedSession()` in [`src/lib/client.ts`](./src/lib/client.ts) only accepts an ID that resolves, was created on this quickstart's planner agent, and is still live. Stream, chat, and interrupt answer 403 to anything else, and `/api/session` starts a new trip instead of returning someone else's events. Keep that function in the path of anything that takes a session ID from a client.
+- **Every `/api/*` request has to come from this app's own page.** A web page open in the same browser can POST to `localhost:3000` with no preflight, and a DNS rebinding page can make itself same-origin with it. Either one could create sessions on your Anthropic credentials. [`src/proxy.ts`](./src/proxy.ts) refuses a request whose `Host` is not loopback or listed in `ALLOWED_HOSTS`, whose `Origin` does not match `Host`, or that the browser marks `Sec-Fetch-Site: cross-site`. Set `ALLOWED_HOSTS` to the public hostname if you serve the app from one.
 - **The `model` override is checked against the picker's list** ([`src/lib/models.ts`](./src/lib/models.ts)) before it reaches `sessions.create`, so a caller cannot run your agent on a model you did not offer.
 
 Put real authentication in front of all four routes before exposing the app beyond your machine.
@@ -190,6 +191,7 @@ Everything else on the stream is a status signal: thinking starts drive the acti
 | `src/lib/models.ts` | The models the picker offers and `/api/session` accepts |
 | `src/lib/use-managed-agent-session.ts` | The client runtime: one EventSource, the SDK accumulator, send/stop |
 | `src/lib/transcript.ts` | The event log folded into renderable turns |
+| `src/proxy.ts` | The gate on every `/api/*` route: loopback or `ALLOWED_HOSTS`, and same-origin only |
 | `src/app/api/session/route.ts` | Create or resume the session behind the cookie, return the event log |
 | `src/app/api/stream/route.ts` | SSE proxy of the session tail (the API key stays server-side) |
 | `src/app/api/chat/route.ts` | Send one `user.message` |
