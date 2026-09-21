@@ -5,6 +5,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 [ -f .env ] || cp .env.example .env
+# Only .env decides create vs update. An ID left exported in the shell by
+# another quickstart would otherwise send this YAML to that quickstart's
+# resources.
+unset CLAUDE_AGENT_ID CLAUDE_CREDENTIAL_ID CLAUDE_DEPLOYMENT_ID CLAUDE_ENVIRONMENT_ID CLAUDE_VAULT_ID
 set -a; . ./.env; set +a
 
 for v in SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT; do
