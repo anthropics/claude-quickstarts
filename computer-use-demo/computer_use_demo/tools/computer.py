@@ -294,7 +294,7 @@ class BaseComputerTool:
         x_scaling_factor = target_dimension["width"] / self.width
         y_scaling_factor = target_dimension["height"] / self.height
         if source == ScalingSource.API:
-            if x > self.width or y > self.height:
+            if x > target_dimension["width"] or y > target_dimension["height"]:
                 raise ToolError(f"Coordinates {x}, {y} are out of bounds")
             # scale up
             return round(x / x_scaling_factor), round(y / y_scaling_factor)
