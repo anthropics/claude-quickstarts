@@ -10,6 +10,8 @@ description: Quick-reviews itineraries the road trip planner drafts
 model: claude-opus-5
 metadata:
   quickstart: roadtrip-planner
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/roadtrip-planner
 tools:
   - type: agent_toolset_20260401
     # Deny by default: the reviewer judges the draft text alone, so no tool is

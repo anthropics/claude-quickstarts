@@ -45,7 +45,9 @@ const agent = await client.beta.agents.create({
   model: MODEL,
   system: SYSTEM_PROMPT,
   tools: TOOLS,
-  metadata: METADATA,
+  // anthropic_cookbook tells Anthropic which quickstart this agent came from.
+  // Safe to remove.
+  metadata: { ...METADATA, anthropic_cookbook: "claude-quickstarts/assistant-ui" },
 });
 console.log(`agent:       ${agent.id} (version ${agent.version}, ${MODEL})`);
 

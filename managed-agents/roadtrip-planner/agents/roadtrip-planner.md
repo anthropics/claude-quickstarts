@@ -15,6 +15,8 @@ description: Plans national-park road trips from the NPS and Windy APIs only
 model: claude-sonnet-5
 metadata:
   quickstart: roadtrip-planner
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/roadtrip-planner
 # The roster makes the planner a coordinator: it may spawn the reviewer as a
 # session thread and trade messages with it. The entry is the path to the
 # reviewer's file: `ant apply` creates the reviewer first, sends its ID here,
