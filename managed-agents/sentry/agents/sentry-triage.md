@@ -14,6 +14,8 @@ description: Writes a morning triage report from the last 24 hours of Sentry iss
 model: claude-opus-5
 metadata:
   quickstart: sentry
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/sentry
 tools:
   - type: agent_toolset_20260401
     # always_allow because scheduled runs have no human watching: an
