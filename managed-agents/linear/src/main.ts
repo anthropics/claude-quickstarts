@@ -2,6 +2,7 @@ import { LinearWebhookClient } from "@linear/sdk/webhooks";
 import { handleOAuthAuthorize, handleOAuthCallback, isAllowedOrg } from "./oauth";
 import { handleStop, isStopSignal, kickoffAgentSession } from "./agent";
 import { handleManagedAgentsWebhook } from "./managed-agents-webhook";
+import { AGENT_ID, ENVIRONMENT_ID } from "./resources";
 
 const PORT = Number(process.env.PORT) || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -11,13 +12,18 @@ for (const v of [
   "LINEAR_CLIENT_SECRET",
   "LINEAR_WEBHOOK_SIGNING_SECRET",
   "ANTHROPIC_WEBHOOK_SIGNING_KEY",
-  "CLAUDE_AGENT_ID",
-  "CLAUDE_ENVIRONMENT_ID",
 ]) {
   if (!process.env[v]) {
     console.error(`FATAL: ${v} is required`);
     process.exit(1);
   }
+}
+if (!AGENT_ID || !ENVIRONMENT_ID) {
+  console.error(
+    "FATAL: no agent or environment ID. Run `ant apply agents environments` in this directory (it writes claude-lock.json), " +
+      "or set CLAUDE_AGENT_ID and CLAUDE_ENVIRONMENT_ID.",
+  );
+  process.exit(1);
 }
 
 const linearHandler = new LinearWebhookClient(

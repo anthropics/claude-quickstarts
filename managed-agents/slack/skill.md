@@ -75,7 +75,7 @@ So at kickoff `src/agent.ts` stores `slack_route_sig`, an HMAC over the session 
 
 ### Message text is untrusted input
 
-The prompt is whatever a Slack user typed. The agent has the full toolset (`bash`, web fetch) with `always_allow`, in a sandbox with unrestricted egress, and nobody approves a step. `src/agent.ts` wraps the message in `<slack_message>` tags and the system prompt tells the agent that tagged text is data. That lowers the odds that an injected instruction is followed. It does not remove them. Keep secrets out of the sandbox, scope any repo or MCP credentials you add to what a hostile message should be able to touch, and consider switching `agents/slack-assistant/environment.yaml` to `limited` networking with an allowlist.
+The prompt is whatever a Slack user typed. The agent has the full toolset (`bash`, web fetch) with `always_allow`, in a sandbox with unrestricted egress, and nobody approves a step. `src/agent.ts` wraps the message in `<slack_message>` tags and the system prompt tells the agent that tagged text is data. That lowers the odds that an injected instruction is followed. It does not remove them. Keep secrets out of the sandbox, scope any repo or MCP credentials you add to what a hostile message should be able to touch, and consider switching `environments/slack-assistant.yaml` to `limited` networking with an allowlist.
 
 ### `unwrap()` needs a plain header map
 
@@ -87,14 +87,14 @@ Anthropic retries failed deliveries with the **same** top-level `event.id`. Slac
 
 ### No approval surface, so tools are `always_allow`
 
-`agents/slack-assistant/agent.yaml` sets `permission_policy: {type: always_allow}` on the toolset. An `always_ask` tool idles the session with `stop_reason: requires_action`. The bridge reads the idle event's `stop_reason`, so it posts a warning that the agent is waiting on an approval nobody can give, not the half-finished preamble. `budget_reached` and `retries_exhausted` get a warning too. Only `end_turn` posts the reply. If you add an approval flow (a Slack button that sends `user.tool_confirmation`), switch the risky tools back to `always_ask`.
+`agents/slack-assistant.md` sets `permission_policy: {type: always_allow}` on the toolset. An `always_ask` tool idles the session with `stop_reason: requires_action`. The bridge reads the idle event's `stop_reason`, so it posts a warning that the agent is waiting on an approval nobody can give, not the half-finished preamble. `budget_reached` and `retries_exhausted` get a warning too. Only `end_turn` posts the reply. If you add an approval flow (a Slack button that sends `user.tool_confirmation`), switch the risky tools back to `always_ask`.
 
 ---
 
 ## Local dev checklist
 
 1. `ngrok http 3000` → note the public URL. Optionally set it as `BASE_URL` in `.env` so the startup log prints the two full webhook URLs.
-2. `ant auth login` (or `cp .env.example .env` and set `ANTHROPIC_API_KEY`), then `./agents/setup.sh`. It appends `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID` to `.env`. **Don't overwrite them later** when you paste in the Slack secrets.
+2. `ant auth login` (or export `ANTHROPIC_API_KEY`), then `ant apply agents environments`. It creates the agent and environment and writes their IDs to `claude-lock.json`, which the bridge reads at startup. Nothing to paste into `.env` for them; `cp .env.example .env` for the Slack secrets below.
 3. Slack app → **OAuth & Permissions** → Bot Token Scopes: `app_mentions:read`, `chat:write` (+ `im:history` for DMs) → **Install to Workspace** → copy `xoxb-…` → `SLACK_BOT_TOKEN`.
 4. Slack app → **Basic Information** → copy **Signing Secret** → `SLACK_SIGNING_SECRET`.
 5. Claude Console → **Manage → Webhooks**: `<url>/managed-agents/webhook`, subscribe `session.status_idled` + `session.status_terminated` → copy `whsec_…` → `ANTHROPIC_WEBHOOK_SIGNING_KEY`. **Same workspace as your Anthropic credentials.**
@@ -106,8 +106,8 @@ Anthropic retries failed deliveries with the **same** top-level `event.id`. Slac
 
 - **Nothing in the bridge log at all** → Slack isn't reaching you. Check `curl localhost:4040/api/requests/http` (ngrok's request log). No `/slack/events` POSTs = Event Subscriptions not saved, or Socket Mode is on.
 - **`[agent] kickoff` logged but no reply** → ngrok log shows `/managed-agents/webhook` POSTs? If none: Anthropic workspace mismatch or endpoint not saved. If 401: `ANTHROPIC_WEBHOOK_SIGNING_KEY` mismatch. If the log shows `chat.postMessage failed`: `invalid_auth` means `SLACK_BOT_TOKEN` is wrong (check for `xapp-`), `missing_scope` means no `chat:write`.
-- **`FATAL: CLAUDE_AGENT_ID is required`** → `./agents/setup.sh` hasn't run yet. It appends the IDs to `.env` in this directory.
-- **`./agents/setup.sh` fails with 409 on the environment** → environment names are unique per workspace and someone already created `quickstart-slack-assistant-env` there. Paste that environment's ID into `.env` as `CLAUDE_ENVIRONMENT_ID`, or change `name` in `agents/slack-assistant/environment.yaml`, then re-run.
+- **`FATAL: no agent or environment ID`** → `ant apply agents environments` hasn't run in this directory yet, so there is no `claude-lock.json` beside `package.json`. If you ran it from another directory, the lockfile is there instead: run it again from here.
+- **`ant apply` fails with 409 on the environment** → environment names are unique per workspace and someone already created `quickstart-slack-assistant-env` there. `ant apply` can't adopt it: set that environment's ID as `CLAUDE_ENVIRONMENT_ID` in `.env` to use it, or change `name` in `environments/slack-assistant.yaml` and run `ant apply` again.
 - **The bot answers with an old prompt or model** → Bun loads `.env.local` over `.env`. If you have one left from the cookbook version of this bridge, delete it.
 - **`chat.postMessage failed ... not_in_channel`** → `/invite @your-bot` to the channel first.
 

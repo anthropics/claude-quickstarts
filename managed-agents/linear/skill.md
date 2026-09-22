@@ -73,7 +73,7 @@ So at kickoff `src/agent.ts` stores `linear_route_sig`, an HMAC over the Claude 
 
 ### Issue text is untrusted input
 
-The prompt is the issue title, description, and comments, which anyone with access to the Linear workspace can write. `src/agent.ts` wraps each piece in a tag such as `<linear_issue_description>` and the system prompt tells the agent to treat tagged text as data. That lowers the odds that an injected instruction is followed. It does not remove them. The agent has the full toolset (`bash`, web fetch) with `always_allow`, in a sandbox with unrestricted egress, and nobody approves a step. Treat it like running a script a stranger wrote: keep secrets out of the sandbox, and if you mount a repo or add MCP tools, scope their credentials to what a hostile issue should be able to touch. `agents/linear-assistant/environment.yaml` is where to switch networking to `limited` with an allowlist.
+The prompt is the issue title, description, and comments, which anyone with access to the Linear workspace can write. `src/agent.ts` wraps each piece in a tag such as `<linear_issue_description>` and the system prompt tells the agent to treat tagged text as data. That lowers the odds that an injected instruction is followed. It does not remove them. The agent has the full toolset (`bash`, web fetch) with `always_allow`, in a sandbox with unrestricted egress, and nobody approves a step. Treat it like running a script a stranger wrote: keep secrets out of the sandbox, and if you mount a repo or add MCP tools, scope their credentials to what a hostile issue should be able to touch. `environments/linear-assistant.yaml` is where to switch networking to `limited` with an allowlist.
 
 ### Linear's 10-second ack rule
 
@@ -91,7 +91,7 @@ That map is the one piece of state the bridge keeps, and it lives in memory. Aft
 
 ### No approval surface, so tools are `always_allow`
 
-`agents/linear-assistant/agent.yaml` sets `permission_policy: {type: always_allow}` on the toolset. An `always_ask` tool idles the session to wait for a confirmation, the idle webhook fires, and the bridge posts whatever partial text exists. If you add an approval flow (Linear's `elicitation` activity plus `user.tool_confirmation`), switch the risky tools back to `always_ask`.
+`agents/linear-assistant.md` sets `permission_policy: {type: always_allow}` on the toolset. An `always_ask` tool idles the session to wait for a confirmation, the idle webhook fires, and the bridge posts whatever partial text exists. If you add an approval flow (Linear's `elicitation` activity plus `user.tool_confirmation`), switch the risky tools back to `always_ask`.
 
 ### Signature header names
 
@@ -102,7 +102,7 @@ The docs say `X-Webhook-Signature`. The wire uses `Webhook-Signature` / `Webhook
 ## Local dev checklist
 
 1. `ngrok http 3000` (or `cloudflared tunnel`) → note the public URL and set it as `BASE_URL` in `.env` (`cp .env.example .env` first). Everything below uses it.
-2. `ant auth login` (or set `ANTHROPIC_API_KEY` in `.env`), then `./agents/setup.sh`. It appends `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID` to `.env`. **Don't overwrite them later** when you paste in the Linear secrets.
+2. `ant auth login` (or export `ANTHROPIC_API_KEY`), then `ant apply agents environments`. It creates the agent and environment and writes their IDs to `claude-lock.json`, which the bridge reads at startup. Nothing to paste into `.env` for them.
 3. Linear OAuth app (**Administration → API → OAuth Applications → Create new**): Developer URL = any real `https://` URL (cosmetic). Callback `<url>/oauth/callback`. Webhook `<url>/linear-webhook`, events = Agent session events → copy client ID/secret + webhook secret into `.env`.
 4. Claude Console → **Manage → Webhooks**: `<url>/managed-agents/webhook`, events = `session.status_idled` + `session.status_terminated` → copy `whsec_…` → `ANTHROPIC_WEBHOOK_SIGNING_KEY`. **Same workspace as your Anthropic credentials.**
 5. `bun run dev`.
@@ -114,8 +114,8 @@ The docs say `X-Webhook-Signature`. The wire uses `Webhook-Signature` / `Webhook
 - **"Thinking…" never appears** → Linear webhook isn't reaching you. Check the Linear app's webhook URL and that ngrok is up. If the log shows `ignored event from org …`, a different workspace installed first or that workspace isn't in `LINEAR_ALLOWED_ORG_IDS`.
 - **"Thinking…" appears but no reply** → check `curl localhost:4040/api/requests/http` (ngrok's request log). If no POST to `/managed-agents/webhook`: workspace mismatch on the Anthropic side, or endpoint not saved. If POST arrives with 401: signing key mismatch. If the log shows `could not post to linear=…`: the message names the cause, usually a missing `.linear-tokens.json` entry (reinstall at `/oauth/authorize`).
 - **`FATAL: … .linear-tokens.json is not valid`** at startup → the token file is corrupt. The bridge refuses to start on it, because reading it as empty would let any workspace install. Fix the JSON, or delete the file and reinstall at `/oauth/authorize`.
-- **`FATAL: CLAUDE_AGENT_ID is required`** → `./agents/setup.sh` hasn't run yet. It appends the IDs to `.env` in this directory.
-- **`./agents/setup.sh` fails with 409 on the environment** → environment names are unique per workspace and someone already created `quickstart-linear-assistant-env` there. Paste that environment's ID into `.env` as `CLAUDE_ENVIRONMENT_ID`, or change `name` in `agents/linear-assistant/environment.yaml`, then re-run.
+- **`FATAL: no agent or environment ID`** → `ant apply agents environments` hasn't run in this directory yet, so there is no `claude-lock.json` beside `package.json`. If you ran it from another directory, the lockfile is there instead: run it again from here.
+- **`ant apply` fails with 409 on the environment** → environment names are unique per workspace and someone already created `quickstart-linear-assistant-env` there. `ant apply` can't adopt it: set that environment's ID as `CLAUDE_ENVIRONMENT_ID` in `.env` to use it, or change `name` in `environments/linear-assistant.yaml` and run `ant apply` again.
 - **`Linear refused to refresh the token for org …`** in the log → Linear answered `invalid_grant`: the workspace uninstalled the app. Reinstall at `/oauth/authorize`. An `invalid_client` in the log instead means `LINEAR_CLIENT_SECRET` is wrong.
 - **"Linear rejected the install"** after approving → the server log has Linear's response. The usual cause is `BASE_URL` not matching the app's callback URL.
 - **The bot answers with an old prompt or model** → Bun loads `.env.local` over `.env`. If you have one left from the cookbook version of this bridge, delete it.
