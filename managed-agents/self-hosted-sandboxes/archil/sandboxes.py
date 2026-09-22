@@ -17,7 +17,7 @@ import archil
 # Every sandbox starts from a stock image and installs the two CLIs it needs:
 # `ant` (serves the agent's tools) and `archil` (mounts the disk). Sandboxes
 # are ARM, so `dpkg --print-architecture` picks the matching `ant` build.
-ANT_VERSION = "1.28.0"
+ANT_VERSION = "1.30.0"
 BOOTSTRAP = f"""
 set -e
 apt-get update -qq && apt-get install -y -qq --no-install-recommends ca-certificates curl git ripgrep unzip sqlite3 >/dev/null

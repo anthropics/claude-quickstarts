@@ -1,0 +1,10 @@
+# The environment, sent by `ant apply` as the Environments API request body.
+# A self-hosted environment has no sandbox template: it is a work queue that
+# your own poller (start.sh) claims sessions from. `ant apply` records its ID
+# in claude-lock.json, where start.sh reads it. Mint the environment key for
+# it in the Console and put it in .env as ANTHROPIC_ENVIRONMENT_KEY.
+name: quickstart-self-hosted-sandbox-demo-env
+metadata:
+  quickstart: self-hosted-sandboxes
+config:
+  type: self_hosted

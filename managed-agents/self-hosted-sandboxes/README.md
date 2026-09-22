@@ -2,7 +2,7 @@
 
 Three demos of running managed-agent sessions on infrastructure you
 control. All have the same shape: a self-hosted environment
-(`config: {type: self_hosted}` in `agents/*/environment.yaml`) is a work
+(`config: {type: self_hosted}` in `environments/self-hosted.yaml`) is a work
 queue rather than a sandbox template, a host process polls it with the
 environment key, and each claimed session runs in its own short-lived
 sandbox. The first two use plain Docker containers on the host, the third
@@ -32,6 +32,11 @@ other's memories. One container per session is the recommended way to run
 more than one session per host once memory is attached. The
 `docker-memory/` README covers the mechanics.
 
-In all three, `./agents/setup.sh` creates the resources from YAML with the `ant` CLI and
-writes their IDs to `.env`. The one manual step is the environment key,
-which you mint in the Console for the environment `setup.sh` created.
+In all three, the resources are files: the agent under `agents/`, the
+environment under `environments/`, and in `docker-memory/` the memory store
+under `memory_stores/`.
+[`ant apply .`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply)
+creates them and records their IDs in `claude-lock.json`, which the scripts
+read, and after you edit a file, running it again updates the same
+resources. The one manual step is the environment key, which you mint in the
+Console for the environment `ant apply` created.
