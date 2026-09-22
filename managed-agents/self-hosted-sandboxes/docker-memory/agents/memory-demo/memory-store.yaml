@@ -1,7 +1,0 @@
-# The memory store definition, piped to `ant beta:memory-stores create`.
-# ./agents/setup.sh writes its ID to .env as CLAUDE_MEMORY_STORE_ID, and
-# every `ant beta:sessions create --resource ...` attaches it. One store is one
-# memory: sessions that share this ID share what it holds, and a second store
-# (one per end user, say) is a blank slate the first can never see.
-name: User preferences
-description: Durable notes this assistant keeps across sessions.

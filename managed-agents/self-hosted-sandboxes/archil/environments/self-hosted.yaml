@@ -1,0 +1,11 @@
+# The environment, sent by `ant apply` as the Environments API request body.
+# A self-hosted environment has no sandbox template: it is a work queue that
+# your own pollers (start.sh) claim sessions from. `ant apply` records its ID
+# in claude-lock.json, where start.sh and fanout.sh read it. Mint the
+# environment key for it in the Console and put it in .env as
+# ANTHROPIC_ENVIRONMENT_KEY.
+name: quickstart-archil-env
+metadata:
+  quickstart: archil
+config:
+  type: self_hosted

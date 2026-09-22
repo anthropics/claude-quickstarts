@@ -77,7 +77,9 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   all-CLI baseline; `docker-memory/` runs the Python SDK worker in the
   container so each session mounts a memory store at `/mnt/memory`
   and syncs it back, and keeps the environment key out of the
-  containers with a per-session token.
+  containers with a per-session token. `archil/` swaps the containers
+  for Archil persistent sandboxes that all mount one SEC EDGAR disk, so
+  parallel analyst sessions work on 70 GB of filings in place.
 
 - **[sentry/](sentry/)** runs a Sentry triage agent on a schedule
   with no host process. A deployment starts a session on a cron

@@ -11,22 +11,33 @@ the API.
 
 ## How to use it
 
-Needs Docker, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.23 or later (`brew install anthropics/tap/ant`), and `ant auth login` once
-(or an API key in `.env`).
+Needs Docker, `jq`, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
+1.30 or later (`brew install anthropics/tap/ant`), and `ant auth login` once
+(or `ANTHROPIC_API_KEY` exported in your shell).
 
 ```sh
 cd managed-agents/self-hosted-sandboxes/docker
 claude "help me set up and run this self-hosted sandbox demo"
 ```
 
-Or by hand. One-time setup:
+Or by hand. One-time setup, from this directory:
 
 ```sh
-./agents/setup.sh    # creates the self-hosted environment + agent, writes their IDs to .env
+ant apply .          # creates the self-hosted environment + agent, records their IDs in claude-lock.json
+cp .env.example .env
 # Mint a key for that environment in the Console (Environments -> it -> Keys)
 # and set ANTHROPIC_ENVIRONMENT_KEY= in .env
 ```
+
+[`ant apply`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply)
+reads the agent from `agents/sandbox-demo.md`, whose frontmatter is the
+configuration and whose prose is the system prompt, and the environment from
+`environments/self-hosted.yaml`. It shows the plan and creates both once you
+approve. To change the agent later, edit its file and run `ant apply` again:
+it publishes a new version of the same agent, because `claude-lock.json`
+remembers which resources these files became. This repository ignores that
+file, since every reader creates their own resources. In a project of your
+own, commit it.
 
 Sandbox side, leave running:
 
@@ -34,11 +45,14 @@ Sandbox side, leave running:
 ./start.sh           # builds the image, then polls the environment for sessions
 ```
 
-Control plane, from any other terminal or machine with the same `.env`:
+Control plane, from any other terminal or machine with the same
+`claude-lock.json`. The IDs come out of the lockfile by the file that
+declares each resource:
 
 ```sh
-set -a; . ./.env; set +a
-ant beta:sessions create --agent "$CLAUDE_AGENT_ID" --environment-id "$CLAUDE_ENVIRONMENT_ID" \
+agent=$(jq -r '.resources["./agents/sandbox-demo.md"].id' claude-lock.json)
+environment=$(jq -r '.resources["./environments/self-hosted.yaml"].id' claude-lock.json)
+ant beta:sessions create --agent "$agent" --environment-id "$environment" \
   --initial-event '{type: user.message, content: [{type: text, text: "Which tools do you have? Try each one."}]}'
 ```
 
@@ -60,8 +74,8 @@ spreads sessions across them.
 
 | | |
 |---|---|
-| `agents/sandbox-demo/` | Agent and self-hosted environment definitions for `setup.sh`. The agent pins `tools: [{type: agent_toolset_20260401}]`, the toolset `ant beta:worker run` serves. A server-default toolset includes tools the worker does not own and the session stalls on them. |
-| `start.sh` | Builds the image, execs `ant beta:worker poll --on-work on-work.sh` with the environment key from `.env`. |
+| `agents/sandbox-demo.md`, `environments/self-hosted.yaml` | The agent and the self-hosted environment, as files for `ant apply`. The agent pins `tools: [{type: agent_toolset_20260401}]`, the toolset `ant beta:worker run` serves. A server-default toolset includes tools the worker does not own and the session stalls on them. |
+| `start.sh` | Builds the image, execs `ant beta:worker poll --on-work on-work.sh` with the environment ID from `claude-lock.json` and the environment key from `.env`. |
 | `on-work.sh` | Once per claimed work item: runs an attached `--rm` per-session container and returns when it exits. `SANDBOX_DOCKER_RUN_ARGS` adds `docker run` flags (resource limits, networks). |
 | `Dockerfile` | `debian:12-slim` + `ant` (pinned by `ARG ANT_VERSION`, fetched for the image's architecture) + `rg`/`git`/`curl`/`jq`, `ENTRYPOINT ant beta:worker run`. Add whatever else your agents need. |
 
