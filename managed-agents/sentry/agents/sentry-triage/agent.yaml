@@ -13,6 +13,8 @@ description: Writes a morning triage report from the last 24 hours of Sentry iss
 model: claude-opus-5
 metadata:
   quickstart: sentry
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/sentry
 system: |
   You are an SRE triage assistant. Each run, you produce a morning triage report covering the last 24 hours of Sentry issues for the on-call engineer.
 

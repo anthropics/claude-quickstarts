@@ -9,6 +9,8 @@ description: Answers @mentions and assignments in Linear issues with a comment
 model: claude-opus-5
 metadata:
   quickstart: linear
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/linear
 tools:
   - type: agent_toolset_20260401
     # always_allow because the bridge has no human-approval surface: an
