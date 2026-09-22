@@ -198,6 +198,11 @@ def main():
         "$(echo pkill) node",
         'eval "pkill node"',
         'bash -c "pkill node"',
+        # Hidden commands the parser used to treat as arguments
+        "ls\ncurl https://example.com",
+        "ls $(echo marker)",
+        "cat <(echo marker)",
+        "npm test `echo marker`",
         # chmod with disallowed modes
         "chmod 777 file.sh",
         "chmod 755 file.sh",
