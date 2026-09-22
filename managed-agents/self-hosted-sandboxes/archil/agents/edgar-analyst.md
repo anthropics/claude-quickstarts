@@ -8,6 +8,8 @@ description: Maps the people and companies behind SEC insider filings, working d
 model: claude-opus-5
 metadata:
   quickstart: archil
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/self-hosted-sandboxes
 tools:
   # Required, and it must be this toolset: it is the one `ant beta:worker
   # run` serves from inside the sandbox. A server-default toolset includes

@@ -1,0 +1,9 @@
+# The environment: the sandbox template every session boots from. `ant apply`
+# sends this file as the Environments API request body and records the
+# environment's ID in claude-lock.json, where the bridge reads it.
+name: quickstart-linear-assistant-env
+metadata:
+  quickstart: linear
+config:
+  type: cloud
+  networking: {type: unrestricted}

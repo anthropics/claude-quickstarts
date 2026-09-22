@@ -8,6 +8,8 @@ description: A general assistant whose tools run in a Docker container you host
 model: claude-opus-5
 metadata:
   quickstart: self-hosted-sandboxes
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/self-hosted-sandboxes
 tools:
   # Required, and it must be this toolset: it is the one `ant beta:worker
   # run` serves from inside the container. A server-default toolset includes
