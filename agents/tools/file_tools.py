@@ -4,39 +4,18 @@ import asyncio
 import glob
 import os
 from pathlib import Path
-from typing import Optional, Union
 
 from .base import Tool
 
 
-def _resolve_under_root(root: Path, path: str) -> Path:
-    """Resolve ``path`` under ``root``; raise ValueError if it would escape.
-
-    Absolute paths are allowed only when they resolve inside the workspace.
-    Symlinks that leave the root are rejected after resolve().
-    """
-    candidate = (root / path).resolve()
-    try:
-        candidate.relative_to(root)
-    except ValueError as exc:
-        raise ValueError(
-            f"Path '{path}' is outside the workspace root ({root})"
-        ) from exc
-    return candidate
-
-
 class FileReadTool(Tool):
-    """Tool for reading files and listing directories within a workspace root."""
+    """Tool for reading files and listing directories."""
 
-    def __init__(self, root: Optional[Union[str, Path]] = None):
+    def __init__(self):
         super().__init__(
             name="file_read",
             description="""
-            Read files or list directory contents within the workspace root.
-
-            Paths are resolved under the workspace root; attempts to escape
-            (via .., absolute paths outside the root, or symlink tricks) are
-            rejected.
+            Read files or list directory contents.
 
             Operations:
             - read: Read the contents of a file
@@ -52,11 +31,7 @@ class FileReadTool(Tool):
                     },
                     "path": {
                         "type": "string",
-                        "description": (
-                            "File path for read or directory path "
-                            "(relative to workspace root, or absolute "
-                            "within it)"
-                        ),
+                        "description": "File path for read or directory path",
                     },
                     "max_lines": {
                         "type": "integer",
@@ -64,19 +39,11 @@ class FileReadTool(Tool):
                     },
                     "pattern": {
                         "type": "string",
-                        "description": (
-                            "Glob pattern relative to path "
-                            "(no .. or absolute segments)"
-                        ),
+                        "description": "File pattern to match",
                     },
                 },
                 "required": ["operation", "path"],
             },
-        )
-        self.root = (
-            Path(root).resolve()
-            if root is not None
-            else Path.cwd().resolve()
         )
 
     async def execute(
@@ -105,14 +72,14 @@ class FileReadTool(Tool):
             return f"Error: Unsupported operation '{operation}'"
 
     async def _read_file(self, path: str, max_lines: int = 0) -> str:
-        """Read a file from disk within the workspace root.
-
+        """Read a file from disk.
+        
         Args:
             path: Path to the file to read
             max_lines: Maximum number of lines to read (0 means read entire file)
         """
         try:
-            file_path = _resolve_under_root(self.root, path)
+            file_path = Path(path)
 
             if not file_path.exists():
                 return f"Error: File not found at {path}"
@@ -131,21 +98,13 @@ class FileReadTool(Tool):
                     return f.read()
 
             return await asyncio.to_thread(read_sync)
-        except ValueError as e:
-            return f"Error: {e}"
         except Exception as e:
             return f"Error reading {path}: {str(e)}"
 
     async def _list_files(self, directory: str, pattern: str = "*") -> str:
-        """List files in a directory within the workspace root."""
+        """List files in a directory."""
         try:
-            if ".." in Path(pattern).parts or os.path.isabs(pattern):
-                return (
-                    "Error: pattern must be a relative glob without "
-                    "'..' or absolute segments"
-                )
-
-            dir_path = _resolve_under_root(self.root, directory)
+            dir_path = Path(directory)
 
             if not dir_path.exists():
                 return f"Error: Directory not found at {directory}"
@@ -153,30 +112,16 @@ class FileReadTool(Tool):
                 return f"Error: {directory} is not a directory"
 
             def list_sync():
-                search_pattern = str(dir_path / pattern)
+                search_pattern = f"{directory}/{pattern}"
                 files = glob.glob(search_pattern)
 
-                # Drop any matches that resolve outside the workspace
-                # (e.g. via unexpected glob expansion).
-                confined = []
-                for file_path in files:
-                    resolved = Path(file_path).resolve()
-                    try:
-                        resolved.relative_to(self.root)
-                    except ValueError:
-                        continue
-                    confined.append(str(resolved))
-
-                if not confined:
+                if not files:
                     return f"No files found matching {directory}/{pattern}"
 
                 file_list = []
-                for file_path in sorted(confined):
+                for file_path in sorted(files):
                     path_obj = Path(file_path)
-                    try:
-                        rel_path = str(path_obj.relative_to(dir_path))
-                    except ValueError:
-                        rel_path = str(path_obj.relative_to(self.root))
+                    rel_path = str(file_path).replace(str(dir_path) + "/", "")
 
                     if path_obj.is_dir():
                         file_list.append(f"📁 {rel_path}/")
@@ -186,24 +131,18 @@ class FileReadTool(Tool):
                 return "\n".join(file_list)
 
             return await asyncio.to_thread(list_sync)
-        except ValueError as e:
-            return f"Error: {e}"
         except Exception as e:
             return f"Error listing files in {directory}: {str(e)}"
 
 
 class FileWriteTool(Tool):
-    """Tool for writing and editing files within a workspace root."""
+    """Tool for writing and editing files."""
 
-    def __init__(self, root: Optional[Union[str, Path]] = None):
+    def __init__(self):
         super().__init__(
             name="file_write",
             description="""
-            Write or edit files within the workspace root.
-
-            Paths are resolved under the workspace root; attempts to escape
-            (via .., absolute paths outside the root, or symlink tricks) are
-            rejected.
+            Write or edit files.
 
             Operations:
             - write: Create or completely replace a file
@@ -219,11 +158,7 @@ class FileWriteTool(Tool):
                     },
                     "path": {
                         "type": "string",
-                        "description": (
-                            "File path to write to or edit "
-                            "(relative to workspace root, or absolute "
-                            "within it)"
-                        ),
+                        "description": "File path to write to or edit",
                     },
                     "content": {
                         "type": "string",
@@ -240,11 +175,6 @@ class FileWriteTool(Tool):
                 },
                 "required": ["operation", "path"],
             },
-        )
-        self.root = (
-            Path(root).resolve()
-            if root is not None
-            else Path.cwd().resolve()
         )
 
     async def execute(
@@ -282,9 +212,9 @@ class FileWriteTool(Tool):
             return f"Error: Unsupported operation '{operation}'"
 
     async def _write_file(self, path: str, content: str) -> str:
-        """Write content to a file within the workspace root."""
+        """Write content to a file."""
         try:
-            file_path = _resolve_under_root(self.root, path)
+            file_path = Path(path)
             os.makedirs(file_path.parent, exist_ok=True)
 
             def write_sync():
@@ -296,15 +226,13 @@ class FileWriteTool(Tool):
                 )
 
             return await asyncio.to_thread(write_sync)
-        except ValueError as e:
-            return f"Error: {e}"
         except Exception as e:
             return f"Error writing to {path}: {str(e)}"
 
     async def _edit_file(self, path: str, old_text: str, new_text: str) -> str:
-        """Make targeted changes to a file within the workspace root."""
+        """Make targeted changes to a file."""
         try:
-            file_path = _resolve_under_root(self.root, path)
+            file_path = Path(path)
 
             if not file_path.exists():
                 return f"Error: File not found at {path}"
@@ -345,7 +273,5 @@ class FileWriteTool(Tool):
                     return f"Error: {path} appears to be a binary file"
 
             return await asyncio.to_thread(edit_sync)
-        except ValueError as e:
-            return f"Error: {e}"
         except Exception as e:
             return f"Error editing {path}: {str(e)}"
