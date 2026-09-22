@@ -1,6 +1,6 @@
 import { handleSlackEvents } from "./slack-events";
 import { handleManagedAgentsWebhook } from "./managed-agents-webhook";
-import { AGENT_ID, ENVIRONMENT_ID } from "./resources";
+import { AGENT_ID, ENVIRONMENT_ID, describeResources } from "./resources";
 
 const PORT = Number(process.env.PORT) || 3000;
 const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
@@ -44,5 +44,6 @@ Bun.serve({
 });
 
 console.log(`Bridge running at ${BASE_URL}`);
+console.log(`  Using ${describeResources()}`);
 console.log(`  Slack events:           ${BASE_URL}/slack/events`);
 console.log(`  Managed Agents webhook: ${BASE_URL}/managed-agents/webhook`);

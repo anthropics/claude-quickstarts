@@ -44,7 +44,7 @@ bun run dev
 | | |
 |---|---|
 | `agents/linear-assistant.md`, `environments/linear-assistant.yaml` | The agent and its environment, as files for `ant apply` |
-| `src/resources.ts` | Reads the agent and environment IDs from `claude-lock.json` (or `CLAUDE_*_ID` overrides) |
+| `src/resources.ts` | Reads the agent and environment IDs from `claude-lock.json`, falling back to `CLAUDE_*_ID` where it has no entry |
 | `src/main.ts` | Bun server, routes |
 | `src/oauth.ts` | Linear OAuth (`actor=app`, single-use `state`) + token store |
 | `src/agent.ts` | `sessions.create` + `user.message` with routing metadata |

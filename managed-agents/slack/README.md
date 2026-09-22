@@ -40,7 +40,7 @@ bun run dev
 | | |
 |---|---|
 | `agents/slack-assistant.md`, `environments/slack-assistant.yaml` | The agent and its environment, as files for `ant apply` |
-| `src/resources.ts` | Reads the agent and environment IDs from `claude-lock.json` (or `CLAUDE_*_ID` overrides) |
+| `src/resources.ts` | Reads the agent and environment IDs from `claude-lock.json`, falling back to `CLAUDE_*_ID` where it has no entry |
 | `src/main.ts` | Bun server, routes |
 | `src/slack-events.ts` | Verify Slack sig, `url_verification`, fire-and-forget kickoff |
 | `src/agent.ts` | `sessions.create` + `user.message` with routing metadata |
