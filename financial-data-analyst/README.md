@@ -39,14 +39,10 @@ cd anthropic-quickstarts/financial-data-analyst
 npm install
 ```
 
-3. Create a `.env.local` file in the root directory (see `.env.example`):
+3. Create a `.env.local` file in the root directory:
 ```env
 ANTHROPIC_API_KEY=your_api_key_here
-API_SECRET=replace-me-with-a-long-random-string
-NEXT_PUBLIC_API_SECRET=replace-me-with-a-long-random-string
 ```
-
-`API_SECRET` and `NEXT_PUBLIC_API_SECRET` must be the same value. The chat API route (`POST /api/finance`) spends your Anthropic API key. It rejects every request that is missing a matching `Authorization: Bearer …` header, and it rejects every request if `API_SECRET` is unset. The UI sends the bearer token from `NEXT_PUBLIC_API_SECRET`.
 
 4. Run the development server:
 ```bash

@@ -446,11 +446,7 @@ function ChatArea() {
       const startTime = performance.now();
       const response = await fetch("/api/chat", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Must match API_SECRET on the server (see .env.example).
-          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_SECRET ?? ""}`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           messages: [...messages, userMessage],
           model: selectedModel,

@@ -22,17 +22,13 @@ An advanced, fully customizable customer support chat interface powered by Claud
 
 ## ⚙️ Configuration
 
-Create a `.env.local` file in the root directory with the following variables (see `.env.example`):
+Create a `.env.local` file in the root directory with the following variables:
 
 ```
 ANTHROPIC_API_KEY=your_anthropic_api_key
 BAWS_ACCESS_KEY_ID=your_aws_access_key
 BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
-API_SECRET=replace-me-with-a-long-random-string
-NEXT_PUBLIC_API_SECRET=replace-me-with-a-long-random-string
 ```
-
-`API_SECRET` and `NEXT_PUBLIC_API_SECRET` must be the same value. The chat API route (`POST /api/chat`) spends your Anthropic API key and AWS Bedrock credentials. It rejects every request that is missing a matching `Authorization: Bearer …` header, and it rejects every request if `API_SECRET` is unset. The UI sends the bearer token from `NEXT_PUBLIC_API_SECRET`.
 
 Note: We are adding a 'B' in front of the AWS environment variables for a reason that will be discussed later in the deployment section.
 
@@ -184,8 +180,6 @@ To deploy this application using AWS Amplify, follow these steps:
            - echo "KNOWLEDGE_BASE_ID=$KNOWLEDGE_BASE_ID" >> .env
            - echo "BAWS_ACCESS_KEY_ID=$BAWS_ACCESS_KEY_ID" >> .env
            - echo "BAWS_SECRET_ACCESS_KEY=$BAWS_SECRET_ACCESS_KEY" >> .env
-           - echo "API_SECRET=$API_SECRET" >> .env
-           - echo "NEXT_PUBLIC_API_SECRET=$NEXT_PUBLIC_API_SECRET" >> .env
      artifacts:
        baseDirectory: .next
        files:
@@ -203,10 +197,8 @@ To deploy this application using AWS Amplify, follow these steps:
    ANTHROPIC_API_KEY=your_anthropic_api_key
    BAWS_ACCESS_KEY_ID=your_aws_access_key
    BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
-   API_SECRET=replace-me-with-a-long-random-string
-   NEXT_PUBLIC_API_SECRET=replace-me-with-a-long-random-string
    ```
-   The reason we are adding a 'B' in front of the keys here is because AWS doesn't allow keys in Amplify to start with "AWS". Set `API_SECRET` and `NEXT_PUBLIC_API_SECRET` to the same long random string so `/api/chat` accepts the UI's bearer token.
+   The reason we are adding a 'B' in front of the keys here is because AWS doesn't allow keys in Amplify to start with "AWS".
 
 8. Click "Save and deploy" to start the deployment process.
 
