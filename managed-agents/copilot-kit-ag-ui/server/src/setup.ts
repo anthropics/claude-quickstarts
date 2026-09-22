@@ -98,6 +98,8 @@ async function main() {
   console.log('Creating agent…');
   const agent = await client.beta.agents.create({
     name: 'financial-assistant',
+    // Tells Anthropic which quickstart this agent came from. Safe to remove.
+    metadata: { anthropic_cookbook: 'claude-quickstarts/copilot-kit-ag-ui' },
     model: MODEL,
     system: ASSISTANT_SYSTEM,
     // The visual tools (vizTools.ts) are not registered here: the AG-UI

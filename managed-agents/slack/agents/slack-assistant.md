@@ -9,6 +9,8 @@ description: Answers @mentions and DMs in Slack with a threaded reply
 model: claude-opus-5
 metadata:
   quickstart: slack
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/slack
 tools:
   - type: agent_toolset_20260401
     # always_allow because the bridge has no human-approval surface: an

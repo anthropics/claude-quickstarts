@@ -4,6 +4,7 @@
 
 - Name Anthropic SDK client instances `client` — e.g. `const client = new Anthropic();` in TypeScript, `client = Anthropic()` in Python. This applies to source files and code snippets in READMEs and guides alike.
 - Never use the "CMA" acronym. Write "Managed Agents" or "Claude Managed Agents" in prose and comments, and spell it out in identifiers, file names, and log prefixes (e.g. `managed-agents.ts`, not `cma.ts`; `[managed-agent]`, not `[cma]`).
+- Tag every Managed Agent a quickstart creates with `metadata.anthropic_cookbook` set to `claude-quickstarts/<quickstart-directory>` (e.g. `claude-quickstarts/chat-sdk`), in `agent.yaml`, `ant apply` frontmatter, or the `agents.create` call. This is how we see which quickstarts people run. Use lowercase letters, digits, and hyphens only, because the API drops any other value without an error. Sessions inherit the tag from their agent, so session metadata needs nothing.
 
 ## Legal
 
