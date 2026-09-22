@@ -9,10 +9,7 @@ deployment to the latest agent version and re-sends the environment, vault,
 and message, because a deployment keeps whatever it was created with.
 """
 
-import os
-from pathlib import Path
-
-from managed_agents import client, lockfile_id, require_env
+from managed_agents import ENV_FILE, client, deployment_id, lockfile_id, require_env
 
 agent_id = lockfile_id("./agents/sentry-triage.md")
 environment_id = lockfile_id("./environments/sentry-triage.yaml")
@@ -43,9 +40,9 @@ config = dict(
     ],
 )
 
-deployment_id = os.environ.get("CLAUDE_DEPLOYMENT_ID")
-if deployment_id:
-    deployment = client.beta.deployments.update(deployment_id, **config)
+existing = deployment_id()
+if existing:
+    deployment = client.beta.deployments.update(existing, **config)
     print(f"deployment: {deployment.id} updated (agent version {deployment.agent.version})")
 else:
     # The schedule is a POSIX cron expression plus an IANA timezone, matched on
@@ -65,6 +62,6 @@ else:
         print("next runs:")
         for ts in deployment.schedule.upcoming_runs_at or []:
             print(f"  {ts}")
-    with (Path(__file__).parent / ".env").open("a") as env_file:
+    with ENV_FILE.open("a") as env_file:
         env_file.write(f"\nCLAUDE_DEPLOYMENT_ID={deployment.id}\n")
     print("\nsaved CLAUDE_DEPLOYMENT_ID to .env")
