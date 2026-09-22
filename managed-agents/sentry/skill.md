@@ -48,7 +48,7 @@ A **deployment** bundles the agent, environment, vault, and initial user message
 
 ### The system prompt is stored, so keep secret tokens out of it
 
-System prompts and user messages land in the session's event history. Put org and project slugs there (`setup.sh` fills `SENTRY_ORG` and `SENTRY_PROJECT` into `agents/sentry-triage/agent.yaml`), never the token. The token only ever goes into the vault credential.
+System prompts and user messages land in the session's event history. The org and project slugs are fine there: `deploy.py` puts `SENTRY_ORG` and `SENTRY_PROJECT` from `.env` into the message that starts each run, and the system prompt in `agents/sentry-triage.md` tells the agent to use those. Never the token. The token only ever goes into the vault credential.
 
 ### List Sentry's API hosts, not `*.sentry.io`
 
@@ -58,7 +58,7 @@ Both allowlists name three hosts: `sentry.io` (the apex, which a wildcard would 
 
 To change the env var's name, archive the credential and create a new one. The replacement gets a different placeholder. In some scenarios, existing sessions can pick up the new credential, but to guarantee the new var is used, start fresh sessions after a rename.
 
-When rotating the *value* you can update `secret_value` in place and new outbound requests will use it, including from running sessions. IDs are unchanged. `setup.sh` saves both IDs to `.env` as `CLAUDE_CREDENTIAL_ID` and `CLAUDE_VAULT_ID`. It creates the credential once, with the vault, and does not touch it on re-runs.
+When rotating the *value* you can update `secret_value` in place and new outbound requests will use it, including from running sessions. IDs are unchanged. The vault's ID is in `claude-lock.json` under `./vaults/sentry-triage.yaml`, and `ant beta:vaults:credentials list --vault-id <vault>` shows the credential's. `setup.sh` creates the credential once and does not touch it on re-runs.
 
 ```python
 client.beta.vaults.credentials.update(
@@ -74,7 +74,7 @@ To add a host, send the full list including existing entries.
 
 ### The deployment pins an agent version
 
-`agents.update` writes a new agent version, and sessions you start by hand use the latest. The deployment doesn't: it keeps the version it pinned at create time, so a prompt edit alone never reaches scheduled runs. Re-running `./agents/setup.sh` does both halves: `ant beta:agents update` pushes the change, then `ant beta:deployments update` re-pins to the latest. The bare agent ID means "latest version". The same call sends the environment ID and `vault_ids`, because the deployment also keeps the ones it was created with. That matters after you recreate a vault or environment.
+An agent update writes a new agent version, and sessions you start by hand use the latest. The deployment doesn't: it keeps the version it pinned at create time, so a prompt edit alone never reaches scheduled runs. Re-running `./agents/setup.sh` does both halves: `ant apply` publishes the change, then `deploy.py` (which setup runs when `.env` has a deployment ID) calls `deployments.update` to re-pin to the latest. The bare agent ID means "latest version". The same call sends the environment ID, `vault_ids`, and the first message, because the deployment also keeps the ones it was created with. That matters after you recreate a vault or environment, or change the org or project in `.env`.
 
 ### Cron is wall-clock, with DST edges
 
@@ -100,14 +100,14 @@ The agent writes to `/mnt/session/outputs/`, which the Files API captures automa
 
 1. Sentry → **Settings → Auth Tokens → Create New Token** with `org:read`, `project:read`, and `event:read` scopes. Copy the `sntrys_...` value.
 2. `cp .env.example .env`, fill in `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT`. For Claude Platform auth, sign in once with [`ant auth login`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) or uncomment `ANTHROPIC_API_KEY`. The `ant` CLI and the SDK share the login.
-3. `./agents/setup.sh` → creates the vault, credential, environment, and agent, and appends `CLAUDE_VAULT_ID`, `CLAUDE_CREDENTIAL_ID`, `CLAUDE_ENVIRONMENT_ID`, and `CLAUDE_AGENT_ID` to `.env`.
-4. `uv run python deploy.py` → appends `CLAUDE_DEPLOYMENT_ID` to `.env`. Check the printed upcoming runs.
+3. `./agents/setup.sh` → `ant apply` creates the agent, environment, and vault and writes `claude-lock.json`; then the token goes into the vault as a credential. Needs `ant` 1.34 or later and `jq`.
+4. `uv run python deploy.py` → reads the three IDs from `claude-lock.json`, creates the deployment, appends `CLAUDE_DEPLOYMENT_ID` to `.env`. Check the printed upcoming runs.
 5. `uv run python run_now.py` → streams a manual run and downloads `TRIAGE_REPORT.md` to `reports/<session_id>/`. If the token is missing a scope or an allowlist is wrong, this is where it surfaces.
 6. Done. The schedule fires without any host process. `uv run python runs.py` shows history.
 
-To change the prompt or model later, edit `agents/sentry-triage/agent.yaml` and re-run `./agents/setup.sh`. It pushes the change and re-pins the deployment (see the gotcha above).
+To change the prompt or model later, edit `agents/sentry-triage.md` and re-run `./agents/setup.sh`. It publishes the change and re-pins the deployment (see the gotcha above).
 
-To stop: `uv run python teardown.py` archives everything and removes each `CLAUDE_*` ID from `.env` as it goes. Skip it to leave the schedule running. Afterwards `./agents/setup.sh` and `deploy.py` start from scratch. If teardown fails partway, fix the cause and run it again.
+To stop: `uv run python teardown.py` archives the deployment and everything in `claude-lock.json`, then removes the deployment ID from `.env` and deletes the lockfile. Skip it to leave the schedule running. Afterwards `./agents/setup.sh` and `deploy.py` start from scratch. If teardown fails partway, fix the cause and run it again.
 
 ## Debugging a failed run
 
@@ -116,7 +116,8 @@ To stop: `uv run python teardown.py` archives everything and removes each `CLAUD
 | `sentry-cli` gets 401 | Placeholder not substituted: host missing from the **credential's** `allowed_hosts`, or the request went to a host outside it |
 | Connection refused / timeout from the sandbox | Host missing from the **environment's** `networking.allowed_hosts` |
 | 403 from Sentry API | Token missing a scope (`org:read`, `project:read`, `event:read`) |
-| `runs.py` shows `vault_not_found_error` or `vault_archived_error` | Vault deleted or archived while the deployment still references it. Remove the `CLAUDE_VAULT_ID` and `CLAUDE_CREDENTIAL_ID` lines from `.env`, and re-run `./agents/setup.sh`. It creates a new vault and credential and points the deployment's `vault_ids` at it. The failure paused the deployment, so finish with `ant beta:deployments unpause --deployment-id $CLAUDE_DEPLOYMENT_ID` |
+| `runs.py` shows `vault_not_found_error` or `vault_archived_error` | Vault deleted or archived while the deployment still references it. `ant apply` notices too and refuses to guess: run `ant apply --force --yes vaults` to create a replacement, then `./agents/setup.sh`, which adds the credential to the new vault and points the deployment's `vault_ids` at it. The failure paused the deployment, so finish with `ant beta:deployments unpause --deployment-id $CLAUDE_DEPLOYMENT_ID` |
+| `ant apply` prints `refusing to apply` | A resource in `claude-lock.json` was changed, archived, or deleted in the Console. The plan says which and why. `--force` overwrites the edit or creates a replacement |
 | Scheduled time passed, no run record | Deployment paused (check `paused_reason`), or you're checking before the up-to-10s jitter |
 | `run_now.py` finds no files | Report indexing lag. The script retries, but if it still comes up empty, check the streamed transcript for whether the agent wrote the file |
 

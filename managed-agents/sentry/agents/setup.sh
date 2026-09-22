@@ -1,38 +1,42 @@
 #!/usr/bin/env bash
-# Create this quickstart's Managed Agents resources with the ant CLI and save
-# their IDs to .env. Re-run after editing the YAML to update them in place.
+# Provision this quickstart. `ant apply` creates or updates the agent, the
+# environment, and the vault from agents/, environments/, and vaults/ and
+# records their IDs in claude-lock.json. Then the one step it leaves to you,
+# because no secret passes through it: the Sentry token goes into the vault as
+# a credential. Re-run after editing a file: apply publishes the change, and if
+# deploy.py has created the deployment, it is re-pinned to the new version.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+command -v jq >/dev/null || { echo "jq not found on PATH (see the README)" >&2; exit 1; }
 [ -f .env ] || cp .env.example .env
-# Only .env decides create vs update. An ID left exported in the shell by
-# another quickstart would otherwise send this YAML to that quickstart's
-# resources.
-unset CLAUDE_AGENT_ID CLAUDE_CREDENTIAL_ID CLAUDE_DEPLOYMENT_ID CLAUDE_ENVIRONMENT_ID CLAUDE_VAULT_ID
+# Only .env decides whether a deployment exists here. One left exported by
+# another quickstart would otherwise be re-pinned to this agent.
+unset CLAUDE_DEPLOYMENT_ID
 set -a; . ./.env; set +a
 
 for v in SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT; do
   [ -n "${!v:-}" ] || { echo "$v is not set in .env (see .env.example)" >&2; exit 1; }
 done
 
-if [ -z "${CLAUDE_VAULT_ID:-}" ]; then
-  CLAUDE_VAULT_ID=$(ant beta:vaults create --transform id --raw-output < agents/sentry-triage/vault.yaml)
-  printf '\nCLAUDE_VAULT_ID=%s\n' "$CLAUDE_VAULT_ID" >> .env
-  echo "vault: created $CLAUDE_VAULT_ID"
-else
-  ant beta:vaults update --vault-id "$CLAUDE_VAULT_ID" < agents/sentry-triage/vault.yaml > /dev/null
-  echo "vault: updated $CLAUDE_VAULT_ID"
-fi
+# --yes: the plan is three small resources and this script is the review. Run
+# `ant apply --dry-run agents environments vaults` first to see it.
+ant apply --yes agents environments vaults
 
-# Gated on its own ID, not the vault's: if this create fails after the vault ID
-# is already saved, the next run has to come back here.
-if [ -z "${CLAUDE_CREDENTIAL_ID:-}" ]; then
-  # The credential exposes SENTRY_AUTH_TOKEN inside any session this vault is
-  # attached to. The sandbox only ever holds an opaque placeholder: the egress
-  # proxy substitutes the real token on requests to allowed_hosts and nothing
-  # else. To rotate the token later, see skill.md, "Changing env var name and
-  # values".
-  CLAUDE_CREDENTIAL_ID=$(ant beta:vaults:credentials create --vault-id "$CLAUDE_VAULT_ID" --transform id --raw-output <<YAML
+lock_id() { jq -r --arg f "$1" '.resources[$f].id // empty' claude-lock.json; }
+vault=$(lock_id ./vaults/sentry-triage.yaml)
+: "${vault:?claude-lock.json has no vault: read the ant apply output above}"
+
+# The credential exposes SENTRY_AUTH_TOKEN inside any session this vault is
+# attached to. The sandbox only ever holds an opaque placeholder: the egress
+# proxy substitutes the real token on requests to allowed_hosts and nothing
+# else. Created once; the vault is the record of whether it exists. To rotate
+# the token later, see skill.md, "Changing env var name and values".
+if ant beta:vaults:credentials list --vault-id "$vault" --max-items -1 --format jsonl \
+     --transform auth.secret_name --raw-output </dev/null | grep -qx SENTRY_AUTH_TOKEN; then
+  echo "credential: SENTRY_AUTH_TOKEN is already in $vault"
+else
+  credential=$(ant beta:vaults:credentials create --vault-id "$vault" --transform id --raw-output <<YAML
 display_name: Sentry org auth token (read-only scopes)
 auth:
   type: environment_variable
@@ -43,45 +47,13 @@ auth:
     allowed_hosts: [sentry.io, us.sentry.io, de.sentry.io]
 YAML
   )
-  printf 'CLAUDE_CREDENTIAL_ID=%s\n' "$CLAUDE_CREDENTIAL_ID" >> .env
-  echo "credential: created $CLAUDE_CREDENTIAL_ID"
-fi
-
-if [ -z "${CLAUDE_ENVIRONMENT_ID:-}" ]; then
-  CLAUDE_ENVIRONMENT_ID=$(ant beta:environments create --transform id --raw-output < agents/sentry-triage/environment.yaml)
-  printf '\nCLAUDE_ENVIRONMENT_ID=%s\n' "$CLAUDE_ENVIRONMENT_ID" >> .env
-  echo "environment: created $CLAUDE_ENVIRONMENT_ID"
-else
-  ant beta:environments update --environment-id "$CLAUDE_ENVIRONMENT_ID" < agents/sentry-triage/environment.yaml > /dev/null
-  echo "environment: updated $CLAUDE_ENVIRONMENT_ID"
-fi
-
-# agent.yaml is a template: the system prompt names the Sentry org and project.
-# Render it to a file and redirect that in. Piping sed into ant races ant's
-# 10 ms check for piped stdin, and an update that loses the race sends an empty
-# body and still exits 0.
-agent_yaml=$(mktemp)
-trap 'rm -f "$agent_yaml"' EXIT
-sed -e "s|{{SENTRY_ORG}}|$SENTRY_ORG|g" -e "s|{{SENTRY_PROJECT}}|$SENTRY_PROJECT|g" agents/sentry-triage/agent.yaml > "$agent_yaml"
-
-if [ -z "${CLAUDE_AGENT_ID:-}" ]; then
-  CLAUDE_AGENT_ID=$(ant beta:agents create --transform id --raw-output < "$agent_yaml")
-  printf '\nCLAUDE_AGENT_ID=%s\n' "$CLAUDE_AGENT_ID" >> .env
-  echo "agent: created $CLAUDE_AGENT_ID"
-else
-  version=$(ant beta:agents update --agent-id "$CLAUDE_AGENT_ID" --transform version --raw-output < "$agent_yaml")
-  echo "agent: updated $CLAUDE_AGENT_ID (version $version)"
+  echo "credential: created $credential in $vault"
 fi
 
 # The deployment keeps the agent version, environment, and vaults it was
-# created with, so nothing above reaches scheduled runs on its own. Passing the
-# bare agent ID re-pins it to the latest version. The other two matter after
-# you recreate a vault or environment (delete its ID from .env and re-run).
+# created with, so nothing above reaches scheduled runs on its own. deploy.py
+# re-sends all three (and the org and project from .env) when the deployment
+# already exists.
 if [ -n "${CLAUDE_DEPLOYMENT_ID:-}" ]; then
-  ant beta:deployments update --deployment-id "$CLAUDE_DEPLOYMENT_ID" > /dev/null <<YAML
-agent: $CLAUDE_AGENT_ID
-environment_id: $CLAUDE_ENVIRONMENT_ID
-vault_ids: [$CLAUDE_VAULT_ID]
-YAML
-  echo "deployment: synced $CLAUDE_DEPLOYMENT_ID to the agent, environment, and vault above"
+  uv run python deploy.py
 fi

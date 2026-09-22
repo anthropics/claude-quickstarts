@@ -1,11 +1,13 @@
 """Shared client, env loading, and streaming helpers for the triage scripts."""
 
+import json
 import os
 import re
 import sys
+from pathlib import Path
 
 from anthropic import Anthropic
-from dotenv import load_dotenv
+from dotenv import dotenv_values, load_dotenv
 
 # override=True matches ./agents/setup.sh, which sources .env over whatever the
 # shell exports. Without it an ANTHROPIC_API_KEY in your shell would make
@@ -24,8 +26,34 @@ client = Anthropic()
 def require_env(name: str) -> str:
     value = os.environ.get(name, "")
     if not value:
-        sys.exit(f"{name} is not set in .env (run ./agents/setup.sh, see .env.example)")
+        sys.exit(f"{name} is not set in .env (see .env.example)")
     return value
+
+
+ENV_FILE = Path(__file__).parent / ".env"
+
+
+def deployment_id() -> str:
+    # From the .env file itself, not os.environ: only this project's .env says
+    # whether its deployment exists. An ID another quickstart left exported in
+    # the shell must not be updated or archived from here.
+    return dotenv_values(ENV_FILE).get("CLAUDE_DEPLOYMENT_ID") or ""
+
+
+# `ant apply` (run by ./agents/setup.sh) records the ID of every resource it
+# created here, keyed by the file that declares it.
+LOCKFILE = Path(__file__).parent / "claude-lock.json"
+
+
+def lockfile_id(key: str) -> str:
+    try:
+        resources = json.loads(LOCKFILE.read_text())["resources"]
+    except FileNotFoundError:
+        sys.exit("claude-lock.json is missing: run ./agents/setup.sh first")
+    entry = resources.get(key)
+    if not entry:
+        sys.exit(f"claude-lock.json has no entry for {key}: run ./agents/setup.sh again")
+    return entry["id"]
 
 
 # C0 and C1 control characters except tab and newline. The agent reads issue
