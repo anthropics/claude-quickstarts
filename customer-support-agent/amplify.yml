@@ -11,6 +11,8 @@ frontend:
         - echo "KNOWLEDGE_BASE_ID=$KNOWLEDGE_BASE_ID" >> .env
         - echo "BAWS_ACCESS_KEY_ID=$BAWS_ACCESS_KEY_ID" >> .env
         - echo "BAWS_SECRET_ACCESS_KEY=$BAWS_SECRET_ACCESS_KEY" >> .env
+        - echo "API_SECRET=$API_SECRET" >> .env
+        - echo "NEXT_PUBLIC_API_SECRET=$NEXT_PUBLIC_API_SECRET" >> .env
   artifacts:
     baseDirectory: .next
     files:

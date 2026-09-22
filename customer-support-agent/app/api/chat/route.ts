@@ -60,8 +60,45 @@ const logTimestamp = (label: string, start: number) => {
   console.log(`⏱️ [${timestamp}] ${label}: ${time}s`);
 };
 
+/**
+ * Shared-secret gate for this route. The handler spends the server's
+ * Anthropic API key and AWS Bedrock credentials. Without a check, anyone who
+ * can reach the deployed URL could POST here and burn those budgets.
+ *
+ * Set API_SECRET in .env.local. Callers (including the UI) must send:
+ *   Authorization: Bearer <API_SECRET>
+ * Fail closed: if API_SECRET is missing, every request gets 401.
+ */
+function requireApiSecret(req: Request): Response | null {
+  const secret = process.env.API_SECRET;
+  if (!secret) {
+    return new Response(
+      JSON.stringify({
+        error:
+          "API_SECRET is not configured. Set it in .env.local and send Authorization: Bearer <secret>.",
+      }),
+      { status: 401, headers: { "Content-Type": "application/json" } },
+    );
+  }
+
+  const authorization = req.headers.get("authorization");
+  if (authorization !== `Bearer ${secret}`) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  return null;
+}
+
 // Main POST request handler
 export async function POST(req: Request) {
+  const authError = requireApiSecret(req);
+  if (authError) {
+    return authError;
+  }
+
   const apiStart = performance.now();
   const measureTime = (label: string) => logTimestamp(label, apiStart);
 

@@ -441,6 +441,8 @@ export default function AIChat() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          // Must match API_SECRET on the server (see .env.example).
+          Authorization: `Bearer ${process.env.NEXT_PUBLIC_API_SECRET ?? ""}`,
         },
         body: JSON.stringify(requestBody),
       });
