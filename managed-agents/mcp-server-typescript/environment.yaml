@@ -1,0 +1,14 @@
+# The one Managed Agents resource this quickstart needs: the sandbox template
+# every session it creates boots from. It creates no agents. It drives the ones
+# already in your workspace. Create the environment once and save its ID:
+#
+#   printf 'CLAUDE_ENVIRONMENT_ID=%s\n' \
+#     "$(ant beta:environments create --transform id --raw-output < environment.yaml)" >> .env
+name: quickstart-mcp-server-typescript-env
+metadata:
+  quickstart: mcp-server-typescript
+config:
+  type: cloud
+  # Sessions for any agent in the workspace boot from this, so it stays open.
+  # Tighten it to `limited` with an allowlist if your agents don't browse.
+  networking: {type: unrestricted}

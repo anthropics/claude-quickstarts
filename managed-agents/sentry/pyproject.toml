@@ -1,0 +1,12 @@
+[project]
+name = "sentry-triage-managed-agents"
+version = "0.1.0"
+description = "Scheduled Sentry triage with a Claude Managed Agent"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "anthropic>=0.109.0,<1.0.0",
+    "python-dotenv",
+]
+
+[tool.ruff]
+line-length = 100

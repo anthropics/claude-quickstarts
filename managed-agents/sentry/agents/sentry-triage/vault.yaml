@@ -1,0 +1,7 @@
+# The vault definition, piped to `ant beta:vaults create`. ./agents/setup.sh
+# saves its ID to .env as CLAUDE_VAULT_ID and then adds the Sentry token to it
+# as an environment_variable credential. The token itself comes from .env and
+# never appears in a YAML file.
+display_name: quickstart-sentry-triage
+metadata:
+  quickstart: sentry

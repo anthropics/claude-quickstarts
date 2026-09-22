@@ -1,0 +1,21 @@
+# The environment definition: the sandbox template every session boots from.
+# ./agents/setup.sh passes it to `ant beta:environments create` (or `update`
+# on re-runs) and saves CLAUDE_ENVIRONMENT_ID to .env.
+name: quickstart-sentry-triage-env
+metadata:
+  quickstart: sentry
+config:
+  type: cloud
+  # This allowlist is separate from the credential's (see setup.sh): this one
+  # gates what the sandbox can connect to, the credential's gates where the
+  # secret is substituted. Both list Sentry's three API hosts and nothing
+  # wider. "*.sentry.io" would also match o<id>.ingest.sentry.io, which is
+  # every Sentry customer's event ingest endpoint: an injected instruction
+  # could post your data, or the substituted token, to someone else's project.
+  networking:
+    type: limited
+    allow_package_managers: true
+    allowed_hosts: [sentry.io, us.sentry.io, de.sentry.io]
+  # The PyPI package ships the sentry-cli binary.
+  packages:
+    pip: [sentry-cli]

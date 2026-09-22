@@ -1,0 +1,16 @@
+# The sandbox. `limited` networking is the outer wall: the container can only
+# open connections to these two hosts. No package registries, no MCP servers,
+# nothing else. Each credential in setup.sh names the same host again, because
+# that second list decides where a placeholder becomes the real key. Exact
+# hosts, never wildcards.
+name: quickstart-roadtrip-planner-env
+description: "Road trip planner sandbox: National Park Service + Windy only"
+metadata:
+  quickstart: roadtrip-planner
+config:
+  type: cloud
+  networking:
+    type: limited
+    allow_package_managers: false
+    allow_mcp_servers: false
+    allowed_hosts: [developer.nps.gov, api.windy.com]

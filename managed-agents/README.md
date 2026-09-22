@@ -42,6 +42,34 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   example is a real M&A data room: the 2024 Squarespace / Permira
   take-private, fetched from public SEC EDGAR filings.
 
+- **[linear/](linear/)** answers `@mentions` and assignments in
+  Linear issues with a comment, over a stateless Bun webhook bridge
+  on Linear's Agent Platform. The `AgentSessionEvent` creates a
+  session with the Linear session and organization IDs stored in
+  session `metadata`, the handler posts a "thought" inside Linear's
+  10-second window, and the `session.status_idled` webhook reads that
+  metadata back to post the reply. It installs through Linear OAuth
+  with `actor=app`, the first workspace to install owns the bridge,
+  and Stop in Linear interrupts the running session.
+
+- **[mcp-server-typescript/](mcp-server-typescript/)** wraps the
+  Sessions API as nine MCP tools, so Claude Desktop, Claude Code, or
+  claude.ai can list the agents in your workspace, start sessions,
+  and relay messages to them. Eight tools map 1:1 to endpoints, and
+  `wait_for_idle` turns the event stream into one request/response
+  call. It creates no agents of its own. The HTTP entrypoint binds
+  loopback by default, and `ALLOWED_AGENT_IDS` limits which agents a
+  bearer-token holder can reach.
+
+- **[roadtrip-planner/](roadtrip-planner/)** plans national park
+  road trips in a Next.js chat built directly on a session, with no
+  chat framework and no database. It shows four API features on one
+  screen: `event_deltas` token streaming through a thin SSE proxy,
+  vault credentials injected at a header or in a JSON body with
+  `injection_location`, a per-session model override with
+  `agent_with_overrides`, and a `multiagent` coordinator that hands
+  its draft to a reviewer agent on the same event stream.
+
 - **[self-hosted-sandboxes/](self-hosted-sandboxes/)** runs sessions
   on hardware you control. A self-hosted environment is a work queue:
   a host process polls it with the environment key and starts one
@@ -52,3 +80,18 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   containers with a per-session token. `archil/` swaps the containers
   for Archil persistent sandboxes that all mount one SEC EDGAR disk, so
   parallel analyst sessions work on 70 GB of filings in place.
+
+- **[sentry/](sentry/)** runs a Sentry triage agent on a schedule
+  with no host process. A deployment starts a session on a cron
+  expression, the agent pulls the last 24 hours of issues with
+  `sentry-cli`, and writes a severity-ranked report. The Sentry token
+  lives in a vault: the sandbox holds only a placeholder, and the
+  egress proxy swaps in the real token on requests to Sentry's API
+  hosts and nowhere else.
+
+- **[slack/](slack/)** answers `@mentions` in Slack with a threaded
+  reply, over a stateless Bun webhook bridge. The Slack event creates
+  a session with the channel and thread stored in session `metadata`,
+  the handler acks inside Slack's 3-second window, and the
+  `session.status_idled` webhook reads that metadata back to post the
+  reply. No database and no held connection.

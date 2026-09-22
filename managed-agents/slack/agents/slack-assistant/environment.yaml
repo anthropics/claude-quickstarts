@@ -1,0 +1,9 @@
+# The environment definition: the sandbox template every session boots from.
+# ./agents/setup.sh passes it to `ant beta:environments create` (or `update`
+# on re-runs) and saves CLAUDE_ENVIRONMENT_ID to .env.
+name: quickstart-slack-assistant-env
+metadata:
+  quickstart: slack
+config:
+  type: cloud
+  networking: {type: unrestricted}
