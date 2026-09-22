@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { BetaManagedAgentsSession } from "@anthropic-ai/sdk/resources/beta/sessions/sessions";
+import { plannerAgentId } from "./resources";
 
 /**
  * The shared pieces of the server side: one SDK client (auth comes from
@@ -12,15 +13,6 @@ export const client = new Anthropic();
 
 export const SESSION_COOKIE = "roadtrip_planner_session_id";
 
-export function requireEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(
-      `Missing ${name}. Run \`./agents/setup.sh\` (it writes .env), then restart \`npm run dev\`.`,
-    );
-  }
-  return value;
-}
 
 /**
  * The gate every session-touching route goes through. The cookie value comes
@@ -35,7 +27,7 @@ export function requireEnv(name: string): string {
 export async function ownedSession(
   sessionId: string | undefined | null,
 ): Promise<BetaManagedAgentsSession | null> {
-  const agentId = requireEnv("CLAUDE_AGENT_ID");
+  const agentId = plannerAgentId();
   if (!sessionId || !/^sesn_[A-Za-z0-9]{10,64}$/.test(sessionId)) return null;
   const session = await client.beta.sessions.retrieve(sessionId).catch(() => null);
   if (!session || session.agent.id !== agentId) return null;

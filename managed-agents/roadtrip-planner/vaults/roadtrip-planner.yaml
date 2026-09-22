@@ -1,0 +1,10 @@
+# The vault. Credentials live here, not in the environment and not in the
+# prompt. Sessions opt in with vault_ids at create time. `ant apply` creates
+# the container from this file (it takes `display_name` and `metadata`, nothing
+# else) and records its ID in claude-lock.json, where the app reads it. The two
+# vendor keys are not declared here: no secret passes through `ant apply`, so
+# ./agents/setup.sh adds them as credentials, from .env, and they never appear
+# in a YAML file.
+display_name: quickstart-roadtrip-planner vendor keys
+metadata:
+  quickstart: roadtrip-planner

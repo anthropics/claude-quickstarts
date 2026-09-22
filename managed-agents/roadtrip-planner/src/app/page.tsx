@@ -81,7 +81,8 @@ export default function Page() {
         <pre className="berr">{bootError}</pre>
         <p className="bhint">
           Most likely the agent has not been provisioned yet: run <code>./agents/setup.sh</code>{" "}
-          (it writes the ids into <code>.env</code>), then restart <code>npm run dev</code>.
+          (its <code>ant apply</code> writes the ids into <code>claude-lock.json</code>), then restart{" "}
+          <code>npm run dev</code>.
         </p>
         <button type="button" className="newbtn" onClick={() => void start(false)}>
           Retry

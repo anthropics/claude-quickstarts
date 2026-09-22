@@ -21,17 +21,22 @@ agent is an Opus reviewer running as a session thread.
    `src/lib/use-managed-agent-session.ts` (the client runtime: one EventSource, the
    SDK accumulator, the re-sync-on-connect habit), `agents/setup.sh` (where
    each credential's `injection_location` is set), and
-   `agents/roadtrip-planner/agent.yaml` (the planner prompt and the
-   `multiagent` roster). `src/lib/transcript.ts` is the one fold both first
+   `agents/roadtrip-planner.md` (the planner prompt and the `multiagent`
+   roster, which names `agents/plan-reviewer.md` by path). `src/lib/transcript.ts` is the one fold both first
    paint and live streaming render through. `src/lib/client.ts` holds
    `ownedSession()`, the check every route runs on the session cookie.
 
-Provisioning is `./agents/setup.sh`: it creates the vault, two credentials,
-environment, reviewer, and planner from `agents/*/*.yaml` with the `ant` CLI,
-writes their IDs to `.env`, and on re-runs pushes YAML edits onto the same
-resources. A new resource is a new YAML file plus one more create/update
-block in `setup.sh`, copied from the ones already there, and one more line in
-`agents/teardown.sh`.
+Provisioning is `./agents/setup.sh` (ant 1.34 or later, `jq`): it runs
+`ant apply --yes agents environments vaults`, which creates the environment,
+vault, reviewer, and planner from those directories and records their IDs in
+`claude-lock.json` (read by `src/lib/resources.ts`), then adds the two vendor
+keys to the vault as credentials, skipping any the vault already holds. On
+re-runs apply publishes file edits onto the same resources. If it prints
+`refusing to apply`, a resource was changed or archived in the Console: show
+the user the reason before reaching for `--force`. A new resource is one more
+file in `agents/`, `environments/`, `vaults/`, or `memory_stores/` (add that
+directory to the apply line), one more getter in `src/lib/resources.ts`, and
+one more `archive` line in `agents/teardown.sh`.
 
 ## Invariants to preserve when editing
 
@@ -71,6 +76,6 @@ block in `setup.sh`, copied from the ones already there, and one more line in
   response, never client state. An override must be visible as the resolved
   snapshot or the demo proves nothing.
 - Secrets reach the vault through the heredocs in `agents/setup.sh` and
-  nowhere else. Never write a vendor key into a YAML file or pass one as a
-  CLI flag.
+  nowhere else. Never write a vendor key into a YAML or agent file (`ant
+  apply` sends those whole) or pass one as a CLI flag.
 - No database. If a change needs one, it does not belong in this quickstart.

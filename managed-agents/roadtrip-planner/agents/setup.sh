@@ -1,23 +1,20 @@
 #!/usr/bin/env bash
-# Create this quickstart's Managed Agents resources with the ant CLI and save
-# their IDs to .env. Re-run after editing the YAML to update them in place.
-#
-# Creates, in order: the vault, two credentials, the environment, the reviewer
-# agent, then the planner agent whose roster names the reviewer. Each resource
-# is gated on its own ID in .env, so a run that fails partway picks up where
-# it stopped.
+# Provision this quickstart. `ant apply` creates or updates the environment,
+# the vault, the reviewer, and the planner (whose roster names the reviewer's
+# file, so apply creates the reviewer first and pins the planner to its
+# version) and records their IDs in claude-lock.json, which the app reads.
+# Then the one step apply leaves to you, because no secret passes through it:
+# the two vendor keys go into the vault as credentials. Re-run after editing a
+# file: apply publishes the change as a new agent version that new trips pick
+# up. Live credentials are left alone, so a flip from README step 2 survives.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-# .env holds three API keys, so keep it owner-only.
+command -v jq >/dev/null || { echo "jq not found on PATH (see the README)" >&2; exit 1; }
+# .env holds two API keys, so keep it owner-only.
 umask 077
 [ -f .env ] || cp .env.example .env
 chmod 600 .env
-# .env is the only source for these IDs. Clear any copy already exported in
-# this shell (a sibling quickstart uses the same names), or a fresh run here
-# would update, or tear down, someone else's resources.
-unset CLAUDE_VAULT_ID CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID CLAUDE_WINDY_CREDENTIAL_ID \
-  CLAUDE_ENVIRONMENT_ID CLAUDE_REVIEWER_AGENT_ID CLAUDE_AGENT_ID
 set -a; . ./.env; set +a
 
 # The two keys are interpolated into a YAML body below. A quote or newline in
@@ -27,16 +24,12 @@ for v in NATIONAL_PARK_SERVICE_API_KEY WINDY_API_KEY; do
   [[ "${!v}" =~ ^[A-Za-z0-9_-]+$ ]] || { echo "$v has characters an API key should not. Check for quotes or spaces in .env." >&2; exit 1; }
 done
 
-save() { printf '%s=%s\n' "$1" "$2" >> .env; }
+# --yes: the plan is four small resources and this script is the review. Run
+# `ant apply --dry-run agents environments vaults` first to see it.
+ant apply --yes agents environments vaults
 
-if [ -z "${CLAUDE_VAULT_ID:-}" ]; then
-  CLAUDE_VAULT_ID=$(ant beta:vaults create --transform id --raw-output < agents/roadtrip-planner/vault.yaml)
-  printf '\n' >> .env; save CLAUDE_VAULT_ID "$CLAUDE_VAULT_ID"
-  echo "vault: created $CLAUDE_VAULT_ID"
-else
-  ant beta:vaults update --vault-id "$CLAUDE_VAULT_ID" < agents/roadtrip-planner/vault.yaml > /dev/null
-  echo "vault: updated $CLAUDE_VAULT_ID"
-fi
+vault=$(jq -r '.resources["./vaults/roadtrip-planner.yaml"].id // empty' claude-lock.json)
+: "${vault:?claude-lock.json has no vault: read the ant apply output above}"
 
 # Both credentials are `environment_variable` credentials: the sandbox sees
 # $NATIONAL_PARK_SERVICE_API_KEY and $WINDY_API_KEY as opaque placeholders, and
@@ -47,10 +40,16 @@ fi
 # documents. Same vault, same mechanism, opposite locations.
 #
 # The bodies are heredocs so the keys travel on stdin. They never land in a
-# YAML file and never show up in a process listing. Credentials are created
-# once: to change an injection_location on a live one, see README.md, step 2.
-if [ -z "${CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID:-}" ]; then
-  CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID=$(ant beta:vaults:credentials create --vault-id "$CLAUDE_VAULT_ID" --transform id --raw-output <<YAML
+# YAML file and never show up in a process listing. Each credential is created
+# once; the vault is the record of whether it exists. To change an
+# injection_location on a live one, see README.md, step 2.
+existing=$(ant beta:vaults:credentials list --vault-id "$vault" --max-items -1 --format jsonl \
+  --transform auth.secret_name --raw-output </dev/null)
+
+if grep -qx NATIONAL_PARK_SERVICE_API_KEY <<<"$existing"; then
+  echo "credential: NATIONAL_PARK_SERVICE_API_KEY is already in $vault"
+else
+  credential=$(ant beta:vaults:credentials create --vault-id "$vault" --transform id --raw-output <<YAML
 display_name: National Park Service API key (header)
 metadata:
   quickstart: roadtrip-planner
@@ -65,12 +64,13 @@ auth:
   injection_location: {header: true, body: false}
 YAML
   )
-  save CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID "$CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID"
-  echo "credential: created $CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID  NATIONAL_PARK_SERVICE_API_KEY -> developer.nps.gov (header)"
+  echo "credential: created $credential  NATIONAL_PARK_SERVICE_API_KEY -> developer.nps.gov (header)"
 fi
 
-if [ -z "${CLAUDE_WINDY_CREDENTIAL_ID:-}" ]; then
-  CLAUDE_WINDY_CREDENTIAL_ID=$(ant beta:vaults:credentials create --vault-id "$CLAUDE_VAULT_ID" --transform id --raw-output <<YAML
+if grep -qx WINDY_API_KEY <<<"$existing"; then
+  echo "credential: WINDY_API_KEY is already in $vault"
+else
+  credential=$(ant beta:vaults:credentials create --vault-id "$vault" --transform id --raw-output <<YAML
 display_name: Windy API key (body)
 metadata:
   quickstart: roadtrip-planner
@@ -85,45 +85,7 @@ auth:
   injection_location: {header: false, body: true}
 YAML
   )
-  save CLAUDE_WINDY_CREDENTIAL_ID "$CLAUDE_WINDY_CREDENTIAL_ID"
-  echo "credential: created $CLAUDE_WINDY_CREDENTIAL_ID  WINDY_API_KEY -> api.windy.com (body)"
-fi
-
-if [ -z "${CLAUDE_ENVIRONMENT_ID:-}" ]; then
-  CLAUDE_ENVIRONMENT_ID=$(ant beta:environments create --transform id --raw-output < agents/roadtrip-planner/environment.yaml)
-  save CLAUDE_ENVIRONMENT_ID "$CLAUDE_ENVIRONMENT_ID"
-  echo "environment: created $CLAUDE_ENVIRONMENT_ID"
-else
-  ant beta:environments update --environment-id "$CLAUDE_ENVIRONMENT_ID" < agents/roadtrip-planner/environment.yaml > /dev/null
-  echo "environment: updated $CLAUDE_ENVIRONMENT_ID"
-fi
-
-# The reviewer has to exist before the planner, whose roster names it by ID.
-if [ -z "${CLAUDE_REVIEWER_AGENT_ID:-}" ]; then
-  CLAUDE_REVIEWER_AGENT_ID=$(ant beta:agents create --transform id --raw-output < agents/plan-reviewer/agent.yaml)
-  save CLAUDE_REVIEWER_AGENT_ID "$CLAUDE_REVIEWER_AGENT_ID"
-  echo "reviewer: created $CLAUDE_REVIEWER_AGENT_ID"
-else
-  version=$(ant beta:agents update --agent-id "$CLAUDE_REVIEWER_AGENT_ID" --transform version --raw-output < agents/plan-reviewer/agent.yaml)
-  echo "reviewer: updated $CLAUDE_REVIEWER_AGENT_ID (version $version)"
-fi
-
-# The planner's YAML is a template: its roster carries the reviewer's ID.
-# Render it to a file and redirect that in. Piping sed into ant races ant's
-# 10 ms check for piped stdin, and an update that loses the race sends an empty
-# body and still exits 0.
-planner_yaml=$(mktemp)
-trap 'rm -f "$planner_yaml"' EXIT
-sed "s|{{CLAUDE_REVIEWER_AGENT_ID}}|$CLAUDE_REVIEWER_AGENT_ID|g" agents/roadtrip-planner/agent.yaml > "$planner_yaml"
-grep -q "$CLAUDE_REVIEWER_AGENT_ID" "$planner_yaml" || { echo "agents/roadtrip-planner/agent.yaml has no {{CLAUDE_REVIEWER_AGENT_ID}} placeholder" >&2; exit 1; }
-
-if [ -z "${CLAUDE_AGENT_ID:-}" ]; then
-  CLAUDE_AGENT_ID=$(ant beta:agents create --transform id --raw-output < "$planner_yaml")
-  save CLAUDE_AGENT_ID "$CLAUDE_AGENT_ID"
-  echo "planner: created $CLAUDE_AGENT_ID"
-else
-  version=$(ant beta:agents update --agent-id "$CLAUDE_AGENT_ID" --transform version --raw-output < "$planner_yaml")
-  echo "planner: updated $CLAUDE_AGENT_ID (version $version)"
+  echo "credential: created $credential  WINDY_API_KEY -> api.windy.com (body)"
 fi
 
 cat <<'DONE'

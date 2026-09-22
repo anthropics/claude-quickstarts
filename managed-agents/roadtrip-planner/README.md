@@ -35,12 +35,12 @@ The new API calls, and where to read them:
 - `injection_location` provisioned on each credential: the two credential blocks in [`agents/setup.sh`](./agents/setup.sh)
 - `injection_location` flipped on a live credential: one `ant` CLI call, step 2 below
 - `agent_with_overrides` on session create: [`src/app/api/session/route.ts`](./src/app/api/session/route.ts)
-- the `multiagent` coordinator roster on the planner agent: [`agents/roadtrip-planner/agent.yaml`](./agents/roadtrip-planner/agent.yaml)
+- the `multiagent` coordinator roster on the planner agent: [`agents/roadtrip-planner.md`](./agents/roadtrip-planner.md)
 - thread events folded into the rail and the chat: [`src/lib/transcript.ts`](./src/lib/transcript.ts)
 
 ## Quickstart
 
-Needs Node 20 or later, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 1.19 or later (`brew install anthropics/tap/ant`), and Anthropic auth for an organization with Managed Agents access: `ant auth login` once, or an API key from [platform.claude.com](https://platform.claude.com/). It also needs two free vendor keys:
+Needs Node 20 or later, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 1.34 or later (`brew install anthropics/tap/ant`), `jq`, and Anthropic auth for an organization with Managed Agents access: `ant auth login` once, or an API key from [platform.claude.com](https://platform.claude.com/). It also needs two free vendor keys:
 
 - A National Park Service API key, emailed instantly: <https://www.nps.gov/subjects/developer/get-started.htm>
 - A Windy Point Forecast API key, free tier: <https://api.windy.com/point-forecast/docs>
@@ -56,11 +56,11 @@ Or by hand:
 ```bash
 ant auth login            # or put ANTHROPIC_API_KEY in .env
 cp .env.example .env      # fill in NATIONAL_PARK_SERVICE_API_KEY and WINDY_API_KEY
-./agents/setup.sh         # vault + 2 credentials + environment + 2 agents, IDs -> .env
+./agents/setup.sh         # `ant apply`: environment + vault + 2 agents; then the 2 credentials
 npm run dev               # http://localhost:3000
 ```
 
-To change either agent (model, prompt, tools), edit its YAML under [`agents/`](./agents) and re-run `./agents/setup.sh`. It pushes a new agent version that new trips pick up. `./agents/teardown.sh` archives everything and clears the IDs from `.env`.
+`setup.sh` runs [`ant apply`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply) on four files: the planner in [`agents/roadtrip-planner.md`](./agents/roadtrip-planner.md) and the reviewer in [`agents/plan-reviewer.md`](./agents/plan-reviewer.md) (frontmatter is the configuration, prose is the system prompt), the environment in [`environments/roadtrip-planner.yaml`](./environments/roadtrip-planner.yaml), and the vault in [`vaults/roadtrip-planner.yaml`](./vaults/roadtrip-planner.yaml). The planner's roster names the reviewer's file, so `ant apply` creates the reviewer first and pins the planner to its version. It records every ID in `claude-lock.json`, which the app reads. The one thing it never touches is a secret, so `setup.sh` then puts the two vendor keys into the vault as credentials. To change either agent (model, prompt, tools), edit its file and re-run `./agents/setup.sh`: apply publishes a new version that new trips pick up. `./agents/teardown.sh` archives everything and removes `claude-lock.json`. This repository ignores that file, since every reader creates their own resources. In a project of your own, commit it.
 
 Setup provisions each credential with the injection location its vendor documents, hardcoded in [`agents/setup.sh`](./agents/setup.sh):
 
@@ -91,27 +91,27 @@ Each one is a runnable step. Together they are the quickstart.
 
 ### 2. Flip one field and watch a vendor reject the placeholder
 
-Update the live credential with the `ant` CLI. It uses the same credentials `./agents/setup.sh` did, and the IDs are in `.env`:
+Update the live credential with the `ant` CLI. It uses the same credentials `./agents/setup.sh` did. The vault's ID is in `claude-lock.json`, and the vault lists its credentials:
 
 ```bash
-eval "$(grep '^CLAUDE_' .env)"
+vault=$(jq -r '.resources["./vaults/roadtrip-planner.yaml"].id' claude-lock.json)
+nps=$(ant beta:vaults:credentials list --vault-id "$vault" --format jsonl | jq -r 'select(.auth.secret_name == "NATIONAL_PARK_SERVICE_API_KEY").id')
 ant beta:vaults:credentials update \
-  --vault-id "$CLAUDE_VAULT_ID" \
-  --credential-id "$CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID" \
+  --vault-id "$vault" \
+  --credential-id "$nps" \
   --auth '{type: environment_variable, injection_location: {header: false, body: true}}'
 ```
 
 The National Park Service only accepts its key in a header, and header injection is now off for that credential. Nothing substitutes the placeholder, the next NPS call carries it literally, and NPS rejects it. Ask "is anything closed at the park right now" and watch the 4xx land in the tool rail: the agent shows the status and body, retries the documented header location once, then says plainly that NPS is rejecting its key while it keeps planning with the weather API. Heal it by setting the credential back to the location its vendor documents:
 
 ```bash
-eval "$(grep '^CLAUDE_' .env)"
 ant beta:vaults:credentials update \
-  --vault-id "$CLAUDE_VAULT_ID" \
-  --credential-id "$CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID" \
+  --vault-id "$vault" \
+  --credential-id "$nps" \
   --auth '{type: environment_variable, injection_location: {header: true, body: false}}'
 ```
 
-One field, no secret rotation, no redeploy, visible consequence. The same flip works the other way on the Windy credential (`$CLAUDE_WINDY_CREDENTIAL_ID`, with the two booleans inverted), because Windy only documents body auth.
+One field, no secret rotation, no redeploy, visible consequence. The same flip works the other way on the Windy credential (`secret_name == "WINDY_API_KEY"`, with the two booleans inverted), because Windy only documents body auth.
 
 ### 3. Run the same agent on a different model
 
@@ -128,25 +128,29 @@ The override replaces the stored agent's model for this session only. The header
 
 ### 4. Watch the planner get its plan reviewed
 
-Ask for a full multi-day itinerary (step 1's Zion and Bryce prompt works). After the draft is written, the status line flips to "waiting on Plan reviewer...": the planner spawned its roster agent as a session thread and messaged it the draft. The reviewer is a second stored agent, created by `./agents/setup.sh` before the planner so the planner's roster can name it:
+Ask for a full multi-day itinerary (step 1's Zion and Bryce prompt works). After the draft is written, the status line flips to "waiting on Plan reviewer...": the planner spawned its roster agent as a session thread and messaged it the draft. The reviewer is a second stored agent. The planner's roster names its file, and `ant apply` turns that path into the reviewer's ID and version, creating the reviewer first:
 
-```yaml
-# agents/plan-reviewer/agent.yaml
+```markdown
+# agents/plan-reviewer.md
+---
 name: Plan reviewer
 model: claude-opus-5
-system: |
-  You review road trip itineraries drafted by another agent. ...
 tools:
   - type: agent_toolset_20260401
     default_config:
       enabled: false
+---
+You review road trip itineraries drafted by another agent. ...
 
-# agents/roadtrip-planner/agent.yaml
+# agents/roadtrip-planner.md
+---
 name: Road trip planner
 model: claude-sonnet-5
 multiagent:
   type: coordinator
-  agents: ["{{CLAUDE_REVIEWER_AGENT_ID}}"]   # setup.sh fills this in
+  agents:
+    - ./plan-reviewer.md    # ant apply sends {type: agent, id, version}
+---
 ```
 
 Nobody asks for the review. The roster grants the capability, and the planner's own system prompt decides when to use it: a new day-by-day itinerary gets reviewed, a quick factual answer does not. The send is not a tool call and not an app request. The only trace is the thread events themselves.
@@ -175,7 +179,7 @@ Everything else on the stream is a status signal: thinking starts drive the acti
 - Streaming previews cover `agent.message` (text deltas) and `agent.thinking` (start only) on the session's primary thread. Tool calls and subagent threads arrive as buffered events, so the reviewer's critique lands whole, not token by token.
 - The roster is flat: 1 to 20 entries, and a roster agent cannot have a roster of its own (depth limit 1). The model picker overrides the planner only. The reviewer thread always runs the reviewer agent's stored model.
 - Vaults and the model both attach at `sessions.create`. You can update a credential in a vault a running session already holds, but a different vault or a different model means a new session, which is why the picker starts a new trip.
-- `./agents/setup.sh` creates the two credentials once. Re-running it updates the vault, environment, and both agents from their YAML, but leaves live credentials alone so a flip from step 2 survives. To rotate a vendor key, update the credential's `secret_value` with `ant beta:vaults:credentials update`, or run `./agents/teardown.sh` and set up again.
+- `./agents/setup.sh` creates the two credentials once. Re-running it applies edits to the vault, environment, and both agents from their files, but leaves live credentials alone so a flip from step 2 survives. To rotate a vendor key, update the credential's `secret_value` with `ant beta:vaults:credentials update`, or run `./agents/teardown.sh` and set up again.
 
 </details>
 
@@ -183,10 +187,11 @@ Everything else on the stream is a status signal: thinking starts drive the acti
 
 | | |
 |---|---|
-| `agents/roadtrip-planner/` | The planner agent, environment, and vault definitions `setup.sh` provisions |
-| `agents/plan-reviewer/` | The reviewer agent definition |
-| `agents/setup.sh` | Vault + two credentials + environment + reviewer + planner. Creates on the first run, updates in place after |
-| `agents/teardown.sh` | Archive sessions and everything setup created, and clear the IDs from `.env` |
+| `agents/roadtrip-planner.md`, `agents/plan-reviewer.md` | The planner (with its roster) and the reviewer, as files for `ant apply` |
+| `environments/roadtrip-planner.yaml`, `vaults/roadtrip-planner.yaml` | The sandbox and the vault container, as files for `ant apply` |
+| `agents/setup.sh` | `ant apply` for the four resources, then the two credentials. Creates on the first run, updates in place after |
+| `agents/teardown.sh` | Archive sessions and everything in `claude-lock.json`, then remove it |
+| `src/lib/resources.ts` | Reads the planner, environment, and vault IDs from `claude-lock.json` |
 | `src/lib/client.ts` | The shared SDK client, the session cookie name, and `ownedSession()` |
 | `src/lib/models.ts` | The models the picker offers and `/api/session` accepts |
 | `src/lib/use-managed-agent-session.ts` | The client runtime: one EventSource, the SDK accumulator, send/stop |
