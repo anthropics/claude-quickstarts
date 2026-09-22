@@ -1,7 +1,0 @@
-# The vault. Credentials live here, not in the environment and not in the
-# prompt. Sessions opt in with vault_ids at create time. ./agents/setup.sh
-# saves its ID to .env as CLAUDE_VAULT_ID, then adds the two vendor keys to it.
-# The keys come from .env and never appear in a YAML file.
-display_name: quickstart-roadtrip-planner vendor keys
-metadata:
-  quickstart: roadtrip-planner
