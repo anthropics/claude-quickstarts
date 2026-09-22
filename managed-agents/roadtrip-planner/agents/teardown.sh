@@ -33,9 +33,33 @@ archive() {
   fi
 }
 
+# An older version of this quickstart kept its IDs in .env instead. Archive
+# those too (that vault still holds the vendor keys) and drop the lines, so
+# they can never stand in for a missing lockfile later.
+forget_env() { sed -i.bak "/^$1=/d" .env && rm -f .env.bak; }
+legacy() {
+  local label=$1 name=$2 id=${!2:-}; shift 2
+  [ -n "$id" ] || return 0
+  local out
+  if out=$(ant "$@" "$id" </dev/null 2>&1 > /dev/null) || grep -qiE 'already archived|not[ _]found|404' <<<"$out"; then
+    echo "archived  $label $id (from an earlier setup's .env)"; forget_env "$name"
+  else
+    echo "FAILED    $label $id: $(tail -n 1 <<<"$out" | cut -c1-160)" >&2; failed=1
+  fi
+}
+if [ -f .env ]; then
+  legacy planner     CLAUDE_AGENT_ID          beta:agents archive --agent-id
+  legacy reviewer    CLAUDE_REVIEWER_AGENT_ID beta:agents archive --agent-id
+  legacy vault       CLAUDE_VAULT_ID          beta:vaults archive --vault-id
+  legacy environment CLAUDE_ENVIRONMENT_ID    beta:environments archive --environment-id
+  # The credentials went with their vault.
+  forget_env CLAUDE_NATIONAL_PARK_SERVICE_CREDENTIAL_ID; forget_env CLAUDE_WINDY_CREDENTIAL_ID
+fi
+
 planner=$(lock_id ./agents/roadtrip-planner.md)
 if [ ! -f claude-lock.json ] || [ "$(jq '.resources | length' claude-lock.json)" = 0 ]; then
-  echo "Nothing to tear down: no claude-lock.json here, or no resources in it."
+  [ "$failed" -eq 0 ] || { echo "Some resources from .env are still live. Run ./agents/teardown.sh again." >&2; exit 1; }
+  echo "Nothing more to tear down: no claude-lock.json here, or no resources in it."
   exit 0
 fi
 

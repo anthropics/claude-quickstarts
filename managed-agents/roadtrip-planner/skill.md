@@ -87,4 +87,4 @@ The app reads the planner, environment, and vault IDs from `claude-lock.json` (`
 ./agents/setup.sh      # provision a fresh copy
 ```
 
-Teardown interrupts a session that is still running, waits up to 20 seconds for it to go idle, and archives it. It is safe to re-run: an entry stays in `claude-lock.json` only while its archive keeps failing. If a session will not archive, the planner's entry stays too, because listing by that ID is how the next run finds the session.
+Teardown interrupts a session that is still running, waits up to 20 seconds for it to go idle, and archives it. It is safe to re-run: an entry stays in `claude-lock.json` only while its archive keeps failing. If a session will not archive, the planner's entry stays too, because listing by that ID is how the next run finds the session. IDs an earlier version of this quickstart left in `.env` are archived and removed too.
