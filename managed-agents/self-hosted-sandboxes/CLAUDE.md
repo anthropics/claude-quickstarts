@@ -1,5 +1,17 @@
 # Self-hosted sandbox demos
 
+This file is the runbook for the three poller demos, `docker/`,
+`docker-memory/`, and `archil/`. The five webhook-started providers
+(`cloudflare-containers/`, `cloudflare-worker/`, `daytona/`, `modal/`,
+`vercel/`) share one agent and one environment, declared in `webhook-demo/`
+and created with `ant apply --yes .` from that directory. Never run
+`ant apply` from this directory: it walks into the poller demos and creates
+their resources too, and the `claude-lock.json` it leaves here is then found
+first by every directory below. Each provider's README is its own runbook:
+setup, deploy, register the `session.status_run_started` webhook in the
+Console, test. Their environment key and webhook secret go in the provider's
+own secret store, never in a file here.
+
 Two demos with one shape: a self-hosted environment is a work queue, the
 host runs `ant beta:worker poll --on-work on-work.sh` with the environment
 key, and `on-work.sh` starts one short-lived Docker container per claimed

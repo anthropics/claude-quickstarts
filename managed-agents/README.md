@@ -80,6 +80,11 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   containers with a per-session token. `archil/` swaps the containers
   for Archil persistent sandboxes that all mount one SEC EDGAR disk, so
   parallel analyst sessions work on 70 GB of filings in place.
+  Five more variants start the sandbox from the
+  `session.status_run_started` webhook instead of a poller, on
+  Cloudflare Containers, a Cloudflare Worker with no container,
+  Daytona, Modal, and Vercel Sandbox. They share one agent and
+  environment, created with `ant apply .` from `webhook-demo/`.
 
 - **[sentry/](sentry/)** runs a Sentry triage agent on a schedule
   with no host process. A deployment starts a session on a cron

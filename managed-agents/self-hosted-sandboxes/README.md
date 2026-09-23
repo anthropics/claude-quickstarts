@@ -26,6 +26,38 @@ uses Archil persistent sandboxes with a shared disk.
   disk and checks out its own `reports/<session>/` directory for writing,
   so many analyst sessions run in parallel against one copy of the data.
 
+Five more variants are started by a webhook instead of a poller, each on a
+different provider's compute. Anthropic sends `session.status_run_started`, a
+handler you deploy verifies it, drains the environment's work queue, and
+starts one sandbox per claimed session. They share one agent and one
+self-hosted environment, which `ant apply .` creates from
+[`webhook-demo/`](webhook-demo/). Those files sit in their own directory, not
+in this one, for two reasons. `ant apply` walks the directory it is given, so
+running it here would also create the three poller demos' resources. And it writes
+`claude-lock.json` beside the first directory it is run from, then finds that
+file again from any directory below it, so a lockfile here would capture the
+poller demos' IDs where their `start.sh` does not look.
+It is a different environment from the poller demos', because an environment
+is one queue and a poller and a webhook handler on the same queue would
+compete for its sessions. Each README is its own runbook: deploy, register
+the webhook, test.
+
+- [`cloudflare-containers/`](cloudflare-containers/): a Worker starts a
+  [Cloudflare Container](https://developers.cloudflare.com/containers/) per
+  session running `ant beta:worker run`. Like `docker/`, the environment key
+  goes into the container, so use it only when sessions trust each other.
+- [`cloudflare-worker/`](cloudflare-worker/): no container. A Durable Object
+  runs the TypeScript `SessionToolRunner` over an in-memory filesystem with a
+  stub `bash`. The reference for passing your own tools to the runner.
+- [`daytona/`](daytona/): a FastAPI app starts a [Daytona](https://www.daytona.io/)
+  sandbox per session running the Python SDK worker.
+- [`modal/`](modal/): a [Modal](https://modal.com) app starts a Modal Sandbox
+  per session with a per-session Volume at `/workspace`, running the same
+  Python SDK worker.
+- [`vercel/`](vercel/): a Vercel Function starts a
+  [Vercel Sandbox](https://vercel.com/docs/vercel-sandbox) per session running
+  the TypeScript SDK worker.
+
 Memory stores mount at a fixed path on the sandbox filesystem, so two
 sessions on one unvirtualized machine would read and overwrite each
 other's memories. One container per session is the recommended way to run

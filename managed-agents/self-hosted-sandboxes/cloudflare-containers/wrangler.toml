@@ -1,0 +1,38 @@
+name = "self-hosted-sandbox-containers"
+main = "src/index.ts"
+compatibility_date = "2026-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[[durable_objects.bindings]]
+name = "SANDBOX_CONTAINER"
+class_name = "SandboxContainer"
+
+[[containers]]
+class_name = "SandboxContainer"
+image = "./container/Dockerfile"
+max_instances = 50
+# Enable `wrangler containers ssh <instance-id>` for debugging the runner.
+ssh = { enabled = true }
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SandboxContainer"]
+
+[vars]
+ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+# The self-hosted environment `ant apply .` created from ../webhook-demo: its
+# env_... ID is in ../webhook-demo/claude-lock.json. The Worker refuses to start
+# sessions until this is a real id.
+ANTHROPIC_ENVIRONMENT_ID = ""
+# This variant hands each container the environment key, which the agent's own
+# bash can read. It refuses every work item until you opt in here. Set it to
+# "true" only if every session in the environment trusts every other. See the
+# README, "One key, shared trust".
+ALLOW_ENVIRONMENT_KEY_IN_SANDBOX = "false"
+
+# Secrets (set via `wrangler secret put`):
+#   ANTHROPIC_WEBHOOK_SECRET
+#   ANTHROPIC_ENVIRONMENT_KEY
