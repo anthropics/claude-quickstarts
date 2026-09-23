@@ -10,8 +10,17 @@ mcp_servers:
     name: github
     url: https://api.githubcopilot.com/mcp/
 tools:
-  # bash, read, write, edit, glob, grep, web tools. Runs without approval by default.
+  # bash, read, write, edit, glob, grep; runs without approval by default. The
+  # toolset's web_search and web_fetch run on Anthropic's servers, outside the
+  # sandbox, so environment.yaml's allowlist does not cover them. The brief
+  # does not need them, and leaving them on would give text read from Slack or
+  # GitHub a way to send data anywhere, so they are off.
   - type: agent_toolset_20260401
+    configs:
+      - name: web_search
+        enabled: false
+      - name: web_fetch
+        enabled: false
   # MCP toolsets default to always_ask, and an unattended run would wait for
   # ever on an approval nobody gives. The read-only GitHub token is what keeps
   # this safe, so keep that token read-only.

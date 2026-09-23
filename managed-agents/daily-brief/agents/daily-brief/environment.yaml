@@ -1,5 +1,7 @@
-# The sandbox every run starts in. Deny-by-default networking: the agent can
-# reach only what is listed here.
+# The sandbox every run starts in. Deny-by-default networking: the sandbox can
+# reach only what is listed here. This covers bash and curl, not the toolset's
+# web_search and web_fetch (those run outside the sandbox and are disabled in
+# agent.md).
 name: daily-brief
 config:
   type: cloud

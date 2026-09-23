@@ -26,6 +26,7 @@ Needs `ant` 1.34 or later (the first release whose `ant apply` manages vaults) a
    - `ant apply` says it cannot tell what kind of resource `vault.yaml` is: the file lost its `type: vault` line, or `ant` is older than 1.34.
    - Run record says `status: held`: the post could not reach the destination. Nothing else in state changed, by design.
    - The agent starts hunting for tokens or writes workarounds into `notes.md`: the run steps forbid both. If you edit the steps, keep those two rules.
+   - Keep `web_search` and `web_fetch` disabled in `agent.md`: they run outside the sandbox, so `environment.yaml`'s allowlist does not apply to them.
 5. **Keep the deployment paused while testing** (`agents/setup.sh` pauses it on creation; manual runs work while paused). `scripts/reset-state.sh` empties the state store afterwards; `scripts/teardown.sh` removes all six resources.
 
 ## Conventions
