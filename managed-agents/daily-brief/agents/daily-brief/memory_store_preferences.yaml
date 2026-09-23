@@ -1,0 +1,5 @@
+# The reader's rules. Attached read-only in deployment.md, so the agent cannot
+# edit them. scripts/seed-preferences.sh writes /preferences.md into it. The
+# description is shown to the agent.
+name: preferences
+description: The reader's rules for the daily brief. Read preferences.md at the start of every run. It is read-only to you.
