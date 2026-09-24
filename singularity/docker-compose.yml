@@ -1,0 +1,37 @@
+services:
+  singularity:
+    build: .
+    ports:
+      - "8001:8001"
+    environment:
+      ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-sk-ant-placeholder}"
+      GEMINI_API_KEY: "${GEMINI_API_KEY:-}"
+      REQUIRE_API_KEY: "${REQUIRE_API_KEY:-false}"
+      TASK_WORKERS: "${TASK_WORKERS:-2}"
+      ROUTING_STRATEGY: "${ROUTING_STRATEGY:-static}"
+      LOG_LEVEL: "${LOG_LEVEL:-INFO}"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://localhost:8001/health/live')"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  # Optional observability stack — run with: docker compose --profile observability up
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    profiles:
+      - observability
+    depends_on:
+      - singularity
