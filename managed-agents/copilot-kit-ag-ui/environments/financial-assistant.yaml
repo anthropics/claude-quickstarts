@@ -1,0 +1,16 @@
+# The environment: the container every session runs in. `ant apply` sends this
+# file as the Environments API request body and records the environment's ID in
+# claude-lock.json. The chat endpoint that fronts this agent is unauthenticated
+# in the demo, so keep the blast radius small: no outbound network (bash and
+# files still work for calculations). Add hosts to allowed_hosts if your agent
+# needs to reach specific APIs.
+name: quickstart-copilot-kit-financial-assistant-env
+metadata:
+  quickstart: copilot-kit-ag-ui
+config:
+  type: cloud
+  networking:
+    type: limited
+    allowed_hosts: []
+    allow_package_managers: false
+    allow_mcp_servers: false

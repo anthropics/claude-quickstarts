@@ -19,7 +19,7 @@ import { WebFetchToolUI, WebSearchToolUI } from "./web-tools";
 // group. Anything that can carry an approval gate must be standalone: an
 // Allow/Deny prompt folded inside a collapsed group is a gate nobody sees.
 // That is every toolset tool — any of them can be set to always_ask in
-// agent-config.ts, and each card renders an ApprovalBar for that case. The
+// agents/spreadsheet-analyst.md, and each card renders an ApprovalBar for that case. The
 // chart is standalone too, since it's the answer, not a step. (Only MCP and
 // unknown tools, which fall through to ToolFallback, still group.)
 export const toolkit = defineToolkit({
