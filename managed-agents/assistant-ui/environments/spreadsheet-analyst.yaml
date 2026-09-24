@@ -1,0 +1,12 @@
+# The sandbox each session runs in, sent by `ant apply` as the Environments API
+# request body; its ID lands in claude-lock.json. Cloud container, open
+# networking (web_search needs it), and pandas preinstalled so the first
+# question doesn't spend a turn on `pip install`.
+name: quickstart-spreadsheet-analyst-env
+metadata:
+  quickstart: assistant-ui
+config:
+  type: cloud
+  networking: {type: unrestricted}
+  packages:
+    pip: [pandas, openpyxl]

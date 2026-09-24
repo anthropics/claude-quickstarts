@@ -43,7 +43,7 @@ Because a session id arrives from the browser and becomes an API path parameter,
 
 ## The approval gate
 
-The agent's toolset sets `bash` to `permission_policy: always_ask` ([`setup/agent-config.ts`](setup/agent-config.ts)). When the analyst reaches for the shell, the session doesn't run the command. It emits the `agent.tool_use`, then parks:
+The agent's toolset sets `bash` to `permission_policy: always_ask` ([`agents/spreadsheet-analyst.md`](agents/spreadsheet-analyst.md)). When the analyst reaches for the shell, the session doesn't run the command. It emits the `agent.tool_use`, then parks:
 
 ```
 session.status_idle { stop_reason: { type: "requires_action", event_ids: ["sevt_..."] } }
@@ -99,10 +99,12 @@ claude
 Then ask: **"walk me through setting this up."** Claude reads [`skill.md`](./skill.md) and drives the whole thing. Or by hand:
 
 ```bash
-cp .env.example .env      # add ANTHROPIC_API_KEY, or `ant auth login` once and leave it out
-npm run setup             # one-time: one agent + one environment; paste the printed IDs into .env
-npm run dev               # open http://localhost:3000, drop in sample_data/sales.csv
+ant auth login                  # or export ANTHROPIC_API_KEY (and put it in .env for the app)
+ant apply agents environments   # one-time: one agent + one environment, IDs recorded in claude-lock.json
+npm run dev                     # open http://localhost:3000, drop in sample_data/sales.csv
 ```
+
+[`ant apply`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply) (the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 1.30 or later, `brew install anthropics/tap/ant`) reads the agent from [`agents/spreadsheet-analyst.md`](agents/spreadsheet-analyst.md), whose frontmatter holds the model and tools and whose prose is the system prompt, and the sandbox from [`environments/spreadsheet-analyst.yaml`](environments/spreadsheet-analyst.yaml). It shows the plan, creates both once you approve, and records their IDs in `claude-lock.json`, which the app reads. To change the agent, edit its file and run a bare `ant apply`: that publishes a new version of the same agent, and the next session uses it. This repository ignores `claude-lock.json`, since every reader creates their own resources. In a project of your own, commit it.
 
 Try: *"Summarize this file, then chart revenue by month."* You'll see a file card, a search or two if you ask it to cross-check, an Allow/Deny gate on every `bash` command, and a chart card.
 
@@ -112,8 +114,8 @@ Token previews (`event_deltas`) are part of the 2026-07-01 Managed Agents update
 
 | | |
 |---|---|
-| `setup/agent-config.ts` | Model, system prompt, tools (bash `always_ask`, the `show_chart` custom tool), environment |
-| `setup/create-agent.ts` | One-time provisioning: the analyst agent and its environment |
+| `agents/spreadsheet-analyst.md` | The agent for `ant apply`: model, tools (bash `always_ask`, the `show_chart` custom tool), system prompt |
+| `environments/spreadsheet-analyst.yaml` | Its sandbox: cloud, open networking, pandas preinstalled |
 | `lib/managed-agents/reducer.ts` | The bridge: event log → messages (pure, unit-tested) |
 | `lib/managed-agents/session-controller.ts` | Per-session replay + live tail + send/confirm/interrupt, batched approvals |
 | `lib/managed-agents/session-list-adapter.ts` | The sidebar's `RemoteThreadListAdapter` over the session list |

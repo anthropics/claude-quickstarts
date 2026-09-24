@@ -10,7 +10,6 @@
     "dev": "next dev --turbopack --hostname localhost",
     "build": "next build",
     "start": "next start --hostname localhost",
-    "setup": "tsx --env-file-if-exists=.env setup/create-agent.ts",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test lib/managed-agents/reducer.test.ts"
