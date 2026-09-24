@@ -1,0 +1,18 @@
+# The environment definition: the sandbox template every session boots from.
+# ./agents/setup.sh runs `ant apply` on this directory, which creates it the
+# first time and updates it after that. Its ID lives in claude-lock.json.
+name: quickstart-sentry-autofix-env
+metadata:
+  quickstart: sentry-autofix
+config:
+  type: cloud
+  # Deny by default. The fixer reads error text that anyone who can trigger
+  # an error can write, and it has an auto-approved shell, so the sandbox gets
+  # only what the job needs: GitHub for the mounted repo, the package
+  # registries to install dependencies and run the tests, and the Sentry MCP
+  # server. An injected instruction has nowhere else to send anything.
+  networking:
+    type: limited
+    allowed_hosts: [github.com]
+    allow_package_managers: true
+    allow_mcp_servers: true
