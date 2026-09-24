@@ -1,0 +1,20 @@
+display_information:
+  name: Daily brief
+  description: Posts one short brief each weekday morning.
+features:
+  bot_user:
+    display_name: Daily brief
+    always_online: false
+  app_home:
+    home_tab_enabled: false
+    messages_tab_enabled: true
+    messages_tab_read_only_enabled: true
+oauth_config:
+  scopes:
+    bot:
+      - channels:history
+      - chat:write
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

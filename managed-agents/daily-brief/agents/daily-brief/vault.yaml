@@ -1,0 +1,11 @@
+# The vault: a named container for credentials that Anthropic holds for you and
+# injects at run time. `ant apply` (1.34 or later) creates the container from
+# this file; `type: vault` is how it recognizes a vault outside a vaults/
+# directory. What is inside it never passes through apply: agents/setup.sh adds
+# the Slack and GitHub credentials from .env with `ant beta:vaults:credentials
+# create`, then writes this vault's ID into deployment.md's `vault_ids`.
+# Nothing secret lives in this file.
+type: vault
+display_name: quickstart-daily-brief
+metadata:
+  quickstart: daily-brief
