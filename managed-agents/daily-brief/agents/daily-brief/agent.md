@@ -3,6 +3,9 @@
 # system prompt). `ant apply` creates it and publishes a new version on change.
 name: Daily brief
 model: claude-opus-5
+metadata:
+  # Tells Anthropic which quickstart this agent came from. Safe to remove.
+  anthropic_cookbook: claude-quickstarts/daily-brief
 mcp_servers:
   # No auth here. The GitHub token lives in the vault and is matched to this
   # server by URL.
