@@ -1,0 +1,14 @@
+node_modules/
+.next/
+dist/
+build/
+.turbo/
+*.tsbuildinfo
+.env
+.env.local
+coverage/
+uploads/
+.expo/
+ios/
+android/
+*.log
