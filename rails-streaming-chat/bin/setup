@@ -1,0 +1,3 @@
+#!/usr/bin/env ruby
+system("bundle install") || exit(1)
+puts "\nSetup complete! Run: bin/rails server"
