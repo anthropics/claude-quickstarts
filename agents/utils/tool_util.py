@@ -1,5 +1,7 @@
 """Tool execution utility with parallel execution support."""
 
+from __future__ import annotations
+
 import asyncio
 from typing import Any
 

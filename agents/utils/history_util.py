@@ -1,5 +1,7 @@
 """Message history with token tracking and prompt caching."""
 
+from __future__ import annotations
+
 from typing import Any
 
 
