@@ -59,7 +59,7 @@ Environment Variables:
         "--max-iterations",
         type=int,
         default=None,
-        help="Maximum number of agent iterations (default: unlimited)",
+        help="Positive maximum number of agent iterations (default: unlimited)",
     )
 
     parser.add_argument(
@@ -69,7 +69,10 @@ Environment Variables:
         help=f"Claude model to use (default: {DEFAULT_MODEL})",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.max_iterations is not None and args.max_iterations <= 0:
+        parser.error("--max-iterations must be a positive integer")
+    return args
 
 
 def main() -> None:
