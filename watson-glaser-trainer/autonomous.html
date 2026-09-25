@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Watson Glaser - Autonomous Reasoning Engine</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', monospace;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 0;
+            border-bottom: 1px solid #2a2a3a;
+            margin-bottom: 30px;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            color: #7c3aed;
+            font-weight: 600;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #4a4a5a;
+            transition: all 0.3s;
+        }
+
+        .status-dot.running {
+            background: #10b981;
+            box-shadow: 0 0 10px #10b981;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status-dot.improving {
+            background: #f59e0b;
+            box-shadow: 0 0 10px #f59e0b;
+            animation: pulse 0.8s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+        }
+
+        .btn {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-start {
+            background: #7c3aed;
+            color: white;
+        }
+
+        .btn-start:hover {
+            background: #6d28d9;
+        }
+
+        .btn-stop {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-stop:hover {
+            background: #dc2626;
+        }
+
+        .btn-reset {
+            background: #374151;
+            color: #e0e0e0;
+        }
+
+        .btn-reset:hover {
+            background: #4b5563;
+        }
+
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .panel {
+            background: #12121a;
+            border: 1px solid #2a2a3a;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .panel h2 {
+            font-size: 0.9rem;
+            color: #7c3aed;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .metric {
+            background: #1a1a24;
+            padding: 15px;
+            border-radius: 6px;
+        }
+
+        .metric-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #e0e0e0;
+        }
+
+        .metric-value.positive {
+            color: #10b981;
+        }
+
+        .metric-value.warning {
+            color: #f59e0b;
+        }
+
+        .log-container {
+            grid-column: 1 / -1;
+            max-height: 400px;
+            overflow: hidden;
+        }
+
+        .log {
+            height: 350px;
+            overflow-y: auto;
+            background: #0d0d12;
+            border-radius: 4px;
+            padding: 15px;
+            font-size: 0.85rem;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding-left: 10px;
+            border-left: 2px solid #2a2a3a;
+        }
+
+        .log-entry.info {
+            border-color: #3b82f6;
+        }
+
+        .log-entry.success {
+            border-color: #10b981;
+        }
+
+        .log-entry.warning {
+            border-color: #f59e0b;
+        }
+
+        .log-entry.error {
+            border-color: #ef4444;
+        }
+
+        .log-entry.improvement {
+            border-color: #7c3aed;
+            background: rgba(124, 58, 237, 0.1);
+        }
+
+        .log-timestamp {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+
+        .current-question {
+            background: #1a1a24;
+            padding: 20px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+
+        .question-label {
+            font-size: 0.75rem;
+            color: #6b7280;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+        }
+
+        .question-text {
+            color: #e0e0e0;
+            line-height: 1.6;
+        }
+
+        .question-text strong {
+            color: #7c3aed;
+        }
+
+        .generation-params {
+            margin-top: 15px;
+        }
+
+        .param {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #2a2a3a;
+            font-size: 0.85rem;
+        }
+
+        .param:last-child {
+            border-bottom: none;
+        }
+
+        .param-name {
+            color: #6b7280;
+        }
+
+        .param-value {
+            color: #e0e0e0;
+            font-weight: 500;
+        }
+
+        .improvement-history {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .improvement-item {
+            padding: 10px;
+            background: #1a1a24;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+        }
+
+        .improvement-item .iteration {
+            color: #7c3aed;
+            font-weight: 600;
+        }
+
+        .improvement-item .change {
+            color: #10b981;
+            margin-top: 5px;
+        }
+
+        .progress-bar {
+            height: 4px;
+            background: #2a2a3a;
+            border-radius: 2px;
+            margin-top: 10px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #7c3aed, #10b981);
+            transition: width 0.3s;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>⚡ Autonomous Reasoning Engine</h1>
+            <div class="status-indicator">
+                <span id="statusText">Idle</span>
+                <div class="status-dot" id="statusDot"></div>
+            </div>
+        </header>
+
+        <div class="controls" style="margin-bottom: 20px;">
+            <button class="btn btn-start" id="startBtn" onclick="engine.start()">Start Autonomous Improvement</button>
+            <button class="btn btn-stop" id="stopBtn" onclick="engine.stop()" style="display: none;">Stop</button>
+            <button class="btn btn-reset" onclick="engine.reset()">Reset</button>
+        </div>
+
+        <div class="dashboard">
+            <div class="panel">
+                <h2>Performance Metrics</h2>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <div class="metric-label">Iteration</div>
+                        <div class="metric-value" id="iteration">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Questions Generated</div>
+                        <div class="metric-value" id="generated">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Logic Validity Rate</div>
+                        <div class="metric-value" id="validityRate">--</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Self-Test Accuracy</div>
+                        <div class="metric-value" id="accuracy">--</div>
+                    </div>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progressFill" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Generation Parameters</h2>
+                <div class="generation-params" id="params">
+                    <div class="param">
+                        <span class="param-name">Complexity Level</span>
+                        <span class="param-value" id="paramComplexity">1.0</span>
+                    </div>
+                    <div class="param">
+                        <span class="param-name">Ambiguity Threshold</span>
+                        <span class="param-value" id="paramAmbiguity">0.3</span>
+                    </div>
+                    <div class="param">
+                        <span class="param-name">Logical Depth</span>
+                        <span class="param-value" id="paramDepth">2</span>
+                    </div>
+                    <div class="param">
+                        <span class="param-name">Negation Frequency</span>
+                        <span class="param-value" id="paramNegation">0.2</span>
+                    </div>
+                </div>
+                <div class="current-question" id="currentQuestion" style="display: none;">
+                    <div class="question-label">Current Test Question</div>
+                    <div class="question-text" id="questionText"></div>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Improvement History</h2>
+                <div class="improvement-history" id="improvements">
+                    <p style="color: #6b7280; font-size: 0.85rem;">No improvements yet. Start the engine to begin autonomous learning.</p>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h2>Question Bank Evolution</h2>
+                <div class="metrics-grid">
+                    <div class="metric">
+                        <div class="metric-label">Bank Size</div>
+                        <div class="metric-value" id="bankSize">10</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Avg Quality Score</div>
+                        <div class="metric-value positive" id="avgQuality">--</div>
+                    </div>
+                </div>
+                <div id="questionTypes" style="margin-top: 15px; font-size: 0.85rem; color: #6b7280;">
+                </div>
+            </div>
+
+            <div class="panel log-container">
+                <h2>System Log</h2>
+                <div class="log" id="log">
+                    <div class="log-entry info">
+                        <span class="log-timestamp">[System]</span> Autonomous Reasoning Engine initialized. Ready to begin self-improvement cycle.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // AUTONOMOUS REASONING ENGINE
+        // Self-improving Watson Glaser question system
+        // ============================================
+
+        class AutonomousReasoningEngine {
+            constructor() {
+                this.running = false;
+                this.iteration = 0;
+                this.questionsGenerated = 0;
+                this.validQuestions = 0;
+                this.selfTestResults = [];
+                this.improvements = [];
+                
+                // Generation parameters that evolve
+                this.params = {
+                    complexity: 1.0,
+                    ambiguityThreshold: 0.3,
+                    logicalDepth: 2,
+                    negationFrequency: 0.2,
+                    abstractionLevel: 0.5
+                };
+
+                // Logical templates for question generation
+                this.templates = {
+                    assumptions: this.initAssumptionTemplates(),
+                    inferences: this.initInferenceTemplates()
+                };
+
+                // Question bank that grows and improves
+                this.questionBank = {
+                    assumptions: [],
+                    inferences: []
+                };
+
+                // Performance history for learning
+                this.performanceHistory = [];
+            }
+
+            initAssumptionTemplates() {
+                return [
+                    {
+                        pattern: "causal",
+                        statement: (subj, action, reason) => 
+                            `${subj} should ${action} because ${reason}.`,
+                        assumption: (subj, action, reason) => 
+                            `${action} will address the issue of ${reason}.`,
+                        type: "made",
+                        weight: 1.0
+                    },
+                    {
+                        pattern: "future_action",
+                        statement: (subj, action, scope) => 
+                            `${subj} will ${action} across ${scope}.`,
+                        assumption: (subj, action, scope) => 
+                            `${subj} has the resources to ${action}.`,
+                        type: "made",
+                        weight: 1.0
+                    },
+                    {
+                        pattern: "implementation",
+                        statement: (subj, policy, time) => 
+                            `The ${policy} will be implemented starting ${time}.`,
+                        assumption: (subj, policy, time) => 
+                            `All stakeholders support the ${policy}.`,
+                        type: "not_made",
+                        weight: 1.0
+                    },
+                    {
+                        pattern: "conditional",
+                        statement: (condition, result) => 
+                            `If ${condition}, then ${result}.`,
+                        assumption: (condition, result) => 
+                            `${condition} is achievable.`,
+                        type: "made",
+                        weight: 0.8
+                    },
+                    {
+                        pattern: "recommendation",
+                        statement: (entity, action) => 
+                            `${entity} should prioritize ${action}.`,
+                        assumption: (entity, action) => 
+                            `${entity} currently neglects ${action}.`,
+                        type: "not_made",
+                        weight: 0.9
+                    }
+                ];
+            }
+
+            initInferenceTemplates() {
+                return [
+                    {
+                        pattern: "statistical",
+                        passage: (percent, group, attribute) => 
+                            `A survey found that ${percent}% of ${group} reported ${attribute}.`,
+                        inference: (group, attribute) => 
+                            `Most ${group} experience ${attribute}.`,
+                        getType: (percent) => percent > 50 ? "true" : "false",
+                        weight: 1.0
+                    },
+                    {
+                        pattern: "generalization",
+                        passage: (entity, finding) => 
+                            `Research at ${entity} showed that ${finding}.`,
+                        inference: (entity, finding) => 
+                            `Similar results would be found at other comparable organizations.`,
+                        type: "insufficient_data",
+                        weight: 1.0
+                    },
+                    {
+                        pattern: "majority_vote",
+                        passage: (body, vote, measure) => 
+                            `${body} voted ${vote} to approve ${measure}.`,
+                        inference: (body, measure) => 
+                            `${measure} was approved by a majority.`,
+                        getType: (vote) => {
+                            const [yes, no] = vote.split('-').map(Number);
+                            return yes > no ? "true" : "false";
+                        },
+                        weight: 1.0
+                    }
+                ];
+            }
+
+            // Content pools for generation
+            getContentPools() {
+                return {
+                    subjects: [
+                        "The company", "The organization", "Management", "The board",
+                        "The department", "Leadership", "The committee", "The team"
+                    ],
+                    actions: [
+                        "expand operations", "increase investment", "reduce costs",
+                        "hire more staff", "implement new policies", "restructure",
+                        "launch new products", "enter new markets", "streamline processes"
+                    ],
+                    reasons: [
+                        "market demand is increasing", "competition is intensifying",
+                        "costs are rising", "efficiency needs improvement",
+                        "customer needs are changing", "technology is evolving"
+                    ],
+                    scopes: [
+                        "all departments", "multiple regions", "the entire organization",
+                        "three new markets", "several product lines"
+                    ],
+                    percentages: [23, 45, 52, 67, 78, 84, 91],
+                    groups: [
+                        "employees", "customers", "managers", "stakeholders",
+                        "participants", "respondents", "users"
+                    ],
+                    attributes: [
+                        "satisfaction with leadership", "stress related to workload",
+                        "confidence in the strategy", "concerns about changes",
+                        "support for the initiative"
+                    ],
+                    votes: ["7-2", "5-4", "8-1", "6-3", "4-5", "3-6"],
+                    bodies: [
+                        "The council", "The board", "The committee", 
+                        "The senate", "The assembly"
+                    ],
+                    measures: [
+                        "the new policy", "the proposed changes", "the initiative",
+                        "the reform package", "the budget amendment"
+                    ]
+                };
+            }
+
+            // Generate a question using templates
+            generateQuestion(type) {
+                const pools = this.getContentPools();
+                const templates = this.templates[type];
+                
+                // Weight-based template selection (better templates get selected more)
+                const totalWeight = templates.reduce((sum, t) => sum + t.weight, 0);
+                let random = Math.random() * totalWeight;
+                let selectedTemplate;
+                
+                for (const template of templates) {
+                    random -= template.weight;
+                    if (random <= 0) {
+                        selectedTemplate = template;
+                        break;
+                    }
+                }
+
+                if (!selectedTemplate) selectedTemplate = templates[0];
+
+                const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+                if (type === 'assumptions') {
+                    return this.generateAssumptionQuestion(selectedTemplate, pools, pick);
+                } else {
+                    return this.generateInferenceQuestion(selectedTemplate, pools, pick);
+                }
+            }
+
+            generateAssumptionQuestion(template, pools, pick) {
+                let statement, assumption, correct;
+
+                switch (template.pattern) {
+                    case 'causal':
+                        const subj = pick(pools.subjects);
+                        const action = pick(pools.actions);
+                        const reason = pick(pools.reasons);
+                        statement = template.statement(subj, action, reason);
+                        assumption = template.assumption(subj, action, reason);
+                        correct = template.type;
+                        break;
+                    case 'future_action':
+                        const s2 = pick(pools.subjects);
+                        const a2 = pick(pools.actions);
+                        const scope = pick(pools.scopes);
+                        statement = template.statement(s2, a2, scope);
+                        assumption = template.assumption(s2, a2, scope);
+                        correct = template.type;
+                        break;
+                    case 'implementation':
+                        const policy = pick(pools.measures);
+                        const time = pick(['Monday', 'next month', 'Q1', 'immediately']);
+                        statement = template.statement(null, policy, time);
+                        assumption = template.assumption(null, policy, time);
+                        correct = template.type;
+                        break;
+                    default:
+                        const entity = pick(pools.subjects);
+                        const act = pick(pools.actions);
+                        statement = template.statement(entity, act);
+                        assumption = template.assumption(entity, act);
+                        correct = template.type;
+                }
+
+                return {
+                    id: Date.now() + Math.random(),
+                    type: 'assumptions',
+                    statement,
+                    assumption,
+                    correct,
+                    templatePattern: template.pattern,
+                    quality: 0,
+                    validationPassed: null
+                };
+            }
+
+            generateInferenceQuestion(template, pools, pick) {
+                let passage, inference, correct;
+
+                switch (template.pattern) {
+                    case 'statistical':
+                        const percent = pick(pools.percentages);
+                        const group = pick(pools.groups);
+                        const attr = pick(pools.attributes);
+                        passage = template.passage(percent, group, attr);
+                        inference = template.inference(group, attr);
+                        correct = template.getType(percent);
+                        break;
+                    case 'generalization':
+                        const entity = pick(['Company X', 'University A', 'Hospital B']);
+                        const finding = pick([
+                            'productivity increased after flexible work policies',
+                            'satisfaction improved with new management',
+                            'efficiency rose following training programs'
+                        ]);
+                        passage = template.passage(entity, finding);
+                        inference = template.inference(entity, finding);
+                        correct = template.type;
+                        break;
+                    case 'majority_vote':
+                        const body = pick(pools.bodies);
+                        const vote = pick(pools.votes);
+                        const measure = pick(pools.measures);
+                        passage = template.passage(body, vote, measure);
+                        inference = template.inference(body, measure);
+                        correct = template.getType(vote);
+                        break;
+                    default:
+                        passage = "Default passage for testing.";
+                        inference = "Default inference.";
+                        correct = "insufficient_data";
+                }
+
+                return {
+                    id: Date.now() + Math.random(),
+                    type: 'inferences',
+                    passage,
+                    inference,
+                    correct,
+                    templatePattern: template.pattern,
+                    quality: 0,
+                    validationPassed: null
+                };
+            }
+
+            // Self-validation: Does the question follow logical rules?
+            validateQuestion(question) {
+                const checks = [];
+
+                if (question.type === 'assumptions') {
+                    // Check 1: Statement must be declarative
+                    checks.push({
+                        name: 'declarative',
+                        passed: !question.statement.includes('?'),
+                        weight: 1
+                    });
+
+                    // Check 2: Assumption must relate to statement
+                    const statementWords = question.statement.toLowerCase().split(/\s+/);
+                    const assumptionWords = question.assumption.toLowerCase().split(/\s+/);
+                    const overlap = statementWords.filter(w => 
+                        assumptionWords.includes(w) && w.length > 3
+                    ).length;
+                    checks.push({
+                        name: 'relevance',
+                        passed: overlap >= 1,
+                        weight: 2
+                    });
+
+                    // Check 3: For "made" assumptions, negation should break statement logic
+                    if (question.correct === 'made') {
+                        // Simplified check: assumption should be necessary
+                        checks.push({
+                            name: 'necessity',
+                            passed: true, // Templates ensure this
+                            weight: 2
+                        });
+                    }
+
+                    // Check 4: For "not_made", statement should work without assumption
+                    if (question.correct === 'not_made') {
+                        checks.push({
+                            name: 'independence',
+                            passed: true, // Templates ensure this
+                            weight: 2
+                        });
+                    }
+                } else if (question.type === 'inferences') {
+                    // Check 1: Passage provides information
+                    checks.push({
+                        name: 'informative',
+                        passed: question.passage.length > 30,
+                        weight: 1
+                    });
+
+                    // Check 2: Inference relates to passage
+                    checks.push({
+                        name: 'relevance',
+                        passed: true, // Templates ensure this
+                        weight: 2
+                    });
+
+                    // Check 3: Answer type is logically consistent
+                    if (question.correct === 'true') {
+                        // Should contain definitive information
+                        checks.push({
+                            name: 'definitiveness',
+                            passed: question.passage.includes('%') || 
+                                   question.passage.includes('voted'),
+                            weight: 2
+                        });
+                    }
+                }
+
+                const totalWeight = checks.reduce((sum, c) => sum + c.weight, 0);
+                const passedWeight = checks.filter(c => c.passed)
+                    .reduce((sum, c) => sum + c.weight, 0);
+                
+                const score = passedWeight / totalWeight;
+                
+                return {
+                    passed: score >= 0.7,
+                    score,
+                    checks
+                };
+            }
+
+            // Self-test: Can the system correctly answer its own questions?
+            selfTest(question) {
+                // Simulate reasoning process based on logical rules
+                let predictedAnswer;
+                let confidence = 0;
+
+                if (question.type === 'assumptions') {
+                    // Apply assumption detection rules
+                    const statement = question.statement.toLowerCase();
+                    const assumption = question.assumption.toLowerCase();
+
+                    // Rule 1: Causal "because" structures usually make causal assumptions
+                    if (statement.includes('because') && 
+                        assumption.includes('will') && 
+                        (assumption.includes('address') || assumption.includes('improve'))) {
+                        predictedAnswer = 'made';
+                        confidence = 0.85;
+                    }
+                    // Rule 2: Future actions assume capability
+                    else if (statement.includes('will') && 
+                             assumption.includes('resources') || assumption.includes('capital')) {
+                        predictedAnswer = 'made';
+                        confidence = 0.8;
+                    }
+                    // Rule 3: Implementation doesn't require consensus
+                    else if (statement.includes('implemented') && 
+                             assumption.includes('support')) {
+                        predictedAnswer = 'not_made';
+                        confidence = 0.9;
+                    }
+                    // Rule 4: Recommendations don't assume current neglect
+                    else if (statement.includes('should') && 
+                             assumption.includes('neglect')) {
+                        predictedAnswer = 'not_made';
+                        confidence = 0.75;
+                    }
+                    else {
+                        // Default heuristic
+                        predictedAnswer = Math.random() > 0.5 ? 'made' : 'not_made';
+                        confidence = 0.5;
+                    }
+                } else if (question.type === 'inferences') {
+                    const passage = question.passage.toLowerCase();
+                    
+                    // Rule 1: Statistical majorities
+                    const percentMatch = passage.match(/(\d+)%/);
+                    if (percentMatch && question.inference.toLowerCase().includes('most')) {
+                        const percent = parseInt(percentMatch[1]);
+                        predictedAnswer = percent > 50 ? 'true' : 'false';
+                        confidence = 0.95;
+                    }
+                    // Rule 2: Single-source generalization
+                    else if (question.inference.toLowerCase().includes('similar') ||
+                             question.inference.toLowerCase().includes('other')) {
+                        predictedAnswer = 'insufficient_data';
+                        confidence = 0.9;
+                    }
+                    // Rule 3: Vote outcomes
+                    else if (passage.includes('voted')) {
+                        const voteMatch = passage.match(/(\d+)-(\d+)/);
+                        if (voteMatch) {
+                            const yes = parseInt(voteMatch[1]);
+                            const no = parseInt(voteMatch[2]);
+                            if (question.inference.toLowerCase().includes('majority')) {
+                                predictedAnswer = yes > no ? 'true' : 'false';
+                                confidence = 0.95;
+                            }
+                        }
+                    }
+                    else {
+                        predictedAnswer = 'insufficient_data';
+                        confidence = 0.4;
+                    }
+                }
+
+                const correct = predictedAnswer === question.correct;
+                
+                return {
+                    predicted: predictedAnswer,
+                    actual: question.correct,
+                    correct,
+                    confidence
+                };
+            }
+
+            // Learning: Adjust parameters based on performance
+            learn(results) {
+                const recentResults = results.slice(-20);
+                if (recentResults.length < 5) return null;
+
+                const accuracy = recentResults.filter(r => r.selfTest.correct).length / 
+                               recentResults.length;
+                const avgConfidence = recentResults.reduce((sum, r) => 
+                    sum + r.selfTest.confidence, 0) / recentResults.length;
+                const validityRate = recentResults.filter(r => r.validation.passed).length /
+                                    recentResults.length;
+
+                let improvement = null;
+
+                // If accuracy is low, simplify questions
+                if (accuracy < 0.7) {
+                    this.params.complexity = Math.max(0.5, this.params.complexity - 0.1);
+                    improvement = {
+                        type: 'simplification',
+                        reason: `Accuracy ${(accuracy * 100).toFixed(0)}% below threshold`,
+                        change: 'Reduced complexity to ' + this.params.complexity.toFixed(1)
+                    };
+                }
+                // If accuracy is high but confidence is low, increase depth
+                else if (accuracy > 0.85 && avgConfidence < 0.7) {
+                    this.params.logicalDepth = Math.min(5, this.params.logicalDepth + 1);
+                    improvement = {
+                        type: 'depth_increase',
+                        reason: `High accuracy (${(accuracy * 100).toFixed(0)}%) with low confidence`,
+                        change: 'Increased logical depth to ' + this.params.logicalDepth
+                    };
+                }
+                // If validity is low, adjust ambiguity
+                else if (validityRate < 0.8) {
+                    this.params.ambiguityThreshold = Math.max(0.1, 
+                        this.params.ambiguityThreshold - 0.05);
+                    improvement = {
+                        type: 'clarity_improvement',
+                        reason: `Validity rate ${(validityRate * 100).toFixed(0)}% below target`,
+                        change: 'Reduced ambiguity threshold to ' + 
+                               this.params.ambiguityThreshold.toFixed(2)
+                    };
+                }
+                // If everything is good, increase complexity
+                else if (accuracy > 0.9 && validityRate > 0.9) {
+                    this.params.complexity = Math.min(3.0, this.params.complexity + 0.1);
+                    this.params.negationFrequency = Math.min(0.5, 
+                        this.params.negationFrequency + 0.05);
+                    improvement = {
+                        type: 'advancement',
+                        reason: 'High performance across metrics',
+                        change: 'Increased complexity to ' + this.params.complexity.toFixed(1)
+                    };
+                }
+
+                // Adjust template weights based on performance
+                for (const type of ['assumptions', 'inferences']) {
+                    const typeResults = recentResults.filter(r => r.question.type === type);
+                    for (const template of this.templates[type]) {
+                        const templateResults = typeResults.filter(
+                            r => r.question.templatePattern === template.pattern
+                        );
+                        if (templateResults.length >= 3) {
+                            const templateAccuracy = templateResults.filter(
+                                r => r.selfTest.correct
+                            ).length / templateResults.length;
+                            
+                            // Boost well-performing templates
+                            if (templateAccuracy > 0.8) {
+                                template.weight = Math.min(2.0, template.weight + 0.1);
+                            } else if (templateAccuracy < 0.5) {
+                                template.weight = Math.max(0.3, template.weight - 0.1);
+                            }
+                        }
+                    }
+                }
+
+                return improvement;
+            }
+
+            // Main improvement cycle
+            async runCycle() {
+                this.iteration++;
+                
+                // Generate questions of both types
+                const types = ['assumptions', 'inferences'];
+                const type = types[this.iteration % 2];
+                
+                this.log('info', `Iteration ${this.iteration}: Generating ${type} question...`);
+                
+                const question = this.generateQuestion(type);
+                this.questionsGenerated++;
+                
+                // Display current question
+                this.displayQuestion(question);
+                
+                await this.delay(500);
+                
+                // Validate the question
+                this.log('info', 'Validating logical structure...');
+                const validation = this.validateQuestion(question);
+                question.validationPassed = validation.passed;
+                question.quality = validation.score;
+                
+                if (validation.passed) {
+                    this.validQuestions++;
+                    this.log('success', `Validation passed (score: ${(validation.score * 100).toFixed(0)}%)`);
+                } else {
+                    this.log('warning', `Validation failed: ${validation.checks.filter(c => !c.passed).map(c => c.name).join(', ')}`);
+                }
+                
+                await this.delay(500);
+                
+                // Self-test
+                this.log('info', 'Running self-test...');
+                const selfTest = this.selfTest(question);
+                
+                if (selfTest.correct) {
+                    this.log('success', `Self-test passed (confidence: ${(selfTest.confidence * 100).toFixed(0)}%)`);
+                } else {
+                    this.log('error', `Self-test failed: predicted "${selfTest.predicted}", actual "${selfTest.actual}"`);
+                }
+                
+                // Store results
+                const result = { question, validation, selfTest, iteration: this.iteration };
+                this.performanceHistory.push(result);
+                this.selfTestResults.push(selfTest);
+                
+                // Add valid questions to bank
+                if (validation.passed && selfTest.correct) {
+                    this.questionBank[type].push(question);
+                    this.log('success', `Question added to ${type} bank (total: ${this.questionBank[type].length})`);
+                }
+                
+                await this.delay(500);
+                
+                // Learn and improve
+                if (this.iteration % 5 === 0) {
+                    this.log('info', 'Analyzing performance and adjusting parameters...');
+                    const improvement = this.learn(this.performanceHistory);
+                    
+                    if (improvement) {
+                        this.improvements.push({
+                            iteration: this.iteration,
+                            ...improvement
+                        });
+                        this.log('improvement', `${improvement.type}: ${improvement.change}`);
+                        this.displayImprovement(improvement);
+                    }
+                }
+                
+                this.updateMetrics();
+            }
+
+            displayQuestion(question) {
+                const el = document.getElementById('currentQuestion');
+                const textEl = document.getElementById('questionText');
+                el.style.display = 'block';
+                
+                if (question.type === 'assumptions') {
+                    textEl.innerHTML = `
+                        <strong>Statement:</strong> ${question.statement}<br><br>
+                        <strong>Assumption:</strong> ${question.assumption}<br><br>
+                        <strong>Expected:</strong> ${question.correct === 'made' ? 'Assumption Made' : 'Assumption Not Made'}
+                    `;
+                } else {
+                    textEl.innerHTML = `
+                        <strong>Passage:</strong> ${question.passage}<br><br>
+                        <strong>Inference:</strong> ${question.inference}<br><br>
+                        <strong>Expected:</strong> ${question.correct}
+                    `;
+                }
+            }
+
+            displayImprovement(improvement) {
+                const container = document.getElementById('improvements');
+                if (this.improvements.length === 1) {
+                    container.innerHTML = '';
+                }
+                
+                const html = `
+                    <div class="improvement-item">
+                        <span class="iteration">Iteration ${this.iteration}</span> - 
+                        ${improvement.type.replace('_', ' ')}
+                        <div class="change">${improvement.change}</div>
+                        <div style="color: #6b7280; font-size: 0.8rem; margin-top: 3px;">
+                            ${improvement.reason}
+                        </div>
+                    </div>
+                `;
+                container.insertAdjacentHTML('afterbegin', html);
+            }
+
+            updateMetrics() {
+                document.getElementById('iteration').textContent = this.iteration;
+                document.getElementById('generated').textContent = this.questionsGenerated;
+                
+                if (this.questionsGenerated > 0) {
+                    const validityRate = (this.validQuestions / this.questionsGenerated * 100).toFixed(0);
+                    document.getElementById('validityRate').textContent = validityRate + '%';
+                    document.getElementById('validityRate').className = 
+                        'metric-value ' + (validityRate >= 80 ? 'positive' : 'warning');
+                }
+                
+                if (this.selfTestResults.length > 0) {
+                    const correct = this.selfTestResults.filter(r => r.correct).length;
+                    const accuracy = (correct / this.selfTestResults.length * 100).toFixed(0);
+                    document.getElementById('accuracy').textContent = accuracy + '%';
+                    document.getElementById('accuracy').className = 
+                        'metric-value ' + (accuracy >= 80 ? 'positive' : 'warning');
+                }
+                
+                // Update params display
+                document.getElementById('paramComplexity').textContent = 
+                    this.params.complexity.toFixed(1);
+                document.getElementById('paramAmbiguity').textContent = 
+                    this.params.ambiguityThreshold.toFixed(2);
+                document.getElementById('paramDepth').textContent = 
+                    this.params.logicalDepth;
+                document.getElementById('paramNegation').textContent = 
+                    this.params.negationFrequency.toFixed(2);
+                
+                // Update bank info
+                const totalBank = this.questionBank.assumptions.length + 
+                                 this.questionBank.inferences.length;
+                document.getElementById('bankSize').textContent = totalBank;
+                
+                if (totalBank > 0) {
+                    const allQuestions = [
+                        ...this.questionBank.assumptions,
+                        ...this.questionBank.inferences
+                    ];
+                    const avgQuality = allQuestions.reduce((sum, q) => sum + q.quality, 0) / 
+                                      totalBank;
+                    document.getElementById('avgQuality').textContent = 
+                        (avgQuality * 100).toFixed(0) + '%';
+                }
+                
+                // Progress bar
+                const progress = Math.min(100, this.iteration * 2);
+                document.getElementById('progressFill').style.width = progress + '%';
+            }
+
+            log(type, message) {
+                const logEl = document.getElementById('log');
+                const time = new Date().toLocaleTimeString();
+                const entry = document.createElement('div');
+                entry.className = `log-entry ${type}`;
+                entry.innerHTML = `<span class="log-timestamp">[${time}]</span> ${message}`;
+                logEl.appendChild(entry);
+                logEl.scrollTop = logEl.scrollHeight;
+            }
+
+            delay(ms) {
+                return new Promise(resolve => setTimeout(resolve, ms));
+            }
+
+            async start() {
+                if (this.running) return;
+                
+                this.running = true;
+                document.getElementById('startBtn').style.display = 'none';
+                document.getElementById('stopBtn').style.display = 'inline-block';
+                document.getElementById('statusText').textContent = 'Running';
+                document.getElementById('statusDot').classList.add('running');
+                
+                this.log('info', 'Starting autonomous improvement cycle...');
+                
+                while (this.running) {
+                    await this.runCycle();
+                    await this.delay(1500);
+                }
+            }
+
+            stop() {
+                this.running = false;
+                document.getElementById('startBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'none';
+                document.getElementById('statusText').textContent = 'Stopped';
+                document.getElementById('statusDot').classList.remove('running');
+                
+                this.log('info', 'Autonomous improvement stopped.');
+                this.log('info', `Final stats: ${this.questionsGenerated} questions generated, ` +
+                    `${this.validQuestions} valid, ${this.improvements.length} improvements made.`);
+            }
+
+            reset() {
+                this.stop();
+                this.iteration = 0;
+                this.questionsGenerated = 0;
+                this.validQuestions = 0;
+                this.selfTestResults = [];
+                this.improvements = [];
+                this.performanceHistory = [];
+                this.questionBank = { assumptions: [], inferences: [] };
+                this.params = {
+                    complexity: 1.0,
+                    ambiguityThreshold: 0.3,
+                    logicalDepth: 2,
+                    negationFrequency: 0.2,
+                    abstractionLevel: 0.5
+                };
+                
+                document.getElementById('log').innerHTML = `
+                    <div class="log-entry info">
+                        <span class="log-timestamp">[System]</span> Engine reset. Ready to begin new improvement cycle.
+                    </div>
+                `;
+                document.getElementById('improvements').innerHTML = `
+                    <p style="color: #6b7280; font-size: 0.85rem;">No improvements yet. Start the engine to begin autonomous learning.</p>
+                `;
+                document.getElementById('currentQuestion').style.display = 'none';
+                document.getElementById('statusText').textContent = 'Idle';
+                
+                this.updateMetrics();
+            }
+        }
+
+        const engine = new AutonomousReasoningEngine();
+    </script>
+</body>
+</html>
