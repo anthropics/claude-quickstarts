@@ -42,7 +42,7 @@ From this foundation, you can add domain-specific tools, optimize performance, o
 
 ## Requirements
 
-- Python 3.8+
+- Python 3.10+
 - Claude API key (set as `ANTHROPIC_API_KEY` environment variable)
 - `anthropic` Python library
 - `mcp` Python library
