@@ -122,6 +122,16 @@ async def sampling_loop(
                 cache_control=BetaCacheControlEphemeralParam(type="ephemeral"),
             )
 
+        # Keep the context bounded by dropping older screenshots, mirroring
+        # computer-use-demo. This is safe for the prompt cache here because only
+        # the system prompt is cached, not the message history.
+        if only_n_most_recent_images:
+            _maybe_filter_to_n_most_recent_images(
+                messages,
+                only_n_most_recent_images,
+                min_removal_threshold=only_n_most_recent_images,
+            )
+
         # Make API call
         try:
             api_kwargs = {
@@ -180,16 +190,28 @@ def _maybe_filter_to_n_most_recent_images(
 ):
     """
     Filter messages to keep only the N most recent images.
+
+    Screenshots are returned as ``image`` blocks nested inside ``tool_result``
+    blocks, so we descend into the tool_result content rather than scanning the
+    top-level message blocks.
     """
     if images_to_keep <= 0:
         raise ValueError("images_to_keep must be > 0")
 
+    tool_result_blocks = [
+        block
+        for message in messages
+        for block in (
+            message["content"] if isinstance(message.get("content"), list) else []
+        )
+        if isinstance(block, dict) and block.get("type") == "tool_result"
+    ]
+
     total_images = sum(
         1
-        for message in messages
-        if message["role"] == "user"
-        for block in message.get("content", [])
-        if isinstance(block, dict) and block.get("type") == "image"
+        for tool_result in tool_result_blocks
+        for content in tool_result.get("content", [])
+        if isinstance(content, dict) and content.get("type") == "image"
     )
 
     images_to_remove = total_images - images_to_keep
@@ -197,13 +219,13 @@ def _maybe_filter_to_n_most_recent_images(
         return
 
     images_removed = 0
-    for message in messages:
-        if message["role"] == "user" and isinstance(message.get("content"), list):
+    for tool_result in tool_result_blocks:
+        if isinstance(tool_result.get("content"), list):
             new_content = []
-            for block in message["content"]:
-                if isinstance(block, dict) and block.get("type") == "image":
+            for content in tool_result["content"]:
+                if isinstance(content, dict) and content.get("type") == "image":
                     if images_removed < images_to_remove:
                         images_removed += 1
                         continue
-                new_content.append(block)
-            message["content"] = new_content
+                new_content.append(content)
+            tool_result["content"] = new_content
