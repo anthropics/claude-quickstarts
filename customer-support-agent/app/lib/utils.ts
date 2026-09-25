@@ -10,7 +10,7 @@ console.log("🔑 Have AWS AccessKey?", !!process.env.BAWS_ACCESS_KEY_ID);
 console.log("🔑 Have AWS Secret?", !!process.env.BAWS_SECRET_ACCESS_KEY);
 
 const bedrockClient = new BedrockAgentRuntimeClient({
-  region: "us-east-1", // Make sure this matches your Bedrock region
+  region: process.env.AWS_REGION || "us-east-1",
   credentials: {
     accessKeyId: process.env.BAWS_ACCESS_KEY_ID!,
     secretAccessKey: process.env.BAWS_SECRET_ACCESS_KEY!,
