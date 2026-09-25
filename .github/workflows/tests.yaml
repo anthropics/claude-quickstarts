@@ -2,13 +2,11 @@ name: tests
 on:
   pull_request:
     paths:
-      - .github/**
       - computer-use-demo/**
   push:
     branches:
       - main
     paths:
-      - .github/**
       - computer-use-demo/**
 jobs:
   ruff:
