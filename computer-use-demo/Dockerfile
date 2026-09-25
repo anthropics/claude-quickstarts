@@ -2,6 +2,9 @@ FROM docker.io/ubuntu:22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV DEBIAN_PRIORITY=high
+#FF for rest-api enablement & expose port
+ENV ENABLE_REST_API=true
+EXPOSE 8888
 
 RUN apt-get update && \
     apt-get -y upgrade && \
@@ -88,7 +91,8 @@ RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0
 
 # only reinstall if requirements.txt changes
 COPY --chown=$USERNAME:$USERNAME computer_use_demo/requirements.txt $HOME/computer_use_demo/requirements.txt
-RUN python -m pip install -r $HOME/computer_use_demo/requirements.txt
+RUN python -m pip install -r $HOME/computer_use_demo/requirements.txt && \
+    pyenv rehash
 
 # setup desktop env & app
 COPY --chown=$USERNAME:$USERNAME image/ $HOME
@@ -101,4 +105,11 @@ ENV DISPLAY_NUM=$DISPLAY_NUM
 ENV HEIGHT=$HEIGHT
 ENV WIDTH=$WIDTH
 
-ENTRYPOINT [ "./entrypoint.sh" ]
+ENTRYPOINT [ "/bin/bash", "-c", "\
+    /home/computeruse/entrypoint.sh & \
+    if [ \"$ENABLE_REST_API\" = \"true\" ]; then \
+        exec uvicorn computer_use_demo.rest_api:app --host 0.0.0.0 --port 8888; \
+    else \
+        exec tail -f /dev/null; \
+    fi \
+" ]
