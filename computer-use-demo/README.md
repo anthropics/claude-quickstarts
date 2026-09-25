@@ -147,6 +147,25 @@ Alternative access points:
 - Desktop view only: [http://localhost:6080/vnc.html](http://localhost:6080/vnc.html)
 - Direct VNC connection: `vnc://localhost:5900` (for VNC clients)
 
+## Cleaning up stopped containers
+
+Repeatedly stopping and restarting the demo can leave stopped Docker containers on your system and consume significant disk space.
+
+To list all containers, including stopped ones:
+
+```bash
+docker ps -a
+```
+
+To remove stopped containers:
+
+```bash
+docker container prune
+```
+
+> [!CAUTION]
+> `docker container prune` removes all stopped containers on your system, not only containers created by this demo. Review the list before confirming.
+
 ## Screen size
 
 Environment variables `WIDTH` and `HEIGHT` can be used to set the screen size. For example:
