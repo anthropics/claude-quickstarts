@@ -6,7 +6,7 @@ import os
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
-from typing import Optional
+from typing import Optional, cast
 
 import httpx
 
@@ -20,6 +20,7 @@ from anthropic.types.beta import (
     BetaContentBlockParam,
     BetaMessageParam,
     BetaTextBlockParam,
+    BetaToolResultBlockParam,
 )
 
 from .message_handler import MessageBuilder, ResponseProcessor
@@ -99,6 +100,12 @@ async def sampling_loop(
     )
 
     while True:
+        if only_n_most_recent_images:
+            _maybe_filter_to_n_most_recent_images(
+                messages,
+                only_n_most_recent_images,
+            )
+
         # Configure client and betas
         betas = []
         enable_prompt_caching = False
@@ -176,34 +183,77 @@ async def sampling_loop(
 def _maybe_filter_to_n_most_recent_images(
     messages: list[BetaMessageParam],
     images_to_keep: int,
-    min_removal_threshold: int = 10,
+    min_removal_threshold: int = 1,
 ):
     """
-    Filter messages to keep only the N most recent images.
+    With the assumption that images are screenshots that are of diminishing value as
+    the conversation progresses, remove all but the final `images_to_keep` tool_result
+    images and user images in place.
     """
-    if images_to_keep <= 0:
-        raise ValueError("images_to_keep must be > 0")
+    if images_to_keep is None or images_to_keep <= 0:
+        return
+
+    tool_result_blocks = cast(
+        list[BetaToolResultBlockParam],
+        [
+            item
+            for message in messages
+            for item in (
+                message["content"] if isinstance(message.get("content"), list) else []
+            )
+            if isinstance(item, dict) and item.get("type") == "tool_result"
+        ],
+    )
 
     total_images = sum(
         1
+        for tool_result in tool_result_blocks
+        for content in (
+            tool_result.get("content")
+            if isinstance(tool_result.get("content"), list)
+            else []
+        )
+        if isinstance(content, dict) and content.get("type") == "image"
+    )
+
+    # Also count direct top-level image blocks in user messages if any
+    total_images += sum(
+        1
         for message in messages
-        if message["role"] == "user"
-        for block in message.get("content", [])
+        if message.get("role") == "user" and isinstance(message.get("content"), list)
+        for block in message["content"]
         if isinstance(block, dict) and block.get("type") == "image"
     )
 
     images_to_remove = total_images - images_to_keep
-    if images_to_remove < min_removal_threshold:
+    if min_removal_threshold > 1:
+        images_to_remove -= images_to_remove % min_removal_threshold
+
+    if images_to_remove <= 0:
         return
 
-    images_removed = 0
     for message in messages:
-        if message["role"] == "user" and isinstance(message.get("content"), list):
+        if message.get("role") == "user" and isinstance(message.get("content"), list):
             new_content = []
             for block in message["content"]:
-                if isinstance(block, dict) and block.get("type") == "image":
-                    if images_removed < images_to_remove:
-                        images_removed += 1
-                        continue
+                if isinstance(block, dict):
+                    if block.get("type") == "image":
+                        if images_to_remove > 0:
+                            images_to_remove -= 1
+                            continue
+                    elif block.get("type") == "tool_result" and isinstance(
+                        block.get("content"), list
+                    ):
+                        new_tool_content = []
+                        for sub_block in block["content"]:
+                            if (
+                                isinstance(sub_block, dict)
+                                and sub_block.get("type") == "image"
+                            ):
+                                if images_to_remove > 0:
+                                    images_to_remove -= 1
+                                    continue
+                            new_tool_content.append(sub_block)
+                        block["content"] = new_tool_content
                 new_content.append(block)
             message["content"] = new_content
