@@ -31,7 +31,7 @@ own, commit it.
 
 `ant apply` walks the directory it is given. From
 `self-hosted-sandboxes/` it would also create the agents and environments
-that `docker/`, `docker-memory/`, and `archil/` declare. It would also leave
-`claude-lock.json` in that parent directory, and `ant apply` finds a lockfile
-in any directory above the one it runs from. Every demo below would then
-record its IDs there, where its own `start.sh` does not look.
+that `docker/`, `docker-memory/`, `archil/`, and `openshell/` declare. It
+would also leave `claude-lock.json` in that parent directory, and `ant apply`
+finds a lockfile in any directory above the one it runs from. Every demo below
+would then record its IDs there, where its own `start.sh` does not look.

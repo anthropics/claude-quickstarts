@@ -92,6 +92,11 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   containers with a per-session token. `archil/` swaps the containers
   for Archil persistent sandboxes that all mount one SEC EDGAR disk, so
   parallel analyst sessions work on 70 GB of filings in place.
+  `openshell/` swaps the containers for NVIDIA OpenShell sandboxes, each
+  confined by a `policy.yaml` to a filesystem allowlist and six routes
+  on `api.anthropic.com`. It is all CLI, like `docker/`, and pipes the
+  per-session token to `ant beta:worker run` over stdin so the
+  environment key stays on the host.
   Five more variants start the sandbox from the
   `session.status_run_started` webhook instead of a poller, on
   Cloudflare Containers, a Cloudflare Worker with no container,

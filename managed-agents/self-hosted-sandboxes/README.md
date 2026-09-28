@@ -1,12 +1,13 @@
 # Self-hosted sandboxes
 
-Three demos of running managed-agent sessions on infrastructure you
+Four demos of running managed-agent sessions on infrastructure you
 control. All have the same shape: a self-hosted environment
 (`config: {type: self_hosted}` in `environments/self-hosted.yaml`) is a work
 queue rather than a sandbox template, a host process polls it with the
 environment key, and each claimed session runs in its own short-lived
 sandbox. The first two use plain Docker containers on the host, the third
-uses Archil persistent sandboxes with a shared disk.
+uses Archil persistent sandboxes with a shared disk, and the fourth uses
+NVIDIA OpenShell sandboxes governed by a policy file.
 
 - [`docker/`](docker/) is the baseline, all `ant` CLI. The host runs
   `ant beta:worker poll` and each container runs `ant beta:worker run`.
@@ -25,6 +26,14 @@ uses Archil persistent sandboxes with a shared disk.
   same CLI poller with a Python `on-work.py`. Every sandbox reads the same
   disk and checks out its own `reports/<session>/` directory for writing,
   so many analyst sessions run in parallel against one copy of the data.
+- [`openshell/`](openshell/) runs each session in its own
+  [NVIDIA OpenShell](https://docs.nvidia.com/openshell/latest/about/overview)
+  sandbox, governed by `policy.yaml`: a filesystem allowlist and one network
+  rule (six routes on `api.anthropic.com`). The host side is the same CLI
+  poller, and the sandbox side is the CLI too, with no SDK worker.
+  `ant beta:worker run` (1.32 or later) reads the per-session token from
+  stdin through `--work-secret-file`, so the environment key never enters a
+  sandbox.
 
 Five more variants are started by a webhook instead of a poller, each on a
 different provider's compute. Anthropic sends `session.status_run_started`, a
@@ -33,10 +42,10 @@ starts one sandbox per claimed session. They share one agent and one
 self-hosted environment, which `ant apply .` creates from
 [`webhook-demo/`](webhook-demo/). Those files sit in their own directory, not
 in this one, for two reasons. `ant apply` walks the directory it is given, so
-running it here would also create the three poller demos' resources. And it writes
-`claude-lock.json` beside the first directory it is run from, then finds that
-file again from any directory below it, so a lockfile here would capture the
-poller demos' IDs where their `start.sh` does not look.
+running it here would also create the four poller demos' resources. And it
+writes `claude-lock.json` beside the first directory it is run from, then finds
+that file again from any directory below it, so a lockfile here would capture
+the poller demos' IDs where their `start.sh` does not look.
 It is a different environment from the poller demos', because an environment
 is one queue and a poller and a webhook handler on the same queue would
 compete for its sessions. Each README is its own runbook: deploy, register
@@ -64,7 +73,7 @@ other's memories. One container per session is the recommended way to run
 more than one session per host once memory is attached. The
 `docker-memory/` README covers the mechanics.
 
-In all three, the resources are files: the agent under `agents/`, the
+In all four, the resources are files: the agent under `agents/`, the
 environment under `environments/`, and in `docker-memory/` the memory store
 under `memory_stores/`.
 [`ant apply .`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply)

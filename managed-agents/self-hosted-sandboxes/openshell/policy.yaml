@@ -1,0 +1,66 @@
+# The OpenShell policy for a session's sandbox. OpenShell enforces it outside
+# the agent's process, and anything not listed is denied. on-work.sh replaces
+# SESSION_ID and ENVIRONMENT_ID with the session's own IDs before it creates
+# the sandbox.
+# Schema: https://docs.nvidia.com/openshell/latest/how-it-works/policies/schema
+version: 1
+
+# An allowlist for reads as well as writes: a path that is not here cannot be
+# opened at all. OpenShell applies it when the sandbox first starts, so a
+# change needs a new sandbox.
+filesystem_policy:
+  include_workdir: false
+  read_only:
+    - /usr
+    - /lib
+    - /etc
+    - /proc
+    - /dev/urandom
+    # OpenShell adds /var/log to any policy that has a network rule. Listing it
+    # keeps this file identical to what a sandbox reports.
+    - /var/log
+  read_write:
+    - /workspace
+    - /tmp
+    - /dev/null
+    # The worker runs the bash tool on a pseudo-terminal. Without these two,
+    # every bash call fails with "open /dev/ptmx: permission denied".
+    - /dev/ptmx
+    - /dev/pts
+
+# Refuse to start a sandbox whose filesystem rules cannot be enforced. The
+# default, best_effort, starts it without them and logs a finding.
+landlock:
+  compatibility: hard_requirement
+
+# Network rules can change on an existing sandbox (`openshell policy update`).
+network_policies:
+  claude_managed_agents:
+    endpoints:
+      - host: api.anthropic.com
+        port: 443
+        protocol: rest
+        # The default is audit, which logs a violation and lets it through.
+        enforcement: enforce
+        # Every call `ant beta:worker run` makes for a session with no skills
+        # and no memory store. The work ID stays a wildcard: it belongs to the
+        # work item, and one sandbox serves every work item of its session. In
+        # testing it matched the session ID.
+        rules:
+          # Session lookup, once at startup.
+          - allow: { method: GET, path: "/v1/sessions/SESSION_ID" }
+          # Event history, read after every (re)connect of the stream.
+          - allow: { method: GET, path: "/v1/sessions/SESSION_ID/events" }
+          # The event stream that delivers tool calls.
+          - allow: { method: GET, path: "/v1/sessions/SESSION_ID/events/stream" }
+          # Tool results.
+          - allow: { method: POST, path: "/v1/sessions/SESSION_ID/events" }
+          # The lease on the work item, renewed while the worker runs.
+          - allow: { method: POST, path: "/v1/environments/ENVIRONMENT_ID/work/*/heartbeat" }
+          # Release of the work item when the worker exits.
+          - allow: { method: POST, path: "/v1/environments/ENVIRONMENT_ID/work/*/stop" }
+    # Matches the program that opens the connection or any of its parent
+    # processes. The agent's shell is a child of ant, so it can reach these six
+    # routes too. See "What the policy does and does not cover" in the README.
+    binaries:
+      - path: /usr/local/bin/ant
