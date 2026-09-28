@@ -31,6 +31,20 @@ def require_env(name: str) -> str:
 
 
 ENV_FILE = Path(__file__).parent / ".env"
+SENTRY_CONFIG_FILE = Path(__file__).parent / "sentry-config.json"
+
+
+def sentry_config() -> tuple[str, str]:
+    """Return the non-secret Sentry organization and project slugs."""
+    try:
+        config = json.loads(SENTRY_CONFIG_FILE.read_text())
+        org = config["organization"]
+        project = config["project"]
+    except (FileNotFoundError, KeyError, json.JSONDecodeError):
+        sys.exit("sentry-config.json is missing or invalid: run ./agents/setup.sh first")
+    if not isinstance(org, str) or not isinstance(project, str) or not org or not project:
+        sys.exit("sentry-config.json needs non-empty organization and project strings")
+    return org, project
 
 
 def deployment_id() -> str:

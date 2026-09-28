@@ -1,21 +1,13 @@
-# The environment: the sandbox template every run boots from. `ant apply` sends
-# this file as the Environments API request body and records the environment's
-# ID in claude-lock.json.
+# The environment: the sandbox template every run boots from. Sentry is reached
+# through the hosted MCP server, not from shell commands in this sandbox.
 name: quickstart-sentry-triage-env
 metadata:
   quickstart: sentry
 config:
   type: cloud
-  # This allowlist is separate from the credential's (see agents/setup.sh): this one
-  # gates what the sandbox can connect to, the credential's gates where the
-  # secret is substituted. Both list Sentry's three API hosts and nothing
-  # wider. "*.sentry.io" would also match o<id>.ingest.sentry.io, which is
-  # every Sentry customer's event ingest endpoint: an injected instruction
-  # could post your data, or the substituted token, to someone else's project.
   networking:
     type: limited
-    allow_package_managers: true
-    allowed_hosts: [sentry.io, us.sentry.io, de.sentry.io]
-  # The PyPI package ships the sentry-cli binary.
-  packages:
-    pip: [sentry-cli]
+    # Managed Agents connects to declared MCP servers outside the sandbox. This
+    # opt-in is required under limited networking.
+    allow_mcp_servers: true
+    allowed_hosts: []

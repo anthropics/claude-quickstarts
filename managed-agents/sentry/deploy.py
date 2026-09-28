@@ -2,20 +2,19 @@
 existing one up to date.
 
 The agent, environment, and vault IDs come from claude-lock.json, which
-`ant apply` wrote; the Sentry org and project come from .env and go into the
+`ant apply` wrote; the Sentry org and project come from sentry-config.json and go into the
 message that starts each run. The first run appends CLAUDE_DEPLOYMENT_ID to
 .env. After that, running this again (./agents/setup.sh does) re-pins the
 deployment to the latest agent version and re-sends the environment, vault,
 and message, because a deployment keeps whatever it was created with.
 """
 
-from managed_agents import ENV_FILE, client, deployment_id, lockfile_id, require_env
+from managed_agents import ENV_FILE, client, deployment_id, lockfile_id, sentry_config
 
 agent_id = lockfile_id("./agents/sentry-triage.md")
 environment_id = lockfile_id("./environments/sentry-triage.yaml")
 vault_id = lockfile_id("./vaults/sentry-triage.yaml")
-org = require_env("SENTRY_ORG")
-project = require_env("SENTRY_PROJECT")
+org, project = sentry_config()
 
 # The org and project are settings, not secrets, so they travel in the run's
 # first message rather than in the vault. The system prompt tells the agent to
@@ -27,18 +26,18 @@ TRIAGE_PROMPT = (
     "Reply with the Summary section when you're done."
 )
 
-config = dict(
+config = {
     # The bare agent ID means "latest version".
-    agent=agent_id,
-    environment_id=environment_id,
-    vault_ids=[vault_id],
-    initial_events=[
+    "agent": agent_id,
+    "environment_id": environment_id,
+    "vault_ids": [vault_id],
+    "initial_events": [
         {
             "type": "user.message",
             "content": [{"type": "text", "text": TRIAGE_PROMPT}],
         }
     ],
-)
+}
 
 existing = deployment_id()
 if existing:
