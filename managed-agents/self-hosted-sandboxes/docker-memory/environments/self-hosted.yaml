@@ -5,6 +5,7 @@
 # it in the Console and put it in .env as ANTHROPIC_ENVIRONMENT_KEY.
 name: quickstart-self-hosted-memory-demo-env
 metadata:
-  quickstart: self-hosted-sandboxes
+  # Names the example within the quickstart. Safe to remove.
+  anthropic_quickstart: self-hosted-sandboxes/docker-memory
 config:
   type: self_hosted

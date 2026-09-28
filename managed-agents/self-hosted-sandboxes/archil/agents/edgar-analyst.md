@@ -7,7 +7,8 @@ name: EDGAR analyst (Archil)
 description: Maps the people and companies behind SEC insider filings, working directly on an Archil disk
 model: claude-opus-5
 metadata:
-  quickstart: archil
+  # Names the example within the quickstart. Safe to remove.
+  anthropic_quickstart: self-hosted-sandboxes/archil
   # Tells Anthropic which quickstart this agent came from. Safe to remove.
   anthropic_cookbook: claude-quickstarts/self-hosted-sandboxes
 tools:

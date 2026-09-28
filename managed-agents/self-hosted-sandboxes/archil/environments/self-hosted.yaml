@@ -6,6 +6,7 @@
 # ANTHROPIC_ENVIRONMENT_KEY.
 name: quickstart-archil-env
 metadata:
-  quickstart: archil
+  # Names the example within the quickstart. Safe to remove.
+  anthropic_quickstart: self-hosted-sandboxes/archil
 config:
   type: self_hosted
