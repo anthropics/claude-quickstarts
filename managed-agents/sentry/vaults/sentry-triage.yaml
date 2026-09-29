@@ -1,9 +1,7 @@
 # The vault: a named container for credentials that Anthropic holds for you
-# and injects at session runtime. `ant apply` creates the container from this
-# file (it takes `display_name` and `metadata`, nothing else) and records its
-# ID in claude-lock.json. What goes in it is not declared here: no secret
-# passes through `ant apply`, so ./agents/setup.sh adds the Sentry token as an
-# environment_variable credential with `ant beta:vaults:credentials create`.
+# and injects at session runtime. `ant apply` creates the container and records
+# its ID in claude-lock.json. oauth_setup.py adds the refreshable Sentry MCP
+# OAuth credential after browser consent; no secret passes through this file.
 display_name: quickstart-sentry-triage
 metadata:
   quickstart: sentry

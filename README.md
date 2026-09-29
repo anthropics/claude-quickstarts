@@ -88,7 +88,7 @@ A national-park road trip planner built directly on a Claude Managed Agents sess
 
 ### Managed Agents: Sentry
 
-A scheduled Sentry triage agent built on Claude Managed Agents. This project demonstrates a deployment that starts a session on a cron schedule with no host process, and a vault environment-variable credential that lets `sentry-cli` authenticate inside the sandbox while the real token stays outside it: the egress proxy substitutes it only on requests to Sentry's hosts.
+A scheduled Sentry triage agent built on Claude Managed Agents. This project demonstrates a deployment that starts a session on a cron schedule with no host process, Sentry's Agent Plugin for guided setup, and a refreshable MCP OAuth credential persisted in a vault for issue triage and Seer root-cause analysis.
 
 [Go to Managed Agents Sentry Quickstart](./managed-agents/sentry)
 

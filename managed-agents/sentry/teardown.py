@@ -4,7 +4,7 @@ records so ./agents/setup.sh and deploy.py start fresh afterwards.
 
 Skip this script to leave the schedule running. `archive` is terminal: it stops
 future scheduled triggers, in-flight sessions keep running, and archiving the
-vault discards the Sentry token it holds.
+vault discards the Sentry MCP OAuth credential it holds.
 """
 
 import json

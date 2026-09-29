@@ -100,11 +100,13 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
 
 - **[sentry/](sentry/)** runs a Sentry triage agent on a schedule
   with no host process. A deployment starts a session on a cron
-  expression, the agent pulls the last 24 hours of issues with
-  `sentry-cli`, and writes a severity-ranked report. The Sentry token
-  lives in a vault: the sandbox holds only a placeholder, and the
-  egress proxy swaps in the real token on requests to Sentry's API
-  hosts and nowhere else.
+  expression, the agent pulls the last 24 hours of issues through
+  Sentry's hosted MCP server, asks Seer for root-cause analysis where
+  it is available, and writes a user-impact-ranked report. Setup runs
+  inside Claude Code with Sentry's Agent Plugin to pick the org and
+  project, and a browser OAuth grant lands in a vault as a refreshable
+  `mcp_oauth` credential that Anthropic injects on the MCP connection
+  and refreshes; the sandbox never holds a token.
 
 - **[slack/](slack/)** answers `@mentions` in Slack with a threaded
   reply, over a stateless Bun webhook bridge. The Slack event creates
