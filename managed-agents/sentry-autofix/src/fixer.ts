@@ -32,9 +32,9 @@ export type Config = {
 };
 
 // `ant apply` (run by ./agents/setup.sh) records what it created in
-// claude-lock.json, keyed by file path. This quickstart has one agent and one
-// environment, so the kind is enough to find each.
-function lockedId(kind: "agent" | "environment"): string {
+// claude-lock.json, keyed by file path. This quickstart has one agent, one
+// environment, and one vault, so the kind is enough to find each.
+export function lockedId(kind: "agent" | "environment" | "vault"): string {
   let lock: { resources?: Record<string, { kind?: string; id?: string }> };
   try {
     lock = JSON.parse(readFileSync("claude-lock.json", "utf8"));
@@ -64,14 +64,15 @@ export function loadConfig(): Config {
     githubToken: requireEnv("GITHUB_TOKEN"),
     agentId: lockedId("agent"),
     environmentId: lockedId("environment"),
-    vaultId: requireEnv("CLAUDE_VAULT_ID"),
+    vaultId: lockedId("vault"),
     maxCents: budgetCents(process.env.AUTOFIX_MAX_USD),
     maxActive,
   };
 }
 
-// Must equal mcp_servers[].url in agents/issue-fixer/agent.yaml.
-const SENTRY_MCP_URL = "https://mcp.sentry.dev/mcp";
+// Must equal mcp_servers[].url in agents/issue-fixer/agent.yaml: the platform
+// picks the credential for a server by matching this URL.
+export const SENTRY_MCP_URL = "https://mcp.sentry.dev/mcp";
 
 // The two setup mistakes that would otherwise cost a session each time:
 // nothing forcing the agent's work through a pull request, and no Sentry

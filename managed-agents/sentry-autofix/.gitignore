@@ -2,6 +2,6 @@ node_modules/
 .env
 .env.local
 package-lock.json
-# Written by `ant apply`: the IDs of the agent and environment it created in
-# your organization. In your own project, commit it so your team shares them.
+# Written by `ant apply`: the IDs of the agent, environment, and vault it
+# created in your organization. In your own project, commit it so your team shares them.
 claude-lock.json

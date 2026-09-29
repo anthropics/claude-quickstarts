@@ -94,7 +94,7 @@ A scheduled Sentry triage agent built on Claude Managed Agents. This project dem
 
 ### Managed Agents: Sentry Autofix
 
-A production error fixed by pull request, with Claude Managed Agents and the Sentry MCP server. This project demonstrates a webhook-driven session per Sentry issue: the agent reads the stack trace and Seer's root cause analysis, reproduces the bug with a failing test in a mounted GitHub repository, and pushes a branch, and the host opens the pull request through a custom tool so a person reviews every fix. Credentials stay in a vault outside the sandbox, the sandbox has no route to the open internet, and each session has a hard spend cap.
+A production error fixed by pull request, with Claude Managed Agents and the Sentry MCP server. This project demonstrates a webhook-driven session per Sentry issue: the agent reads the stack trace and Seer's root cause analysis, reproduces the bug with a failing test in a mounted GitHub repository, and pushes a branch, and the host opens the pull request through a custom tool so a person reviews every fix. Setup runs in Claude Code with Sentry's Agent Plugin. Credentials stay in a vault outside the sandbox, the sandbox has no route to the open internet, and each session has a hard spend cap.
 
 [Go to Managed Agents Sentry Autofix Quickstart](./managed-agents/sentry-autofix)
 

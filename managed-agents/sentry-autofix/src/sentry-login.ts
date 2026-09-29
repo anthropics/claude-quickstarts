@@ -7,27 +7,50 @@
 // the code (PKCE), and hand the access and refresh tokens to the vault. From
 // then on the platform refreshes them, and they are injected outside the
 // sandbox whenever a session calls a Sentry tool. Nothing is written to disk.
+//
+// This is deliberately a separate grant from the Sentry plugin's in Claude
+// Code (./start.sh). Claude Code keeps its own tokens private, and sessions a
+// webhook starts need a credential of their own.
 
-import Anthropic from "@anthropic-ai/sdk";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { createInterface } from "node:readline/promises";
+import { client, lockedId, SENTRY_MCP_URL as MCP_SERVER_URL } from "./fixer";
 
-// Must equal mcp_servers[].url in agents/issue-fixer/agent.yaml: the platform
-// picks the credential for a server by matching this URL.
-const MCP_SERVER_URL = "https://mcp.sentry.dev/mcp";
-const ISSUER = "https://mcp.sentry.dev";
-// Read access for the issue tools, and event:write because starting a Seer
-// analysis is a write in Sentry's API. The agent's tool allow-list, not this
-// scope, is what keeps it from resolving issues (see agent.yaml).
-const SCOPE = "org:read project:write event:write";
+// What the issue tools need, plus event:write because starting a Seer analysis
+// is a write in Sentry's API. The server also advertises team:write and
+// alerts:write. Nothing here needs them, so the request leaves them out, and
+// main() refuses a token that reports a scope outside this list.
+const SCOPES = ["org:read", "project:write", "event:write"];
 const PORT = Number(process.env.SENTRY_LOGIN_PORT ?? 8976);
 const REDIRECT_URI = `http://localhost:${PORT}/callback`;
 
-const client = new Anthropic();
-
+type Resource = { resource?: string; authorization_servers?: string[]; scopes_supported?: string[] };
 type Metadata = { authorization_endpoint: string; token_endpoint: string; registration_endpoint: string };
-type Tokens = { access_token: string; refresh_token?: string; expires_in?: number };
+type Tokens = { access_token: string; refresh_token?: string; expires_in?: number; scope?: string };
+
+async function getJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, { headers: { accept: "application/json" } });
+  if (!response.ok) throw new Error(`${url} -> ${response.status}`);
+  return (await response.json()) as T;
+}
+
+// Where to sign in is the server's to say: its protected-resource metadata
+// (RFC 9728) names the authorization server, whose own metadata (RFC 8414)
+// names the endpoints. Tokens are sent to those endpoints, so each must be
+// https.
+async function discover(): Promise<{ resource: Resource; metadata: Metadata }> {
+  const server = new URL(MCP_SERVER_URL);
+  const resource = await getJson<Resource>(`${server.origin}/.well-known/oauth-protected-resource${server.pathname}`);
+  const issuer = resource.authorization_servers?.[0];
+  if (!issuer) throw new Error("the Sentry MCP server did not advertise an OAuth authorization server");
+  const { origin, pathname } = new URL(issuer);
+  const metadata = await getJson<Metadata>(`${origin}/.well-known/oauth-authorization-server${pathname === "/" ? "" : pathname}`);
+  for (const field of ["authorization_endpoint", "token_endpoint", "registration_endpoint"] as const) {
+    if (!metadata[field]?.startsWith("https://")) throw new Error(`Sentry's OAuth metadata has no https ${field}`);
+  }
+  return { resource, metadata };
+}
 
 async function postJson<T>(url: string, body: Record<string, unknown> | URLSearchParams): Promise<T> {
   const form = body instanceof URLSearchParams;
@@ -89,10 +112,11 @@ async function waitForCode(state: string): Promise<string> {
 }
 
 async function main() {
-  const vaultId = process.env.CLAUDE_VAULT_ID;
-  if (!vaultId) throw new Error("CLAUDE_VAULT_ID is not in .env: run ./agents/setup.sh first");
+  const vaultId = lockedId("vault");
 
-  const metadata = (await (await fetch(`${ISSUER}/.well-known/oauth-authorization-server`)).json()) as Metadata;
+  const { resource, metadata } = await discover();
+  const advertised = resource.scopes_supported;
+  const scope = SCOPES.filter((name) => !advertised || advertised.includes(name)).join(" ");
   const registration = await postJson<{ client_id: string }>(metadata.registration_endpoint, {
     client_name: "Sentry autofix quickstart (Claude Managed Agents)",
     redirect_uris: [REDIRECT_URI],
@@ -108,13 +132,16 @@ async function main() {
     response_type: "code",
     client_id: registration.client_id,
     redirect_uri: REDIRECT_URI,
-    scope: SCOPE,
+    scope,
     state,
     code_challenge: createHash("sha256").update(verifier).digest("base64url"),
     code_challenge_method: "S256",
     resource: MCP_SERVER_URL,
   }).toString();
-  console.log(`Open this URL and approve access for the organization whose issues you want fixed:\n\n${authorize}`);
+  console.log(
+    "Open this URL and approve access for the organization whose issues you want fixed. On the approval screen, leave only\n" +
+      `"Inspect Issues & Events" and "Seer" checked, and untick the rest. The token carries only what you approve.\n\n${authorize}`,
+  );
 
   const code = await waitForCode(state);
   const tokens = await postJson<Tokens>(
@@ -129,20 +156,48 @@ async function main() {
     }),
   );
 
-  await storeCredential(vaultId, registration.client_id, metadata.token_endpoint, tokens);
-  console.log(`\nStored the Sentry credential in vault ${vaultId}. Sessions can call the Sentry tools now.`);
+  // Both checks come before the old credential is archived, so a sign-in that
+  // fails them leaves a working credential in place.
+  if (!tokens.access_token || !tokens.refresh_token) {
+    throw new Error("Sentry did not return both an access and a refresh token. Not storing a credential the platform cannot refresh.");
+  }
+  const extra = (tokens.scope ?? "").split(" ").filter((name) => name && !SCOPES.includes(name));
+  if (extra.length) throw new Error(`Sentry granted more than this quickstart asked for (${extra.join(", ")}). Not storing it.`);
+
+  const credentialId = await storeCredential(vaultId, registration.client_id, metadata.token_endpoint, tokens, tokens.refresh_token);
+  console.log(`\ncredential: stored ${credentialId} in ${vaultId}`);
+  await validate(vaultId, credentialId);
+}
+
+// Probes the stored credential against the MCP server (`initialize` and
+// `tools/list`). The vault always presents it as `Authorization: Bearer`, so
+// an organization that rejects that fails here and not in the first session a
+// webhook starts. Advisory: it reports, and `npm run fix` is the real test.
+async function validate(vaultId: string, credentialId: string) {
+  const status = await client.beta.vaults.credentials
+    .mcpOAuthValidate(credentialId, { vault_id: vaultId })
+    .then((validation) => validation.status)
+    .catch(() => null);
+  if (!status) return console.log("credential: validation probe did not run. Try it with `npm run fix -- <SHORT-ID>`.");
+  console.log(`credential: validation status ${status}`);
+  if (status === "invalid") {
+    console.log(
+      "The MCP server rejected the stored token. If your Sentry organization enforces SSO or otherwise rejects\n" +
+        'user-bound OAuth tokens, signing in again will not help: see "Known limitations" in the README.',
+    );
+  }
 }
 
 // A vault holds one active credential per MCP server URL, so signing in again
 // replaces the old one.
-async function storeCredential(vaultId: string, clientId: string, tokenEndpoint: string, tokens: Tokens) {
+async function storeCredential(vaultId: string, clientId: string, tokenEndpoint: string, tokens: Tokens, refreshToken: string): Promise<string> {
   for await (const credential of client.beta.vaults.credentials.list(vaultId)) {
     const { auth } = credential;
     if (auth.type !== "environment_variable" && auth.mcp_server_url === MCP_SERVER_URL && !credential.archived_at) {
       await client.beta.vaults.credentials.archive(credential.id, { vault_id: vaultId });
     }
   }
-  await client.beta.vaults.credentials.create(vaultId, {
+  const credential = await client.beta.vaults.credentials.create(vaultId, {
     display_name: "Sentry MCP (OAuth)",
     metadata: { quickstart: "sentry-autofix" },
     auth: {
@@ -150,22 +205,18 @@ async function storeCredential(vaultId: string, clientId: string, tokenEndpoint:
       mcp_server_url: MCP_SERVER_URL,
       access_token: tokens.access_token,
       ...(tokens.expires_in ? { expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString() } : {}),
-      // Without a refresh block the credential works until the access token
-      // expires and then the agent silently loses Sentry.
-      ...(tokens.refresh_token
-        ? {
-            refresh: {
-              refresh_token: tokens.refresh_token,
-              client_id: clientId,
-              token_endpoint: tokenEndpoint,
-              token_endpoint_auth: { type: "none" as const },
-              resource: MCP_SERVER_URL,
-              scope: SCOPE,
-            },
-          }
-        : {}),
+      refresh: {
+        refresh_token: refreshToken,
+        client_id: clientId,
+        token_endpoint: tokenEndpoint,
+        token_endpoint_auth: { type: "none" },
+        resource: MCP_SERVER_URL,
+        // The scope Sentry reported for this grant.
+        ...(tokens.scope ? { scope: tokens.scope } : {}),
+      },
     },
   });
+  return credential.id;
 }
 
 main().catch((err) => {
