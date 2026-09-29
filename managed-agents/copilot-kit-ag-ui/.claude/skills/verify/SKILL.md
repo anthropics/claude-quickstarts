@@ -27,9 +27,9 @@ Probes that exercise the wiring:
 
 ## With real credentials
 
-`npm run setup` once, `npm run dev`, open http://localhost:5173, send a prompt that triggers a visual tool ("show me a growth projection for $500/month at 7%") and confirm the chart renders inline.
+`ant apply agents environments` once, `npm run dev`, open http://localhost:5173, send a prompt that triggers a visual tool ("show me a growth projection for $500/month at 7%") and confirm the chart renders inline.
 
 ## Gotchas
 
-- Boot requires agent identity: either `agent-ids.json` (from `npm run setup`) or the three `ANTHROPIC_*` ID env vars. Missing both is a deliberate boot failure.
+- Boot requires agent identity: either `claude-lock.json` (from `ant apply agents environments`) or the three `ANTHROPIC_*` ID env vars. Missing both is a deliberate boot failure.
 - Static serving only activates when `web/dist` exists, so run `npm run build` before `npm start` probes.

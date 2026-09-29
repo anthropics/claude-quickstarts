@@ -14,21 +14,34 @@ sync), and the environment key never enters a container.
 ## How to use it
 
 Needs Docker, `jq`, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.23 or later (`brew install anthropics/tap/ant`), and `ant auth login` once
-(or an API key in `.env`). No Python on the host: the SDK lives in the image.
+1.30 or later (`brew install anthropics/tap/ant`), and `ant auth login` once
+(or `ANTHROPIC_API_KEY` exported in your shell). No Python on the host: the
+SDK lives in the image.
 
 ```sh
 cd managed-agents/self-hosted-sandboxes/docker-memory
 claude "help me set up and run this self-hosted sandbox memory demo"
 ```
 
-Or by hand. One-time setup:
+Or by hand. One-time setup, from this directory:
 
 ```sh
-./agents/setup.sh   # creates the memory store, self-hosted environment, and agent; writes their IDs to .env
+ant apply .         # creates the memory store, self-hosted environment, and agent; records their IDs in claude-lock.json
+cp .env.example .env
 # Mint a key for that environment in the Console (Environments -> it -> Keys)
 # and set ANTHROPIC_ENVIRONMENT_KEY= in .env
 ```
+
+[`ant apply`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/apply)
+reads one file per resource: the agent from `agents/memory-demo.md`, whose
+frontmatter is the configuration and whose prose is the system prompt, the
+environment from `environments/self-hosted.yaml`, and the store from
+`memory_stores/user-preferences.yaml`. It shows the plan and creates all
+three once you approve. To change the agent later, edit its file and run
+`ant apply` again: it publishes a new version of the same agent, because
+`claude-lock.json` remembers which resources these files became. This
+repository ignores that file, since every reader creates their own
+resources. In a project of your own, commit it.
 
 Sandbox side, leave running:
 
@@ -36,14 +49,17 @@ Sandbox side, leave running:
 ./start.sh          # builds the image, then polls the environment for sessions
 ```
 
-Control plane, from any other terminal or machine with the same `.env`.
-Create a session on the environment with the store attached and a first
-message:
+Control plane, from any other terminal or machine with the same
+`claude-lock.json`. Read the three IDs out of the lockfile by the file that
+declares each resource, then create a session on the environment with the
+store attached and a first message:
 
 ```sh
-set -a; . ./.env; set +a
-ant beta:sessions create --agent "$CLAUDE_AGENT_ID" --environment-id "$CLAUDE_ENVIRONMENT_ID" \
-  --resource "{type: memory_store, memory_store_id: $CLAUDE_MEMORY_STORE_ID, access: read_write}" \
+agent=$(jq -r '.resources["./agents/memory-demo.md"].id' claude-lock.json)
+environment=$(jq -r '.resources["./environments/self-hosted.yaml"].id' claude-lock.json)
+store=$(jq -r '.resources["./memory_stores/user-preferences.yaml"].id' claude-lock.json)
+ant beta:sessions create --agent "$agent" --environment-id "$environment" \
+  --resource "{type: memory_store, memory_store_id: $store, access: read_write}" \
   --initial-event "{type: user.message, content: [{type: text, text: 'Remember that I indent with tabs, 3 wide.'}]}"
 ```
 
@@ -55,7 +71,7 @@ with `text: 'What do you know about my preferences?'`. A fresh container
 downloads the store and the agent answers from it. What the server holds:
 
 ```sh
-ant beta:memory-stores:memories list --memory-store-id "$CLAUDE_MEMORY_STORE_ID" --view full
+ant beta:memory-stores:memories list --memory-store-id "$store" --view full
 ```
 
 `access: read_only` attaches the store for sessions that may read but never
@@ -73,13 +89,13 @@ spreads sessions across them.
 
 | | |
 |---|---|
-| `agents/memory-demo/` | Agent, self-hosted environment, and memory store definitions for `setup.sh`. The agent pins `tools: [{type: agent_toolset_20260401}]`, the toolset `worker.py` serves. A server-default toolset includes tools the worker does not own and the session stalls (`tool 'repl' not owned by this runner`). |
-| `start.sh` | Host. Builds the image, execs `ant beta:worker poll --on-work on-work.sh` with the environment key from `.env`. |
+| `agents/memory-demo.md`, `environments/self-hosted.yaml`, `memory_stores/user-preferences.yaml` | The agent, self-hosted environment, and memory store, as files for `ant apply`. The agent pins `tools: [{type: agent_toolset_20260401}]`, the toolset `worker.py` serves. A server-default toolset includes tools the worker does not own and the session stalls (`tool 'repl' not owned by this runner`). |
+| `start.sh` | Host. Builds the image, execs `ant beta:worker poll --on-work on-work.sh` with the environment ID from `claude-lock.json` and the environment key from `.env`. |
 | `on-work.sh` | Host, once per claimed work item. Reads the item's per-session `secret` off stdin and runs an attached `--rm` container with only that secret, returning when it exits. Refuses items that carry no secret. `SANDBOX_DOCKER_RUN_ARGS` adds `docker run` flags. |
 | `Dockerfile`, `worker.py` | Container. `python:3.12-slim` + the `anthropic` SDK (0.125.0 or later, the first with memory sync for self-hosted sandboxes) + `rg`/`git`/`curl`/`jq`. `worker.py` pulls the sessions token out of the secret and calls `EnvironmentWorker.handle_item()`: memory download and sync, tool dispatch, lease heartbeat, force-stop on exit. |
 
 Three credentials, three blast radii. Your org credential (`ant auth login`
-or `ANTHROPIC_API_KEY`) runs `setup.sh` and creates sessions, and never
+or `ANTHROPIC_API_KEY`) runs `ant apply` and creates sessions, and never
 reaches the sandbox host. The environment key lives only in the `start.sh`
 poller and can only claim work. Each container holds only its session's
 token, so an agent that reads its own environment (it runs arbitrary bash)

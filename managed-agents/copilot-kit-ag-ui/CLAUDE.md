@@ -25,7 +25,8 @@ Four pieces:
 
 | File | What it shows |
 | --- | --- |
-| `server/src/setup.ts` | Agent-first provisioning: environment + one agent with the built-in toolset. Also `loadAgentIds()`, which prefers `ANTHROPIC_ENVIRONMENT_ID`/`ANTHROPIC_AGENT_ID`/`ANTHROPIC_AGENT_VERSION` env vars over `agent-ids.json` |
+| `agents/financial-assistant.md`, `environments/financial-assistant.yaml` | The agent (frontmatter is the configuration, prose is the system prompt) and its container, as files for `ant apply` |
+| `server/src/resources.ts` | `loadAgentIds()`: the agent (with version) and environment from `claude-lock.json`, or from `ANTHROPIC_ENVIRONMENT_ID`/`ANTHROPIC_AGENT_ID`/`ANTHROPIC_AGENT_VERSION` when the lockfile is absent |
 | `server/src/index.ts` | The whole integration: a `ManagedAgentsAgent` in a self-hosted `CopilotSseRuntime` on Express, CORS from `ALLOWED_ORIGINS`, static serving of `web/dist` when built |
 | `server/src/vizTools.ts` | The generative-UI tool contracts the agent sees, as the adapter's `backendTools` |
 | `web/src/viz/renderers.tsx` | `useRenderTool` registrations mapping tool calls to React components |
@@ -34,7 +35,7 @@ Four pieces:
 
 ## Commands
 
-- `npm install`, then `npm run setup` once, then `npm run dev` (server on :8787, web on :5173).
+- `npm install`, then `ant apply --yes agents environments` once (ant 1.30 or later; `--yes` because you have no terminal for its confirmation prompt), then `npm run dev` (server on :8787, web on :5173). After editing `agents/financial-assistant.md`, a bare `ant apply --yes` publishes the new version; restart the server to pin it.
 - `npm run build` builds the frontend to `web/dist`. `npm start` runs the server without watch and serves `web/dist` if present.
 - `npm run typecheck` covers both workspaces. There are no tests. Verify changes by running the app.
 
@@ -42,7 +43,7 @@ Four pieces:
 
 - `package.json` pins one `rxjs` version via `overrides` so the whole workspace shares a single copy: the AG-UI client and the CopilotKit runtime exchange RxJS observables, and two copies in the tree can break `instanceof` checks.
 - The visual tools are render-only: their result is the rendering itself, so each `backendTools` handler ignores its input and returns a "rendered to the user" ack. The agent supplies starting numbers, and the sliders recompute everything client-side without another agent turn.
-- The visual tools live only in `server/src/vizTools.ts` — setup does not put them on the agent. The adapter registers them on each session as tool overrides (merged with the agent's own toolset), so changing a tool contract never requires re-provisioning.
+- The visual tools live only in `server/src/vizTools.ts` — `agents/financial-assistant.md` does not put them on the agent. The adapter registers them on each session as tool overrides (merged with the agent's own toolset), so changing a tool contract never requires re-provisioning.
 - The adapter also emits `TOOL_CALL_*` events for built-in tool use (web_search, bash, file ops). The wildcard `useRenderTool` registration in `web/src/viz/renderers.tsx` renders each as a compact expandable activity row (`ToolActivity`).
 - CopilotKit's runtime delivers tool args in version-dependent shapes: a typed object, an object with every number stringified, or one whose nested arrays arrive as JSON strings. `web/src/viz/renderers.tsx` normalizes the structure and parses args through coercing zod schemas before mounting a component — blind-spreading `props.parameters` breaks silently when the wire format shifts.
 - The agent's system prompt tells it to call visual tools directly, never from inside repl scripts: a repl-wrapped custom tool call parks the session on the repl call itself, a state the adapter (0.0.1) reads as unanswerable and interrupts. Drop that prompt line once the adapter handles repl suspension.
@@ -55,13 +56,13 @@ When the user asks to be walked through setting up this demo, go step by step, r
 1. **Node version.** `node --version` must be 22 or newer.
 2. **Credentials.** Either `ANTHROPIC_API_KEY` is set or an `ant auth login` profile exists. The account needs the Managed Agents beta, and `claude-fable-5` needs 30-day data retention on the org (not available under zero data retention).
 3. **Install.** `npm install` from this directory (it is an npm workspace root).
-4. **Provision.** `npm run setup`. This creates a cloud environment and the agent once, and writes their IDs to `agent-ids.json`. Re-running is a no-op unless `-- --force` is passed.
+4. **Provision.** `ant apply --yes agents environments`. This creates the cloud environment and the agent from `environments/` and `agents/` and writes their IDs to `claude-lock.json`. Re-running changes nothing until a file changes. It needs `ant auth login` or an exported `ANTHROPIC_API_KEY`; it does not read `.env`. If it prints `refusing to apply`, a resource was changed or archived in the Console: show the user the reason before reaching for `--force`.
 5. **Run.** `npm run dev`, then open http://localhost:5173 and suggest a first prompt, for example: "If I invest $500/month at a 7% annual return, what will I have in 20 years?" Point out the Console trace URL the server logs per session.
 
 Common failures:
 
-- `No agent configured` at server boot: `npm run setup` was not run, and the three `ANTHROPIC_*` ID env vars are not set.
-- 403/404 from `client.beta.environments.create` or `client.beta.agents.create` during setup: the org lacks Managed Agents beta access, or the model is unavailable under the org's data retention policy.
+- `No agent configured` at server boot: `ant apply agents environments` has not run in this directory (no `claude-lock.json` here), and the three `ANTHROPIC_*` ID env vars are not set.
+- 403/404 from `ant apply`: the org lacks Managed Agents beta access, or the model is unavailable under the org's data retention policy. A 409 on the environment means `quickstart-copilot-kit-financial-assistant-env` already exists in the workspace: change `name` in `environments/financial-assistant.yaml`.
 - `instanceof` errors mentioning Observable: duplicate `rxjs` copies. Reinstall from the workspace root so the `overrides` pin applies.
 - Port conflicts: set `PORT` for the server, and in dev also update the proxy target in `web/vite.config.ts`, which points at :8787. Vite picks the next free port on its own, but then the printed URL changes.
 - Chat errors in the browser with a healthy web server: check the server logs on :8787. The Vite dev proxy forwards `/api/copilotkit` there.

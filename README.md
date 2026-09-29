@@ -56,6 +56,12 @@ A personal finance assistant chat app built on a Claude Managed Agent and render
 
 [Go to Managed Agents with CopilotKit Quickstart](./managed-agents/copilot-kit-ag-ui)
 
+### Managed Agents: Daily Brief
+
+A scheduled agent that reads your Slack channels and GitHub pull requests each weekday and posts one short brief to Slack, built on Claude Managed Agents. This project demonstrates a deployment defined entirely as files applied with `ant apply` (agent, environment, two memory stores, vault, cron deployment), a read-only preferences store next to a read-write state store, and run steps designed to fail well unattended: per-source bookmarks, a ledger against repeats, and a source that could not be read reported as unreadable rather than as a quiet day.
+
+[Go to Managed Agents Daily Brief Quickstart](./managed-agents/daily-brief)
+
 ### Managed Agents: Knowledge Wiki
 
 A deal-room knowledge wiki built with Claude Managed Agents. This project demonstrates how to distill a document corpus once into a versioned memory-store knowledge wiki — using parallel extraction sessions, a resolve pass, and a steered consolidation dream — then answer repeated analyst questions from the wiki with provenance on every fact and a fraction of the per-question token cost of raw-document search. The worked example is a real M&A data room fetched from public SEC EDGAR filings.
@@ -82,7 +88,7 @@ A national-park road trip planner built directly on a Claude Managed Agents sess
 
 ### Managed Agents: Sentry
 
-A scheduled Sentry triage agent built on Claude Managed Agents. This project demonstrates a deployment that starts a session on a cron schedule with no host process, and a vault environment-variable credential that lets `sentry-cli` authenticate inside the sandbox while the real token stays outside it: the egress proxy substitutes it only on requests to Sentry's hosts.
+A scheduled Sentry triage agent built on Claude Managed Agents. This project demonstrates a deployment that starts a session on a cron schedule with no host process, Sentry's Agent Plugin for guided setup, and a refreshable MCP OAuth credential persisted in a vault for issue triage and Seer root-cause analysis.
 
 [Go to Managed Agents Sentry Quickstart](./managed-agents/sentry)
 

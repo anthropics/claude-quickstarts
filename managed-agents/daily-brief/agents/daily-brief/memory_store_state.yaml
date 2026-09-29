@@ -1,0 +1,4 @@
+# The agent's own record between runs. Attached read-write in deployment.md.
+# The description is shown to the agent.
+name: state
+description: Your own record between runs. bookmarks.json (where each source was last read), ledger.md (items already reported and their last status), notes.md (what you learned about each source), proposals.md (preference changes you suggest), and runs/<date>.md (one record per run).

@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import type { BetaManagedAgentsSession } from "@anthropic-ai/sdk/resources/beta/sessions/sessions";
-import { SESSION_COOKIE, client, ownedSession, requireEnv } from "@/lib/client";
+import { SESSION_COOKIE, client, ownedSession } from "@/lib/client";
+import { environmentId, plannerAgentId, vaultId } from "@/lib/resources";
 import { MODELS } from "@/lib/models";
 import type { ManagedAgentEvent } from "@/lib/transcript";
 
@@ -58,12 +59,12 @@ export async function POST(request: Request) {
       // applies unchanged.
       agent: {
         type: "agent_with_overrides",
-        id: requireEnv("CLAUDE_AGENT_ID"),
+        id: plannerAgentId(),
         ...(model ? { model } : {}),
       },
-      environment_id: requireEnv("CLAUDE_ENVIRONMENT_ID"),
+      environment_id: environmentId(),
       // Vaults attach at create time only (sessions.update rejects vault_ids).
-      vault_ids: [requireEnv("CLAUDE_VAULT_ID")],
+      vault_ids: [vaultId()],
       title: `Road trip - ${new Date().toISOString().slice(0, 10)}`,
     });
   } catch (error) {

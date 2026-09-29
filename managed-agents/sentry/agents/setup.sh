@@ -1,83 +1,70 @@
 #!/usr/bin/env bash
-# Create this quickstart's Managed Agents resources with the ant CLI and save
-# their IDs to .env. Re-run after editing the YAML to update them in place.
+# Provision the agent, environment, and vault, then authorize Sentry MCP in a
+# browser and store the refreshable credential directly in the vault.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-[ -f .env ] || cp .env.example .env
-set -a; . ./.env; set +a
-
-for v in SENTRY_AUTH_TOKEN SENTRY_ORG SENTRY_PROJECT; do
-  [ -n "${!v:-}" ] || { echo "$v is not set in .env (see .env.example)" >&2; exit 1; }
+for tool in ant jq uv; do
+  command -v "$tool" >/dev/null || { echo "$tool not found on PATH (see the README)" >&2; exit 1; }
 done
 
-if [ -z "${CLAUDE_VAULT_ID:-}" ]; then
-  CLAUDE_VAULT_ID=$(ant beta:vaults create --transform id --raw-output < agents/sentry-triage/vault.yaml)
-  printf '\nCLAUDE_VAULT_ID=%s\n' "$CLAUDE_VAULT_ID" >> .env
-  echo "vault: created $CLAUDE_VAULT_ID"
+[ -f .env ] || cp .env.example .env
+# Only this project's .env decides whether a deployment exists. Ignore an ID
+# inherited from another shell or quickstart.
+unset CLAUDE_DEPLOYMENT_ID
+set -a; . ./.env; set +a
+
+# Organization and project slugs are settings, not secrets. The Claude Code
+# guide supplies them after discovery through the Sentry plugin. A manual run
+# can omit the flags and answer these prompts once; later runs reuse the
+# recorded values from sentry-config.json.
+usage() { echo "usage: $0 [--org <slug>] [--project <slug>]" >&2; exit 2; }
+org=""
+project=""
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --org) [ "$#" -ge 2 ] || usage; org="$2"; shift 2 ;;
+    --project) [ "$#" -ge 2 ] || usage; project="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+if [ -f sentry-config.json ]; then
+  [ -n "$org" ] || org=$(jq -r '.organization // empty' sentry-config.json)
+  [ -n "$project" ] || project=$(jq -r '.project // empty' sentry-config.json)
+fi
+[ -n "$org" ] || read -r -p "Sentry organization slug: " org
+[ -n "$project" ] || read -r -p "Sentry project slug: " project
+slug_pattern='^[a-z0-9][a-z0-9_-]*$'
+[[ "$org" =~ $slug_pattern ]] || { echo "invalid organization slug: $org" >&2; exit 2; }
+[[ "$project" =~ $slug_pattern ]] || { echo "invalid project slug: $project" >&2; exit 2; }
+jq -n --arg organization "$org" --arg project "$project" \
+  '{organization: $organization, project: $project}' > sentry-config.json
+
+# `ant apply` creates or updates the version-controlled resources and records
+# their IDs in claude-lock.json.
+ant apply --yes agents environments vaults
+
+lock_id() { jq -r --arg f "$1" '.resources[$f].id // empty' claude-lock.json; }
+vault=$(lock_id ./vaults/sentry-triage.yaml)
+: "${vault:?claude-lock.json has no vault: read the ant apply output above}"
+
+# The MCP credential is keyed to the exact URL declared in the agent. Claude
+# Code's plugin keeps its own OAuth private; oauth_setup.py obtains a separate
+# grant for unattended sessions, creates the credential with
+# `ant beta:vaults:credentials create`, and probes it with mcp-oauth-validate.
+# Anthropic refreshes it from this vault. Created once; the vault is the record
+# of whether it exists (archived credentials are not listed, so archiving one
+# and re-running this script re-authorizes: see the README).
+if ant beta:vaults:credentials list --vault-id "$vault" --max-items -1 --format jsonl \
+     --transform auth.mcp_server_url --raw-output </dev/null \
+     | grep -qx 'https://mcp.sentry.dev/mcp'; then
+  echo "credential: Sentry MCP OAuth is already in $vault"
 else
-  ant beta:vaults update --vault-id "$CLAUDE_VAULT_ID" < agents/sentry-triage/vault.yaml > /dev/null
-  echo "vault: updated $CLAUDE_VAULT_ID"
+  uv run python oauth_setup.py --vault-id "$vault"
 fi
 
-# Gated on its own ID, not the vault's: if this create fails after the vault ID
-# is already saved, the next run has to come back here.
-if [ -z "${CLAUDE_CREDENTIAL_ID:-}" ]; then
-  # The credential exposes SENTRY_AUTH_TOKEN inside any session this vault is
-  # attached to. The sandbox only ever holds an opaque placeholder: the egress
-  # proxy substitutes the real token on requests to allowed_hosts and nothing
-  # else. To rotate the token later, see skill.md, "Changing env var name and
-  # values".
-  CLAUDE_CREDENTIAL_ID=$(ant beta:vaults:credentials create --vault-id "$CLAUDE_VAULT_ID" --transform id --raw-output <<YAML
-display_name: Sentry org auth token (read-only scopes)
-auth:
-  type: environment_variable
-  secret_name: SENTRY_AUTH_TOKEN
-  secret_value: "$SENTRY_AUTH_TOKEN"
-  networking:
-    type: limited
-    allowed_hosts: [sentry.io, us.sentry.io, de.sentry.io]
-YAML
-  )
-  printf 'CLAUDE_CREDENTIAL_ID=%s\n' "$CLAUDE_CREDENTIAL_ID" >> .env
-  echo "credential: created $CLAUDE_CREDENTIAL_ID"
-fi
-
-if [ -z "${CLAUDE_ENVIRONMENT_ID:-}" ]; then
-  CLAUDE_ENVIRONMENT_ID=$(ant beta:environments create --transform id --raw-output < agents/sentry-triage/environment.yaml)
-  printf '\nCLAUDE_ENVIRONMENT_ID=%s\n' "$CLAUDE_ENVIRONMENT_ID" >> .env
-  echo "environment: created $CLAUDE_ENVIRONMENT_ID"
-else
-  ant beta:environments update --environment-id "$CLAUDE_ENVIRONMENT_ID" < agents/sentry-triage/environment.yaml > /dev/null
-  echo "environment: updated $CLAUDE_ENVIRONMENT_ID"
-fi
-
-# agent.yaml is a template: the system prompt names the Sentry org and project.
-# Render it to a file and redirect that in. Piping sed into ant races ant's
-# 10 ms check for piped stdin, and an update that loses the race sends an empty
-# body and still exits 0.
-agent_yaml=$(mktemp)
-trap 'rm -f "$agent_yaml"' EXIT
-sed -e "s|{{SENTRY_ORG}}|$SENTRY_ORG|g" -e "s|{{SENTRY_PROJECT}}|$SENTRY_PROJECT|g" agents/sentry-triage/agent.yaml > "$agent_yaml"
-
-if [ -z "${CLAUDE_AGENT_ID:-}" ]; then
-  CLAUDE_AGENT_ID=$(ant beta:agents create --transform id --raw-output < "$agent_yaml")
-  printf '\nCLAUDE_AGENT_ID=%s\n' "$CLAUDE_AGENT_ID" >> .env
-  echo "agent: created $CLAUDE_AGENT_ID"
-else
-  version=$(ant beta:agents update --agent-id "$CLAUDE_AGENT_ID" --transform version --raw-output < "$agent_yaml")
-  echo "agent: updated $CLAUDE_AGENT_ID (version $version)"
-fi
-
-# The deployment keeps the agent version, environment, and vaults it was
-# created with, so nothing above reaches scheduled runs on its own. Passing the
-# bare agent ID re-pins it to the latest version. The other two matter after
-# you recreate a vault or environment (delete its ID from .env and re-run).
+# A deployment pins its agent version and initial message. Re-apply those
+# values when setup is re-run after an edit or org/project change.
 if [ -n "${CLAUDE_DEPLOYMENT_ID:-}" ]; then
-  ant beta:deployments update --deployment-id "$CLAUDE_DEPLOYMENT_ID" > /dev/null <<YAML
-agent: $CLAUDE_AGENT_ID
-environment_id: $CLAUDE_ENVIRONMENT_ID
-vault_ids: [$CLAUDE_VAULT_ID]
-YAML
-  echo "deployment: synced $CLAUDE_DEPLOYMENT_ID to the agent, environment, and vault above"
+  uv run python deploy.py
 fi

@@ -1,10 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { AGENT_ID, ENVIRONMENT_ID } from "./resources";
 import { signRoute } from "./route-signature";
 
 const client = new Anthropic();
-
-const CLAUDE_AGENT_ID = process.env.CLAUDE_AGENT_ID!;
-const CLAUDE_ENVIRONMENT_ID = process.env.CLAUDE_ENVIRONMENT_ID!;
 
 export interface SlackMention {
   channel: string;
@@ -22,8 +20,8 @@ export async function kickoffAgentSession(m: SlackMention) {
   // delivers only a session ID; we read this metadata back to know where to
   // post the reply.
   const session = await client.beta.sessions.create({
-    agent: CLAUDE_AGENT_ID,
-    environment_id: CLAUDE_ENVIRONMENT_ID,
+    agent: AGENT_ID!,
+    environment_id: ENVIRONMENT_ID!,
     metadata: {
       slack_channel: m.channel,
       slack_thread_ts: m.thread_ts,
@@ -57,9 +55,9 @@ export async function kickoffAgentSession(m: SlackMention) {
 }
 
 // The message is whatever a Slack user typed, so it goes to the agent fenced
-// and labelled, and the system prompt in agent.yaml says fenced text is data.
-// This lowers the odds of an injected instruction being followed. It does not
-// remove them: see skill.md, "Message text is untrusted input".
+// and labelled, and the system prompt in agents/slack-assistant.md says fenced
+// text is data. This lowers the odds of an injected instruction being followed.
+// It does not remove them: see skill.md, "Message text is untrusted input".
 function buildPrompt(text: string): string {
   if (!text) return "Hello! How can I help?";
   const safe = text.replaceAll("</slack_message", "<\\/slack_message");

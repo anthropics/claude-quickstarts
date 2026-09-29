@@ -1,6 +1,7 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { ErrorCode, WebClient } from "@slack/web-api";
 import { verifyRoute } from "./route-signature";
+import { AGENT_ID, ENVIRONMENT_ID } from "./resources";
 
 const client = new Anthropic();
 const slack = new WebClient(process.env.SLACK_BOT_TOKEN);
@@ -79,8 +80,8 @@ async function postReply(event: Anthropic.Beta.BetaWebhookEvent): Promise<Respon
 
   // Cheap first filter: a session on some other agent is never ours.
   if (
-    session.agent.id !== process.env.CLAUDE_AGENT_ID ||
-    session.environment_id !== process.env.CLAUDE_ENVIRONMENT_ID
+    session.agent.id !== AGENT_ID ||
+    session.environment_id !== ENVIRONMENT_ID
   ) {
     return new Response(null, { status: 204 });
   }

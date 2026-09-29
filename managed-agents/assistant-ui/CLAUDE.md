@@ -4,9 +4,9 @@ A Next.js chat app. assistant-ui renders everything; one Managed Agents session 
 
 ## When the user asks to set this up, get it working, or debug it
 
-1. **Invoke `/claude-api` first.** It is the source of truth for every SDK call in `setup/` and `app/api/` (agents, environments, sessions, events, files, resources). Don't guess field names; the beta surface moves.
+1. **Invoke `/claude-api` first.** It is the source of truth for every SDK call in `app/api/` and every field in `agents/` and `environments/` (agents, environments, sessions, events, files, resources). Don't guess field names; the beta surface moves.
 2. **Read `./skill.md`** and walk the user through its Setup checklist step by step, then use its Gotchas and debugging table when something is off. It's written for exactly this.
-3. **After the base app works, offer extensions.** Ask which (if any) they want, then edit `setup/agent-config.ts` and re-run `npm run setup` (paste the new IDs into `.env`):
+3. **After the base app works, offer extensions.** Ask which (if any) they want, then edit `agents/spreadsheet-analyst.md` and run a bare `ant apply --yes`, which publishes the edit as a new version the next session picks up:
    - **Multiagent red-team pass**: add a `multiagent: { type: "coordinator", agents: [...] }` roster so the analyst hands its numbers to a toolless reviewer. The handoff events (`session.thread_created`, `agent.thread_message_sent/received`) already arrive on the stream; the reducer currently ignores them, so this needs a rendering branch too.
    - **Memory store**: attach `resources: [{ type: "memory_store", ... }]` at session create so the analyst remembers per-dataset conventions across chats.
    - **MCP connector**: add an `mcp_servers` entry plus an `mcp_toolset`. MCP tools default to `always_ask`, so they light up the same approval gate for free.
@@ -17,7 +17,7 @@ A Next.js chat app. assistant-ui renders everything; one Managed Agents session 
 ## Commands
 
 - `npm run dev` — the app on http://localhost:3000 (binds localhost only)
-- `npm run setup` — one-time provisioning of the agent + environment
+- `ant apply --yes agents environments` — one-time provisioning of the agent + environment into `claude-lock.json` (ant 1.30 or later; `--yes` because you have no terminal for its prompt; it needs `ant auth login` or an exported `ANTHROPIC_API_KEY` and does not read `.env`)
 - `npm run typecheck` — `tsc --noEmit`
 - `npm run lint` — eslint (the copy-in `components/` are ignored on purpose)
 - `npm test` — the reducer's golden-turn test; run it whenever the event mapping changes

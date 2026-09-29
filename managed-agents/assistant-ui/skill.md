@@ -66,19 +66,19 @@ Both were left deliberately after review, since fixing them costs more complexit
 
 1. **Node 22 or later**, and an Anthropic account with Managed Agents access. `node --version`.
 2. **Install**: `npm install`. The `.npmrc` pins the public npm registry so a machine-wide mirror config doesn't get in the way of `@assistant-ui`.
-3. **Auth**: `cp .env.example .env`, then either paste `ANTHROPIC_API_KEY`, or run `ant auth login` once and leave the key line commented (the SDK finds CLI credentials).
-4. **Provision**: `npm run setup`. It creates one environment (cloud, pandas preinstalled) and one agent (opus, spreadsheet-analyst prompt, bash set to `always_ask`, the `show_chart` custom tool), then prints two IDs.
-5. **Paste** the printed `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID` into `.env`.
-6. **Run**: `npm run dev`, open http://localhost:3000.
-7. **Drive the golden turn**: click *Summarize the attached spreadsheet*... first drag `sample_data/sales.csv` onto the composer, then send. Expect a file card, then an Allow/Deny gate on the first `bash` command. Deny it once with a note to watch the agent adapt, then Allow the next.
-8. **Try the chart**: *"Chart revenue by month."* Expect a `show_chart` card to render inline.
-9. **Confirm persistence**: reload the page mid-conversation. History, the settled gates, and the sidebar title all come back.
+3. **Auth**: run `ant auth login` once (the SDK and the CLI share that login), or export `ANTHROPIC_API_KEY` and also put it in `.env` (`cp .env.example .env`) for the app. `ant apply` does not read `.env`.
+4. **Provision**: `ant apply agents environments` (the `ant` CLI, 1.30 or later). It creates one environment (cloud, pandas preinstalled) and one agent (opus, spreadsheet-analyst prompt, bash set to `always_ask`, the `show_chart` custom tool) and writes their IDs to `claude-lock.json`, which the app reads. Nothing to paste.
+5. **Run**: `npm run dev`, open http://localhost:3000.
+6. **Drive the golden turn**: click *Summarize the attached spreadsheet*... first drag `sample_data/sales.csv` onto the composer, then send. Expect a file card, then an Allow/Deny gate on the first `bash` command. Deny it once with a note to watch the agent adapt, then Allow the next.
+7. **Try the chart**: *"Chart revenue by month."* Expect a `show_chart` card to render inline.
+8. **Confirm persistence**: reload the page mid-conversation. History, the settled gates, and the sidebar title all come back.
 
 ## Debugging a failed run
 
 | Symptom | Likely cause |
 |---|---|
-| First call 404s | The org has no Managed Agents access, or `CLAUDE_AGENT_ID` still holds the `agent_...` placeholder (placeholders are treated as unset). |
+| `No agent ID` on the first request | `ant apply agents environments` hasn't run in this directory, so there is no `claude-lock.json` beside `package.json` (or it stopped partway: run it again and read its output). |
+| First call 404s | The org has no Managed Agents access, or the agent in `claude-lock.json` was archived: `ant apply` will say so and `--force` creates a replacement. |
 | Sidebar empty though sessions exist | They aren't tagged `metadata.quickstart="assistant-ui"` (made by another quickstart or the Console). This is intended; `ownedSession()` filters them. |
 | Message sent, nothing streams, no error | Streaming gate off: replies still arrive, whole. If nothing ever arrives, check the tail: DevTools → Network → `stream` should be a pending `text/event-stream`. |
 | Approve does nothing | Two servers on the port, or the confirmation raced. Check `lsof -ti:3000 -sTCP:LISTEN`; look for a 400 on `/confirm` and re-open the chat to re-fold the current `requires_action`. |
@@ -87,18 +87,15 @@ Both were left deliberately after review, since fixing them costs more complexit
 | Chart never renders, session stuck idle | The `show_chart` result never went out (tab was closed). Re-open the chat; the controller answers pending custom tools on attach. |
 | Upload succeeds but agent can't find the file | It's at `/mnt/session/uploads/<file_id>/<name>`; the message note carries the exact mounted path. |
 | Download chips never appear | `files.list({scope_id})` not enabled on the org yet; uploads still show, outputs won't. |
-| `tsx: listen EPERM` running setup in a sandbox | Some sandboxes block the unix socket `tsx` opens in `/tmp`. Run `npm run setup` outside the sandbox. |
 
 ## Cleanup
 
 The agent and environment are durable and reused; keep them. To tear everything down:
 
 ```bash
-node --env-file=.env -e '
-const client = new (await import("@anthropic-ai/sdk")).default();
-await client.beta.agents.archive(process.env.CLAUDE_AGENT_ID);
-await client.beta.environments.archive(process.env.CLAUDE_ENVIRONMENT_ID);
-console.log("archived");'
+ant beta:agents archive --agent-id "$(jq -r '.resources["./agents/spreadsheet-analyst.md"].id' claude-lock.json)"
+ant beta:environments archive --environment-id "$(jq -r '.resources["./environments/spreadsheet-analyst.yaml"].id' claude-lock.json)"
+rm claude-lock.json   # so the next `ant apply` creates fresh ones
 ```
 
 Sessions are cheap; archive them from the sidebar, or leave them.

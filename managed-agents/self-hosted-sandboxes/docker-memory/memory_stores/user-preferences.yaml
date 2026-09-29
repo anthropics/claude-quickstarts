@@ -1,0 +1,8 @@
+# The memory store, sent by `ant apply` as the Memory Stores API request body.
+# Its ID lands in claude-lock.json, and every `ant beta:sessions create
+# --resource ...` attaches it. One store is one memory: sessions that share
+# this ID share what it holds, and a second store (one per end user, say) is a
+# blank slate the first can never see. The mount path inside the sandbox
+# derives from the name: /mnt/memory/user-preferences.
+name: User preferences
+description: Durable notes this assistant keeps across sessions.

@@ -17,12 +17,12 @@ import {
   ManagedAgentsAgent,
   type SessionStore,
 } from '@ag-ui/claude-managed-agents';
-import { loadAgentIds } from './setup.ts';
+import { loadAgentIds } from './resources.ts';
 import { vizTools } from './vizTools.ts';
 
 const PORT = Number(process.env.PORT ?? 8787);
 
-// Fail fast: a clear "run npm run setup first" at boot beats a mid-chat error.
+// Fail fast: a clear "run ant apply first" at boot beats a mid-chat error.
 const ids = loadAgentIds();
 
 // The default in-memory store, wrapped only to log each new session's Console
@@ -83,4 +83,5 @@ if (fs.existsSync(webDist)) {
 
 app.listen(PORT, () => {
   console.log(`CopilotKit runtime listening on http://localhost:${PORT}/api/copilotkit`);
+  console.log(`  agent ${ids.agentId} v${ids.agentVersion}, environment ${ids.environmentId}`);
 });

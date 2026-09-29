@@ -1,0 +1,9 @@
+# The environment: the sandbox template every session boots from. `ant apply`
+# sends this file as the Environments API request body and records the
+# environment's ID in claude-lock.json, where the bridge reads it.
+name: quickstart-slack-assistant-env
+metadata:
+  quickstart: slack
+config:
+  type: cloud
+  networking: {type: unrestricted}

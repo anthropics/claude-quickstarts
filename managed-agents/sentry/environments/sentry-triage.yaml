@@ -1,0 +1,13 @@
+# The environment: the sandbox template every run boots from. Sentry is reached
+# through the hosted MCP server, not from shell commands in this sandbox.
+name: quickstart-sentry-triage-env
+metadata:
+  quickstart: sentry
+config:
+  type: cloud
+  networking:
+    type: limited
+    # Managed Agents connects to declared MCP servers outside the sandbox. This
+    # opt-in is required under limited networking.
+    allow_mcp_servers: true
+    allowed_hosts: []

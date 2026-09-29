@@ -32,6 +32,18 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   timelines, growth projections, budgets) inline in the
   conversation, with sliders that recompute client-side.
 
+- **[daily-brief/](daily-brief/)** posts one short brief to Slack
+  every weekday morning from your Slack channels and GitHub pull
+  requests, with no host process. All six resources (agent,
+  environment, two memory stores, vault, cron deployment) are files
+  applied with `ant apply`, so setup is one script plus two vault
+  credentials. The run steps are written to fail well unattended: a
+  bookmark per source instead of "the last 24 hours", a ledger
+  against repeats, a source that could not be read reported as
+  unreadable rather than as a quiet day, a read-only preferences
+  store the agent re-reads every run, and the Slack token as a vault
+  credential the sandbox never sees.
+
 - **[knowledge-wiki/](knowledge-wiki/)** distills a document corpus
   once into a knowledge wiki (a versioned memory store) using
   parallel extraction sessions, a resolve pass, and a steered
@@ -77,15 +89,24 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   all-CLI baseline; `docker-memory/` runs the Python SDK worker in the
   container so each session mounts a memory store at `/mnt/memory`
   and syncs it back, and keeps the environment key out of the
-  containers with a per-session token.
+  containers with a per-session token. `archil/` swaps the containers
+  for Archil persistent sandboxes that all mount one SEC EDGAR disk, so
+  parallel analyst sessions work on 70 GB of filings in place.
+  Five more variants start the sandbox from the
+  `session.status_run_started` webhook instead of a poller, on
+  Cloudflare Containers, a Cloudflare Worker with no container,
+  Daytona, Modal, and Vercel Sandbox. They share one agent and
+  environment, created with `ant apply .` from `webhook-demo/`.
 
 - **[sentry/](sentry/)** runs a Sentry triage agent on a schedule
   with no host process. A deployment starts a session on a cron
-  expression, the agent pulls the last 24 hours of issues with
-  `sentry-cli`, and writes a severity-ranked report. The Sentry token
-  lives in a vault: the sandbox holds only a placeholder, and the
-  egress proxy swaps in the real token on requests to Sentry's API
-  hosts and nowhere else.
+  expression, the agent pulls the last 24 hours of issues through
+  Sentry's hosted MCP server, asks Seer for root-cause analysis where
+  it is available, and writes a user-impact-ranked report. Setup runs
+  inside Claude Code with Sentry's Agent Plugin to pick the org and
+  project, and a browser OAuth grant lands in a vault as a refreshable
+  `mcp_oauth` credential that Anthropic injects on the MCP connection
+  and refreshes; the sandbox never holds a token.
 
 - **[sentry-autofix/](sentry-autofix/)** turns a new Sentry issue into
   a pull request. A signed Sentry webhook starts one session per issue.

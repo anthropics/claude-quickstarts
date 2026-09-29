@@ -1,0 +1,7 @@
+.env
+.env.local
+# Your copy of preferences.example.md, with your channel IDs in it.
+preferences.md
+# Written by `ant apply`: the IDs of the resources it created in your
+# organization. In your own project, commit it so your team shares them.
+claude-lock.json

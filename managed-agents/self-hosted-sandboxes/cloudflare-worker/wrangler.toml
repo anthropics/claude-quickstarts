@@ -1,0 +1,26 @@
+name = "self-hosted-sandbox-worker"
+main = "src/index.ts"
+compatibility_date = "2026-03-01"
+compatibility_flags = ["nodejs_compat"]
+
+[observability]
+enabled = true
+
+[[durable_objects.bindings]]
+name = "RUNNER"
+class_name = "SandboxRunner"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SandboxRunner"]
+
+[vars]
+ANTHROPIC_BASE_URL = "https://api.anthropic.com"
+# The self-hosted environment `ant apply .` created from ../webhook-demo: its
+# env_... ID is in ../webhook-demo/claude-lock.json. The Worker refuses to start
+# sessions until this is a real id.
+ANTHROPIC_ENVIRONMENT_ID = ""
+
+# Secrets (set via `wrangler secret put`):
+#   ANTHROPIC_WEBHOOK_SECRET
+#   ANTHROPIC_ENVIRONMENT_KEY

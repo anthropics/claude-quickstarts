@@ -1,0 +1,16 @@
+# The sandbox every run starts in. Deny-by-default networking: the sandbox can
+# reach only what is listed here. This covers bash and curl, not the toolset's
+# web_search and web_fetch (those run outside the sandbox and are disabled in
+# agent.md).
+name: daily-brief
+config:
+  type: cloud
+  networking:
+    type: limited
+    # GitHub is reached through its MCP server. Under `limited` networking,
+    # session creation is rejected unless MCP hosts are allowed.
+    allow_mcp_servers: true
+    # Slack is called from the shell with curl, so its host must be listed here
+    # and on the vault credential (two layers, both required).
+    allowed_hosts:
+      - slack.com

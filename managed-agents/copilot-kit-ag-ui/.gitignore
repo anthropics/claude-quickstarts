@@ -1,5 +1,10 @@
 node_modules/
 dist/
 .env
+# The IDs of the resources `ant apply` created for you. Ignored in this
+# quickstarts repository because every reader applies to their own workspace.
+# In a repository of your own, commit it (see the README). agent-ids.json is
+# what an earlier version of this quickstart wrote instead.
+claude-lock.json
 agent-ids.json
 *.log

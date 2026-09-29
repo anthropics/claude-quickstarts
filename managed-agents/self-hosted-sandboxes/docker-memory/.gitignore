@@ -1,1 +1,5 @@
 .env
+# The IDs of the resources `ant apply` created for you. Ignored in this
+# quickstarts repository because every reader applies to their own workspace.
+# In a repository of your own, commit it (see the README).
+claude-lock.json

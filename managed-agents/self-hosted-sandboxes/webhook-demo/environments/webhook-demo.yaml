@@ -1,0 +1,14 @@
+# The environment, sent by `ant apply` as the Environments API request body.
+# A self-hosted environment has no sandbox template: it is a work queue. The
+# webhook-started providers drain it when Anthropic sends
+# session.status_run_started. It is deliberately a different environment from
+# the ones docker/, docker-memory/, and archil/ create, because an environment
+# is one queue and a poller and a webhook handler on the same queue would
+# compete for its sessions. `ant apply` records its ID in claude-lock.json.
+# Give that ID to the provider you deploy as ANTHROPIC_ENVIRONMENT_ID, and mint
+# the environment key for it in the Console.
+name: quickstart-self-hosted-sandbox-webhook-env
+metadata:
+  quickstart: self-hosted-sandboxes
+config:
+  type: self_hosted

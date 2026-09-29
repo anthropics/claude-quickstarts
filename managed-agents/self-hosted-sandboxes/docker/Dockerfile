@@ -1,5 +1,5 @@
 FROM debian:12-slim
-ARG ANT_VERSION=1.23.0
+ARG ANT_VERSION=1.30.0
 # ca-certificates + curl for the CLI's HTTPS calls at runtime and for agent
 # bash sessions; ripgrep, git, and jq because agents expect them and slim
 # images ship nothing.

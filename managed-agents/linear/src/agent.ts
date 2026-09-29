@@ -1,12 +1,10 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { LinearClient } from "@linear/sdk";
 import { getAccessToken } from "./oauth";
+import { AGENT_ID, ENVIRONMENT_ID } from "./resources";
 import { signRoute } from "./route-signature";
 
 const client = new Anthropic();
-
-const CLAUDE_AGENT_ID = process.env.CLAUDE_AGENT_ID!;
-const CLAUDE_ENVIRONMENT_ID = process.env.CLAUDE_ENVIRONMENT_ID!;
 
 // Linear session → the Claude session currently working on it, so Stop can
 // interrupt that run. This is the one piece of state the bridge keeps, and it
@@ -55,14 +53,14 @@ export async function kickoffAgentSession(event: AgentSessionEvent) {
   });
 
   // The user is now looking at "Thinking...". If anything below fails (a 429,
-  // a bad CLAUDE_AGENT_ID), say so in Linear instead of leaving that up forever.
+  // an archived agent), say so in Linear instead of leaving that up forever.
   try {
     // Stash the Linear routing info on the session. The idle webhook later
     // delivers only a session ID; we read this metadata back to know where to
     // post the reply.
     const session = await client.beta.sessions.create({
-      agent: CLAUDE_AGENT_ID,
-      environment_id: CLAUDE_ENVIRONMENT_ID,
+      agent: AGENT_ID!,
+      environment_id: ENVIRONMENT_ID!,
       metadata: {
         linear_session_id: agentSession.id,
         linear_org_id: organizationId,
@@ -137,10 +135,10 @@ export async function handleStop(event: AgentSessionEvent) {
 }
 
 // Everything Linear sends is text a workspace member typed, so it goes to the
-// agent fenced and labelled. The system prompt in agent.yaml tells the agent to
-// treat fenced content as data. This lowers the odds of an injected
-// instruction being followed. It does not remove them: see skill.md, "Issue
-// text is untrusted input".
+// agent fenced and labelled. The system prompt in agents/linear-assistant.md
+// tells the agent to treat fenced content as data. This lowers the odds of an
+// injected instruction being followed. It does not remove them: see skill.md,
+// "Issue text is untrusted input".
 function buildPrompt(event: AgentSessionEvent): string {
   const parts: string[] = [];
   const { agentSession, agentActivity, previousComments, promptContext } = event;

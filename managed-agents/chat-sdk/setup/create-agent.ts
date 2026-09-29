@@ -55,7 +55,9 @@ const agent = await client.beta.agents.create({
       configs: [{ name: "bash", enabled: false }],
     },
   ],
-  metadata,
+  // anthropic_cookbook tells Anthropic which quickstart this agent came from.
+  // Safe to remove.
+  metadata: { ...metadata, anthropic_cookbook: "claude-quickstarts/chat-sdk" },
 });
 console.log(`analyst:     ${agent.id} (version ${agent.version}, ${MODEL})`);
 
