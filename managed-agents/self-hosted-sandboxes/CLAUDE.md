@@ -32,6 +32,11 @@ directory has the design. This file is the runbook.
 
 ## When the user asks to set one up, get it working, or debug it
 
+For `openshell/`, read `openshell/setup-skill.md` first and walk the user
+through it step by step. It has that demo's steps in order, the output to expect
+from each, and where to find OpenShell's policy reference. The debugging tables
+below still apply.
+
 1. **Invoke `/claude-api` first** for the Managed Agents reference (agents,
    environments, sessions, memory stores). Don't guess field names.
 2. **Check the host**: `docker version` works for this user, `ant --version`

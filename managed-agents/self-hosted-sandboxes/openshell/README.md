@@ -48,6 +48,10 @@ cd managed-agents/self-hosted-sandboxes/openshell
 claude "help me set up and run this self-hosted sandbox demo"
 ```
 
+Claude reads [`setup-skill.md`](./setup-skill.md) and walks you through it: ten
+steps, from the host check to a policy for your own agent, each with the output
+to expect, and a table of where OpenShell documents every policy field.
+
 Or by hand. One-time setup, from this directory:
 
 ```sh
@@ -265,6 +269,7 @@ about what an agent did.
 |---|---|
 | `agents/openshell-demo.md`, `environments/self-hosted.yaml` | The agent and the self-hosted environment, as files for `ant apply`. The agent pins `tools: [{type: agent_toolset_20260401}]`, the toolset `ant beta:worker run` serves, and turns off `web_fetch` and `web_search`. |
 | `policy.yaml` | What a sandbox may open and reach, with placeholders for the session and environment IDs. |
+| `setup-skill.md` | The setup walkthrough Claude Code follows, and the index to OpenShell's policy reference. To load it as a skill in any session, copy it to `~/.claude/skills/openshell-sandbox/SKILL.md`. It still runs from this directory. It is not named `skill.md` because `ant apply .` takes a directory holding that file for a skill resource. |
 | `start.sh` | Host. Checks the gateway answers, builds the image, execs `ant beta:worker poll --on-work on-work.sh` with the environment ID from `claude-lock.json` and the environment key from `.env`. |
 | `on-work.sh` | Host, once per claimed work item. Takes the session token out of the item's `secret` on stdin, creates or restarts the session's sandbox, pipes the token to `ant beta:worker run` inside it, and stops the sandbox when the worker exits. Refuses items that carry no token. `SANDBOX_CREATE_ARGS` adds `openshell sandbox create` flags. The demo sets no CPU, memory, or disk limit: `--cpu` and `--memory` add the first two, and rootless Docker without cgroup delegation accepts both and enforces neither. |
 | `Dockerfile` | `debian:12-slim` + `ant` (pinned by `ARG ANT_VERSION` and checked against a pinned SHA-256) + `rg`/`git`/`curl`/`jq`, a non-root user, and `/workspace`. No entrypoint, because OpenShell ignores it. Add whatever else your agents need. |
