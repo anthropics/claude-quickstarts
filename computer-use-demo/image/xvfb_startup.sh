@@ -6,11 +6,22 @@ RES_AND_DEPTH=${WIDTH}x${HEIGHT}x24
 
 # Function to check if Xvfb is already running
 check_xvfb_running() {
-    if [ -e /tmp/.X${DISPLAY_NUM}-lock ]; then
-        return 0  # Xvfb is already running
-    else
-        return 1  # Xvfb is not running
+    local lock_file="/tmp/.X${DISPLAY_NUM}-lock"
+
+    if [ ! -e "$lock_file" ]; then
+        return 1
     fi
+
+    local pid
+    pid=$(cat "$lock_file" 2>/dev/null || true)
+
+    if [ -n "$pid" ] && ps -p "$pid" -o comm= 2>/dev/null | grep -qx "Xvfb"; then
+        return 0
+    fi
+
+    echo "Removing stale Xvfb lock file: $lock_file"
+    rm -f "$lock_file"
+    return 1
 }
 
 # Function to check if Xvfb is ready
