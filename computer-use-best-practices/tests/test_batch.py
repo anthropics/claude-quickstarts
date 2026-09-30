@@ -1,4 +1,7 @@
-from typing import Any, ClassVar
+from typing import Any, ClassVar, cast
+from unittest.mock import Mock
+
+import pytest
 
 from computer_use.tools.base import Tool
 from computer_use.tools.batch import _batch_description, _batch_schema, _BatchResult, _BatchTool
@@ -76,3 +79,30 @@ def test_errored_batch_replaces_images_with_placeholder():
     assert all(b["type"] == "text" for b in content)
     texts = [b["text"] for b in content if b["type"] == "text"]
     assert IMAGE_OMITTED_ON_ERROR in texts
+
+
+def test_malformed_step_keeps_completed_results(monkeypatch: pytest.MonkeyPatch) -> None:
+    for malformed in (None, 42, [], "click"):
+        inner = _Fake()
+        execute = Mock(wraps=inner.execute)
+        monkeypatch.setattr(inner, "execute", execute)
+        batch = FakeBatch(inner)
+        result = batch.execute(actions=[{"action": "a"}, cast(Any, malformed), {"action": "b"}])
+        assert result.is_error
+        assert isinstance(result, _BatchResult)
+        assert result._items[0][1].output == "did a"
+        assert len(result._items) == 2
+        assert "actions[1]" in (result.error or "")
+        assert "1 skipped" in (result.error or "")
+        execute.assert_called_once_with(action="a")
+
+
+def test_invalid_actions_container_executes_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    for actions in (None, [], {}, "click"):
+        inner = _Fake()
+        execute = Mock(wraps=inner.execute)
+        monkeypatch.setattr(inner, "execute", execute)
+        result = FakeBatch(inner).execute(actions=cast(Any, actions))
+        assert result.is_error
+        assert "actions" in (result.error or "")
+        execute.assert_not_called()
