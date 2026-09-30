@@ -9,7 +9,8 @@ name: Self-hosted sandbox demo (webhook providers)
 description: A general assistant whose tools run in a sandbox you host on a cloud provider
 model: claude-opus-5
 metadata:
-  quickstart: self-hosted-sandboxes
+  # Names the example within the quickstart. Safe to remove.
+  anthropic_quickstart: self-hosted-sandboxes/webhook-demo
   # Tells Anthropic which quickstart this agent came from. Safe to remove.
   anthropic_cookbook: claude-quickstarts/self-hosted-sandboxes
 tools:

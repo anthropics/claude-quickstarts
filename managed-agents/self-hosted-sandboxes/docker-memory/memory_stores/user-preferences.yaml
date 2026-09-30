@@ -6,3 +6,6 @@
 # derives from the name: /mnt/memory/user-preferences.
 name: User preferences
 description: Durable notes this assistant keeps across sessions.
+metadata:
+  # Names the example within the quickstart. Safe to remove.
+  anthropic_quickstart: self-hosted-sandboxes/docker-memory
