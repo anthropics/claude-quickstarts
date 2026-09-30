@@ -113,6 +113,18 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   `mcp_oauth` credential that Anthropic injects on the MCP connection
   and refreshes; the sandbox never holds a token.
 
+- **[sentry-autofix/](sentry-autofix/)** turns a new Sentry issue into
+  a pull request. A signed Sentry webhook starts one session per issue.
+  The agent reads the stack trace and Seer's root cause analysis
+  through the Sentry MCP server (an `mcp_oauth` vault credential),
+  reproduces the bug with a failing test in the mounted repository,
+  and pushes a branch. The host opens the pull request through a
+  custom tool, so the repository, the base branch, and the
+  `Fixes SHOP-1A` link are never the agent's to choose, and it takes
+  away the session's push access once the pull request is open. Setup
+  runs inside Claude Code with Sentry's Agent Plugin to pick the org
+  and project.
+
 - **[slack/](slack/)** answers `@mentions` in Slack with a threaded
   reply, over a stateless Bun webhook bridge. The Slack event creates
   a session with the channel and thread stored in session `metadata`,

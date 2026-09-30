@@ -1,0 +1,11 @@
+# The vault definition. A vault is a named container for credentials that
+# Anthropic holds for you and injects at session runtime; src/fixer.ts passes
+# its ID as `vault_ids` on every session it creates. `ant apply` (1.34 or
+# later) creates the container from this file and records its ID in
+# claude-lock.json. `type: vault` is how it recognizes a vault outside a
+# vaults/ directory. There is nothing secret in here: the Sentry OAuth tokens
+# live in the credential `npm run sentry-login` adds after browser consent.
+type: vault
+display_name: quickstart-sentry-autofix
+metadata:
+  quickstart: sentry-autofix
