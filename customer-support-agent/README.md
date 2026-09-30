@@ -28,9 +28,12 @@ Create a `.env.local` file in the root directory with the following variables:
 ANTHROPIC_API_KEY=your_anthropic_api_key
 BAWS_ACCESS_KEY_ID=your_aws_access_key
 BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
+AWS_REGION=us-east-1
 ```
 
 Note: We are adding a 'B' in front of the AWS environment variables for a reason that will be discussed later in the deployment section.
+
+Set `AWS_REGION` to the region containing your Amazon Bedrock knowledge base. If it is not set, the application defaults to `us-east-1`.
 
 ##  How to Get Your Keys
 
