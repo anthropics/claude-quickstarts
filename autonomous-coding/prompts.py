@@ -15,7 +15,7 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 def load_prompt(name: str) -> str:
     """Load a prompt template from the prompts directory."""
     prompt_path = PROMPTS_DIR / f"{name}.md"
-    return prompt_path.read_text()
+    return prompt_path.read_text(encoding="utf-8")
 
 
 def get_initializer_prompt() -> str:
