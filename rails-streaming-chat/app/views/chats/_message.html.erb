@@ -1,0 +1,11 @@
+<% id ||= nil %>
+<div id="<%= id %>" class="flex <%= role == 'user' ? 'justify-end' : 'justify-start' %>">
+  <div class="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed
+    <%= role == 'user' ? 'bg-blue-600 text-white' : 'bg-gray-200 text-gray-900' %>">
+    <% if content.present? %>
+      <%= simple_format(content) %>
+    <% else %>
+      <span class="inline-block animate-pulse text-gray-400">Thinking...</span>
+    <% end %>
+  </div>
+</div>
