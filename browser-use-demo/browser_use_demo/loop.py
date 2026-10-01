@@ -6,7 +6,7 @@ import os
 from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
-from typing import Optional
+from typing import Optional, cast
 
 import httpx
 
@@ -20,6 +20,7 @@ from anthropic.types.beta import (
     BetaContentBlockParam,
     BetaMessageParam,
     BetaTextBlockParam,
+    BetaToolResultBlockParam,
 )
 
 from .message_handler import MessageBuilder, ResponseProcessor
@@ -113,6 +114,7 @@ async def sampling_loop(
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
+        image_truncation_threshold = only_n_most_recent_images or 0
         if enable_prompt_caching:
             betas.append(PROMPT_CACHING_BETA_FLAG)
             # Add cache control to system prompt
@@ -120,6 +122,16 @@ async def sampling_loop(
                 type="text",
                 text=system["text"],
                 cache_control=BetaCacheControlEphemeralParam(type="ephemeral"),
+            )
+            # Because cached reads are 10% of the price, we don't think it's
+            # ever sensible to break the cache by truncating images
+            only_n_most_recent_images = 0
+
+        if only_n_most_recent_images:
+            _maybe_filter_to_n_most_recent_images(
+                messages,
+                only_n_most_recent_images,
+                min_removal_threshold=image_truncation_threshold,
             )
 
         # Make API call
@@ -176,34 +188,47 @@ async def sampling_loop(
 def _maybe_filter_to_n_most_recent_images(
     messages: list[BetaMessageParam],
     images_to_keep: int,
-    min_removal_threshold: int = 10,
+    min_removal_threshold: int,
 ):
     """
-    Filter messages to keep only the N most recent images.
+    With the assumption that images are screenshots that are of diminishing value as
+    the conversation progresses, remove all but the final `images_to_keep` tool_result
+    images in place, with a chunk of min_removal_threshold to reduce the amount we
+    break the implicit prompt cache.
     """
-    if images_to_keep <= 0:
-        raise ValueError("images_to_keep must be > 0")
+    if images_to_keep is None:
+        return messages
+
+    tool_result_blocks = cast(
+        list[BetaToolResultBlockParam],
+        [
+            item
+            for message in messages
+            for item in (
+                message["content"] if isinstance(message["content"], list) else []
+            )
+            if isinstance(item, dict) and item.get("type") == "tool_result"
+        ],
+    )
 
     total_images = sum(
         1
-        for message in messages
-        if message["role"] == "user"
-        for block in message.get("content", [])
-        if isinstance(block, dict) and block.get("type") == "image"
+        for tool_result in tool_result_blocks
+        for content in tool_result.get("content", [])
+        if isinstance(content, dict) and content.get("type") == "image"
     )
 
     images_to_remove = total_images - images_to_keep
-    if images_to_remove < min_removal_threshold:
-        return
+    # for better cache behavior, we want to remove in chunks
+    images_to_remove -= images_to_remove % min_removal_threshold
 
-    images_removed = 0
-    for message in messages:
-        if message["role"] == "user" and isinstance(message.get("content"), list):
+    for tool_result in tool_result_blocks:
+        if isinstance(tool_result.get("content"), list):
             new_content = []
-            for block in message["content"]:
-                if isinstance(block, dict) and block.get("type") == "image":
-                    if images_removed < images_to_remove:
-                        images_removed += 1
+            for content in tool_result.get("content", []):
+                if isinstance(content, dict) and content.get("type") == "image":
+                    if images_to_remove > 0:
+                        images_to_remove -= 1
                         continue
-                new_content.append(block)
-            message["content"] = new_content
+                new_content.append(content)
+            tool_result["content"] = new_content
