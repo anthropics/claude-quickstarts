@@ -1,5 +1,7 @@
 """Connection handling for MCP servers."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from contextlib import AsyncExitStack
 from typing import Any

@@ -1,5 +1,7 @@
 """Base tool definitions for the agent framework."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import Any
 

@@ -1,5 +1,7 @@
 """Tools that interface with MCP servers."""
 
+from __future__ import annotations
+
 from typing import Any
 from .base import Tool
 from ..utils.connections import MCPConnection
