@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TIS Validation Test</title>
+    <style>
+        body {
+            font-family: monospace;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #00ff00;
+        }
+        .test {
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #333;
+            background: #0a0a0a;
+        }
+        .pass { color: #00ff00; }
+        .fail { color: #ff0000; }
+        .info { color: #00d4ff; }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            background: #667eea;
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        button:hover { background: #764ba2; }
+        #results { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 TIS Validation Tests</h1>
+    <button onclick="runAllTests()">Run All Tests</button>
+    <button onclick="location.href='../advanced.html'">Open TIS</button>
+    <div id="results"></div>
+    
+    <script src="../agent_profiles.js"></script>
+    <script>
+        const results = document.getElementById('results');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `test ${type}`;
+            div.textContent = message;
+            results.appendChild(div);
+        }
+        
+        function test(name, fn) {
+            try {
+                const result = fn();
+                if (result) {
+                    log(`✓ ${name}`, 'pass');
+                    return true;
+                } else {
+                    log(`✗ ${name}`, 'fail');
+                    return false;
+                }
+            } catch (e) {
+                log(`✗ ${name}: ${e.message}`, 'fail');
+                return false;
+            }
+        }
+        
+        function runAllTests() {
+            results.innerHTML = '<h2>Running Tests...</h2>';
+            let passed = 0;
+            let total = 0;
+            
+            // Test 1: Agent profiles loaded
+            total++;
+            if (test('AGENT_PROFILES is defined', () => typeof AGENT_PROFILES !== 'undefined')) {
+                passed++;
+            }
+            
+            // Test 2: Array has 10 profiles
+            total++;
+            if (test('AGENT_PROFILES has 10 profiles', () => AGENT_PROFILES.length === 10)) {
+                passed++;
+            }
+            
+            // Test 3: All profiles have IDs
+            total++;
+            if (test('All profiles have id property', () => {
+                return AGENT_PROFILES.every(p => p.id && typeof p.id === 'string');
+            })) {
+                passed++;
+            }
+            
+            // Test 4: All profiles have names
+            total++;
+            if (test('All profiles have name property', () => {
+                return AGENT_PROFILES.every(p => p.name && typeof p.name === 'string');
+            })) {
+                passed++;
+            }
+            
+            // Test 5: All profiles have stages
+            total++;
+            if (test('All profiles have stage property', () => {
+                return AGENT_PROFILES.every(p => p.stage && typeof p.stage === 'string');
+            })) {
+                passed++;
+            }
+            
+            // Test 6: All profiles have neuralParams
+            total++;
+            if (test('All profiles have neuralParams object', () => {
+                return AGENT_PROFILES.every(p => p.neuralParams && typeof p.neuralParams === 'object');
+            })) {
+                passed++;
+            }
+            
+            // Test 7: All profiles have achievements
+            total++;
+            if (test('All profiles have achievements array', () => {
+                return AGENT_PROFILES.every(p => Array.isArray(p.achievements));
+            })) {
+                passed++;
+            }
+            
+            // Test 8: IDs are unique
+            total++;
+            if (test('All profile IDs are unique', () => {
+                const ids = AGENT_PROFILES.map(p => p.id);
+                return ids.length === new Set(ids).size;
+            })) {
+                passed++;
+            }
+            
+            // Test 9: IDs match expected format (kebab-case)
+            total++;
+            if (test('All IDs are kebab-case', () => {
+                return AGENT_PROFILES.every(p => /^[a-z]+(-[a-z]+)*$/.test(p.id));
+            })) {
+                passed++;
+            }
+            
+            // Test 10: Specific expected IDs exist
+            total++;
+            const expectedIds = [
+                'novice-student',
+                'apprentice-analyst',
+                'intermediate-researcher',
+                'advanced-practitioner',
+                'emerging-expert',
+                'senior-researcher',
+                'principal-investigator',
+                'cognitive-architect',
+                'ethics-policy-lead',
+                'professor-emeritus'
+            ];
+            if (test('All expected IDs present', () => {
+                const ids = AGENT_PROFILES.map(p => p.id);
+                return expectedIds.every(id => ids.includes(id));
+            })) {
+                passed++;
+            }
+            
+            // Test 11: neuralParams have required properties
+            total++;
+            if (test('neuralParams have logicalDepth', () => {
+                return AGENT_PROFILES.every(p => typeof p.neuralParams.logicalDepth === 'number');
+            })) {
+                passed++;
+            }
+            
+            // Test 12: neuralParams have abstractionLevel
+            total++;
+            if (test('neuralParams have abstractionLevel', () => {
+                return AGENT_PROFILES.every(p => typeof p.neuralParams.abstractionLevel === 'number');
+            })) {
+                passed++;
+            }
+            
+            // Test 13: Profile progression (logicalDepth increases)
+            total++;
+            if (test('Profile progression shows increasing logicalDepth', () => {
+                for (let i = 0; i < AGENT_PROFILES.length - 1; i++) {
+                    const current = AGENT_PROFILES[i].neuralParams.logicalDepth;
+                    const next = AGENT_PROFILES[i + 1].neuralParams.logicalDepth;
+                    // Allow some variation but generally should increase
+                    if (next < current - 0.5) return false;
+                }
+                return true;
+            })) {
+                passed++;
+            }
+            
+            // Summary
+            log(`\n========================================`, 'info');
+            log(`Test Results: ${passed}/${total} passed`, passed === total ? 'pass' : 'fail');
+            log(`========================================\n`, 'info');
+            
+            if (passed === total) {
+                log('🎉 All tests passed! System is ready.', 'pass');
+            } else {
+                log(`⚠️  ${total - passed} test(s) failed. Please fix issues.`, 'fail');
+            }
+            
+            // Display profile details
+            log('\n📋 Profile Summary:', 'info');
+            AGENT_PROFILES.forEach((p, idx) => {
+                log(`${idx + 1}. ${p.id} - ${p.name} (${p.stage})`, 'info');
+            });
+        }
+        
+        // Auto-run on load
+        setTimeout(runAllTests, 100);
+    </script>
+</body>
+</html>
