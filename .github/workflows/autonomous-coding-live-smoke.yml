@@ -1,0 +1,47 @@
+name: autonomous-coding-live-smoke
+
+on:
+  workflow_dispatch:
+
+jobs:
+  live-phase-smoke:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      AUTONOMOUS_CODING_ENABLE_LIVE_TESTS: "1"
+      AUTONOMOUS_CODING_LIVE_MODEL: claude-opus-4-6
+      AUTONOMOUS_CODING_LIVE_ARTIFACT_ROOT: ${{ github.workspace }}/autonomous-coding/live-smoke-artifacts
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: autonomous-coding/requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r autonomous-coding/requirements.txt
+
+      - name: Run manual live smoke suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p autonomous-coding/live-smoke-artifacts
+          pytest autonomous-coding/tests/test_live_phase_smoke.py -q -m live | tee autonomous-coding/live-smoke-artifacts/pytest-live.log
+
+      - name: Upload live smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: autonomous-coding-live-smoke-artifacts
+          path: autonomous-coding/live-smoke-artifacts
+          if-no-files-found: warn

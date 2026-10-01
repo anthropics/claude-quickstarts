@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "round_number",
+    "status",
+    "max_turns",
+    "turns_used",
+    "feedback",
+    "approved_features",
+    "approved_acceptance_tests"
+  ],
+  "properties": {
+    "round_number": {"type": "integer", "minimum": 1},
+    "status": {"type": "string", "enum": ["approved", "changes_requested"]},
+    "review_mode": {"type": "string", "enum": ["deterministic", "llm_assisted"]},
+    "max_turns": {"type": "integer", "minimum": 1},
+    "turns_used": {"type": "integer", "minimum": 1},
+    "confidence_score": {"type": "number", "minimum": 0, "maximum": 1},
+    "reason_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "FORMAT_ERROR",
+          "DUPLICATE_AC",
+          "OUT_OF_SCOPE",
+          "EMPTY_PROPOSAL",
+          "PROPOSAL_MISSING",
+          "LLM_ARBITRATION_REQUESTED",
+          "LLM_RESPONSE_INVALID"
+        ]
+      },
+      "uniqueItems": true
+    },
+    "actionable_suggestions": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "feedback": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "approved_features": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "approved_acceptance_tests": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "criterion", "verification_method"],
+        "properties": {
+          "id": {"type": "string"},
+          "criterion": {"type": "string"},
+          "verification_method": {"type": "string"}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,14 @@
+{
+  "include": [
+    "."
+  ],
+  "exclude": [
+    "**/__pycache__"
+  ],
+  "extraPaths": [
+    "C:/Python310/Lib/site-packages"
+  ],
+  "pythonVersion": "3.10",
+  "typeCheckingMode": "basic",
+  "useLibraryCodeForTypes": false
+}

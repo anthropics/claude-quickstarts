@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["status", "planner_complete", "current_round", "max_rounds", "completed", "latest_summary", "llm_usage", "created_at", "updated_at"],
+  "properties": {
+    "status": {"type": "string", "enum": ["not_started", "planning", "building", "evaluating", "completed", "blocked"]},
+    "planner_complete": {"type": "boolean"},
+    "current_round": {"type": "integer", "minimum": 0},
+    "max_rounds": {"type": "integer", "minimum": 1},
+    "completed": {"type": "boolean"},
+    "latest_summary": {"type": "string"},
+    "llm_usage": {
+      "type": "object",
+      "required": ["estimation_version", "currency", "rates_usd_per_1m_tokens", "calls_total", "totals", "by_phase"],
+      "properties": {
+        "estimation_version": {"type": "string"},
+        "currency": {"type": "string"},
+        "rates_usd_per_1m_tokens": {
+          "type": "object",
+          "required": ["input", "output"],
+          "properties": {
+            "input": {"type": "number", "minimum": 0},
+            "output": {"type": "number", "minimum": 0}
+          },
+          "additionalProperties": false
+        },
+        "calls_total": {"type": "integer", "minimum": 0},
+        "totals": {
+          "type": "object",
+          "required": ["input_tokens", "output_tokens", "total_tokens", "estimated_cost_usd"],
+          "properties": {
+            "input_tokens": {"type": "integer", "minimum": 0},
+            "output_tokens": {"type": "integer", "minimum": 0},
+            "total_tokens": {"type": "integer", "minimum": 0},
+            "estimated_cost_usd": {"type": "number", "minimum": 0}
+          },
+          "additionalProperties": false
+        },
+        "by_phase": {
+          "type": "object",
+          "required": ["planner", "builder", "evaluator"],
+          "properties": {
+            "planner": {"$ref": "#/$defs/phase_usage"},
+            "builder": {"$ref": "#/$defs/phase_usage"},
+            "evaluator": {"$ref": "#/$defs/phase_usage"}
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "created_at": {"type": "string"},
+    "updated_at": {"type": "string"}
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "phase_usage": {
+      "type": "object",
+      "required": ["calls", "input_tokens", "output_tokens", "total_tokens", "estimated_cost_usd"],
+      "properties": {
+        "calls": {"type": "integer", "minimum": 0},
+        "input_tokens": {"type": "integer", "minimum": 0},
+        "output_tokens": {"type": "integer", "minimum": 0},
+        "total_tokens": {"type": "integer", "minimum": 0},
+        "estimated_cost_usd": {"type": "number", "minimum": 0}
+      },
+      "additionalProperties": false
+    }
+  }
+}

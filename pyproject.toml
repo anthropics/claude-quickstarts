@@ -2,3 +2,8 @@
 venvPath = "computer-use-demo"
 venv = ".venv"
 useLibraryCodeForTypes = false
+
+[tool.pytest.ini_options]
+markers = [
+  "live: tests that require real SDK/LLM credentials and are run manually",
+]

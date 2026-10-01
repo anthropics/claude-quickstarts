@@ -163,15 +163,12 @@ Before context fills up:
 
 **ALL testing must use browser automation tools.**
 
-Available tools:
-- puppeteer_navigate - Start browser and go to URL
-- puppeteer_screenshot - Capture screenshot
-- puppeteer_click - Click elements
-- puppeteer_fill - Fill form inputs
-- puppeteer_evaluate - Execute JavaScript (use sparingly, only for debugging)
+Available tools (priority order):
+- playwright browser tools (headless by default) - primary browser QA path
+- puppeteer tools - fallback only when Playwright is unavailable
 
 Test like a human user with mouse and keyboard. Don't take shortcuts by using JavaScript evaluation.
-Don't use the puppeteer "active tab" tool.
+Don't use shortcut tooling that bypasses real user actions.
 
 ---
 
