@@ -70,9 +70,8 @@ interface FileUpload {
 }
 
 const models: Model[] = [
-  { id: "claude-3-haiku-20240307", name: "Claude 3 Haiku" },
-  { id: "claude-haiku-4-5-20251001", name: "Claude 4.5 Haiku" },
-  { id: "claude-3-5-sonnet-20240620", name: "Claude 3.5 Sonnet" },
+  { id: "claude-haiku-4-5-20251001", name: "Claude Haiku 4.5" },
+  { id: "claude-sonnet-4-6", name: "Claude Sonnet 4.6" },
 ];
 
 // Updated APIResponse interface
@@ -199,7 +198,7 @@ export default function AIChat() {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [selectedModel, setSelectedModel] = useState(
-    "claude-3-5-sonnet-20240620",
+    "claude-sonnet-4-6",
   );
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const chartEndRef = useRef<HTMLDivElement>(null);
