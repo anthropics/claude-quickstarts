@@ -122,7 +122,7 @@ not resolve issues, modify code, run Autofix, or open pull requests.
 | `teardown.py` | Archive everything, clear the deployment ID from `.env`, remove `claude-lock.json` |
 | `skill.md` | Mental model, gotchas, setup checklist, debugging |
 
-Requires `anthropic` ≥ 0.109.0.
+Requires `anthropic` ≥ 1.9.0.
 
 ## Credential lifecycle and re-authentication
 

@@ -19,14 +19,11 @@ class ModelConfig:
     """Configuration settings for Claude model parameters."""
 
     # Available models include:
-    # - claude-sonnet-4-20250514 (default)
-    # - claude-opus-4-20250514
+    # - claude-sonnet-5-5 (default)
+    # - claude-opus-5-5
     # - claude-haiku-4-5-20251001
-    # - claude-3-5-sonnet-20240620
-    # - claude-3-haiku-20240307
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "claude-sonnet-5-5"
     max_tokens: int = 4096
-    temperature: float = 1.0
     context_window_tokens: int = 180000
 
 
@@ -86,7 +83,6 @@ class Agent:
         return {
             "model": self.config.model,
             "max_tokens": self.config.max_tokens,
-            "temperature": self.config.temperature,
             "system": self.system,
             "messages": self.history.format_for_api(),
             "tools": [tool.to_dict() for tool in self.tools],
