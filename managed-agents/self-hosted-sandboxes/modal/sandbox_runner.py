@@ -80,11 +80,14 @@ async def main() -> None:
         )
     print(f"[runner] credential={'per-session token' if token else 'ENVIRONMENT KEY'}", flush=True)
 
+    # The bash tool starts in the workdir and fails if it is missing. Modal mounts
+    # a volume there. Daytona's image has no such directory.
+    os.makedirs(WORKDIR, exist_ok=True)
+
     async with AsyncAnthropic(auth_token=credential) as client:
         await client.beta.environments.work.worker(
             environment_key=credential,
             workdir=WORKDIR,
-            unrestricted_paths=True,
         ).handle_item(work_secret=secret or None)
 
 

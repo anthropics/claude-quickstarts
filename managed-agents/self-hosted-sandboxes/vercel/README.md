@@ -141,8 +141,8 @@ client.beta.environments.work.worker({
 | `vercel.json` | `maxDuration: 60` for the function, and `includeFiles` so the runner source ships with it. |
 
 Both the function and the in-sandbox `npm install` use
-`@anthropic-ai/sdk >=0.124.0 <1.0.0`. 0.124.0 is the first release whose
-`handleItem()` accepts the per-session work secret.
+`@anthropic-ai/sdk >=0.129.0 <1.0.0`. `handleItem()` has accepted the
+per-session work secret since 0.124.0.
 
 - `Sandbox.create()`, `writeFiles()`, and `npm install` take 15 to 25 seconds
   before the function responds. The runner itself is detached. To cut about

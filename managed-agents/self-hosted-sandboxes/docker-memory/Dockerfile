@@ -5,8 +5,8 @@ FROM python:3.12-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ripgrep git curl jq ca-certificates \
  && rm -rf /var/lib/apt/lists/*
-# Memory sync for self-hosted sandboxes needs the anthropic SDK 0.125.0 or later.
-RUN pip install --no-cache-dir "anthropic>=0.125.0"
+# Memory sync for self-hosted sandboxes has been in the SDK since 0.125.0.
+RUN pip install --no-cache-dir "anthropic>=1.9.0,<2.0.0"
 COPY worker.py /app/worker.py
 # /workspace is the agent's working tree (on-work.sh mounts a per-session
 # volume over it). Memory stores land at each store's

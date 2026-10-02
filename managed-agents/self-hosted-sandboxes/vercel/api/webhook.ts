@@ -27,9 +27,8 @@ import { fileURLToPath } from "node:url";
 import Anthropic from "@anthropic-ai/sdk";
 import { Sandbox } from "@vercel/sandbox";
 
-// 0.124.0 is the first release whose handleItem() accepts the per-session
-// work secret.
-const SDK_VERSION = ">=0.124.0 <1.0.0";
+// handleItem() has accepted the per-session work secret since 0.124.0.
+const SDK_VERSION = ">=0.129.0 <1.0.0";
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_DRAIN = 25;
 // Anthropic's deliveries are a few hundred bytes. The cap bounds the work an
@@ -39,7 +38,8 @@ const MAX_BODY_BYTES = 1024 * 1024;
 // These become KV keys and sandbox env values, so check their shape before use
 // even though they come from Anthropic's API.
 const SESSION_ID = /^sesn_[A-Za-z0-9]+$/;
-const WORK_ID = /^work_[A-Za-z0-9]+$/;
+// A session's work item carries the session's own ID.
+const WORK_ID = /^(?:work|sesn)_[A-Za-z0-9]+$/;
 
 // Best-effort dedupe on the delivery's event id. This is one function
 // instance's memory: Vercel may serve a retry from another instance that has

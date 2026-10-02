@@ -160,8 +160,8 @@ client.beta.environments.work.worker(..., tools=tools)
 | `modal_sandbox_webhook.py` | POST only, 1 MiB body cap, signature check, then the SDK poller drains the queue. Skips any work item whose environment or ID shape is wrong. A live Sandbox for the session is reused. |
 | `sandbox_runner.py` | Decodes the sessions token from `ANTHROPIC_WORK_SECRET`, builds the client with it, and calls `handle_item()`. |
 
-Both images pin `anthropic>=0.124.0,<1.0.0`. 0.124.0 is the first release whose
-`handle_item()` accepts the per-session work secret.
+Both images pin `anthropic>=1.9.0,<2.0.0`. `handle_item()` has accepted the
+per-session work secret since 0.125.0.
 
 Idle policy is the SDK default: the runner exits 60s after
 `session.status_idle` with `stop_reason: end_turn`, and any other event resets

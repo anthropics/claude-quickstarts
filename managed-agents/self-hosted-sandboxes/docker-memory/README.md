@@ -92,7 +92,7 @@ spreads sessions across them.
 | `agents/memory-demo.md`, `environments/self-hosted.yaml`, `memory_stores/user-preferences.yaml` | The agent, self-hosted environment, and memory store, as files for `ant apply`. The agent pins `tools: [{type: agent_toolset_20260401}]`, the toolset `worker.py` serves. A server-default toolset includes tools the worker does not own and the session stalls (`tool 'repl' not owned by this runner`). |
 | `start.sh` | Host. Builds the image, execs `ant beta:worker poll --on-work on-work.sh` with the environment ID from `claude-lock.json` and the environment key from `.env`. |
 | `on-work.sh` | Host, once per claimed work item. Reads the item's per-session `secret` off stdin and runs an attached `--rm` container with only that secret, returning when it exits. Refuses items that carry no secret. `SANDBOX_DOCKER_RUN_ARGS` adds `docker run` flags. |
-| `Dockerfile`, `worker.py` | Container. `python:3.12-slim` + the `anthropic` SDK (0.125.0 or later, the first with memory sync for self-hosted sandboxes) + `rg`/`git`/`curl`/`jq`. `worker.py` pulls the sessions token out of the secret and calls `EnvironmentWorker.handle_item()`: memory download and sync, tool dispatch, lease heartbeat, force-stop on exit. |
+| `Dockerfile`, `worker.py` | Container. `python:3.12-slim` + the `anthropic` SDK (1.9.0 or later) + `rg`/`git`/`curl`/`jq`. `worker.py` pulls the sessions token out of the secret and calls `EnvironmentWorker.handle_item()`: memory download and sync, tool dispatch, lease heartbeat, force-stop on exit. |
 
 Three credentials, three blast radii. Your org credential (`ant auth login`
 or `ANTHROPIC_API_KEY`) runs `ant apply` and creates sessions, and never
