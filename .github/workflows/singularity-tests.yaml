@@ -1,0 +1,32 @@
+name: singularity-tests
+on:
+  pull_request:
+    paths:
+      - .github/workflows/singularity-tests.yaml
+      - singularity/**
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/singularity-tests.yaml
+      - singularity/**
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: singularity
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          cache: "pip"
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test,dev]"
+      - name: Unit + integration suite (offline regression gate)
+        run: |
+          # The whole suite is offline & deterministic — no API keys required.
+          pytest tests/unit/ tests/integration/ -q
