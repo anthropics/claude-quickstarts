@@ -38,6 +38,12 @@ A complete reference implementation for browser automation powered by Claude. Th
 
 [Go to Browser Use Demo Quickstart](./browser-use-demo)
 
+### Agents
+
+A minimal educational implementation of LLM agents using the Claude API. The core loop is under 300 lines and demonstrates the patterns from Anthropic's [building effective agents](https://www.anthropic.com/engineering/building-effective-agents) guide, with support for both native tools and MCP server tools.
+
+[Go to Agents Quickstart](./agents)
+
 ### Autonomous Coding Agent
 
 An autonomous coding agent powered by the Claude Agent SDK. This project demonstrates a two-agent pattern (initializer + coding agent) that can build complete applications over multiple sessions, with progress persisted via git and a feature list that the agent works through incrementally.
