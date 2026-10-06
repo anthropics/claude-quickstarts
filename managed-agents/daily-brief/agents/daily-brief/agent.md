@@ -2,7 +2,7 @@
 # The agent: model and tools here, the run steps as the body (it becomes the
 # system prompt). `ant apply` creates it and publishes a new version on change.
 name: Daily brief
-model: claude-opus-5
+model: claude-sonnet-5-5
 metadata:
   # Tells Anthropic which quickstart this agent came from. Safe to remove.
   anthropic_cookbook: claude-quickstarts/daily-brief
