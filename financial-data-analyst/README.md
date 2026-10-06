@@ -6,7 +6,7 @@ A sophisticated Next.js application that combines Claude's capabilities with int
 
 ## Features
 
-- **Intelligent Data Analysis**: Powered by Claude (Using Claude 3 Haiku & Claude 3.5 Sonnet)
+- **Intelligent Data Analysis**: Powered by Claude (Using Claude Haiku 4.5 & Claude Sonnet 5.5)
 - **Multi-Format File Upload Support**:
   - Text/Code files (.txt, .md, .html, .py, .csv, etc)
   - PDF documents (Regular PDF with text, scanned documents not supported)

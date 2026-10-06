@@ -27,9 +27,9 @@ from anthropic.types.beta import UnwrapWebhookEvent
 from daytona_sdk import CreateSandboxParams, Daytona
 from fastapi import FastAPI, HTTPException, Request, Response
 
-# The SDK the runner needs inside the sandbox. 0.124.0 is the first release
-# whose handle_item() accepts the per-session work secret.
-SDK_REQUIREMENT = "anthropic>=0.124.0,<1.0.0"
+# The SDK the runner needs inside the sandbox. handle_item() has accepted the
+# per-session work secret since 0.125.0.
+SDK_REQUIREMENT = "anthropic>=1.9.0,<2.0.0"
 RUNNER_SRC = (Path(__file__).resolve().parent / "sandbox_runner.py").read_text()
 
 # Anthropic's deliveries are a few hundred bytes. The cap bounds the work an
@@ -39,7 +39,8 @@ MAX_BODY_BYTES = 1024 * 1024
 # These become Daytona labels and sandbox env values, so check their shape
 # before use even though they come from Anthropic's API.
 SESSION_ID = re.compile(r"^sesn_[A-Za-z0-9]+$")
-WORK_ID = re.compile(r"^work_[A-Za-z0-9]+$")
+# A session's work item carries the session's own ID.
+WORK_ID = re.compile(r"^(?:work|sesn)_[A-Za-z0-9]+$")
 
 app = FastAPI()
 daytona = Daytona()  # reads DAYTONA_API_KEY / DAYTONA_API_URL from env

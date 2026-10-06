@@ -46,9 +46,9 @@ import modal
 APP_NAME = "self-hosted-sandboxes"
 SECRET_NAME = "self-hosted-sandboxes-secrets"
 
-# 0.124.0 is the first release whose handle_item() accepts the per-session
-# work secret. Pinned to a range so a rebuild cannot pick up a 1.x.
-SDK_REQUIREMENT = "anthropic>=0.124.0,<1.0.0"
+# handle_item() has accepted the per-session work secret since 0.125.0.
+# Pinned to a range so a rebuild cannot pick up a 2.x.
+SDK_REQUIREMENT = "anthropic>=1.9.0,<2.0.0"
 RUNNER_PATH = "/root/sandbox_runner.py"
 
 # Anthropic's deliveries are a few hundred bytes. The cap bounds the work an
@@ -58,7 +58,8 @@ MAX_BODY_BYTES = 1024 * 1024
 # These become Modal sandbox and volume names and sandbox env values, so check
 # their shape before use even though they come from Anthropic's API.
 SESSION_ID = re.compile(r"^sesn_[A-Za-z0-9]+$")
-WORK_ID = re.compile(r"^work_[A-Za-z0-9]+$")
+# A session's work item carries the session's own ID.
+WORK_ID = re.compile(r"^(?:work|sesn)_[A-Za-z0-9]+$")
 
 app = modal.App(APP_NAME)
 secrets = modal.Secret.from_name(SECRET_NAME)

@@ -8,7 +8,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": ">=0.109.0 <1.0.0",
+    "@anthropic-ai/sdk": ">=0.129.0 <1.0.0",
     "@cloudflare/containers": "^0.0.28",
     "minimatch": "^9.0.5"
   },

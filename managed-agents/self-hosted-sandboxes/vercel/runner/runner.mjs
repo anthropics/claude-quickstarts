@@ -79,7 +79,6 @@ try {
     .worker({
       environmentKey: credential,
       workdir: WORKDIR,
-      unrestrictedPaths: true,
       signal: ctrl.signal,
     })
     .handleItem({ workSecret });

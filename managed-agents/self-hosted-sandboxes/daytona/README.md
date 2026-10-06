@@ -61,7 +61,7 @@ Run the orchestrator:
 ```sh
 cd daytona
 # standardwebhooks backs client.beta.webhooks.unwrap(). Only this host needs it.
-pip install fastapi uvicorn daytona-sdk standardwebhooks 'anthropic>=0.124.0,<1.0.0'
+pip install fastapi uvicorn daytona-sdk standardwebhooks 'anthropic>=1.9.0,<2.0.0'
 
 export DAYTONA_API_KEY=... DAYTONA_API_URL=...
 export ANTHROPIC_ENVIRONMENT_ID=env_... ANTHROPIC_ENVIRONMENT_KEY=sk-ant-oat...

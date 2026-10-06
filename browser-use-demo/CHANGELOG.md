@@ -33,4 +33,7 @@ This file tracks all modifications made to files derived from or inspired by Mic
 - **Date Modified**: 1/18/26
 - **Nature of Changes**:
   - Added clarifying comment in the `options` property explaining that this implementation uses fixed 1920x1080 dimensions with empirical coordinate correction, and directing users to the "Handle coordinate scaling" section in the computer use documentation for the recommended client-side downscaling approach.
-
+- **Date Modified**: 9/29/26
+- **Nature of Changes**:
+  - Removed the `temperature` argument from the `find` action's `messages.create()` call. The `anthropic` SDK 1.0 and later no longer accepts it, and the resulting `TypeError` was swallowed, so `find` always fell back to plain text search.
+  - Moved the `find` action's model from the retired `claude-3-5-sonnet-20241022`, which returns 404, to `claude-sonnet-5-5`. That error was swallowed the same way.

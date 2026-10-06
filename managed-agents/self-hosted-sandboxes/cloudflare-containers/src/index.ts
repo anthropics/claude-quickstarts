@@ -29,7 +29,8 @@ const MAX_BODY_BYTES = 1024 * 1024;
 // These become Durable Object names and env values, so check their shape
 // before use even though they come from Anthropic's API.
 const SESSION_ID = /^sesn_[A-Za-z0-9]+$/;
-const WORK_ID = /^work_[A-Za-z0-9]+$/;
+// A session's work item carries the session's own ID.
+const WORK_ID = /^(?:work|sesn)_[A-Za-z0-9]+$/;
 const ENVIRONMENT_ID = /^env_[A-Za-z0-9]+$/;
 
 // Best-effort dedupe on the delivery's event id. This is one isolate's memory:

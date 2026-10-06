@@ -196,7 +196,6 @@ export async function POST(req: NextRequest) {
       endpoint: "messages.create",
       model,
       max_tokens: 4096,
-      temperature: 0.7,
       messageCount: anthropicMessages.length,
       tools: tools.map((t) => t.name),
       messageStructure: JSON.stringify(
@@ -215,7 +214,6 @@ export async function POST(req: NextRequest) {
     const response = await anthropic.messages.create({
       model,
       max_tokens: 4096,
-      temperature: 0.7,
       tools: tools,
       tool_choice: { type: "auto" },
       messages: anthropicMessages,

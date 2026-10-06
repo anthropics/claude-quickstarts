@@ -5,7 +5,7 @@
 # publish a new version of the same agent.
 name: Self-hosted sandbox demo
 description: A general assistant whose tools run in a Docker container you host
-model: claude-opus-5
+model: claude-opus-5-5
 metadata:
   # Names the example within the quickstart. Safe to remove.
   anthropic_quickstart: self-hosted-sandboxes/docker

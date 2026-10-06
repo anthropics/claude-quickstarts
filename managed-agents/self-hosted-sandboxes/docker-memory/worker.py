@@ -66,11 +66,9 @@ async def main() -> None:
     client = AsyncAnthropic(auth_token=token)
     worker = EnvironmentWorker(client, workdir="/workspace")
     # handle_item reads ANTHROPIC_{WORK_ID,ENVIRONMENT_ID,SESSION_ID} from the
-    # environment and prefers the token inside work_secret for every call it
-    # makes. environment_key is its required fallback credential: passing the
-    # same token there keeps any standing key out of this process (left unset,
-    # the SDK would read ANTHROPIC_ENVIRONMENT_KEY from the environment).
-    await worker.handle_item(work_secret=secret, environment_key=token)
+    # environment and uses the token inside work_secret for every call it
+    # makes, so this process needs no environment key.
+    await worker.handle_item(work_secret=secret)
 
 
 if __name__ == "__main__":

@@ -286,7 +286,7 @@ The token arrives inside the work item's `secret`, which bundles it with other
 tokens the worker does not use. `on-work.sh` keeps the one, drops the rest,
 and `ant beta:worker run` reads the result from `--work-secret-file
 /dev/stdin`. That flag needs `ant` 1.32 or later in the image, and the
-`Dockerfile` pins 1.35.0. The token is never in a file, on a command line, in
+`Dockerfile` pins 1.38.0. The token is never in a file, on a command line, in
 the sandbox definition the gateway stores, or in the worker's environment.
 
 An agent with skills runs without them here: the policy has no route for the

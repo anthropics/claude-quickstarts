@@ -1,8 +1,11 @@
 """Tools that interface with MCP servers."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from .base import Tool
-from ..utils.connections import MCPConnection
+
+# connections.py imports MCPTool, so a runtime import here would be circular.
+if TYPE_CHECKING:
+    from ..utils.connections import MCPConnection
 
 
 class MCPTool(Tool):
