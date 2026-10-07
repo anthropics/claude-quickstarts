@@ -1,0 +1,9 @@
+# Reserved Ports List
+# This file contains a list of ports that are reserved and should not be used by the application.
+
+# Common ports used by macOS and other systems
+5900  # VNC
+22    # SSH
+80    # HTTP
+443   # HTTPS
+3389  # RDP
