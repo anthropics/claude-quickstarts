@@ -47,6 +47,8 @@ def target_image_size(
     Largest (w, h) preserving aspect ratio with long-edge <= max_edge_px and
     tile-count <= max_tokens. Returns the input unchanged if already valid.
     """
+    if min(width, height, px_per_token, max_edge_px, max_tokens) <= 0:
+        raise ValueError("Image dimensions and sizing limits must be positive")
     if (
         width <= max_edge_px
         and height <= max_edge_px
