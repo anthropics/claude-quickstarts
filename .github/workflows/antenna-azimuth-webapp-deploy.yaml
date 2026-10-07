@@ -16,6 +16,8 @@ on:
 env:
   VERCEL_ORG_ID: team_1zPTroyzeMRZQSRHdzNYvn3Z
   VERCEL_PROJECT_ID: prj_XznBVr0O4X8lMj8t1vhmNGmf1V6L
+  NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
 
 jobs:
   deploy:
@@ -36,13 +38,13 @@ jobs:
       - run: npx tsc --noEmit
       - run: npm test
       - name: Install Vercel CLI
-        run: npm install --global vercel@latest
+        run: npm install --global vercel@62.7.0
       - name: Pull project settings
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token=${{ secrets.TAJEM_1 }}
       - name: Build
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build --prod --token=${{ secrets.TAJEM_1 }}
       # --prebuilt uploads the build above rather than rebuilding on Vercel, so
       # what ships is exactly what the test steps just ran against.
       - name: Deploy to production
-        run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.TAJEM_1 }}
 
