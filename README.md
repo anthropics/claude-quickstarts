@@ -38,6 +38,18 @@ A complete reference implementation for browser automation powered by Claude. Th
 
 [Go to Browser Use Demo Quickstart](./browser-use-demo)
 
+### Browser Toolset Quickstart
+
+The minimal CDP example of Claude's browser toolset (`browser_toolset_20260801`), in Python and TypeScript. It has a small driver for one Chromium tab over the Chrome DevTools Protocol, a script that runs the driver with the tool runner, and a script that exercises it without a model. It shows the interface and is not production code.
+
+[Go to Browser Toolset Quickstart](./browser-toolset)
+
+### Computer Toolset Quickstart
+
+The minimal VNC example of Claude's computer toolset (`computer_toolset_20260801`), in Python and TypeScript. It has a small driver for one desktop over VNC (the RFB protocol, no VNC library), a script that runs the driver with the tool runner, and a script that exercises it without a model. It shows the interface and is not production code.
+
+[Go to Computer Toolset Quickstart](./computer-toolset)
+
 ### Autonomous Coding Agent
 
 An autonomous coding agent powered by the Claude Agent SDK. This project demonstrates a two-agent pattern (initializer + coding agent) that can build complete applications over multiple sessions, with progress persisted via git and a feature list that the agent works through incrementally.

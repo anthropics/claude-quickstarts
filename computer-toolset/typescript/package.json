@@ -1,0 +1,24 @@
+{
+  "name": "computer-toolset-quickstart",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "tsx run.ts",
+    "exercise": "tsx exercise.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.132.0",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.6",
+    "@types/pngjs": "^6.0.1",
+    "tsx": "^4.19.0",
+    "typescript": "5.8.3"
+  }
+}

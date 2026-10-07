@@ -1,0 +1,4 @@
+# The computer toolset helpers (`anthropic.tools.computer`) ship with the Anthropic Python SDK.
+anthropic>=1.12.0
+pillow>=10
+typing_extensions>=4.14
