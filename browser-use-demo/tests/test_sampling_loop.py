@@ -6,7 +6,11 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from browser_use_demo.loop import APIProvider, sampling_loop
+from browser_use_demo.loop import (
+    APIProvider,
+    _maybe_filter_to_n_most_recent_images,
+    sampling_loop,
+)
 from browser_use_demo.message_handler import (
     MessageBuilder,
     ResponseProcessor,
@@ -508,5 +512,252 @@ class TestSamplingLoopIntegration:
             call_args = mock_client.beta.messages.create.call_args[1]
             assert "tool_choice" in call_args
             assert call_args["tool_choice"] == {"type": "auto"}
+
+        asyncio.run(run_test())
+
+
+class TestRecentImagesFiltering:
+    """Tests for only_n_most_recent_images bounding and filtering logic."""
+
+    def test_filter_removes_oldest_tool_result_images(self):
+        """Test that images beyond images_to_keep are removed from oldest tool_results."""
+        messages = [
+            {"role": "user", "content": "Start conversation"},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_1",
+                        "content": [
+                            {"type": "text", "text": "Result 1"},
+                            {"type": "image", "source": {"type": "base64", "data": "img1"}},
+                        ],
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_2",
+                        "content": [
+                            {"type": "text", "text": "Result 2"},
+                            {"type": "image", "source": {"type": "base64", "data": "img2"}},
+                        ],
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_3",
+                        "content": [
+                            {"type": "text", "text": "Result 3"},
+                            {"type": "image", "source": {"type": "base64", "data": "img3"}},
+                        ],
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_4",
+                        "content": [
+                            {"type": "text", "text": "Result 4"},
+                            {"type": "image", "source": {"type": "base64", "data": "img4"}},
+                        ],
+                    }
+                ],
+            },
+        ]
+
+        _maybe_filter_to_n_most_recent_images(messages, images_to_keep=2)
+
+        # Message 1 tool_result: image removed, text preserved
+        m1_content = messages[1]["content"][0]["content"]
+        assert len(m1_content) == 1
+        assert m1_content[0]["type"] == "text"
+        assert m1_content[0]["text"] == "Result 1"
+
+        # Message 2 tool_result: image removed, text preserved
+        m2_content = messages[2]["content"][0]["content"]
+        assert len(m2_content) == 1
+        assert m2_content[0]["type"] == "text"
+        assert m2_content[0]["text"] == "Result 2"
+
+        # Message 3 tool_result: image kept
+        m3_content = messages[3]["content"][0]["content"]
+        assert len(m3_content) == 2
+        assert any(b["type"] == "image" and b["source"]["data"] == "img3" for b in m3_content)
+
+        # Message 4 tool_result: image kept
+        m4_content = messages[4]["content"][0]["content"]
+        assert len(m4_content) == 2
+        assert any(b["type"] == "image" and b["source"]["data"] == "img4" for b in m4_content)
+
+    def test_filter_noop_when_image_count_within_limit(self):
+        """Test that images are not modified when total count <= images_to_keep."""
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_1",
+                        "content": [
+                            {"type": "image", "source": {"type": "base64", "data": "img1"}},
+                        ],
+                    }
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_2",
+                        "content": [
+                            {"type": "image", "source": {"type": "base64", "data": "img2"}},
+                        ],
+                    }
+                ],
+            },
+        ]
+
+        _maybe_filter_to_n_most_recent_images(messages, images_to_keep=3)
+
+        assert len(messages[0]["content"][0]["content"]) == 1
+        assert messages[0]["content"][0]["content"][0]["type"] == "image"
+        assert len(messages[1]["content"][0]["content"]) == 1
+        assert messages[1]["content"][0]["content"][0]["type"] == "image"
+
+    def test_filter_noop_when_images_to_keep_invalid(self):
+        """Test that nothing is modified when images_to_keep is None or <= 0."""
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tool_1",
+                        "content": [
+                            {"type": "image", "source": {"type": "base64", "data": "img1"}},
+                        ],
+                    }
+                ],
+            }
+        ]
+
+        _maybe_filter_to_n_most_recent_images(messages, images_to_keep=None)
+        assert len(messages[0]["content"][0]["content"]) == 1
+
+        _maybe_filter_to_n_most_recent_images(messages, images_to_keep=0)
+        assert len(messages[0]["content"][0]["content"]) == 1
+
+    def test_filter_handles_direct_user_image_blocks(self):
+        """Test that top-level user image blocks are filtered as well."""
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "data": "user_img1"}},
+                    {"type": "text", "text": "First user message"},
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image", "source": {"type": "base64", "data": "user_img2"}},
+                    {"type": "text", "text": "Second user message"},
+                ],
+            },
+        ]
+
+        _maybe_filter_to_n_most_recent_images(messages, images_to_keep=1)
+
+        assert len(messages[0]["content"]) == 1
+        assert messages[0]["content"][0]["type"] == "text"
+        assert len(messages[1]["content"]) == 2
+        assert any(b["type"] == "image" for b in messages[1]["content"])
+
+    @patch("browser_use_demo.loop.Anthropic")
+    def test_sampling_loop_applies_image_bound(self, mock_anthropic):
+        """Test that sampling_loop filters images according to only_n_most_recent_images before API call."""
+
+        async def run_test():
+            mock_client = Mock()
+            mock_anthropic.return_value = mock_client
+
+            mock_response = Mock()
+            mock_response.content = [Mock(type="text", text="Done")]
+            mock_client.beta.messages.create = Mock(return_value=mock_response)
+
+            messages = [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "tool_1",
+                            "content": [
+                                {"type": "image", "source": {"type": "base64", "data": "img1"}}
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "tool_2",
+                            "content": [
+                                {"type": "image", "source": {"type": "base64", "data": "img2"}}
+                            ],
+                        }
+                    ],
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "tool_3",
+                            "content": [
+                                {"type": "image", "source": {"type": "base64", "data": "img3"}}
+                            ],
+                        }
+                    ],
+                },
+            ]
+
+            await sampling_loop(
+                model="claude-sonnet-4-5",
+                provider=APIProvider.ANTHROPIC,
+                system_prompt_suffix="",
+                messages=messages,
+                output_callback=lambda x: None,
+                tool_output_callback=lambda r, i: None,
+                api_response_callback=lambda *args: None,
+                api_key="test_key",
+                only_n_most_recent_images=2,
+            )
+
+            call_args = mock_client.beta.messages.create.call_args[1]
+            sent_messages = call_args["messages"]
+
+            # First message should have its image stripped
+            assert len(sent_messages[0]["content"][0]["content"]) == 0
+            # Second and third messages should keep their images
+            assert len(sent_messages[1]["content"][0]["content"]) == 1
+            assert sent_messages[1]["content"][0]["content"][0]["type"] == "image"
+            assert len(sent_messages[2]["content"][0]["content"]) == 1
+            assert sent_messages[2]["content"][0]["content"][0]["type"] == "image"
 
         asyncio.run(run_test())
