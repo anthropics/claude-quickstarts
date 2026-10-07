@@ -1,0 +1,39 @@
+# T1: Email Validator Function
+# Complexity: Trivial (single file, one function)
+
+## Goal
+Create a Python module with an email validation function.
+
+## Requirements
+
+### Core Function
+- Function `validate_email(email: str) -> bool`
+- Returns True if email is valid, False otherwise
+
+### Validation Rules
+- Must have exactly one @ symbol
+- Local part (before @) must be 1-64 characters
+- Domain part (after @) must be 1-255 characters
+- Domain must have at least one dot
+- No consecutive dots allowed
+- No leading/trailing dots in local or domain parts
+- Only allowed characters: a-z, A-Z, 0-9, and special chars: . _ % + -
+
+### Tests Required
+- Valid emails: user@example.com, user.name@domain.co.uk, user+tag@example.org
+- Invalid emails: @example.com, user@, user@@example.com, user@.com, user@example..com
+
+## Tech Stack
+- Python 3.11+
+- pytest for tests
+- No external dependencies (stdlib only)
+
+## Deliverables
+1. `email_validator.py` - Main module with validate_email function
+2. `test_email_validator.py` - pytest test file
+3. Both files should pass `ruff check` and `ruff format --check`
+
+## Success Criteria
+- All tests pass
+- Function handles edge cases correctly
+- Code is clean and well-documented
