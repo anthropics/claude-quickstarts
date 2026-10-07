@@ -172,6 +172,10 @@ When implementing computer use yourself, we recommend using XGA resolution (1024
 - For higher resolutions: Scale the image down to XGA and let the model interact with this scaled version, then map the coordinates back to the original resolution proportionally.
 - For lower resolutions or smaller devices (e.g. mobile devices): Add black padding around the display area until it reaches 1024x768.
 
+## Japanese text input
+
+When using Japanese input, the default typing delay may be too short for IME character conversion to complete reliably. If characters are dropped or entered incorrectly, increase `TYPING_DELAY_MS` in `computer_use_demo/tools/computer.py`. For example, a value of `300` may work better for Japanese input.
+
 ## Development
 
 ```bash
