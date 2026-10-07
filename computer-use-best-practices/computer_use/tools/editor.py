@@ -160,6 +160,8 @@ class EditorTool(Tool):
         insert_line = max(0, min(insert_line, len(lines)))
         if new and not new.endswith("\n"):
             new += "\n"
+        if new and insert_line > 0 and not lines[insert_line - 1].endswith("\n"):
+            lines[insert_line - 1] += "\n"
         lines.insert(insert_line, new)
         target.write_text("".join(lines), encoding="utf-8")
         return ToolResult(output=f"inserted after line {insert_line} in {self._rel(target)}")
