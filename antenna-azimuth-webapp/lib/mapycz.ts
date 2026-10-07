@@ -20,13 +20,14 @@
  */
 
 const AERIAL_TILES_JSON_URL = (apiKey: string) =>
-  `https://api.mapy.cz/v1/maptiles/aerial/tiles.json?apikey=${encodeURIComponent(apiKey)}`;
+  `https://api.mapy.com/v1/maptiles/aerial/tiles.json?apikey=${encodeURIComponent(apiKey)}`;
 
 const FALLBACK_MIN_ZOOM = 0;
 const FALLBACK_MAX_ZOOM = 19;
 const FALLBACK_ATTRIBUTION = "Map data © Seznam.cz, a.s. and its licensors";
 
 export interface AerialTileset {
+  name: string;
   /** URL template containing {z}/{x}/{y} (and the API key), resolved from tiles.json. Server-side use only. */
   tileUrlTemplate: string;
   minZoom: number;
@@ -47,6 +48,7 @@ function parseTileJson(json: TileJsonResponse): AerialTileset {
     throw new Error("Mapy.cz tiles.json response has no usable tiles[] URL template");
   }
   return {
+    name: "Letecká mapa Mapy.com",
     tileUrlTemplate: template,
     minZoom: typeof json.minzoom === "number" ? json.minzoom : FALLBACK_MIN_ZOOM,
     maxZoom: typeof json.maxzoom === "number" ? json.maxzoom : FALLBACK_MAX_ZOOM,
@@ -56,17 +58,38 @@ function parseTileJson(json: TileJsonResponse): AerialTileset {
 
 let cached: Promise<AerialTileset> | null = null;
 
+// Official public Czech orthophoto cache. The REST tile endpoint uses z/y/x,
+// with the same Web Mercator grid as Leaflet; no API key is required.
+const CUZK_SERVICE = "https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer";
+
+async function getCuzkTileset(): Promise<AerialTileset> {
+  const response = await fetch(`${CUZK_SERVICE}?f=pjson`, { signal: AbortSignal.timeout(8000) });
+  if (!response.ok) throw new Error("ČÚZK metadata unavailable");
+  const data = await response.json();
+  const crs = data.tileInfo?.spatialReference;
+  if ((crs?.latestWkid !== 3857 && crs?.wkid !== 3857 && crs?.wkid !== 102100) ||
+      data.tileInfo?.rows !== 256 || data.tileInfo?.cols !== 256 ||
+      !Number.isInteger(data.minLOD) || !Number.isInteger(data.maxLOD) ||
+      data.minLOD < 0 || data.maxLOD < data.minLOD || data.maxLOD > 22) {
+    throw new Error("Unsupported ČÚZK tile grid");
+  }
+  return {
+    name: "Ortofoto ČÚZK · Česko",
+    tileUrlTemplate: `${CUZK_SERVICE}/tile/{z}/{y}/{x}`,
+    minZoom: data.minLOD,
+    maxZoom: data.maxLOD,
+    attribution: '&copy; <a href="https://geoportal.cuzk.gov.cz/">ČÚZK</a> · <a href="https://creativecommons.org/licenses/by/4.0/">CC BY 4.0</a>',
+  };
+}
+
 /** Fetches and caches the aerial mapset's TileJSON for the lifetime of this server instance. */
 export async function getAerialTileset(): Promise<AerialTileset> {
   if (cached) return cached;
 
   const apiKey = process.env.MAPY_CZ_API_KEY;
-  if (!apiKey) {
-    throw new Error("MAPY_CZ_API_KEY is not set");
-  }
-
   cached = (async () => {
-    const resp = await fetch(AERIAL_TILES_JSON_URL(apiKey));
+    if (!apiKey) return getCuzkTileset();
+    const resp = await fetch(AERIAL_TILES_JSON_URL(apiKey), { signal: AbortSignal.timeout(8000) });
     if (!resp.ok) {
       throw new Error(`Mapy.cz tiles.json fetch failed (${resp.status})`);
     }

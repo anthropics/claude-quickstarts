@@ -42,7 +42,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "lat/lon out of range" }, { status: 400 });
   }
 
-  const dt = captureDatetime ? new Date(captureDatetime) : new Date();
+  // A basemap is historical imagery. Today's sun cannot establish an object's
+  // height in that image; neither provider supplies its exact capture time here.
+  if (!captureDatetime) {
+    return NextResponse.json({ found: false, error: "Pro odhad ze stínu chybí přesný čas pořízení snímku. Zadejte známou výšku objektu ručně." }, { status: 422 });
+  }
+  const dt = new Date(captureDatetime);
   if (Number.isNaN(dt.getTime())) {
     return NextResponse.json({ error: "captureDatetime is not a valid date" }, { status: 400 });
   }

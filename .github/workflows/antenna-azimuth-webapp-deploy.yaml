@@ -28,12 +28,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          # Next 15.5 requires >= 18.18.
-          node-version: 20
+          # Match the app runtime and PDF parser requirements.
+          node-version: 24.14.1
           cache: npm
           cache-dependency-path: antenna-azimuth-webapp/package-lock.json
       - run: npm ci
-      - run: npm run lint
+      - run: npx tsc --noEmit
       - run: npm test
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
@@ -45,3 +45,4 @@ jobs:
       # what ships is exactly what the test steps just ran against.
       - name: Deploy to production
         run: vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }}
+

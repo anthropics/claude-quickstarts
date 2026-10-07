@@ -1,6 +1,8 @@
 "use client";
 
 import { Crosshair, Plus, Trash2 } from "lucide-react";
+import type { ProjectSector } from "@/lib/projects";
+import { CoordinateForm } from "@/components/CoordinateForm";
 
 import type { MarkMode } from "@/components/CalibrationPanel";
 import { Button } from "@/components/ui/button";
@@ -14,6 +16,9 @@ import { RAY_COLORS, type AzimuthRay } from "@/lib/types";
 export type GpsStatus = "idle" | "watching" | "denied" | "unsupported" | "error";
 
 interface AzimuthControlsProps {
+  projectSectors?: ProjectSector[];
+  onConfirmSector?: (id: string) => void;
+  completionBusy?: boolean;
   rays: AzimuthRay[];
   onRaysChange: (rays: AzimuthRay[]) => void;
   origin: LatLon | null;
@@ -27,6 +32,7 @@ interface AzimuthControlsProps {
   markMode: MarkMode;
   onPickTarget: (rayId: string) => void;
   pickingRayId: string | null;
+  imageryAvailable: boolean;
 }
 
 function newRay(index: number): AzimuthRay {
@@ -48,6 +54,7 @@ const GPS_STATUS_TEXT: Record<GpsStatus, string> = {
 };
 
 export function AzimuthControls({
+  projectSectors, onConfirmSector, completionBusy,
   rays,
   onRaysChange,
   origin,
@@ -61,6 +68,7 @@ export function AzimuthControls({
   markMode,
   onPickTarget,
   pickingRayId,
+  imageryAvailable,
 }: AzimuthControlsProps) {
   function updateRay(id: string, patch: Partial<AzimuthRay>) {
     onRaysChange(rays.map((r) => (r.id === id ? { ...r, ...patch } : r)));
@@ -77,7 +85,7 @@ export function AzimuthControls({
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex items-center justify-between text-sm">
-            <span>Position</span>
+            <span>Poloha montáže</span>
             <span
               className={
                 "text-[11px] font-normal " + (gpsOk ? "text-brand" : "text-muted-foreground")
@@ -88,40 +96,15 @@ export function AzimuthControls({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="lat">Latitude</Label>
-              <Input
-                id="lat"
-                type="number"
-                step="0.000001"
-                value={origin ? origin.lat.toFixed(6) : ""}
-                onChange={(e) =>
-                  onManualOriginChange({ lat: Number(e.target.value), lon: origin?.lon ?? 0 })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="lon">Longitude</Label>
-              <Input
-                id="lon"
-                type="number"
-                step="0.000001"
-                value={origin ? origin.lon.toFixed(6) : ""}
-                onChange={(e) =>
-                  onManualOriginChange({ lat: origin?.lat ?? 0, lon: Number(e.target.value) })
-                }
-              />
-            </div>
-          </div>
+          <CoordinateForm origin={origin} onApply={onManualOriginChange} />
           <div className="flex items-center justify-between text-[11px] text-muted-foreground">
             <span>
               {gpsAccuracyM ? `Accuracy ~${Math.round(gpsAccuracyM)} m` : " "}
-              {headingDeg != null && ` · facing ${Math.round(headingDeg)}°`}
+              {!manualOverride && headingDeg != null && ` · GPS movement course ${Math.round(headingDeg)}°`}
             </span>
             {manualOverride && (
-              <Button variant="link" size="sm" className="h-auto p-0 text-[11px]" onClick={onUseLiveGps}>
-                Use live GPS instead
+              <Button variant="link" size="sm" className="min-h-12 px-2 text-sm" onClick={onUseLiveGps}>
+                Použít polohu telefonu
               </Button>
             )}
           </div>
@@ -133,10 +116,11 @@ export function AzimuthControls({
 
       <Card className="flex-1">
         <CardHeader className="pb-3">
-          <CardTitle className="text-sm">Azimuths</CardTitle>
+          <CardTitle className="text-sm">Směry antén</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 pt-0">
           {rays.map((ray, i) => {
+            const projectSector = projectSectors?.find(sector => sector.id === ray.id);
             const color = RAY_COLORS[i % RAY_COLORS.length];
             const correction =
               ray.target && origin
@@ -156,12 +140,13 @@ export function AzimuthControls({
                     className="h-7 border-0 bg-transparent px-1 font-sans text-sm shadow-none"
                     value={ray.label}
                     onChange={(e) => updateRay(ray.id, { label: e.target.value })}
-                    placeholder="Label"
+                    placeholder="Označení antény"
+                    aria-label={`Označení antény ${i + 1}`}
                   />
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="h-7 w-7 flex-none"
+                    className="h-12 w-12 flex-none"
                     onClick={() => removeRay(ray.id)}
                     aria-label={`Remove ${ray.label}`}
                   >
@@ -169,6 +154,16 @@ export function AzimuthControls({
                   </Button>
                 </div>
 
+                {(ray.mechanicalTiltDeg !== undefined || ray.electricalTiltDeg !== undefined) && <div className="mb-3 space-y-1 rounded-md bg-background p-3 text-sm" lang="cs">
+                  <p className="font-medium">Požadované náklony ze zadání</p>
+                  <p>Mechanický: {ray.mechanicalTiltDeg == null ? "neuveden" : ray.mechanicalTiltDeg + "°"}</p>
+                  <p>Elektrický / RET: {ray.electricalTiltDeg == null ? "neuveden" : ray.electricalTiltDeg + "°"}</p>
+                </div>}
+                {projectSector && onConfirmSector && <div className="mb-3 space-y-2" lang="cs">
+                  <p className="text-sm">{projectSector.completedAt ? "Nasměrování potvrzeno: " + new Date(projectSector.completedAt).toLocaleString("cs-CZ") : "Čeká na nasměrování a vaše potvrzení."}</p>
+                  <Button className="min-h-12 w-full text-base" variant={projectSector.completedAt ? "outline" : "default"} disabled={completionBusy || Boolean(ray.target) || ray.azimuthDeg !== projectSector.azimuthDeg} onClick={() => onConfirmSector(ray.id)}>{projectSector.completedAt ? "Vrátit mezi rozpracované" : "Potvrdit nasměrování"}</Button>
+                  {(ray.target || ray.azimuthDeg !== projectSector.azimuthDeg) && <p className="text-sm">Směr na mapě se liší od zadání. Zkontrolujte projekt před potvrzením.</p>}
+                </div>}
                 {ray.target ? (
                   <div className="space-y-2">
                     <div className="grid grid-cols-2 gap-2">
@@ -204,7 +199,7 @@ export function AzimuthControls({
                           <span className="text-muted-foreground">as picked</span>
                           <span>{correction.rawDeg.toFixed(2)}°</span>
                         </div>
-                        <div className="flex justify-between font-semibold text-brand">
+                        {calibration && <><div className="flex justify-between font-semibold text-brand">
                           <span>corrected</span>
                           <span>{correction.correctedDeg.toFixed(2)}°</span>
                         </div>
@@ -214,12 +209,12 @@ export function AzimuthControls({
                             {correction.deltaDeg >= 0 ? "+" : ""}
                             {correction.deltaDeg.toFixed(2)}°
                           </span>
-                        </div>
+                        </div></>}
                       </div>
                     )}
                     {!calibration && (
                       <p className="text-[11px] text-muted-foreground">
-                        Calibrate the imagery above to correct this bearing.
+                        No image correction is applied to this bearing.
                       </p>
                     )}
 
@@ -273,6 +268,7 @@ export function AzimuthControls({
                       size="sm"
                       className="w-full"
                       onClick={() => onPickTarget(ray.id)}
+                      disabled={!imageryAvailable}
                     >
                       <Crosshair className="mr-1.5 h-3.5 w-3.5" />
                       {markMode === "target" && pickingRayId === ray.id

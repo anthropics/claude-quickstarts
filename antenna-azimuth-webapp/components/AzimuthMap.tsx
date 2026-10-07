@@ -20,13 +20,13 @@ import { type ImageryCalibration, correctApparentPosition } from "@/lib/relief";
 import { RAY_COLORS, type AzimuthRay, type ShadowProbeResponse } from "@/lib/types";
 
 // Our own passthrough proxy (app/api/basemap/[z]/[x]/[y]/route.ts) — the
-// browser never talks to Mapy.cz directly, so the API key never reaches the
-// client. Attribution is fetched from /api/basemap-meta since Mapy.cz's own
-// docs say the required copyright text can change; this fallback only
-// covers the brief window before that fetch resolves.
+// browser does not need a provider API key. Source attribution and zoom
+// limits are fetched from /api/basemap-meta before aerial tiles are shown.
 const BASEMAP_TILE_URL = "/api/basemap/{z}/{x}/{y}";
 const FALLBACK_ATTRIBUTION = "Map data © Seznam.cz, a.s. and its licensors";
 const FALLBACK_MAX_ZOOM = 19;
+const BASIC_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const BASIC_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 
 function dotIcon(color: string, size: number, opts: { ring?: boolean; grab?: boolean } = {}) {
   const { ring = true, grab = false } = opts;
@@ -86,6 +86,17 @@ function ScaleControl() {
   return null;
 }
 
+/** Keep Leaflet sized when the status panel changes the available map height. */
+function ResizeMap() {
+  const map = useMap();
+  useEffect(() => {
+    const observer = new ResizeObserver(() => map.invalidateSize({ pan: false }));
+    observer.observe(map.getContainer());
+    return () => observer.disconnect();
+  }, [map]);
+  return null;
+}
+
 /** Routes map clicks to whichever point is currently being marked. */
 function ClickCapture({
   markMode,
@@ -120,6 +131,7 @@ export interface AzimuthMapProps {
   markMode: MarkMode;
   onPick: (mode: Exclude<MarkMode, "none">, at: LatLon) => void;
   onOriginMove?: (origin: LatLon) => void;
+  onImageryAvailabilityChange?: (available: boolean) => void;
 }
 
 const FALLBACK_CENTER: [number, number] = [50.0755, 14.4378]; // Prague, shown until GPS resolves
@@ -129,6 +141,14 @@ type RayShape = {
   color: string;
   kind: "wedge" | "line";
   points: [number, number][];
+};
+
+type BasemapMetadata = {
+  attribution: string;
+  minZoom: number;
+  maxZoom: number;
+  name?: string;
+  provider?: string;
 };
 
 function AzimuthMap({
@@ -141,33 +161,78 @@ function AzimuthMap({
   markMode,
   onPick,
   onOriginMove,
+  onImageryAvailabilityChange,
 }: AzimuthMapProps) {
-  // Leaflet's TileLayer has no live setter for attribution/maxZoom, and
-  // react-leaflet only re-applies the `url` prop to an existing layer — so
-  // `loaded` becomes part of the TileLayer's `key` below, forcing a clean
-  // remount once the real values arrive instead of silently no-opping.
-  const [basemapMeta, setBasemapMeta] = useState({
+  // Remount each selected layer so Leaflet applies its attribution and zoom
+  // limits together. Aerial calibration is available only after a tile loads.
+  const [basemapMeta, setBasemapMeta] = useState<BasemapMetadata>({
     attribution: FALLBACK_ATTRIBUTION,
+    minZoom: 0,
     maxZoom: FALLBACK_MAX_ZOOM,
-    loaded: false,
   });
+  const [layer, setLayer] = useState<"loading" | "aerial" | "basic">("loading");
+  const layerRef = useRef<"loading" | "aerial" | "basic">("loading");
+  const [aerialReady, setAerialReady] = useState(false);
+  const [basicFailed, setBasicFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
+
+  const showBasicMap = () => {
+    layerRef.current = "basic";
+    setLayer("basic");
+    setAerialReady(false);
+    onImageryAvailabilityChange?.(false);
+  };
 
   useEffect(() => {
     let cancelled = false;
-    fetch("/api/basemap-meta")
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 10000);
+    layerRef.current = "loading";
+    setLayer("loading");
+    setAerialReady(false);
+    setBasicFailed(false);
+    onImageryAvailabilityChange?.(false);
+    fetch("/api/basemap-meta", { signal: controller.signal })
       .then((r) => (r.ok ? r.json() : null))
-      .then((data: { attribution?: string; maxZoom?: number } | null) => {
-        if (!cancelled && data?.attribution && data.maxZoom) {
-          setBasemapMeta({ attribution: data.attribution, maxZoom: data.maxZoom, loaded: true });
+      .then((data: Partial<BasemapMetadata> | null) => {
+        if (cancelled) return;
+        if (data?.attribution && typeof data.maxZoom === "number" && Number.isInteger(data.maxZoom) && data.maxZoom >= 0 && data.maxZoom <= 22) {
+          const minZoom = typeof data.minZoom === "number" && Number.isInteger(data.minZoom) &&
+            data.minZoom >= 0 && data.minZoom <= data.maxZoom ? data.minZoom : 0;
+          setBasemapMeta({
+            attribution: data.attribution,
+            minZoom,
+            maxZoom: data.maxZoom,
+            name: typeof data.name === "string" && data.name.trim() ? data.name.trim() : undefined,
+            provider: typeof data.provider === "string" && data.provider.trim() ? data.provider.trim() : undefined,
+          });
+          layerRef.current = "aerial";
+          setLayer("aerial");
+        } else {
+          layerRef.current = "basic";
+          setLayer("basic");
         }
       })
       .catch(() => {
-        // Fallback attribution/maxZoom already in state — nothing to do.
-      });
+        if (!cancelled) { layerRef.current = "basic"; setLayer("basic"); }
+      })
+      .finally(() => window.clearTimeout(timeout));
     return () => {
       cancelled = true;
+      controller.abort();
+      window.clearTimeout(timeout);
     };
-  }, []);
+  }, [retry, onImageryAvailabilityChange]);
+
+  useEffect(() => {
+    if (layer !== "aerial" || aerialReady) return;
+    const timeout = window.setTimeout(() => {
+      layerRef.current = "basic";
+      setLayer("basic");
+      onImageryAvailabilityChange?.(false);
+    }, 10000);
+    return () => window.clearTimeout(timeout);
+  }, [layer, aerialReady, onImageryAvailabilityChange]);
 
   // A live GPS watch re-renders this component several times a second, so the
   // per-ray geodesy (and especially the wedge polygons, which are dozens of
@@ -218,20 +283,37 @@ function AzimuthMap({
   );
 
   return (
-    <div className="map-shell relative h-full w-full overflow-hidden rounded-xl border border-border">
+    <div className="map-shell flex h-full w-full flex-col overflow-hidden rounded-xl border border-border">
+      <div className="relative min-h-0 flex-1">
       <MapContainer
         center={origin ? [origin.lat, origin.lon] : FALLBACK_CENTER}
         zoom={origin ? 18 : 13}
         className="h-full w-full"
         scrollWheelZoom
       >
-        <TileLayer
-          key={basemapMeta.loaded ? "mapycz-loaded" : "mapycz-fallback"}
-          url={BASEMAP_TILE_URL}
-          attribution={basemapMeta.attribution}
-          maxZoom={basemapMeta.maxZoom}
-        />
+        {layer !== "loading" && (
+          <TileLayer
+            key={layer}
+            url={layer === "aerial" ? BASEMAP_TILE_URL : BASIC_TILE_URL}
+            attribution={layer === "aerial" ? basemapMeta.attribution : BASIC_ATTRIBUTION}
+            maxZoom={layer === "aerial" ? basemapMeta.maxZoom : 19}
+            maxNativeZoom={layer === "aerial" ? basemapMeta.maxZoom : 19}
+            minZoom={layer === "aerial" ? basemapMeta.minZoom : 0}
+            eventHandlers={{
+              tileerror: () => {
+                if (layerRef.current !== layer) return;
+                if (layer === "aerial") showBasicMap(); else setBasicFailed(true);
+              },
+              tileload: () => {
+                if (layerRef.current !== layer) return;
+                if (layer === "aerial") { setAerialReady(true); onImageryAvailabilityChange?.(true); }
+                else setBasicFailed(false);
+              },
+            }}
+          />
+        )}
         <ScaleControl />
+        <ResizeMap />
         <RecenterOnFirstFix origin={origin} />
         <ClickCapture markMode={markMode} onPick={onPick} />
 
@@ -307,15 +389,34 @@ function AzimuthMap({
         )}
       </MapContainer>
 
-      <div className="pointer-events-none absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-black/55 font-sans text-sm font-bold text-white backdrop-blur-sm">
+      <div className="pointer-events-none absolute right-3 top-3 z-[1000] flex h-9 w-9 items-center justify-center rounded-full bg-black/55 font-sans text-sm font-bold text-white backdrop-blur-sm" lang="cs" aria-label="Sever">
         N
       </div>
 
       {markMode !== "none" && (
-        <div className="pointer-events-none absolute inset-x-3 top-3 mx-auto w-fit rounded-full bg-black/70 px-3 py-1.5 font-sans text-xs text-white backdrop-blur-sm">
-          Click the map to set the {markMode === "base" ? "object base" : markMode === "top" ? "apparent top" : "target"}
+        <div className="pointer-events-none absolute inset-x-14 top-3 z-[1000] mx-auto w-fit rounded-lg bg-black/80 px-3 py-1.5 font-sans text-sm text-white" lang="cs">
+          Klepněte do mapy: {markMode === "base" ? "pata objektu" : markMode === "top" ? "vrchol objektu na snímku" : "cíl antény"}.
         </div>
       )}
+      </div>
+
+      <div className="flex flex-none flex-wrap items-center gap-2 border-t border-border bg-background px-3 py-2 text-sm text-foreground" lang="cs">
+        <p className="min-w-0 flex-1" role="status" aria-atomic="true">
+          {layer === "aerial" && aerialReady ? `Podklad: ${basemapMeta.name ?? basemapMeta.provider ?? "Letecký snímek"}.` :
+            layer === "loading" || layer === "aerial" ? "Načítám letecký snímek…" : basicFailed ?
+              "Mapa se nenačetla. Zkontrolujte připojení. Zadané azimuty zůstávají dostupné." :
+              "Letecký snímek není dostupný. Zobrazuji základní mapu OpenStreetMap; korekce podle snímku je vypnutá."}
+        </p>
+        {layer === "basic" && (
+          <button
+            type="button"
+            className="min-h-12 min-w-12 flex-none rounded-md border border-input px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setRetry((value) => value + 1)}
+          >
+            Znovu načíst snímek
+          </button>
+        )}
+      </div>
     </div>
   );
 }

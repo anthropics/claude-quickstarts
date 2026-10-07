@@ -1,6 +1,6 @@
 "use client";
 
-import { Crosshair, Loader2, Ruler, X } from "lucide-react";
+import { Crosshair, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import type { LatLon } from "@/lib/geometry";
 import type { ImageryCalibration } from "@/lib/relief";
-import type { ShadowProbeResponse } from "@/lib/types";
 
 export type MarkMode = "none" | "base" | "top" | "target";
 
@@ -22,9 +21,6 @@ interface CalibrationPanelProps {
   onMarkModeChange: (mode: MarkMode) => void;
   onHeightChange: (heightM: number | null) => void;
   onClear: () => void;
-  onMeasureShadow: () => void;
-  probing: boolean;
-  probe: ShadowProbeResponse | null;
 }
 
 function fmt(n: number, digits = 1) {
@@ -40,19 +36,16 @@ export function CalibrationPanel({
   onMarkModeChange,
   onHeightChange,
   onClear,
-  onMeasureShadow,
-  probing,
-  probe,
 }: CalibrationPanelProps) {
   const markButton = (mode: Exclude<MarkMode, "none" | "target">, label: string, set: boolean) => (
     <Button
       variant={markMode === mode ? "brand" : set ? "secondary" : "outline"}
       size="sm"
-      className="flex-1"
+      className="flex-1 min-h-12 text-base"
       onClick={() => onMarkModeChange(markMode === mode ? "none" : mode)}
     >
       <Crosshair className="mr-1.5 h-3.5 w-3.5" />
-      {markMode === mode ? "Click map…" : label}
+      {markMode === mode ? "Vyberte v mapě…" : label}
     </Button>
   );
 
@@ -60,7 +53,7 @@ export function CalibrationPanel({
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center justify-between text-sm">
-          <span>Imagery calibration</span>
+          <span>Kalibrace leteckého snímku</span>
           {calibration && <Badge>calibrated</Badge>}
         </CardTitle>
       </CardHeader>
@@ -72,55 +65,26 @@ export function CalibrationPanel({
         </p>
 
         <div className="flex gap-2">
-          {markButton("base", base ? "Base ✓" : "Mark base", Boolean(base))}
-          {markButton("top", top ? "Top ✓" : "Mark top", Boolean(top))}
+          {markButton("base", base ? "Patka ✓" : "Označit patku", Boolean(base))}
+          {markButton("top", top ? "Vrchol ✓" : "Označit vrchol", Boolean(top))}
         </div>
 
         <div className="flex items-end gap-2">
           <div className="flex-1">
-            <Label htmlFor="ref-height">Object height m</Label>
+            <Label htmlFor="ref-height">Známá výška objektu (m)</Label>
             <Input
               id="ref-height"
               type="number"
               min={1}
-              placeholder="e.g. 30"
+              placeholder="Například 30"
               value={heightM ?? ""}
               onChange={(e) => onHeightChange(e.target.value === "" ? null : Number(e.target.value))}
             />
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onMeasureShadow}
-            disabled={probing || !base}
-            title={base ? "Measure the object's shadow to get its height" : "Mark the base first"}
-          >
-            {probing ? (
-              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Ruler className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            From shadow
-          </Button>
+          
         </div>
 
-        {probe && !probe.found && !probe.error && (
-          <p className="text-[11px] text-muted-foreground">
-            No usable shadow found near the base — enter the height manually instead.
-          </p>
-        )}
-        {probe?.error && (
-          <p className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-[11px] text-destructive">
-            {probe.error}
-          </p>
-        )}
-        {probe?.found && probe.referenceHeightM != null && (
-          <p className="text-[11px] text-muted-foreground">
-            Shadow {fmt(probe.shadowLengthM ?? 0)} m with the sun{" "}
-            {fmt(probe.sun.elevationDeg)}° up ⇒ {fmt(probe.referenceHeightM)} m (
-            {probe.confidence} confidence).
-          </p>
-        )}
+        <p className="text-sm text-muted-foreground">Výšku zadejte ručně. Podklad neposkytuje přesný čas pořízení potřebný pro odhad ze stínu.</p>
 
         {calibration ? (
           <div className="space-y-1 rounded-md border border-border bg-background p-2 font-mono text-[11px] tabular-nums">
@@ -136,14 +100,14 @@ export function CalibrationPanel({
           </div>
         ) : (
           <p className="text-[11px] text-muted-foreground">
-            Needs a base, a top and a height.
+            Označte patku, vrchol a zadejte známou výšku.
           </p>
         )}
 
         {(base || top || heightM) && (
-          <Button variant="ghost" size="sm" className="h-auto p-0 text-[11px]" onClick={onClear}>
+          <Button variant="ghost" size="sm" className="min-h-12 px-3 text-base" onClick={onClear}>
             <X className="mr-1 h-3 w-3" />
-            Clear calibration
+            Vymazat kalibraci
           </Button>
         )}
 

@@ -27,12 +27,13 @@ export function ShadowReadout({
   retrying?: boolean;
 }) {
   const captureTime = new Date(result.captureDatetime);
+  const hasSun = !result.error && result.sun && Number.isFinite(captureTime.getTime());
   const offline = typeof navigator !== "undefined" && navigator.onLine === false;
 
   return (
     <Card>
       <CardContent className="space-y-2 p-4 text-xs">
-        <div className="flex items-baseline gap-2">
+        {hasSun && <div className="flex items-baseline gap-2">
           <span className="w-14 flex-none text-[10px] uppercase tracking-wide text-muted-foreground">
             Sun
           </span>
@@ -41,7 +42,7 @@ export function ShadowReadout({
             {result.sun.elevationDeg.toFixed(1)}° ·{" "}
             {captureTime.toISOString().slice(0, 16).replace("T", " ")} UTC (assumed)
           </span>
-        </div>
+        </div>}
 
         {result.error && (
           <div className="space-y-2 rounded-md border border-destructive/40 bg-destructive/10 p-2 text-destructive">
