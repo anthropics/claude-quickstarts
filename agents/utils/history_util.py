@@ -20,9 +20,8 @@ class MessageHistory:
         self.messages: list[dict[str, Any]] = []
         self.total_tokens = 0
         self.enable_caching = enable_caching
-        self.message_tokens: list[tuple[int, int]] = (
-            []
-        )  # List of (input_tokens, output_tokens) tuples
+        # Track tokens consumed per message so we can truncate accurately
+        self.message_token_usage: list[int] = []
         self.client = client
 
         # set initial total tokens to system prompt
@@ -54,6 +53,8 @@ class MessageHistory:
         message = {"role": role, "content": content}
         self.messages.append(message)
 
+        tokens_added = 0
+
         if role == "assistant" and usage:
             total_input = (
                 usage.input_tokens
@@ -61,10 +62,28 @@ class MessageHistory:
                 + getattr(usage, "cache_creation_input_tokens", 0)
             )
             output_tokens = usage.output_tokens
+            current_turn_input = max(total_input - self.total_tokens, 0)
+            tokens_added = current_turn_input + output_tokens
+        else:
+            # Estimate tokens for user/tool messages by diffing count_tokens
+            try:
+                counted = self.client.messages.count_tokens(
+                    model=self.model,
+                    system=self.system,
+                    messages=self.messages,
+                ).input_tokens
+                tokens_added = max(counted - self.total_tokens, 0)
+            except Exception:
+                # Fallback heuristic: ~4 chars per token
+                raw_text = "".join(
+                    block.get("text", "")
+                    for block in content
+                    if isinstance(block, dict) and block.get("type") == "text"
+                )
+                tokens_added = int(len(raw_text) / 4)
 
-            current_turn_input = total_input - self.total_tokens
-            self.message_tokens.append((current_turn_input, output_tokens))
-            self.total_tokens += current_turn_input + output_tokens
+        self.message_token_usage.append(tokens_added)
+        self.total_tokens += tokens_added
 
     def truncate(self) -> None:
         """Remove oldest messages when context window limit is exceeded."""
@@ -86,29 +105,22 @@ class MessageHistory:
             self.messages.pop(0)
             self.messages.pop(0)
 
-            if self.message_tokens:
-                input_tokens, output_tokens = self.message_tokens.pop(0)
-                self.total_tokens -= input_tokens + output_tokens
+            if len(self.message_token_usage) >= 2:
+                removed = self.message_token_usage.pop(0) + self.message_token_usage.pop(0)
+                self.total_tokens -= removed
 
         while (
-            self.message_tokens
+            len(self.message_token_usage) >= 1
             and len(self.messages) >= 2
             and self.total_tokens > self.context_window_tokens
         ):
             remove_message_pair()
 
-            if self.messages and self.message_tokens:
-                original_input_tokens, original_output_tokens = (
-                    self.message_tokens[0]
-                )
+            if self.messages and self.message_token_usage:
                 self.messages[0] = TRUNCATION_MESSAGE
-                self.message_tokens[0] = (
-                    TRUNCATION_NOTICE_TOKENS,
-                    original_output_tokens,
-                )
-                self.total_tokens += (
-                    TRUNCATION_NOTICE_TOKENS - original_input_tokens
-                )
+                original_tokens = self.message_token_usage[0]
+                self.message_token_usage[0] = TRUNCATION_NOTICE_TOKENS
+                self.total_tokens += TRUNCATION_NOTICE_TOKENS - original_tokens
 
     def format_for_api(self) -> list[dict[str, Any]]:
         """Format messages for Claude API with optional caching."""
