@@ -44,12 +44,16 @@ jobs:
           VERCEL_DEPLOY_TOKEN: ${{ secrets.TAJEM_1 }}
         run: node scripts/configure-vercel.mjs
       - name: Pull project settings
+        working-directory: ${{ github.workspace }}
         run: vercel pull --yes --environment=production --token=${{ secrets.TAJEM_1 }}
       - name: Build
+        working-directory: ${{ github.workspace }}
         run: vercel build --prod --token=${{ secrets.TAJEM_1 }}
       # --prebuilt uploads the build above rather than rebuilding on Vercel, so
       # what ships is exactly what the test steps just ran against.
       - name: Deploy to production
+        working-directory: ${{ github.workspace }}
         run: vercel deploy --prebuilt --prod --token=${{ secrets.TAJEM_1 }}
+
 
 
