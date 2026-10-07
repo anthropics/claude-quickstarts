@@ -101,4 +101,17 @@ ENV DISPLAY_NUM=$DISPLAY_NUM
 ENV HEIGHT=$HEIGHT
 ENV WIDTH=$WIDTH
 
+# Port configuration. These control which ports the services listen on inside
+# the container. When using asymmetric Docker port mappings (e.g. -p 9090:8080)
+# also set the corresponding HOST_PORT variable so the browser knows which
+# host-side port to connect to for each service.
+ENV HTTP_PORT=8080
+ENV STREAMLIT_PORT=8501
+ENV VNC_PORT=5900
+ENV NOVNC_PORT=6080
+# Host-side port overrides (only needed when host port != container port).
+# ENV HTTP_HOST_PORT=8080
+# ENV STREAMLIT_HOST_PORT=8501
+# ENV NOVNC_HOST_PORT=6080
+
 ENTRYPOINT [ "./entrypoint.sh" ]

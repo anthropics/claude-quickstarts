@@ -1,11 +1,13 @@
 #!/bin/bash
 echo "starting vnc"
 
+VNC_PORT="${VNC_PORT:-5900}"
+
 (x11vnc -display $DISPLAY \
     -forever \
     -shared \
     -wait 50 \
-    -rfbport 5900 \
+    -rfbport ${VNC_PORT} \
     -nopw \
     2>/tmp/x11vnc_stderr.log) &
 
@@ -14,7 +16,7 @@ x11vnc_pid=$!
 # Wait for x11vnc to start
 timeout=10
 while [ $timeout -gt 0 ]; do
-    if netstat -tuln | grep -q ":5900 "; then
+    if netstat -tuln | grep -q ":${VNC_PORT} "; then
         break
     fi
     sleep 1
