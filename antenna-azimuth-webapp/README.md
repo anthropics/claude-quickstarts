@@ -6,7 +6,39 @@ a satellite map, and corrects those bearings for the angle the imagery was
 shot from, so a target picked off a mast top or rooftop points where it
 really is.
 
-**Live demo:** https://antenna-azimuth-webapp.vercel.app
+**Existing public deployment:** https://antenna-azimuth-webapp-sigma.vercel.app
+
+The project/PDF/completion changes described below are currently in the local
+working copy. This public deployment has not been updated with them.
+
+## Phone use
+
+The app is designed as a responsive web page for iPhone and Android; real
+device sensor verification remains necessary. GPS and typed
+map bearings do not require a compass sensor. Enable the separate phone
+compass with its button; Safari may request permission, while other
+browsers may expose absolute orientation events without a separate prompt.
+Hold the phone flat in portrait orientation. Relative rotation events,
+uncalibrated readings and stale readings are not shown as compass headings.
+The sensor's north reference may differ from the map's true north: it is an
+orientation aid, not verification of the installed antenna's alignment.
+The GPS course readout measures movement, not the direction the phone faces.
+
+Aerial imagery remains the primary map. Without a Mapy.com key the app uses
+the public **ČÚZK Ortofoto** service for the Czech Republic. Its Web Mercator
+cache, attribution and native zoom limits are taken from the official service
+metadata (currently levels 6–20, not every level listed in tileInfo.lods).
+With a configured `MAPY_CZ_API_KEY`, the app uses Mapy.com's aerial mapset.
+If the selected provider's metadata or tiles fail,
+the app shows an explicitly labelled OpenStreetMap street-map fallback and
+disables imagery calibration. Retry aerial imagery from the status panel below
+the map; status messages do not cover the imagery or map controls.
+The maximum zoom follows the provider's metadata; enlarging beyond the
+native imagery resolution does not add detail. The street-map fallback
+uses normal browser requests and caching, visible attribution, and no
+tile prefetch or offline download. See the [OSM tile usage policy](https://operations.osmfoundation.org/policies/tiles/).
+
+No radio-signal measurement or radio-device integration is included.
 
 This is the browser-based companion to
 [`../antenna-azimuth-mapper`](../antenna-azimuth-mapper), which is a
@@ -17,25 +49,106 @@ tracking straight from your phone or laptop's browser.
 
 ## Setup
 
+Use **Node.js 24.14.0 or later** for this working copy. The pinned PDF.js
+worker is copied from the installed dependency to `public/pdf.worker.min.mjs`
+by the `predev` and `prebuild` scripts. Run the npm scripts so that the
+worker matches the installed parser version.
+
+This App Router project aligns React/React DOM and their TypeScript types
+with React 19, and uses React Leaflet 5. Next.js 15's App Router uses React
+19 even when an older React package is installed. React Leaflet 4's map
+ref callback can initialize the same DOM container twice during React 19
+development ref replay; v5 guards initialization with a map-instance ref.
+Strict Mode remains enabled. See the [Next.js 15 React guidance](https://nextjs.org/blog/next-15#react-19),
+the [React Leaflet 5 release](https://github.com/PaulLeCam/react-leaflet/releases/tag/v5.0.0),
+and its [MapContainer implementation](https://github.com/PaulLeCam/react-leaflet/blob/v5.0.0/packages/react-leaflet/src/MapContainer.tsx).
+
 ```bash
 cd antenna-azimuth-webapp
-cp .env.example .env.local   # fill in MAPY_CZ_API_KEY
+# Copy .env.example to .env.local for Supabase project sync.
+# MAPY_CZ_API_KEY is optional for Czech aerial imagery.
 npm install
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000). Satellite imagery
-comes from the [Mapy.cz REST API](https://developer.mapy.com/rest-api-mapy-cz/)'s
-aerial mapset, which requires an API key — register at api.mapy.cz to get
-one, then set **`MAPY_CZ_API_KEY`** in `.env.local` for local dev and as a
-*Production* environment variable on the Vercel project for the deployed
-app. The key never reaches the browser: the on-screen map is served through
-this app's own `/api/basemap/{z}/{x}/{y}` proxy, and the server-side tile
-fetch used for shadow detection reads the key directly.
+Open [http://localhost:3000](http://localhost:3000). Czech aerial imagery works
+without environment variables through the official [ČÚZK service](https://ags.cuzk.gov.cz/arcgis1/rest/services/ORTOFOTO_WM/MapServer).
+Coverage is the Czech Republic; it is not a global imagery service.
+To select Mapy.com, set **`MAPY_CZ_API_KEY`** in `.env.local` or your hosting
+environment. The key stays on the server behind `/api/basemap/{z}/{x}/{y}`.
+Neither provider's imagery has a verified exact capture timestamp in this app:
+shadow-based height estimation requires that timestamp and rejects requests
+without it. Enter a known object height manually for calibration.
 
 **GPS requires HTTPS** (or `localhost`) — `navigator.geolocation` is blocked
 by browsers on a plain-HTTP, non-localhost origin. Local dev on `localhost`
 works fine; once deployed (e.g. to Vercel) HTTPS is automatic.
+
+## Projekty, PDF a dokončení montáže
+
+1. Otevřete **Projekty a nahrání PDF** a přihlaste se. Nový účet vytvořte
+   v téže obrazovce; pokud Supabase vyžaduje potvrzení e-mailu, nejprve
+   dokončete potvrzení a poté se přihlaste.
+2. Založte projekt a nahrajte PDF s tabulkou sektorů, nebo přidejte sektory
+   ručně. Import probíhá v prohlížeči. Před uložením zkontrolujte název
+   lokality, azimuty, souřadnice a každý náklon podle originálního zadání.
+3. **Mechanický a elektrický náklon mají samostatná pole.** Prázdná hodnota
+   znamená, že údaj chybí; není zaměněna za 0°. U nejednoznačné tabulky
+   zůstane varování a text s číslem zdrojové stránky. Obecné pole „Tilt“
+   se samo nepřiřadí k mechanickému nebo elektrickému náklonu.
+4. Zaškrtněte potvrzení kontroly a zvolte **Potvrdit, uložit a načíst do
+   mapy**. Směry se převezmou ze sektorů projektu; náklony jsou zobrazeny
+   jako požadované hodnoty ze zadání. Pokud zadání nemá souřadnice,
+   určete polohu ručně nebo výslovně použijte GPS.
+5. Po skutečném nasměrování každého sektoru stiskněte **Potvrdit
+   nasměrování**. Uloží se čas potvrzení. Jakmile jsou potvrzené všechny
+   sektory, projekt se přesune do **Hotové**.
+6. Tlačítkem **Vrátit mezi rozpracované** lze potvrzení sektoru zrušit;
+   projekt se znovu objeví mezi rozpracovanými. Změna údajů sektoru
+   v editoru jeho potvrzení ruší. Změna souřadnic projektu znovu otevře
+   všechny jeho sektory.
+
+Potvrzení zaznamenává úkon montéra. Aplikace neměří skutečné nastavení
+antény ani splnění požadovaného náklonu. Kompas telefonu je orientační
+pomůcka; GPS kurz a směr natočení telefonu jsou odlišné údaje.
+
+### Podporované podklady a limity
+
+Importer zpracovává textová PDF s tabulkami sektorů, nejvýše 20 MiB,
+50 stran a 300 sektorů. Podporuje desetinnou čárku a zachovává rozdíl
+mezi chybějícím údajem a nulou. Naskenované PDF bez textové vrstvy
+vyžaduje ruční přepis; OCR není součástí této verze. Nejednoznačný,
+obrácený či odlišně uspořádaný dokument nemusí být rozpoznán správně.
+Kontrola před uložením je povinná. Parser byl ověřen syntetickými testy;
+skutečné uživatelské zadání zatím nebylo poskytnuto.
+
+### Synchronizace a přístup
+
+Na telefonu i počítači použijte stejný účet a stejnou nasazenou verzi
+aplikace. Seznam projektů se načítá při otevření, návratu do okna a
+ručním obnovení. Ukládání vyžaduje internet; tato verze nemá frontu
+změn pro práci bez připojení. Zápis používá číslo revize: souběžná
+úprava staršího stavu vyvolá upozornění k obnovení projektu.
+
+Projekty a historie revizí jsou oddělené podle vlastníka pomocí
+Supabase RLS. Originální PDF jsou v privátním bucketu
+`azimuth-assignments`; otevření dokumentu používá krátkodobý podepsaný
+odkaz. Starší dokumenty zůstávají zachovány, pokud na ně odkazuje
+historie projektu.
+
+Pro vlastní prostředí nastavte podle `.env.example`:
+
+```dotenv
+NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+```
+
+Do klienta patří pouze publishable key. Serverové a servisní klíče se
+do proměnných `NEXT_PUBLIC_*` nevkládají. Schéma této pracovní kopie
+je v [azimuth-supabase-schema.sql](supabase/schema.sql);
+při nasazení do jiného prostředí je nutné je aplikovat a nastavit
+povolenou adresu aplikace v Supabase Auth. Vybraný existující projekt
+Supabase už má schéma aplikované.
 
 ## Usage
 
@@ -45,12 +158,13 @@ works fine; once deployed (e.g. to Vercel) HTTPS is automatic.
    a beamwidth to draw a sector wedge instead of a line, for planning a
    directional/sector antenna's coverage cone.
 3. Calibrate the imagery once per site: mark an upright object's base and
-   apparent top, then enter its height or press **From shadow** to measure
-   it. Pick targets with **Pick target on map** and give each a height above
+   apparent top, then enter its known height. Automatic shadow estimation is
+   unavailable without a verified capture timestamp. Pick targets with **Pick target on map** and give each a height above
    ground to see its corrected bearing.
 4. If GPS is unavailable or you want to check a different spot, type
-   coordinates directly into the Latitude/Longitude fields — this switches
-   to a manual override; "Use live GPS instead" switches back.
+   coordinates into the position fields and press **Použít souřadnice**.
+   Empty fields do not move the map to zero coordinates. Use the GPS button
+   to return to the device position.
 
 ## What is and isn't distorted
 
@@ -88,8 +202,8 @@ with the sun swapped for the satellite:
 The sun's position is computed astronomically, so measuring a reference
 object's shadow gives its height `h`; with `h` known, that same object's
 observed lean gives the satellite geometry. In the app: mark one upright
-object's **base** and its **apparent top**, supply its height (or press
-**From shadow** to measure it), and every elevated target you pick then gets
+object's **base** and its **apparent top**, supply its known height, and
+every elevated target you pick then gets
 a corrected bearing alongside the raw one.
 
 **Caveats worth keeping in mind.** The shadow measurement is a heuristic —
@@ -110,10 +224,16 @@ off in places, which no amount of lean correction fixes.
 - `lib/relief.ts` — the correction itself: recover the imagery's viewing
   geometry from one reference object, then map an apparent position back to
   its true ground position. Covered by `lib/relief.test.ts`.
-- `lib/mapycz.ts` — resolves the Mapy.cz aerial mapset's tile URL template,
-  attribution, and zoom range from its `tiles.json`, rather than hardcoding
-  them (the docs say the attribution text can change). Covered by
-  `lib/mapycz.test.ts`.
+- `lib/mapycz.ts` — resolves the selected ČÚZK or Mapy.com provider, its
+  tile URL template, attribution and available native zoom range from
+  provider metadata. Covered by `lib/mapycz.test.ts`.
+- `lib/pdf-import.ts`, `lib/read-pdf.ts` — bounded text-PDF parsing and
+  browser extraction; ambiguous values remain available for user review.
+- `lib/projects.ts`, `lib/project-store.ts`, `lib/supabase-client.ts` —
+  project validation, explicit sector completion, authenticated persistence
+  and revision checks.
+- `components/ProjectWorkspace.tsx` — login, project library, reviewed PDF
+  import, editing, and the Rozpracované / Hotové views.
 - `components/AzimuthMap.tsx` — a `react-leaflet` map with an aerial tile
   layer served through this app's own `/api/basemap/{z}/{x}/{y}` proxy (so
   the Mapy.cz API key never reaches the browser), your live GPS marker, the
@@ -138,13 +258,25 @@ off in places, which no amount of lean correction fixes.
 npm test
 ```
 
-Vitest covers the geometry, solar and relief modules — including a
+As of 7 October 2026, **76 tests pass** and the final production build passes.
+The live database checks passed in rollback transactions; eight related checks
+were repeated after changing the revision conflict to HTTP409. Browser tests
+verified a synthetic PDF import, private storage, synchronization between two
+isolated authenticated clients, completion, undo and a stale-revision conflict.
+Real ČÚZK metadata and aerial tiles passed a fresh browser check.
+These checks do not establish physical phone sensor accuracy, screen-reader
+behavior, registration email delivery, or extraction of an unseen customer PDF.
+Temporary QA account/data/credentials were removed. The public Vercel version
+has not been updated. Ensure deployment CI uses Node24.14.0 or newer.
+
+Vitest covers PDF table parsing, project validation/completion, map-provider
+metadata, and the geometry, solar and relief modules — including a
 round-trip that synthesises a lean for a known satellite geometry and checks
 the calibration recovers it, and the hand-worked 2°-at-500 m case above.
 
 ## Deployment
 
-Running live at https://antenna-azimuth-webapp.vercel.app. To deploy your
+The deployment address is https://antenna-azimuth-webapp-sigma.vercel.app. To deploy your
 own copy:
 
 ```bash
@@ -152,7 +284,10 @@ npx vercel --cwd antenna-azimuth-webapp
 ```
 
 or connect the repo in the Vercel dashboard with **Root Directory** set to
-`antenna-azimuth-webapp`. No environment variables are required.
+`antenna-azimuth-webapp`. No key is needed for ČÚZK orthoimagery in Czechia.
+Optionally set `MAPY_CZ_API_KEY` to use Mapy.com instead. If the selected
+upstream service is unavailable, the map falls back to the street layer and
+imagery calibration is disabled.
 
 Note that Vercel enables **Vercel Authentication** on new projects, which
 makes the deployment reachable only by members of the owning team — turn it
@@ -166,7 +301,7 @@ Vercel).
 to production on every push to `main` that touches it, and can also be run
 by hand from the repository's **Actions** tab (*Run workflow*) — which is
 how to redeploy when nothing under `antenna-azimuth-webapp/` has changed.
-Lint and the Vitest suite run first, so a failing test blocks the deploy.
+TypeScript checks and the Vitest suite run first, so a failing check blocks the deploy.
 
 It needs one repository secret, **`VERCEL_TOKEN`** — create it under
 *Vercel → Account Settings → Tokens*, scoped to the team that owns the
@@ -178,3 +313,4 @@ change both values (and the guard) if you run your own copy.
 Because this targets an existing Vercel project through the CLI rather than
 linking the repository in the dashboard, it leaves the project's Deployment
 Protection setting alone — a URL that is already public stays public.
+

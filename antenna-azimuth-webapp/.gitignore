@@ -34,3 +34,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Generated from the pinned PDF.js package by prebuild/predev
+public/pdf.worker.min.mjs

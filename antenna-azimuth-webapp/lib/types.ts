@@ -20,6 +20,9 @@ export interface AzimuthRay {
   azimuthDeg: number;
   distanceM: number;
   beamwidthDeg: number | null;
+  /** Required values from an assignment, not sensor measurements. */
+  mechanicalTiltDeg?: number | null;
+  electricalTiltDeg?: number | null;
   /** When set, the bearing is derived from this point and relief-corrected. */
   target?: RayTarget;
 }

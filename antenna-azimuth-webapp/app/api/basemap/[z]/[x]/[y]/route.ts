@@ -41,12 +41,20 @@ export async function GET(_req: NextRequest, context: { params: Promise<{ z: str
   let upstreamUrl: string;
   try {
     const tileset = await getAerialTileset();
+    if (z < tileset.minZoom || z > tileset.maxZoom) {
+      return new Response("Tile zoom out of range", { status: 400 });
+    }
     upstreamUrl = resolveTileUrl(tileset.tileUrlTemplate, z, wrappedX, y);
   } catch {
     return new Response("Basemap tileset unavailable", { status: 502 });
   }
 
-  const upstream = await fetch(upstreamUrl);
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, { signal: AbortSignal.timeout(8000) });
+  } catch {
+    return new Response("Tile fetch failed", { status: 502 });
+  }
   if (!upstream.ok || !upstream.body) {
     return new Response("Tile fetch failed", { status: upstream.status === 404 ? 404 : 502 });
   }

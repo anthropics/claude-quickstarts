@@ -10,6 +10,8 @@ import type { ImageryCalibration } from "./relief";
 import type { AzimuthRay } from "./types";
 
 export interface SessionState {
+  activeProject?: { id: string; name: string; revision: number } | null;
+  projectNeedsPosition?: boolean;
   origin: LatLon | null;
   rays: AzimuthRay[];
   calibration: ImageryCalibration | null;
