@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { retrieveContext, RAGSource } from "@/app/lib/utils";
+import { retrieveContext, RAGSource, KnowledgeBaseType } from "@/app/lib/utils";
 import crypto from "crypto";
 import customerSupportCategories from "@/app/lib/customer_support_categories.json";
 
@@ -66,7 +66,7 @@ export async function POST(req: Request) {
   const measureTime = (label: string) => logTimestamp(label, apiStart);
 
   // Extract data from the request body
-  const { messages, model, knowledgeBaseId } = await req.json();
+  const { messages, model, knowledgeBaseId, knowledgeBaseType } = await req.json();
   const latestMessage = messages[messages.length - 1].content;
 
   console.log("📝 Latest Query:", latestMessage);
@@ -91,7 +91,7 @@ export async function POST(req: Request) {
   try {
     console.log("🔍 Initiating RAG retrieval for query:", latestMessage);
     measureTime("RAG Start");
-    const result = await retrieveContext(latestMessage, knowledgeBaseId);
+    const result = await retrieveContext(latestMessage, knowledgeBaseId, 3, knowledgeBaseType as KnowledgeBaseType | undefined);
     retrievedContext = result.context;
     isRagWorking = result.isRagWorking;
     ragSources = result.ragSources || [];

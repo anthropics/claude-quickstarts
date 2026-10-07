@@ -28,9 +28,12 @@ Create a `.env.local` file in the root directory with the following variables:
 ANTHROPIC_API_KEY=your_anthropic_api_key
 BAWS_ACCESS_KEY_ID=your_aws_access_key
 BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
+KNOWLEDGE_BASE_TYPE=MANAGED
 ```
 
 Note: We are adding a 'B' in front of the AWS environment variables for a reason that will be discussed later in the deployment section.
+
+The `KNOWLEDGE_BASE_TYPE` variable sets the default retrieval strategy. Set to `MANAGED` for managed knowledge bases (recommended) or `VECTOR` for traditional vector search. This can be overridden per knowledge base via the `type` field in the `knowledgeBases` array in `ChatArea.tsx`.
 
 ##  How to Get Your Keys
 
@@ -68,25 +71,77 @@ Note: Make sure to keep your keys secure and never share them publicly.
 
 ##  Amazon Bedrock RAG Integration
 
-This project utilizes Amazon Bedrock for Retrieval-Augmented Generation (RAG). To set up:
+This project utilizes Amazon Bedrock for Retrieval-Augmented Generation (RAG). It supports both **Managed Knowledge Bases** (recommended) and traditional **Vector Search Knowledge Bases**.
+
+### Knowledge Base Types
+
+| Type | Description | Use Case |
+|------|-------------|----------|
+| `MANAGED` | Fully managed by Bedrock - handles chunking, embedding, indexing, and retrieval automatically | Recommended for most use cases. Simpler setup, no vector store management required. |
+| `VECTOR` | Traditional vector search with manual vector store configuration | Use when you need full control over embedding models and vector store configuration. |
+
+### Setup
 
 1. Ensure you have an AWS account with Bedrock access.
 2. Create a Bedrock knowledge base in your desired AWS region.
 3. Index your documents/sources in the knowledge base. For more info on that, check the "How to Create Your Own Knowledge Base" section.
-4. In `ChatArea.tsx`, update the `knowledgeBases` array with your knowledge base IDs and names:
+4. In `ChatArea.tsx`, update the `knowledgeBases` array with your knowledge base IDs, names, and types:
 
 ```typescript
 const knowledgeBases: KnowledgeBase[] = [
-  { id: "your-knowledge-base-id", name: "Your KB Name" },
+  { id: "your-managed-kb-id", name: "Managed KB", type: "MANAGED" },
+  { id: "your-vector-kb-id", name: "Vector KB", type: "VECTOR" },
   // Add more knowledge bases as needed
 ];
 ```
 
+The `type` field determines which retrieval strategy is used:
+- `"MANAGED"` - Uses `managedSearchConfiguration` for retrieval (recommended)
+- `"VECTOR"` - Uses `vectorSearchConfiguration` for retrieval (legacy)
+
+If `type` is omitted, the application falls back to the `KNOWLEDGE_BASE_TYPE` environment variable, and then defaults to `"VECTOR"` for backward compatibility.
+
+You can also set the default type globally via the environment variable:
+
+```
+KNOWLEDGE_BASE_TYPE=MANAGED
+```
+
 The application will use these knowledge bases for context retrieval during conversations.
 
-### How to Create Your Own Knowledge Base
+### How to Create a Managed Knowledge Base (Recommended)
 
-To create your own knowledge base:
+Managed Knowledge Bases handle the entire RAG pipeline for you, including chunking, embedding, and indexing. This is the recommended approach for new projects.
+
+1. Go to your AWS Console and select [Amazon Bedrock](https://console.aws.amazon.com/bedrock/). In the left side menu, click on "Knowledge bases".
+2. Click **Create Managed Knowledge Base**.
+3. (Optional) Expand "Additional configurations" to set a description, choose embedding model type (Managed is default), configure IAM role, or add KMS encryption.
+4. Under **Data source**, provide a name and select your data source type (Amazon S3, Confluence, SharePoint, Google Drive, OneDrive, Web Crawler, or Custom).
+5. Configure your data source connection settings (e.g., S3 bucket name).
+6. (Optional) Configure chunking strategy and advanced indexing (images, audio, video).
+7. Click **Create Knowledge Base** and wait 2-5 minutes.
+8. Once created, sync your data source to begin indexing.
+9. Copy your knowledge base ID from the overview page and add it to the `knowledgeBases` array in `ChatArea.tsx` with `type: "MANAGED"`.
+
+**Reranking options** for managed search: `MANAGED` (default — automatic), `NONE` (disable reranking), `CUSTOM` (your own Bedrock reranking model e.g. Cohere Rerank v3.5).
+
+**Required IAM Permissions:**
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "bedrock:Retrieve",
+    "bedrock:AgenticRetrieveStream"
+  ],
+  "Resource": "arn:aws:bedrock:<region>:<account-id>:knowledge-base/<kb-id>"
+}
+```
+
+**Resources:** [Build a Managed KB](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-build-managed.html) | [Retrieve API](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-test-retrieve.html) | [Agentic Retrieval](https://docs.aws.amazon.com/bedrock/latest/userguide/kb-test-agentic.html)
+
+### How to Create a Vector Search Knowledge Base (Legacy)
+
+To create your own vector search knowledge base:
 
 1. Go to your AWS Console and select Amazon Bedrock.
 2. In the left side menu, click on "Knowledge base" under "More".
