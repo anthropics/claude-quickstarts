@@ -1,0 +1,59 @@
+name: antenna-azimuth-webapp-deploy
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - antenna-azimuth-webapp/**
+      - .github/workflows/antenna-azimuth-webapp-deploy.yaml
+  # Lets the app be redeployed by hand, which is the only way to ship a change
+  # that doesn't touch antenna-azimuth-webapp/ (this workflow itself included).
+  workflow_dispatch:
+
+# The Vercel project this fork deploys to. These are identifiers rather than
+# credentials — they do nothing without VERCEL_TOKEN — but the repository guard
+# on the job below keeps a fork from pushing builds into someone else's project.
+env:
+  VERCEL_ORG_ID: team_1zPTroyzeMRZQSRHdzNYvn3Z
+  VERCEL_PROJECT_ID: prj_XznBVr0O4X8lMj8t1vhmNGmf1V6L
+  NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+
+jobs:
+  deploy:
+    if: github.repository == 'svobodavid-svg/anthropic-quickstarts'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: antenna-azimuth-webapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Match the app runtime and PDF parser requirements.
+          node-version: 24.14.1
+          cache: npm
+          cache-dependency-path: antenna-azimuth-webapp/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - name: Install Vercel CLI
+        run: npm install --global vercel@62.7.0
+      - name: Resolve existing production project
+        env:
+          VERCEL_DEPLOY_TOKEN: ${{ secrets.TAJEM_1 }}
+        run: node scripts/configure-vercel.mjs
+      - name: Pull project settings
+        working-directory: ${{ github.workspace }}
+        run: vercel pull --yes --environment=production --token=${{ secrets.TAJEM_1 }}
+      - name: Build
+        working-directory: ${{ github.workspace }}
+        run: vercel build --prod --token=${{ secrets.TAJEM_1 }}
+      # --prebuilt uploads the build above rather than rebuilding on Vercel, so
+      # what ships is exactly what the test steps just ran against.
+      - name: Deploy to production
+        working-directory: ${{ github.workspace }}
+        run: vercel deploy --prebuilt --prod --token=${{ secrets.TAJEM_1 }}
+
+
+
