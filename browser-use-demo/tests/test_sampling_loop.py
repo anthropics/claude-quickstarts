@@ -6,7 +6,11 @@ import asyncio
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from browser_use_demo.loop import APIProvider, sampling_loop
+from browser_use_demo.loop import (
+    APIProvider,
+    _maybe_filter_to_n_most_recent_images,
+    sampling_loop,
+)
 from browser_use_demo.message_handler import (
     MessageBuilder,
     ResponseProcessor,
@@ -508,5 +512,210 @@ class TestSamplingLoopIntegration:
             call_args = mock_client.beta.messages.create.call_args[1]
             assert "tool_choice" in call_args
             assert call_args["tool_choice"] == {"type": "auto"}
+
+        asyncio.run(run_test())
+
+
+class TestFilterImages:
+    """Test image filtering for context window management."""
+
+    def test_invalid_images_to_keep_raises(self):
+        """Test that images_to_keep <= 0 raises ValueError."""
+        messages = [{"role": "user", "content": "hello"}]
+        with pytest.raises(ValueError, match="images_to_keep must be > 0"):
+            _maybe_filter_to_n_most_recent_images(messages, 0)
+        with pytest.raises(ValueError, match="images_to_keep must be > 0"):
+            _maybe_filter_to_n_most_recent_images(messages, -1)
+
+    def test_filter_tool_result_screenshots(self):
+        """Test filtering images nested inside tool_result blocks."""
+        def make_tool_result_msg(id_num: int, has_image: bool = True):
+            content = [{"type": "text", "text": f"Output {id_num}"}]
+            if has_image:
+                content.append({
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/png", "data": f"img_{id_num}"},
+                })
+            return {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": f"call_{id_num}",
+                        "content": content,
+                    }
+                ],
+            }
+
+        messages = [
+            {"role": "user", "content": "Start browsing"},
+            {"role": "assistant", "content": [{"type": "text", "text": "Step 1"}]},
+            make_tool_result_msg(1),
+            {"role": "assistant", "content": [{"type": "text", "text": "Step 2"}]},
+            make_tool_result_msg(2),
+            {"role": "assistant", "content": [{"type": "text", "text": "Step 3"}]},
+            make_tool_result_msg(3),
+            {"role": "assistant", "content": [{"type": "text", "text": "Step 4"}]},
+            make_tool_result_msg(4),
+        ]
+
+        # Total 4 screenshots. Filter to keep only 2.
+        _maybe_filter_to_n_most_recent_images(messages, images_to_keep=2)
+
+        # Count remaining images and verify their sources
+        remaining_images = []
+        for msg in messages:
+            if msg["role"] == "user" and isinstance(msg.get("content"), list):
+                for block in msg["content"]:
+                    if block.get("type") == "tool_result" and isinstance(block.get("content"), list):
+                        for item in block["content"]:
+                            if item.get("type") == "image":
+                                remaining_images.append(item["source"]["data"])
+
+        assert len(remaining_images) == 2
+        # The oldest two (img_1, img_2) were removed; img_3 and img_4 remain
+        assert remaining_images == ["img_3", "img_4"]
+
+        # Ensure text output in tool results is preserved even when image is removed
+        first_tool_res = messages[2]["content"][0]["content"]
+        assert any(b.get("type") == "text" and b.get("text") == "Output 1" for b in first_tool_res)
+        assert not any(b.get("type") == "image" for b in first_tool_res)
+
+    def test_filter_top_level_images(self):
+        """Test filtering top-level image blocks in user messages."""
+        messages = [
+            {"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "top_1"}},
+                {"type": "text", "text": "Look at this"},
+            ]},
+            {"role": "assistant", "content": [{"type": "text", "text": "Got it"}]},
+            {"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "top_2"}},
+            ]},
+            {"role": "assistant", "content": [{"type": "text", "text": "Next"}]},
+            {"role": "user", "content": [
+                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "top_3"}},
+            ]},
+        ]
+
+        _maybe_filter_to_n_most_recent_images(messages, images_to_keep=1)
+
+        remaining_images = [
+            block["source"]["data"]
+            for msg in messages
+            if msg["role"] == "user" and isinstance(msg.get("content"), list)
+            for block in msg["content"]
+            if block.get("type") == "image"
+        ]
+        assert remaining_images == ["top_3"]
+
+    def test_min_removal_threshold(self):
+        """Test min_removal_threshold suppresses removal if threshold not met."""
+        messages = [
+            {"role": "user", "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": f"call_{i}",
+                    "content": [{"type": "image", "source": {"data": f"img_{i}"}}],
+                }
+                for i in range(3)
+            ]}
+        ]
+
+        # Total 3 images, keep 2 -> 1 to remove. With min_removal_threshold=2, no removal happens.
+        _maybe_filter_to_n_most_recent_images(messages, images_to_keep=2, min_removal_threshold=2)
+
+        count = sum(
+            1
+            for msg in messages
+            if msg["role"] == "user" and isinstance(msg.get("content"), list)
+            for block in msg["content"]
+            if block.get("type") == "tool_result" and isinstance(block.get("content"), list)
+            for item in block["content"]
+            if item.get("type") == "image"
+        )
+        assert count == 3
+
+    @patch("browser_use_demo.loop.Anthropic")
+    def test_sampling_loop_invokes_image_filtering(self, mock_anthropic):
+        """Test that sampling_loop filters screenshots when only_n_most_recent_images is set."""
+        async def run_test():
+            mock_client = Mock()
+            mock_anthropic.return_value = mock_client
+            mock_response = Mock()
+            mock_response.content = [Mock(type="text", text="Done")]
+            mock_client.beta.messages.create = Mock(return_value=mock_response)
+
+            messages = [
+                {"role": "user", "content": "Browse test"},
+                {"role": "assistant", "content": [{"type": "text", "text": "Visiting"}]},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_1",
+                            "content": [
+                                {"type": "text", "text": "Loaded 1"},
+                                {"type": "image", "source": {"data": "shot_1"}},
+                            ],
+                        }
+                    ],
+                },
+                {"role": "assistant", "content": [{"type": "text", "text": "Clicked"}]},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_2",
+                            "content": [
+                                {"type": "text", "text": "Loaded 2"},
+                                {"type": "image", "source": {"data": "shot_2"}},
+                            ],
+                        }
+                    ],
+                },
+                {"role": "assistant", "content": [{"type": "text", "text": "Typed"}]},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "tool_result",
+                            "tool_use_id": "call_3",
+                            "content": [
+                                {"type": "text", "text": "Loaded 3"},
+                                {"type": "image", "source": {"data": "shot_3"}},
+                            ],
+                        }
+                    ],
+                },
+            ]
+
+            await sampling_loop(
+                model="claude-sonnet-4-5",
+                provider=APIProvider.ANTHROPIC,
+                system_prompt_suffix="",
+                messages=messages,
+                output_callback=lambda x: None,
+                tool_output_callback=lambda r, i: None,
+                api_response_callback=lambda *args: None,
+                api_key="test_key",
+                only_n_most_recent_images=1,
+            )
+
+            # Check messages sent to API call
+            sent_messages = mock_client.beta.messages.create.call_args[1]["messages"]
+            sent_images = []
+            for msg in sent_messages:
+                if msg["role"] == "user" and isinstance(msg.get("content"), list):
+                    for block in msg["content"]:
+                        if block.get("type") == "tool_result" and isinstance(block.get("content"), list):
+                            for item in block["content"]:
+                                if item.get("type") == "image":
+                                    sent_images.append(item["source"]["data"])
+
+            # Only the most recent screenshot (shot_3) should have been retained
+            assert sent_images == ["shot_3"]
 
         asyncio.run(run_test())
