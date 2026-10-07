@@ -4,6 +4,7 @@ echo "starting vnc"
 (x11vnc -display $DISPLAY \
     -forever \
     -shared \
+    -threads \
     -wait 50 \
     -rfbport 5900 \
     -nopw \
