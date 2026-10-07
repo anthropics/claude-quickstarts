@@ -1,681 +1,1028 @@
 <project_specification>
-  <project_name>Claude.ai Clone - AI Chat Interface</project_name>
+  <project_name>Yummy Tummy - Privacy-First Grocery Inventory & AI Meal Recommendations</project_name>
 
   <overview>
-    Build a fully functional clone of claude.ai, Anthropic's conversational AI interface. The application should
-    provide a clean, modern chat interface for interacting with Claude via the API, including features like
-    conversation management, artifact rendering, project organization, multiple model selection, and advanced
-    settings. The UI should closely match claude.ai's design using Tailwind CSS with a focus on excellent
-    user experience and responsive design.
+    Build a comprehensive grocery inventory management and AI-powered meal recommendation application that solves the daily "dinner decision crisis" (4-6pm paralysis). The application eliminates uncertainty about available ingredients and meal preferences through intelligent inventory tracking, local LLM-powered recommendations, and privacy-first data handling. Core principle: "Anticipate needs without interrupting life" - be quietly proactive, never nagging.
+
+    Key differentiators: Local AI processing (Ollama), time-aware caching optimization, URL-driven state management, and mobile-first responsive design for real-world usage patterns.
   </overview>
 
-  <technology_stack>
-    <api_key>
-        You can use an API key located at /tmp/api-key for testing. You will not be allowed to read this file, but you can reference it in code.
-    </api_key>
-    <frontend>
-      <framework>React with Vite</framework>
-      <styling>Tailwind CSS (via CDN)</styling>
-      <state_management>React hooks and context</state_management>
-      <routing>React Router for navigation</routing>
-      <markdown>React Markdown for message rendering</markdown>
-      <code_highlighting>Syntax highlighting for code blocks</code_highlighting>
-      <port>Only launch on port {frontend_port}</port>
-    </frontend>
-    <backend>
-      <runtime>Node.js with Express</runtime>
-      <database>SQLite with better-sqlite3</database>
-      <api_integration>Claude API for chat completions</api_integration>
-      <streaming>Server-Sent Events for streaming responses</streaming>
-    </backend>
-    <communication>
-      <api>RESTful endpoints</api>
-      <streaming>SSE for real-time message streaming</streaming>
-      <claude_api>Integration with Claude API using Anthropic SDK</claude_api>
-    </communication>
-  </technology_stack>
+  <vision_statement>
+    "Eliminate the daily dinner decision crisis by instantly connecting what you want with what you can make, encouraging home cooking over convenience alternatives."
+  </vision_statement>
 
-  <prerequisites>
-    <environment_setup>
-      - Repository includes .env with VITE_ANTHROPIC_API_KEY configured
-      - Frontend dependencies pre-installed via pnpm
-      - Backend code goes in /server directory
-      - Install backend dependencies as needed
-    </environment_setup>
-  </prerequisites>
-
-  <core_features>
-    <chat_interface>
-      - Clean, centered chat layout with message bubbles
-      - Streaming message responses with typing indicator
-      - Markdown rendering with proper formatting
-      - Code blocks with syntax highlighting and copy button
-      - LaTeX/math equation rendering
-      - Image upload and display in messages
-      - Multi-turn conversations with context
-      - Message editing and regeneration
-      - Stop generation button during streaming
-      - Input field with auto-resize textarea
-      - Character count and token estimation
-      - Keyboard shortcuts (Enter to send, Shift+Enter for newline)
-    </chat_interface>
-
-    <artifacts>
-      - Artifact detection and rendering in side panel
-      - Code artifact viewer with syntax highlighting
-      - HTML/SVG preview with live rendering
-      - React component preview
-      - Mermaid diagram rendering
-      - Text document artifacts
-      - Artifact editing and re-prompting
-      - Full-screen artifact view
-      - Download artifact content
-      - Artifact versioning and history
-    </artifacts>
-
-    <conversation_management>
-      - Create new conversations
-      - Conversation list in sidebar
-      - Rename conversations
-      - Delete conversations
-      - Search conversations by title/content
-      - Pin important conversations
-      - Archive conversations
-      - Conversation folders/organization
-      - Duplicate conversation
-      - Export conversation (JSON, Markdown, PDF)
-      - Conversation timestamps (created, last updated)
-      - Unread message indicators
-    </conversation_management>
-
-    <projects>
-      - Create projects to group related conversations
-      - Project knowledge base (upload documents)
-      - Project-specific custom instructions
-      - Share projects with team (mock feature)
-      - Project settings and configuration
-      - Move conversations between projects
-      - Project templates
-      - Project analytics (usage stats)
-    </projects>
-
-    <model_selection>
-      - Model selector dropdown with the following models:
-        - Claude Sonnet 4.5 (claude-sonnet-4-5-20250929) - default
-        - Claude Haiku 4.5 (claude-haiku-4-5-20251001)
-        - Claude Opus 4.1 (claude-opus-4-1-20250805)
-      - Model capabilities display
-      - Context window indicator
-      - Model-specific pricing info (display only)
-      - Switch models mid-conversation
-      - Model comparison view
-    </model_selection>
-
-    <custom_instructions>
-      - Global custom instructions
-      - Project-specific custom instructions
-      - Conversation-specific system prompts
-      - Custom instruction templates
-      - Preview how instructions affect responses
-    </custom_instructions>
-
-    <settings_preferences>
-      - Theme selection (Light, Dark, Auto)
-      - Font size adjustment
-      - Message density (compact, comfortable, spacious)
-      - Code theme selection
-      - Language preferences
-      - Accessibility options
-      - Keyboard shortcuts reference
-      - Data export options
-      - Privacy settings
-      - API key management
-    </settings_preferences>
-
-    <advanced_features>
-      - Temperature control slider
-      - Max tokens adjustment
-      - Top-p (nucleus sampling) control
-      - System prompt override
-      - Thinking/reasoning mode toggle
-      - Multi-modal input (text + images)
-      - Voice input (optional, mock UI)
-      - Response suggestions
-      - Related prompts
-      - Conversation branching
-    </advanced_features>
-
-    <collaboration>
-      - Share conversation via link (read-only)
-      - Export conversation formats
-      - Conversation templates
-      - Prompt library
-      - Share artifacts
-      - Team workspaces (mock UI)
-    </collaboration>
-
-    <search_discovery>
-      - Search across all conversations
-      - Filter by project, date, model
-      - Prompt library with categories
-      - Example conversations
-      - Quick actions menu
-      - Command palette (Cmd/Ctrl+K)
-    </search_discovery>
-
-    <usage_tracking>
-      - Token usage display per message
-      - Conversation cost estimation
-      - Daily/monthly usage dashboard
-      - Usage limits and warnings
-      - API quota tracking
-    </usage_tracking>
-
-    <onboarding>
-      - Welcome screen for new users
-      - Feature tour highlights
-      - Example prompts to get started
-      - Quick tips and best practices
-      - Keyboard shortcuts tutorial
-    </onboarding>
-
-    <accessibility>
-      - Full keyboard navigation
-      - Screen reader support
-      - ARIA labels and roles
-      - High contrast mode
-      - Focus management
-      - Reduced motion support
-    </accessibility>
-
-    <responsive_design>
-      - Mobile-first responsive layout
-      - Touch-optimized interface
-      - Collapsible sidebar on mobile
-      - Swipe gestures for navigation
-      - Adaptive artifact display
-      - Progressive Web App (PWA) support
-    </responsive_design>
-  </core_features>
-
-  <database_schema>
-    <tables>
-      <users>
-        - id, email, name, avatar_url
-        - created_at, last_login
-        - preferences (JSON: theme, font_size, etc.)
-        - custom_instructions
-      </users>
-
-      <projects>
-        - id, user_id, name, description, color
-        - custom_instructions, knowledge_base_path
-        - created_at, updated_at
-        - is_archived, is_pinned
-      </projects>
-
-      <conversations>
-        - id, user_id, project_id, title
-        - model, created_at, updated_at, last_message_at
-        - is_archived, is_pinned, is_deleted
-        - settings (JSON: temperature, max_tokens, etc.)
-        - token_count, message_count
-      </conversations>
-
-      <messages>
-        - id, conversation_id, role (user/assistant/system)
-        - content, created_at, edited_at
-        - tokens, finish_reason
-        - images (JSON array of image data)
-        - parent_message_id (for branching)
-      </messages>
-
-      <artifacts>
-        - id, message_id, conversation_id
-        - type (code/html/svg/react/mermaid/text)
-        - title, identifier, language
-        - content, version
-        - created_at, updated_at
-      </artifacts>
-
-      <shared_conversations>
-        - id, conversation_id, share_token
-        - created_at, expires_at, view_count
-        - is_public
-      </shared_conversations>
-
-      <prompt_library>
-        - id, user_id, title, description
-        - prompt_template, category, tags (JSON)
-        - is_public, usage_count
-        - created_at, updated_at
-      </prompt_library>
-
-      <conversation_folders>
-        - id, user_id, project_id, name, parent_folder_id
-        - created_at, position
-      </conversation_folders>
-
-      <conversation_folder_items>
-        - id, folder_id, conversation_id
-      </conversation_folder_items>
-
-      <usage_tracking>
-        - id, user_id, conversation_id, message_id
-        - model, input_tokens, output_tokens
-        - cost_estimate, created_at
-      </usage_tracking>
-
-      <api_keys>
-        - id, user_id, key_name, api_key_hash
-        - created_at, last_used_at
-        - is_active
-      </api_keys>
-    </tables>
-  </database_schema>
-
-  <api_endpoints_summary>
-    <authentication>
-      - POST /api/auth/login
-      - POST /api/auth/logout
-      - GET /api/auth/me
-      - PUT /api/auth/profile
-    </authentication>
-
-    <conversations>
-      - GET /api/conversations
-      - POST /api/conversations
-      - GET /api/conversations/:id
-      - PUT /api/conversations/:id
-      - DELETE /api/conversations/:id
-      - POST /api/conversations/:id/duplicate
-      - POST /api/conversations/:id/export
-      - PUT /api/conversations/:id/archive
-      - PUT /api/conversations/:id/pin
-      - POST /api/conversations/:id/branch
-    </conversations>
-
-    <messages>
-      - GET /api/conversations/:id/messages
-      - POST /api/conversations/:id/messages
-      - PUT /api/messages/:id
-      - DELETE /api/messages/:id
-      - POST /api/messages/:id/regenerate
-      - GET /api/messages/stream (SSE endpoint)
-    </messages>
-
-    <artifacts>
-      - GET /api/conversations/:id/artifacts
-      - GET /api/artifacts/:id
-      - PUT /api/artifacts/:id
-      - DELETE /api/artifacts/:id
-      - POST /api/artifacts/:id/fork
-      - GET /api/artifacts/:id/versions
-    </artifacts>
-
-    <projects>
-      - GET /api/projects
-      - POST /api/projects
-      - GET /api/projects/:id
-      - PUT /api/projects/:id
-      - DELETE /api/projects/:id
-      - POST /api/projects/:id/knowledge
-      - GET /api/projects/:id/conversations
-      - PUT /api/projects/:id/settings
-    </projects>
-
-    <sharing>
-      - POST /api/conversations/:id/share
-      - GET /api/share/:token
-      - DELETE /api/share/:token
-      - PUT /api/share/:token/settings
-    </sharing>
-
-    <prompts>
-      - GET /api/prompts/library
-      - POST /api/prompts/library
-      - GET /api/prompts/:id
-      - PUT /api/prompts/:id
-      - DELETE /api/prompts/:id
-      - GET /api/prompts/categories
-      - GET /api/prompts/examples
-    </prompts>
-
-    <search>
-      - GET /api/search/conversations?q=query
-      - GET /api/search/messages?q=query
-      - GET /api/search/artifacts?q=query
-      - GET /api/search/prompts?q=query
-    </search>
-
-    <folders>
-      - GET /api/folders
-      - POST /api/folders
-      - PUT /api/folders/:id
-      - DELETE /api/folders/:id
-      - POST /api/folders/:id/items
-      - DELETE /api/folders/:id/items/:conversationId
-    </folders>
-
-    <usage>
-      - GET /api/usage/daily
-      - GET /api/usage/monthly
-      - GET /api/usage/by-model
-      - GET /api/usage/conversations/:id
-    </usage>
-
-    <settings>
-      - GET /api/settings
-      - PUT /api/settings
-      - GET /api/settings/custom-instructions
-      - PUT /api/settings/custom-instructions
-    </settings>
-
-    <claude_api>
-      - POST /api/claude/chat (proxy to Claude API)
-      - POST /api/claude/chat/stream (streaming proxy)
-      - GET /api/claude/models
-      - POST /api/claude/images/upload
-    </claude_api>
-  </api_endpoints_summary>
-
-  <ui_layout>
-    <main_structure>
-      - Three-column layout: sidebar (conversations), main (chat), panel (artifacts)
-      - Collapsible sidebar with resize handle
-      - Responsive breakpoints: mobile (single column), tablet (two column), desktop (three column)
-      - Persistent header with project/model selector
-      - Bottom input area with send button and options
-    </main_structure>
-
-    <sidebar_left>
-      - New chat button (prominent)
-      - Project selector dropdown
-      - Search conversations input
-      - Conversations list (grouped by date: Today, Yesterday, Previous 7 days, etc.)
-      - Folder tree view (collapsible)
-      - Settings gear icon at bottom
-      - User profile at bottom
-    </sidebar_left>
-
-    <main_chat_area>
-      - Conversation title (editable inline)
-      - Model selector badge
-      - Message history (scrollable)
-      - Welcome screen for new conversations
-      - Suggested prompts (empty state)
-      - Input area with formatting toolbar
-      - Attachment button for images
-      - Send button with loading state
-      - Stop generation button
-    </main_chat_area>
-
-    <artifacts_panel>
-      - Artifact header with title and type badge
-      - Code editor or preview pane
-      - Tabs for multiple artifacts
-      - Full-screen toggle
-      - Download button
-      - Edit/Re-prompt button
-      - Version selector
-      - Close panel button
-    </artifacts_panel>
-
-    <modals_overlays>
-      - Settings modal (tabbed interface)
-      - Share conversation modal
-      - Export options modal
-      - Project settings modal
-      - Prompt library modal
-      - Command palette overlay
-      - Keyboard shortcuts reference
-    </modals_overlays>
-  </ui_layout>
-
-  <design_system>
-    <color_palette>
-      - Primary: Orange/amber accent (#CC785C claude-style)
-      - Background: White (light mode), Dark gray (#1A1A1A dark mode)
-      - Surface: Light gray (#F5F5F5 light), Darker gray (#2A2A2A dark)
-      - Text: Near black (#1A1A1A light), Off-white (#E5E5E5 dark)
-      - Borders: Light gray (#E5E5E5 light), Dark gray (#404040 dark)
-      - Code blocks: Monaco editor theme
-    </color_palette>
-
-    <typography>
-      - Sans-serif system font stack (Inter, SF Pro, Roboto, system-ui)
-      - Headings: font-semibold
-      - Body: font-normal, leading-relaxed
-      - Code: Monospace (JetBrains Mono, Consolas, Monaco)
-      - Message text: text-base (16px), comfortable line-height
-    </typography>
-
-    <components>
-      <message_bubble>
-        - User messages: Right-aligned, subtle background
-        - Assistant messages: Left-aligned, no background
-        - Markdown formatting with proper spacing
-        - Inline code with bg-gray-100 background
-        - Code blocks with syntax highlighting
-        - Copy button on code blocks
-      </message_bubble>
-
-      <buttons>
-        - Primary: Orange/amber background, white text, rounded
-        - Secondary: Border style with hover fill
-        - Icon buttons: Square with hover background
-        - Disabled state: Reduced opacity, no pointer events
-      </buttons>
-
-      <inputs>
-        - Rounded borders with focus ring
-        - Textarea auto-resize
-        - Placeholder text in gray
-        - Error states in red
-        - Character counter
-      </inputs>
-
-      <cards>
-        - Subtle border or shadow
-        - Rounded corners (8px)
-        - Padding: p-4 to p-6
-        - Hover state: slight shadow increase
-      </cards>
-    </components>
-
-    <animations>
-      - Smooth transitions (150-300ms)
-      - Fade in for new messages
-      - Slide in for sidebar
-      - Typing indicator animation
-      - Loading spinner for generation
-      - Skeleton loaders for content
-    </animations>
-  </design_system>
-
-  <key_interactions>
-    <message_flow>
-      1. User types message in input field
-      2. Optional: Attach images via button
-      3. Click send or press Enter
-      4. Message appears in chat immediately
-      5. Typing indicator shows while waiting
-      6. Response streams in word by word
-      7. Code blocks render with syntax highlighting
-      8. Artifacts detected and rendered in side panel
-      9. Message complete, enable regenerate option
-    </message_flow>
-
-    <artifact_flow>
-      1. Assistant generates artifact in response
-      2. Artifact panel slides in from right
-      3. Content renders (code with highlighting or live preview)
-      4. User can edit artifact inline
-      5. "Re-prompt" button to iterate with Claude
-      6. Download or copy artifact content
-      7. Full-screen mode for detailed work
-      8. Close panel to return to chat focus
-    </artifact_flow>
-
-    <conversation_management>
-      1. Click "New Chat" to start fresh conversation
-      2. Conversations auto-save with first message
-      3. Auto-generate title from first exchange
-      4. Click title to rename inline
-      5. Drag conversations into folders
-      6. Right-click for context menu (pin, archive, delete, export)
-      7. Search filters conversations in real-time
-      8. Click conversation to switch context
-    </conversation_management>
-  </key_interactions>
-
-  <implementation_steps>
-    <step number="1">
-      <title>Setup Project Foundation and Database</title>
-      <tasks>
-        - Initialize Express server with SQLite database
-        - Set up Claude API client with streaming support
-        - Create database schema with migrations
-        - Implement authentication endpoints
-        - Set up basic CORS and middleware
-        - Create health check endpoint
-      </tasks>
-    </step>
-
-    <step number="2">
-      <title>Build Core Chat Interface</title>
-      <tasks>
-        - Create main layout with sidebar and chat area
-        - Implement message display with markdown rendering
-        - Add streaming message support with SSE
-        - Build input area with auto-resize textarea
-        - Add code block syntax highlighting
-        - Implement stop generation functionality
-        - Add typing indicators and loading states
-      </tasks>
-    </step>
-
-    <step number="3">
-      <title>Conversation Management</title>
-      <tasks>
-        - Create conversation list in sidebar
-        - Implement new conversation creation
-        - Add conversation switching
-        - Build conversation rename functionality
-        - Implement delete with confirmation
-        - Add conversation search
-        - Create conversation grouping by date
-      </tasks>
-    </step>
-
-    <step number="4">
-      <title>Artifacts System</title>
-      <tasks>
-        - Build artifact detection from Claude responses
-        - Create artifact rendering panel
-        - Implement code artifact viewer
-        - Add HTML/SVG live preview
-        - Build artifact editing interface
-        - Add artifact versioning
-        - Implement full-screen artifact view
-      </tasks>
-    </step>
-
-    <step number="5">
-      <title>Projects and Organization</title>
-      <tasks>
-        - Create projects CRUD endpoints
-        - Build project selector UI
-        - Implement project-specific custom instructions
-        - Add folder system for conversations
-        - Create drag-and-drop organization
-        - Build project settings panel
-      </tasks>
-    </step>
-
-    <step number="6">
-      <title>Advanced Features</title>
-      <tasks>
-        - Add model selection dropdown
-        - Implement temperature and parameter controls
-        - Build image upload functionality
-        - Create message editing and regeneration
-        - Add conversation branching
-        - Implement export functionality
-      </tasks>
-    </step>
-
-    <step number="7">
-      <title>Settings and Customization</title>
-      <tasks>
-        - Build settings modal with tabs
-        - Implement theme switching (light/dark)
-        - Add custom instructions management
-        - Create keyboard shortcuts
-        - Build prompt library
-        - Add usage tracking dashboard
-      </tasks>
-    </step>
-
-    <step number="8">
-      <title>Sharing and Collaboration</title>
-      <tasks>
-        - Implement conversation sharing with tokens
-        - Create public share view
-        - Add export to multiple formats
-        - Build prompt templates
-        - Create example conversations
-      </tasks>
-    </step>
-
-    <step number="9">
-      <title>Polish and Optimization</title>
-      <tasks>
-        - Optimize for mobile responsiveness
-        - Add command palette (Cmd+K)
-        - Implement comprehensive keyboard navigation
-        - Add onboarding flow
-        - Create accessibility improvements
-        - Performance optimization and caching
-      </tasks>
-    </step>
-  </implementation_steps>
+  <core_problem>
+    The daily 4-6pm crisis of "What's for dinner?" when uncertainty about preferences + available ingredients = takeout default due to decision paralysis.
+  </core_problem>
 
   <success_criteria>
-    <functionality>
-      - Streaming chat responses work smoothly
-      - Artifact detection and rendering accurate
-      - Conversation management intuitive and reliable
-      - Project organization clear and useful
-      - Image upload and display working
-      - All CRUD operations functional
-    </functionality>
-
-    <user_experience>
-      - Interface matches claude.ai design language
-      - Responsive on all device sizes
-      - Smooth animations and transitions
-      - Fast response times and minimal lag
-      - Intuitive navigation and workflows
-      - Clear feedback for all actions
-    </user_experience>
-
-    <technical_quality>
-      - Clean, maintainable code structure
-      - Proper error handling throughout
-      - Secure API key management
-      - Optimized database queries
-      - Efficient streaming implementation
-      - Comprehensive testing coverage
-    </technical_quality>
-
-    <design_polish>
-      - Consistent with claude.ai visual design
-      - Beautiful typography and spacing
-      - Smooth animations and micro-interactions
-      - Excellent contrast and accessibility
-      - Professional, polished appearance
-      - Dark mode fully implemented
-    </design_polish>
+    <speed>Sub-second response when user asks "what can I make?"</speed>
+    <responsiveness>Light client, runs well on older/less powerful devices</responsiveness>
+    <relevance>High user satisfaction with AI suggestions</relevance>
+    <behavioral_change>Measurable increase in home cooking frequency</behavioral_change>
+    <privacy>Zero personal data exposure/monetization</privacy>
+    <simplicity>Inventory updates take less than 30 seconds</simplicity>
   </success_criteria>
+
+  <target_users>
+    <primary>Busy individuals/families who want to cook at home</primary>
+    <secondary>People facing daily dinner decision fatigue</secondary>
+    <tertiary>Users prioritizing privacy in food/lifestyle data</tertiary>
+    <usage_pattern>Mobile-first users in dinner planning crisis (4-6pm)</usage_pattern>
+  </target_users>
+
+  <technology_stack>
+    <backend>
+      <framework>FastAPI with async/await patterns</framework>
+      <language>Python 3.13+</language>
+      <build_system>Hatchling (modern Python packaging)</build_system>
+      <web_server>Uvicorn ASGI server</web_server>
+      <services>auth, inventory, recipe, recommendation, user</services>
+      <entry_point>backend/main.py</entry_point>
+    </backend>
+    
+    <database>
+      <primary>MongoDB (multi-database setup)</primary>
+      <databases>
+        <app_data>yummy_tummy_dev: Application data (users, inventory, recipes)</app_data>
+        <reference_data>usda_fooddata: USDA food database (452,998 records)</reference_data>
+        <testing>yummy_tummy_test: Testing isolation</testing>
+      </databases>
+      <caching>Redis for session management and recommendation pre-computation</caching>
+      <orm>Motor + Beanie (async MongoDB ODM)</orm>
+    </database>
+
+    <ai_llm>
+      <provider>Local Ollama (privacy-first)</provider>
+      <model>gpt-oss:20b for intelligent meal recommendations</model>
+      <timeout>60-second timeout with graceful fallbacks</timeout>
+      <structured_output>JSON responses with validation</structured_output>
+      <privacy>All AI processing happens locally, no external API calls</privacy>
+    </ai_llm>
+
+    <frontend>
+      <framework>SvelteKit with TypeScript (Svelte 5 with runes mode)</framework>
+      <architecture>Hybrid SSR/SSG leveraging SvelteKit's full feature set</architecture>
+      <styling>Pure CSS with inline styles (eventually deduplicate)</styling>
+      <testing>Vitest with Happy DOM (178 tests across 14 test files)</testing>
+      <api_client>Custom client with auth token management (src/lib/api/client.ts)</api_client>
+      <port>Fixed to 5173 with strictPort: true</port>
+      <state_management>Svelte 5 runes with centralized AppStore class (app.svelte.ts)</state_management>
+      <documentation>/docs/svelte_llms_full.txt and /docs/sveltekit/llms.txt</documentation>
+    </frontend>
+
+    <authentication>
+      <method>JWT tokens with bcrypt password hashing</method>
+      <expiration>24-hour token expiration</expiration>
+      <storage>Secure cookies (httpOnly, secure, sameSite)</storage>
+      <algorithm>HS256</algorithm>
+    </authentication>
+
+    <development>
+      <containerization>Docker Compose for full stack development</containerization>
+      <code_quality>Ruff for Python linting/formatting</code_quality>
+      <testing>pytest + pytest-asyncio for backend, Vitest for frontend</testing>
+      <ci_cd>GitHub Actions with environment-specific secrets</ci_cd>
+    </development>
+  </technology_stack>
+
+  <architectural_principles>
+    <svelte_5_runes>
+      <critical_requirements>
+        <state>Use `let value = $state(initialValue)` for reactive state</state>
+        <derived>Use `const computed = $derived(expression)` for computed values</derived>
+        <effects>Use `$effect(() => { ... })` for side effects</effects>
+        <legacy_forbidden>Never use `$:` reactive statements - use `$derived` instead</legacy_forbidden>
+        <stores_forbidden>Avoid legacy Svelte stores, use runes and class-based stores</stores_forbidden>
+        <compliance_alert>Flag any Svelte syntax that is not version 5 compliant</compliance_alert>
+      </critical_requirements>
+    </svelte_5_runes>
+
+    <url_driven_state>
+      <core_principle>URL parameters are the single source of truth for all stateful UI components</core_principle>
+      <implementation_pattern>
+        <state_derivation>Derive all state from URL parameters using $derived</state_derivation>
+        <controlled_inputs>Use controlled inputs that display derived state but don't bind to it</controlled_inputs>
+        <direct_url_updates>Event handlers update URL parameters immediately (no setTimeout)</direct_url_updates>
+        <single_effect>Single $effect for business logic reactions</single_effect>
+      </implementation_pattern>
+      <anti_patterns>
+        <no_bind_value>Never use `bind:value` with derived state (creates circular dependencies)</no_bind_value>
+        <no_derived_reading>Never read derived state to update URL (creates circular dependencies)</no_derived_reading>
+        <no_settimeout>Never use setTimeout debouncing in URL updates (creates race conditions)</no_settimeout>
+        <no_dual_state>Never maintain local state parallel to URL state (synchronization complexity)</no_dual_state>
+      </anti_patterns>
+      <benefits>
+        <no_race_conditions>Single source of truth eliminates synchronization issues</no_race_conditions>
+        <browser_navigation>Back/forward buttons work automatically</browser_navigation>
+        <shareable_urls>Filter/search state persists in URLs</shareable_urls>
+        <ssr_compatible>State works with server-side rendering</ssr_compatible>
+        <simple_logic>Unidirectional data flow is easier to reason about</simple_logic>
+        <performance>SvelteKit optimizes rapid URL updates automatically</performance>
+      </benefits>
+    </url_driven_state>
+
+    <beanie_query_syntax>
+      <critical_requirements>
+        <dictionary_syntax>Use `Model.find({"field": value})` for queries</dictionary_syntax>
+        <complex_queries>Use `{"field": {"$operator": value}}` for MongoDB operators</complex_queries>
+        <consistent_pattern>All queries in the same file should use the same syntax</consistent_pattern>
+        <field_access_forbidden>Avoid `Model.find(Model.field == value)` - proved unreliable in testing</field_access_forbidden>
+        <no_mixed_patterns>Don't mix dictionary and field access syntax in the same file</no_mixed_patterns>
+        <rationale>Dictionary syntax is more reliable, works consistently across all scenarios, and matches MongoDB's native query language</rationale>
+      </critical_requirements>
+    </beanie_query_syntax>
+
+    <logging_standards>
+      <critical_requirements>
+        <component_loggers>Use `createLogger(componentName)` for all components and services</component_loggers>
+        <proper_log_levels>debug (development), info (user actions), warn (recoverable issues), error (failures)</proper_log_levels>
+        <structured_context>Include relevant data objects for debugging</structured_context>
+        <environment_aware>Uses SvelteKit's `dev` flag for reliable environment detection</environment_aware>
+        <no_direct_console>Never use `console.*` directly (except within the logger utility itself)</no_direct_console>
+        <no_production_noise>Avoid verbose logging in production (logger handles this automatically)</no_production_noise>
+      </critical_requirements>
+    </logging_standards>
+
+    <time_aware_caching>
+      <architecture_principle>Database-first with Redis as performance cache only during high-usage periods</architecture_principle>
+      <cost_optimization>Reduces Redis usage by ~80% for consumption-based pricing</cost_optimization>
+      <cache_policies>
+        <dynamic_data>60s TTL, 60s HTTP max-age for frequently changing data</dynamic_data>
+        <personal_data>300s TTL, 300s HTTP max-age for user-specific moderate TTL</personal_data>
+        <stable_data>900s TTL, 900s HTTP max-age for relatively stable data</stable_data>
+        <real_time>0s TTL, no-cache for time-sensitive data</real_time>
+      </cache_policies>
+      <time_aware_rules>
+        <recommendations>Only cache 2pm-7pm local time (dinner planning window)</recommendations>
+        <user_containers>Cache during business hours when users are active</user_containers>
+        <recipes>Cache anytime (stable data, low change frequency)</recipes>
+        <ai_suggestions>Skip cache outside meal planning periods</ai_suggestions>
+      </time_aware_rules>
+      <alignment_requirements>
+        <ttl_http_alignment>Redis TTL MUST equal HTTP max-age to prevent stale data serving</ttl_http_alignment>
+        <timezone_awareness>Per-user local time considerations</timezone_awareness>
+        <fallback_strategy>Always provide database fallback path</fallback_strategy>
+        <conditional_requests>FastAPI middleware handles If-None-Match/If-Modified-Since for 304 responses</conditional_requests>
+      </alignment_requirements>
+    </time_aware_caching>
+
+    <engineering_discipline>
+      <pre_change_analysis>
+        <impact_analysis>Before any code change, identify ALL files and locations that could be affected</impact_analysis>
+        <dependency_mapping>Trace how the changed code is consumed throughout the codebase</dependency_mapping>
+        <type_system_verification>Understand how type changes propagate through the system</type_system_verification>
+        <template_consumer_verification>When changing function signatures or return types, verify ALL usage sites</template_consumer_verification>
+        <test_implications>Consider what tests might break and why</test_implications>
+      </pre_change_analysis>
+      <mandatory_verification>
+        <never_partial_understanding>Never make changes based on partial understanding</never_partial_understanding>
+        <never_assume>Never assume "it should work" without verification</never_assume>
+        <always_search_usage>Always search the entire codebase for usage patterns before changing interfaces</always_search_usage>
+        <always_consider_cascading>Always consider cascading effects of type signature changes</always_consider_cascading>
+        <always_verify_compilation>Always verify compilation/type-checking after interface changes</always_verify_compilation>
+        <always_state_assumptions>Always state assumptions explicitly and verify them</always_state_assumptions>
+      </mandatory_verification>
+      <response_standards>
+        <certainty_required>Use definitive language only when verified through code inspection</certainty_required>
+        <explicit_uncertainty>When uncertain, state "I need to verify X by checking Y" instead of guessing</explicit_uncertainty>
+        <systematic_approach>Follow the same verification process regardless of change complexity</systematic_approach>
+        <rollback_planning>Always identify how to revert changes before making them</rollback_planning>
+      </response_standards>
+      <principle>Every change is a potential system failure. Engineering discipline prevents failures through systematic verification, not optimistic assumptions.</principle>
+    </engineering_discipline>
+
+    <bash_command_escaping>
+      <critical_windows_mingw64>
+        <command_substitution_eval>Wrap in `eval` with double quotes to prevent escaping: `eval "export $(cat .env | grep YT_ | xargs)"`</command_substitution_eval>
+        <nested_command_substitution>Use backticks instead of `$(...)` for nested substitutions: `TOKEN=`curl ... | grep ... | cut ...``</nested_command_substitution>
+        <json_shell_strings>Escape quotes inside JSON payloads: `-d "{\"email\":\"$YT_USER\",\"password\":\"$YT_PASSWORD\"}"`</json_shell_strings>
+        <note>These techniques are specific to the Windows Git Bash environment where the Bash tool may incorrectly escape `$` and parentheses in command substitutions</note>
+      </critical_windows_mingw64>
+    </bash_command_escaping>
+  </architectural_principles>
+
+  <core_features>
+    <authentication_user_management>
+      <user_registration>
+        <business_rules>
+          <unique_email>Email must be unique across all users</unique_email>
+          <bcrypt_hashing>Password must be hashed using bcrypt before storage</bcrypt_hashing>
+          <auto_login>User automatically logged in after successful registration</auto_login>
+          <jwt_generation>JWT token generated with 24-hour expiration</jwt_generation>
+          <onboarding_init>Onboarding flag initialized to false</onboarding_init>
+        </business_rules>
+        <api_contract>
+          <endpoint>POST /auth/register</endpoint>
+          <request>{name: string, email: string, password: string}</request>
+          <response>{user: UserResponse, access_token: string, token_type: "bearer"}</response>
+          <errors>400 (email exists), 422 (validation)</errors>
+        </api_contract>
+        <validation_rules>
+          <email>Valid format, 1-254 characters, case-insensitive storage</email>
+          <password>Minimum 8 characters (no maximum enforced)</password>
+          <name>1-100 characters, no special restrictions</name>
+        </validation_rules>
+      </user_registration>
+
+      <user_authentication>
+        <business_rules>
+          <case_insensitive_lookup>Email lookup case-insensitive</case_insensitive_lookup>
+          <bcrypt_verification>Password verification using bcrypt</bcrypt_verification>
+          <jwt_on_success>JWT token generation on success</jwt_on_success>
+          <user_in_response>User object included in response</user_in_response>
+        </business_rules>
+        <api_contract>
+          <endpoint>POST /auth/login</endpoint>
+          <request>{email: string, password: string}</request>
+          <response>{user: UserResponse, access_token: string, token_type: "bearer"}</response>
+          <errors>401 (invalid credentials), 422 (validation)</errors>
+        </api_contract>
+      </user_authentication>
+
+      <token_management>
+        <business_rules>
+          <jwt_user_id>JWT tokens contain user ID in "sub" claim</jwt_user_id>
+          <realtime_validation>Real-time user validation on protected routes</realtime_validation>
+          <token_refresh>Token refresh capability (future enhancement)</token_refresh>
+          <auto_logout>Automatic logout on token expiration</auto_logout>
+        </business_rules>
+        <security_requirements>
+          <jwt_secret>JWT secret stored securely in environment variables</jwt_secret>
+          <cookie_security>Cookie security: httpOnly, secure (HTTPS), sameSite=strict</cookie_security>
+          <no_sensitive_jwt>No sensitive data in JWT payload</no_sensitive_jwt>
+          <server_validation>Server-side token validation on every protected request</server_validation>
+        </security_requirements>
+      </token_management>
+    </authentication_user_management>
+
+    <container_inventory_management>
+      <container_creation>
+        <business_rules>
+          <atomic_creation>Container + Contents created atomically in single operation</atomic_creation>
+          <auto_ownership>User ownership automatically assigned</auto_ownership>
+          <cache_invalidation>Cache invalidation triggered after creation</cache_invalidation>
+          <version_init>Version field initialized for optimistic locking</version_init>
+        </business_rules>
+        <validation_rules>
+          <ingredient_name>1-100 characters, required</ingredient_name>
+          <brand>Optional, 1-100 characters</brand>
+          <upc>Optional, valid UPC format</upc>
+          <purchase_date>Valid date, not future</purchase_date>
+          <expiration_date>Optional, must be after purchase_date</expiration_date>
+          <original_quantity>Positive number, required</original_quantity>
+          <unit>1-20 characters, required</unit>
+          <location>Must be valid enum (pantry, fridge, freezer, drawer, cabinet, counter)</location>
+          <container_type>Must be valid enum (ingredient, staple, utensil, cookware)</container_type>
+        </validation_rules>
+        <api_contract>
+          <endpoint>POST /api/v1/containers/</endpoint>
+          <request>ContainerCreate (all fields except user_id/timestamps)</request>
+          <response>ContainerResponse (with computed fields)</response>
+          <errors>400 (validation), 401 (auth), 422 (business rules)</errors>
+        </api_contract>
+      </container_creation>
+
+      <advanced_filtering_system>
+        <business_rules>
+          <user_isolation>User isolation - only show user's containers</user_isolation>
+          <default_show_all>Default to show all containers including empty</default_show_all>
+          <optimized_pipeline>Optimized aggregation pipeline (containers + contents in single query)</optimized_pipeline>
+          <redis_caching>Redis caching with 5-minute TTL</redis_caching>
+          <max_results>Maximum 1000 results per request</max_results>
+        </business_rules>
+        <filter_capabilities>
+          <text_filters>
+            <ingredient_name>Case-insensitive partial match</ingredient_name>
+            <brand>Case-insensitive partial match</brand>
+          </text_filters>
+          <enum_filters>
+            <location>Exact match from valid locations</location>
+            <container_type>Exact match from valid types</container_type>
+          </enum_filters>
+          <status_filters>
+            <include_empty>Boolean (default true)</include_empty>
+            <expiring>Boolean - items expiring within 7 days</expiring>
+            <consumption_status>empty, nearly_empty, half_used, lightly_used, unused</consumption_status>
+          </status_filters>
+          <quantity_filters>
+            <min_quantity>Non-negative number</min_quantity>
+            <max_quantity>Non-negative number, must be ≥ min_quantity</max_quantity>
+          </quantity_filters>
+        </filter_capabilities>
+        <url_driven_state_pattern>
+          <single_source_truth>URL parameters = single source of truth for all filters</single_source_truth>
+          <immediate_application>Immediate filter application without "Apply" button</immediate_application>
+          <url_trigger_filtering>URL updates trigger automatic re-filtering</url_trigger_filtering>
+          <browser_navigation>Browser navigation (back/forward) fully supported</browser_navigation>
+          <shareable_urls>Shareable URLs with filter state</shareable_urls>
+        </url_driven_state_pattern>
+      </advanced_filtering_system>
+
+      <multi_rule_sorting>
+        <business_rules>
+          <max_rules>Support up to 10 simultaneous sort rules</max_rules>
+          <priority_based>Priority-based sorting (first rule = highest priority)</priority_based>
+          <bidirectional>Bi-directional sorting (asc/desc) for each rule</bidirectional>
+          <url_persistence>URL parameter storage for persistence</url_persistence>
+        </business_rules>
+        <sort_fields>
+          <name>name (ingredient_name): Alphabetical</name>
+          <type>type (container_type): Categorical</type>
+          <location>location: Categorical</location>
+          <quantity>quantity (current_quantity): Numerical</quantity>
+          <unit>unit: Alphabetical</unit>
+          <expiration>expiration_date: Chronological</expiration>
+          <purchase>purchase_date: Chronological</purchase>
+          <created>created_at: Chronological</created>
+          <updated>updated_at: Chronological</updated>
+          <brand>brand: Alphabetical</brand>
+          <consumption_pct>consumption_percentage: Numerical (computed)</consumption_pct>
+          <days_until_exp>days_until_expiration: Numerical (computed)</days_until_exp>
+          <nearly_empty>is_nearly_empty: Boolean (computed)</nearly_empty>
+          <empty>is_empty: Boolean (computed)</empty>
+          <freshness>freshness: Smart algorithm (computed)</freshness>
+        </sort_fields>
+        <smart_freshness_algorithm>
+          <expired>Expired items: -2 (lowest priority)</expired>
+          <expiring_soon>Expiring soon (≤7 days): -1 (low priority)</expiring_soon>
+          <fresh>Fresh items: days_remaining (higher = fresher)</fresh>
+          <no_expiry>No expiry: 0 (neutral)</no_expiry>
+        </smart_freshness_algorithm>
+      </multi_rule_sorting>
+
+      <consumption_tracking>
+        <business_rules>
+          <atomic_updates>Atomic quantity updates prevent race conditions</atomic_updates>
+          <quantity_validation>Consumption cannot exceed available quantity</quantity_validation>
+          <historical_tracking>Historical tracking of all consumption events</historical_tracking>
+          <cache_invalidation>Cache invalidation on quantity changes</cache_invalidation>
+        </business_rules>
+        <api_contract>
+          <endpoint>PUT /api/v1/containers/{id}/consume</endpoint>
+          <request>{consumed_quantity: number, notes?: string}</request>
+          <response>Updated ContainerResponse</response>
+          <errors>400 (insufficient quantity), 404 (not found), 409 (race condition)</errors>
+        </api_contract>
+      </consumption_tracking>
+
+      <bulk_operations>
+        <business_rules>
+          <atomic_transactions>Atomic transaction processing</atomic_transactions>
+          <individual_tracking>Individual success/failure tracking</individual_tracking>
+          <partial_success>Partial success handling</partial_success>
+          <bulk_cache_invalidation>Cache invalidation after bulk changes</bulk_cache_invalidation>
+        </business_rules>
+        <operations>
+          <empty_cleanup>
+            <endpoint>DELETE /api/v1/containers/bulk/empty</endpoint>
+            <response>{deleted_count: number, deleted_ids: string[]}</response>
+          </empty_cleanup>
+          <bulk_consumption>
+            <endpoint>PUT /api/v1/containers/bulk/consume</endpoint>
+            <request>{operations: [{container_id, consumed_quantity, notes?}]}</request>
+            <response>{results: [{container_id, success, error?, updated_container?}]}</response>
+          </bulk_consumption>
+          <shopping_import>
+            <endpoint>POST /api/v1/containers/bulk/import</endpoint>
+            <request>{containers: ContainerCreate[]}</request>
+            <response>{results: [{success, error?, created_container?}]}</response>
+          </shopping_import>
+        </operations>
+      </bulk_operations>
+    </container_inventory_management>
+
+    <recipe_management>
+      <recipe_discovery>
+        <business_rules>
+          <public_access>Public recipes viewable without authentication</public_access>
+          <personal_auth>Personal recipes require authentication</personal_auth>
+          <rating_aggregation>Recipe rating aggregation for recommendations</rating_aggregation>
+          <redis_caching>Redis caching for stable recipe data (15-minute TTL)</redis_caching>
+        </business_rules>
+        <filter_capabilities>
+          <text_search>Recipe name, description</text_search>
+          <dietary_tags>vegetarian, vegan, gluten_free, dairy_free, etc.</dietary_tags>
+          <cuisine_type>italian, asian, mexican, etc.</cuisine_type>
+          <difficulty>easy, medium, hard</difficulty>
+          <time_constraints>max_cook_time, max_prep_time, max_total_time</time_constraints>
+          <user_filtering>personal recipes vs public recipes</user_filtering>
+        </filter_capabilities>
+        <api_contract>
+          <endpoint>GET /api/v1/recipes/?search=pasta&amp;max_cook_time=30&amp;dietary_tags=vegetarian</endpoint>
+          <response>Recipe[] with pagination</response>
+          <cache_control>max-age=900 for public recipes</cache_control>
+        </api_contract>
+      </recipe_discovery>
+
+      <recipe_creation>
+        <business_rules>
+          <total_time_calc>Auto-calculation of total_time_minutes (prep + cook)</total_time_calc>
+          <user_ownership>User ownership for personal recipes</user_ownership>
+          <source_attribution>Source attribution tracking</source_attribution>
+          <ingredient_validation>Ingredient quantity validation</ingredient_validation>
+        </business_rules>
+        <validation_rules>
+          <name>1-200 characters, required</name>
+          <description>1-1000 characters</description>
+          <ingredients>Array of RecipeIngredient objects with name, amount, unit, optional flag</ingredients>
+          <instructions>Array of strings, 1-500 chars each</instructions>
+          <cook_time>Non-negative integer</cook_time>
+          <prep_time>Non-negative integer</prep_time>
+          <servings>Positive integer, 1-50</servings>
+          <difficulty>enum (easy, medium, hard)</difficulty>
+        </validation_rules>
+        <api_contract>
+          <create>POST /api/v1/recipes/</create>
+          <update>PUT /api/v1/recipes/{id}</update>
+          <request>RecipeCreate/RecipeUpdate</request>
+          <response>Recipe with computed fields</response>
+          <errors>400 (validation), 401 (auth), 403 (not owner)</errors>
+        </api_contract>
+      </recipe_creation>
+
+      <rating_system>
+        <business_rules>
+          <rating_range>Users can rate recipes 1-5 stars</rating_range>
+          <average_calculation>Average rating calculation for display</average_calculation>
+          <recommendation_influence>Rating influences recommendation algorithm</recommendation_influence>
+          <rating_updates>Users can update their previous ratings</rating_updates>
+        </business_rules>
+        <api_contract>
+          <endpoint>POST /api/v1/recipes/{id}/rate</endpoint>
+          <request>{rating: number} (1-5)</request>
+          <response>Updated recipe with new average rating</response>
+        </api_contract>
+      </rating_system>
+    </recipe_management>
+
+    <ai_recommendation_system>
+      <intelligent_recommendations>
+        <business_rules>
+          <privacy_first>Local LLM (Ollama) only, no external API calls</privacy_first>
+          <time_aware_caching>Only cache 2pm-7pm local time (dinner planning)</time_aware_caching>
+          <timeout_handling>60-second timeout with graceful fallbacks</timeout_handling>
+          <structured_responses>JSON-structured AI responses with validation</structured_responses>
+        </business_rules>
+        <recommendation_algorithm>
+          <pantry_analysis>Available ingredients, quantities, expiration dates</pantry_analysis>
+          <recipe_matching>Ingredient similarity scoring with substitutions</recipe_matching>
+          <user_preferences>Dietary restrictions, cuisine preferences, skill level</user_preferences>
+          <time_constraints>Available cooking time, meal timing</time_constraints>
+          <ai_enhancement>LLM provides creative suggestions and meal planning</ai_enhancement>
+        </recommendation_algorithm>
+        <api_endpoints>
+          <general>GET /api/v1/recommendations/</general>
+          <quick>GET /api/v1/recommendations/quick (≤30min meals, limit 3)</quick>
+          <pantry_summary>GET /api/v1/recommendations/summarize-pantry</pantry_summary>
+          <meal_proposals>GET /api/v1/recommendations/propose-meals</meal_proposals>
+          <ai_suggestions>GET /api/v1/recommendations/ai-suggestions</ai_suggestions>
+        </api_endpoints>
+        <caching_strategy>
+          <dinner_planning>Cache recommendations only during dinner planning hours (2pm-7pm local)</dinner_planning>
+          <cost_optimization>Cost optimization: 80% reduction in Redis usage</cost_optimization>
+          <fallback>Fallback to direct computation outside caching window</fallback>
+          <invalidation>Cache invalidation when inventory changes significantly</invalidation>
+        </caching_strategy>
+      </intelligent_recommendations>
+
+      <ingredient_matching>
+        <business_rules>
+          <fuzzy_matching>Fuzzy ingredient matching with similarity scoring</fuzzy_matching>
+          <substitutions>Common substitution suggestions (butter → oil, milk → almond milk)</substitutions>
+          <quantity_scaling>Quantity scaling for recipe adjustments</quantity_scaling>
+          <dietary_awareness>Dietary restriction awareness</dietary_awareness>
+        </business_rules>
+        <matching_algorithm>
+          <exact_match>Exact match: 1.0</exact_match>
+          <partial_match>Partial match: 0.6-0.9</partial_match>
+          <no_match>No match: 0.0</no_match>
+          <best_match>find_best_match(recipe_ingredient, available_ingredients) -> match</best_match>
+          <availability_check>check_ingredient_availability(recipe, inventory) -> AnalysisResult</availability_check>
+        </matching_algorithm>
+      </ingredient_matching>
+
+      <llm_integration>
+        <technical_requirements>
+          <health_monitoring>Ollama service health monitoring</health_monitoring>
+          <prompt_engineering>Structured prompt engineering for consistent JSON responses</prompt_engineering>
+          <fallback_responses>Fallback responses when LLM unavailable</fallback_responses>
+          <response_parsing>Response parsing with error handling</response_parsing>
+        </technical_requirements>
+        <prompt_structure>
+          <system>System: "You are a helpful cooking assistant..."</system>
+          <user_context>User Context: Pantry summary, dietary restrictions, time constraints</user_context>
+          <response_format>Response Format: JSON with meal suggestions, explanations, shopping list</response_format>
+        </prompt_structure>
+      </llm_integration>
+    </ai_recommendation_system>
+
+    <user_onboarding_preferences>
+      <multi_step_onboarding>
+        <business_rules>
+          <four_step_process>4-step process: Intro → Staples → Utensils → Cookware</four_step_process>
+          <progress_tracking>Progress tracking with persistent state</progress_tracking>
+          <optional_steps>Optional steps (can skip/return later)</optional_steps>
+          <preference_storage>Preference storage for recommendation system</preference_storage>
+        </business_rules>
+        <onboarding_steps>
+          <introduction>Introduction: Welcome, app overview, skip option</introduction>
+          <staples>Staples: Common ingredient selection (salt, oil, flour, etc.)</staples>
+          <utensils>Utensils: Kitchen tools (knives, cutting board, measuring cups)</utensils>
+          <cookware>Cookware: Pots, pans, appliances (oven, stovetop, microwave)</cookware>
+        </onboarding_steps>
+      </multi_step_onboarding>
+
+      <preference_management>
+        <dietary_restrictions>vegetarian, vegan, gluten_free, dairy_free, nut_free, shellfish_free, etc.</dietary_restrictions>
+        <cuisine_preferences>italian, asian, mexican, indian, mediterranean, american, etc.</cuisine_preferences>
+        <cooking_parameters>
+          <max_cook_time>Default maximum cooking time</max_cook_time>
+          <skill_level>beginner, intermediate, advanced</skill_level>
+          <household_size>Number of people typically cooking for</household_size>
+        </cooking_parameters>
+        <ingredient_dislikes>
+          <list>List of ingredients to avoid in recommendations</list>
+          <severity>Severity levels (allergic vs preference)</severity>
+        </ingredient_dislikes>
+        <api_integration>
+          <endpoint>PUT /api/v1/users/{id}</endpoint>
+          <request>{preferences: UserPreferences}</request>
+          <response>Updated user profile</response>
+        </api_integration>
+      </preference_management>
+    </user_onboarding_preferences>
+
+    <responsive_ui_navigation>
+      <responsive_design>
+        <design_principles>
+          <mobile_first>Mobile-first approach (target: 4-6pm mobile usage)</mobile_first>
+          <touch_friendly>Touch-friendly interactions (44px+ touch targets)</touch_friendly>
+          <fast_loading>Fast loading on slower networks</fast_loading>
+          <offline_capable>Offline-capable core functionality (future)</offline_capable>
+        </design_principles>
+        <breakpoints>
+          <mobile>320px - 767px</mobile>
+          <tablet>768px - 1023px</tablet>
+          <desktop>1024px+</desktop>
+        </breakpoints>
+        <component_adaptations>
+          <navigation>Collapsible sidebar on mobile</navigation>
+          <filters>Modal/drawer on mobile, sidebar on desktop</filters>
+          <data_tables>Horizontal scroll with sticky columns</data_tables>
+          <forms>Single column on mobile, multi-column on desktop</forms>
+        </component_adaptations>
+      </responsive_design>
+
+      <navigation_routing>
+        <route_protection>
+          <public_routes>/, /about, /blog, /faq, /login, /register</public_routes>
+          <protected_routes>/dashboard, /inventory/*, /recipes, /recommendations</protected_routes>
+          <onboarded_routes>Require completed onboarding</onboarded_routes>
+        </route_protection>
+        <navigation_states>
+          <active_highlighting>Active route highlighting</active_highlighting>
+          <loading_indicators>Loading indicators for slow routes</loading_indicators>
+          <error_boundaries>Error boundaries for failed route loads</error_boundaries>
+          <breadcrumbs>Breadcrumb navigation (future)</breadcrumbs>
+        </navigation_states>
+      </navigation_routing>
+    </responsive_ui_navigation>
+
+    <security_privacy>
+      <data_privacy>
+        <privacy_principles>
+          <local_llm>Local LLM processing only (no external AI services)</local_llm>
+          <minimal_collection>Minimal data collection (only essential for functionality)</minimal_collection>
+          <user_isolation>User data isolation and protection</user_isolation>
+          <no_monetization>No data monetization or sharing</no_monetization>
+        </privacy_principles>
+        <data_handling>
+          <jwt_cookies>JWT tokens in secure cookies only</jwt_cookies>
+          <no_localstorage>No sensitive data in localStorage</no_localstorage>
+          <csrf_protection>CSRF protection on all forms</csrf_protection>
+          <xss_prevention>XSS prevention with input sanitization</xss_prevention>
+        </data_handling>
+      </data_privacy>
+
+      <input_validation>
+        <client_side>
+          <type_checking>Type checking with TypeScript</type_checking>
+          <form_validation>Form validation with immediate feedback</form_validation>
+          <enum_validation>Enum validation for dropdowns</enum_validation>
+          <range_validation>Range validation for numeric inputs</range_validation>
+        </client_side>
+        <server_side>
+          <pydantic_models>Pydantic models for all API requests</pydantic_models>
+          <mongodb_schema>MongoDB schema validation</mongodb_schema>
+          <injection_prevention>SQL injection prevention (N/A - MongoDB)</injection_prevention>
+          <length_limits>Length limits on all text fields</length_limits>
+        </server_side>
+      </input_validation>
+    </security_privacy>
+
+    <performance_optimization>
+      <caching_strategy>
+        <redis_caching>
+          <time_aware>Time-aware caching for recommendations (2pm-7pm only)</time_aware>
+          <user_data>User data caching (5-minute TTL)</user_data>
+          <recipe_data>Recipe data caching (15-minute TTL)</recipe_data>
+          <cache_invalidation>Cache invalidation on mutations</cache_invalidation>
+        </redis_caching>
+        <http_caching>
+          <etag_support>ETag support for conditional requests</etag_support>
+          <last_modified>Last-Modified headers</last_modified>
+          <cache_control>Cache-Control directives aligned with Redis TTL</cache_control>
+          <not_modified>304 Not Modified responses for unchanged data</not_modified>
+        </http_caching>
+      </caching_strategy>
+
+      <database_optimization>
+        <mongodb_indexes>
+          <compound_indexes>Compound indexes for user + filter combinations</compound_indexes>
+          <text_search>Text search indexes for ingredient names</text_search>
+          <sparse_indexes>Sparse indexes for optional fields (UPC, expiration)</sparse_indexes>
+          <performance_monitoring>Query performance monitoring</performance_monitoring>
+        </mongodb_indexes>
+        <aggregation_pipeline>
+          <single_query>Single query for containers + contents</single_query>
+          <computed_fields>Computed field calculations (consumption %, freshness)</computed_fields>
+          <efficient_sorting>Efficient sorting and filtering</efficient_sorting>
+          <memory_optimization>Memory usage optimization</memory_optimization>
+        </aggregation_pipeline>
+      </database_optimization>
+    </performance_optimization>
+  </core_features>
+
+  <api_specification>
+    <authentication_endpoints>
+      <register>POST /auth/register - User registration</register>
+      <login>POST /auth/login - User authentication</login>
+      <refresh>POST /auth/refresh - Token refresh (future)</refresh>
+    </authentication_endpoints>
+
+    <container_endpoints>
+      <list>GET /api/v1/containers/ - List containers with filtering</list>
+      <create>POST /api/v1/containers/ - Create container + contents</create>
+      <get>GET /api/v1/containers/{id} - Get specific container</get>
+      <update>PUT /api/v1/containers/{id} - Update container metadata</update>
+      <consume>PUT /api/v1/containers/{id}/consume - Record consumption</consume>
+      <refill>PUT /api/v1/containers/{id}/refill - Refill/adjust quantity</refill>
+      <delete>DELETE /api/v1/containers/{id} - Delete container + contents</delete>
+      <history>GET /api/v1/containers/{id}/history - Get analytics/history</history>
+      <bulk_empty>DELETE /api/v1/containers/bulk/empty - Bulk delete empty containers</bulk_empty>
+      <bulk_consume>PUT /api/v1/containers/bulk/consume - Bulk consumption operation</bulk_consume>
+      <bulk_import>POST /api/v1/containers/bulk/import - Bulk import from shopping</bulk_import>
+    </container_endpoints>
+
+    <recipe_endpoints>
+      <list>GET /api/v1/recipes/ - List recipes with filters</list>
+      <my_recipes>GET /api/v1/recipes/my-recipes - User's personal recipes</my_recipes>
+      <create>POST /api/v1/recipes/ - Create recipe</create>
+      <bulk_create>POST /api/v1/recipes/bulk - Bulk recipe creation</bulk_create>
+      <get>GET /api/v1/recipes/{id} - Get specific recipe</get>
+      <update>PUT /api/v1/recipes/{id} - Update recipe (owner only)</update>
+      <delete>DELETE /api/v1/recipes/{id} - Delete recipe (owner only)</delete>
+      <rate>POST /api/v1/recipes/{id}/rate - Rate recipe</rate>
+    </recipe_endpoints>
+
+    <recommendation_endpoints>
+      <general>GET /api/v1/recommendations/ - AI-powered meal recommendations</general>
+      <quick>GET /api/v1/recommendations/quick - Quick meals (≤30min, limit 3)</quick>
+      <pantry_summary>GET /api/v1/recommendations/summarize-pantry - Pantry analysis for LLM</pantry_summary>
+      <meal_proposals>GET /api/v1/recommendations/propose-meals - Recipe matching analysis</meal_proposals>
+      <ai_suggestions>GET /api/v1/recommendations/ai-suggestions - LLM-enhanced suggestions</ai_suggestions>
+    </recommendation_endpoints>
+
+    <user_endpoints>
+      <create>POST /api/v1/users/ - Create user account</create>
+      <get>GET /api/v1/users/{id} - Get user profile</get>
+      <update>PUT /api/v1/users/{id} - Update user profile</update>
+      <delete>DELETE /api/v1/users/{id} - Delete user + cascade</delete>
+    </user_endpoints>
+
+    <legacy_inventory_endpoints>
+      <note>MARKED FOR REMOVAL</note>
+      <list>GET /api/v1/inventory/ - List inventory items (LEGACY)</list>
+      <create>POST /api/v1/inventory/ - Add inventory item (LEGACY)</create>
+      <get>GET /api/v1/inventory/{id} - Get specific item (LEGACY)</get>
+      <update>PUT /api/v1/inventory/{id} - Update item (LEGACY)</update>
+      <delete>DELETE /api/v1/inventory/{id} - Delete item (LEGACY)</delete>
+    </legacy_inventory_endpoints>
+
+    <sveltekit_proxy_routes>
+      <containers>GET /api/containers/ - Proxy to /api/v1/containers/</containers>
+      <recipes>GET /api/recipes/ - Proxy to /api/v1/recipes/</recipes>
+      <recommendations>GET /api/recommendations/ - Proxy to /api/v1/recommendations/</recommendations>
+    </sveltekit_proxy_routes>
+
+    <authentication_patterns>
+      <direct_api>Direct API (/api/v1/*): Requires Authorization: Bearer &lt;token&gt; header</direct_api>
+      <proxy_api>Proxy API (/api/*): Uses cookie-based authentication (handled by SvelteKit)</proxy_api>
+    </authentication_patterns>
+  </api_specification>
+
+  <frontend_component_specification>
+    <layout_components>
+      <root_layout>+layout.svelte - Root layout with navigation</root_layout>
+      <protected_layout>(protected)/+layout.svelte - Protected routes with auth guard</protected_layout>
+      <top_navigation>TopNavigation.svelte - Header for public pages</top_navigation>
+      <main_navigation>Navigation.svelte - Main navigation with responsive design</main_navigation>
+    </layout_components>
+
+    <view_components>
+      <dashboard>DashboardView.svelte - Personalized dashboard with recommendations</dashboard>
+      <inventory>InventoryView.svelte - Container management with filtering/sorting</inventory>
+      <auth>AuthView.svelte - Login/register forms</auth>
+      <landing>LandingView.svelte - Public homepage</landing>
+      <about>AboutView.svelte - Company information</about>
+      <blog>BlogView.svelte - Content with category filtering</blog>
+      <faq>FAQView.svelte - Expandable Q&amp;A sections</faq>
+      <recipes>RecipesView.svelte - Recipe browsing and management</recipes>
+      <recommendations>RecommendationView.svelte - AI-powered meal suggestions</recommendations>
+      <onboarding>OnboardingView.svelte - Multi-step account setup</onboarding>
+    </view_components>
+
+    <reusable_components>
+      <container_filters>ContainerFilters.svelte - Multi-attribute filtering (URL-driven state)</container_filters>
+      <container_sorting>ContainerSorting.svelte - Multi-rule sorting (URL-driven state)</container_sorting>
+      <recipe_card>RecipeCard.svelte - Recipe display component</recipe_card>
+      <notification_toast>NotificationToast.svelte - Toast notification system</notification_toast>
+      <pagination>Pagination.svelte - Data pagination</pagination>
+      <progress_indicator>ProgressIndicator.svelte - Onboarding progress</progress_indicator>
+      <selection_grid>SelectionGrid.svelte - Multi-select grid interface</selection_grid>
+    </reusable_components>
+
+    <state_management>
+      <app_store>app.svelte.ts - Centralized AppStore with Svelte 5 runes</app_store>
+      <authentication_state>Authentication state (user, token, loading, errors)</authentication_state>
+      <domain_data>Domain data (containers, recipes, recommendations)</domain_data>
+      <ui_state>UI state (sidebar, theme, notifications)</ui_state>
+      <navigation_state>Navigation state (route tracking, loading indicators)</navigation_state>
+    </state_management>
+
+    <url_driven_pattern>
+      <core_principle>URL parameters = single source of truth for filters/search</core_principle>
+      <immediate_application>Immediate application without "Apply" buttons</immediate_application>
+      <browser_support>Browser navigation (back/forward) support</browser_support>
+      <shareable_state>Shareable URLs with state persistence</shareable_state>
+      <usage>Used in: ContainerFilters, ContainerSorting, recipe browsing</usage>
+    </url_driven_pattern>
+  </frontend_component_specification>
+
+  <testing_specification>
+    <current_coverage>
+      <total_tests>178 tests across 14 test files (172 passing, 6 failing - ContainerFilters issues)</total_tests>
+      <api_layer>Client configuration, integration, auth flows (73 tests)</api_layer>
+      <components>ContainerFilters, ContainerSorting, Navigation (68 tests)</components>
+      <state_management>AppStore with runes testing (17 tests)</state_management>
+      <server_side>SSR load functions, server actions (20 tests)</server_side>
+    </current_coverage>
+
+    <unit_tests_required>
+      <backend_logic>
+        <authentication>Password hashing, JWT creation/validation</authentication>
+        <container_logic>Quantity calculations, freshness algorithm, consumption validation</container_logic>
+        <recipe_logic>Total time calculation, ingredient parsing, difficulty scoring</recipe_logic>
+        <recommendation>Ingredient similarity, substitution logic, dietary filtering</recommendation>
+        <validation>Quantity, enum, date, text length validation</validation>
+      </backend_logic>
+      <frontend_logic>
+        <utilities>Sanitization, formatting, date calculations</utilities>
+        <validation>Email, quantity range, form validation</validation>
+        <state_management>Auth transitions, container updates, filter calculations</state_management>
+        <sort_algorithm>Multi-rule sorting implementation</sort_algorithm>
+      </frontend_logic>
+    </unit_tests_required>
+
+    <component_tests_required>
+      <container_filters>Complete filtering with edge cases</container_filters>
+      <container_sorting>Multi-rule sorting with performance testing</container_sorting>
+      <navigation>Responsive behavior, auth state integration</navigation>
+      <recipe_card>Display, rating interaction</recipe_card>
+      <notification_toast>Lifecycle, auto-dismiss</notification_toast>
+      <dashboard_widgets>Quick actions, status displays</dashboard_widgets>
+    </component_tests_required>
+
+    <integration_tests_required>
+      <authentication_flow>Complete login/register/logout</authentication_flow>
+      <container_crud>Lifecycle with cache invalidation</container_crud>
+      <recipe_recommendation>End-to-end recommendation flow</recipe_recommendation>
+      <ssr_integration>Cookie to JWT conversion, error handling</ssr_integration>
+      <performance>Large dataset handling, concurrent operations</performance>
+    </integration_tests_required>
+
+    <e2e_tests_required>
+      <user_onboarding>Registration → onboarding → dashboard</user_onboarding>
+      <inventory_management>Add → filter → sort → consume → delete</inventory_management>
+      <recipe_discovery>Browse → filter → view → rate</recipe_discovery>
+      <mobile_experience>Touch interactions, responsive layouts</mobile_experience>
+      <accessibility>Screen reader, keyboard navigation</accessibility>
+    </e2e_tests_required>
+
+    <security_tests_required>
+      <authentication>Token security, session management</authentication>
+      <input_validation>XSS prevention, injection attacks</input_validation>
+      <data_privacy>User isolation, sensitive data exposure</data_privacy>
+      <api_security>Rate limiting, proper headers</api_security>
+    </security_tests_required>
+
+    <performance_tests_required>
+      <database>Query performance, aggregation scaling</database>
+      <api>Response times, bulk operation efficiency</api>
+      <frontend>Component rendering, bundle size</frontend>
+      <mobile>Network simulation, memory usage</mobile>
+    </performance_tests_required>
+  </testing_specification>
+
+  <deployment_infrastructure>
+    <docker_environment>
+      <compose_file>docker-compose.yml: Complete stack (API + DB + Frontend)</compose_file>
+      <mongodb>Persistent data with authentication</mongodb>
+      <redis>Session and cache management</redis>
+      <fastapi>Backend services</fastapi>
+      <sveltekit>Frontend application</sveltekit>
+    </docker_environment>
+
+    <environment_variables>
+      <mongo>MONGO_USER=admin, MONGO_PASSWORD=your_secure_password</mongo>
+      <mongodb_url>MONGODB_URL=mongodb://${MONGO_USER}:${MONGO_PASSWORD}@localhost:27017/?authSource=admin</mongodb_url>
+      <redis>REDIS_URL=redis://localhost:6379</redis>
+      <jwt>JWT_SECRET_KEY=your_jwt_secret_key, JWT_ALGORITHM=HS256, JWT_EXPIRATION_HOURS=24</jwt>
+      <test_credentials>YT_USER=test_user_email, YT_PASSWORD=test_user_password</test_credentials>
+    </environment_variables>
+
+    <local_llm_setup>
+      <installation>Install Ollama from https://ollama.ai</installation>
+      <model_pull>ollama pull gpt-oss:20b</model_pull>
+      <verification>curl http://localhost:11434/api/tags</verification>
+    </local_llm_setup>
+
+    <development_commands>
+      <backend>
+        <dependencies>cd backend &amp;&amp; pip install -e .[dev,test]</dependencies>
+        <tests>cd backend &amp;&amp; python -m pytest tests/ -v</tests>
+        <quality>cd backend &amp;&amp; ruff check . &amp;&amp; ruff format .</quality>
+        <server>cd backend &amp;&amp; python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000</server>
+      </backend>
+      <frontend>
+        <dependencies>cd frontend &amp;&amp; npm install</dependencies>
+        <dev_server>cd frontend &amp;&amp; npm run dev</dev_server>
+        <tests>cd frontend &amp;&amp; npm test</tests>
+        <type_check>cd frontend &amp;&amp; npm run check</type_check>
+      </frontend>
+      <full_stack>
+        <start>docker-compose up -d</start>
+        <logs>docker-compose logs -f api</logs>
+        <stop>docker-compose down</stop>
+      </full_stack>
+    </development_commands>
+  </deployment_infrastructure>
+
+  <performance_targets>
+    <api_response_times>
+      <standard>Standard endpoints: &lt;100ms</standard>
+      <complex_filtering>Complex filtering: &lt;200ms</complex_filtering>
+      <ai_recommendations>AI recommendations: &lt;60s (with timeout)</ai_recommendations>
+      <bulk_operations>Bulk operations: &lt;5s per 100 items</bulk_operations>
+    </api_response_times>
+
+    <frontend_performance>
+      <dashboard_load>Dashboard load: &lt;3s on mobile</dashboard_load>
+      <component_rendering>Component rendering: &lt;100ms for 1000 items</component_rendering>
+      <bundle_size>Bundle size: &lt;500KB gzipped</bundle_size>
+      <time_to_interactive>Time to interactive: &lt;5s on 3G</time_to_interactive>
+    </frontend_performance>
+
+    <database_performance>
+      <container_queries>Container queries: &lt;50ms for 10,000 containers</container_queries>
+      <recipe_searches>Recipe searches: &lt;100ms for 50,000 recipes</recipe_searches>
+      <aggregation_pipelines>Aggregation pipelines: &lt;200ms for complex joins</aggregation_pipelines>
+      <index_utilization>Index utilization: &gt;95% for common queries</index_utilization>
+    </database_performance>
+
+    <cache_performance>
+      <redis_hit_ratio>Redis hit ratio: &gt;80% during peak hours</redis_hit_ratio>
+      <cache_response_time>Cache response time: &lt;10ms</cache_response_time>
+      <cache_invalidation>Cache invalidation: &lt;100ms propagation</cache_invalidation>
+      <cost_optimization>Time-aware optimization: 80% cost reduction</cost_optimization>
+    </cache_performance>
+
+    <mobile_performance>
+      <touch_response>Touch response: &lt;16ms (60fps)</touch_response>
+      <network_resilience>Network resilience: Graceful degradation on slow connections</network_resilience>
+      <memory_usage>Memory usage: &lt;100MB for typical session</memory_usage>
+      <offline_capability>Offline capability: Core features available (future)</offline_capability>
+    </mobile_performance>
+  </performance_targets>
+
+  <quality_gates>
+    <code_quality>
+      <unit_test_coverage>Unit test coverage: &gt;95% line coverage</unit_test_coverage>
+      <integration_test_coverage>Integration test coverage: 100% API endpoints</integration_test_coverage>
+      <component_test_coverage>Component test coverage: 100% critical components</component_test_coverage>
+      <e2e_test_coverage>E2E test coverage: 100% critical user journeys</e2e_test_coverage>
+    </code_quality>
+
+    <security_requirements>
+      <vulnerability_scanning>No critical vulnerabilities in dependencies</vulnerability_scanning>
+      <input_validation>Input validation on all user inputs</input_validation>
+      <authentication_authorization>Proper authentication/authorization on all endpoints</authentication_authorization>
+      <data_encryption>Data encryption for sensitive information</data_encryption>
+      <https_enforcement>HTTPS enforced in production</https_enforcement>
+    </security_requirements>
+
+    <performance_requirements>
+      <api_targets>API response times within targets</api_targets>
+      <frontend_benchmarks>Frontend performance benchmarks met</frontend_benchmarks>
+      <database_optimization>Database query optimization verified</database_optimization>
+      <cache_efficiency>Cache efficiency targets achieved</cache_efficiency>
+    </performance_requirements>
+
+    <accessibility_requirements>
+      <wcag_compliance>WCAG 2.1 AA compliance</wcag_compliance>
+      <screen_reader>Screen reader compatibility</screen_reader>
+      <keyboard_navigation>Keyboard navigation support</keyboard_navigation>
+      <mobile_accessibility>Mobile accessibility testing</mobile_accessibility>
+    </accessibility_requirements>
+
+    <user_experience_requirements>
+      <mobile_first>Mobile-first design validation</mobile_first>
+      <cross_browser>Cross-browser compatibility (Chrome, Firefox, Safari, Edge)</cross_browser>
+      <progressive_enhancement>Progressive enhancement working</progressive_enhancement>
+      <error_handling>Error handling and recovery tested</error_handling>
+    </user_experience_requirements>
+  </quality_gates>
+
+  <future_enhancements>
+    <phase_2_features>
+      <bulk_operations>Advanced bulk operations with transaction support</bulk_operations>
+      <photo_recognition>Photo recognition for ingredient identification</photo_recognition>
+      <barcode_scanning>Barcode scanning for UPC-based inventory</barcode_scanning>
+      <shopping_list>Shopping list generation and management</shopping_list>
+      <recipe_scaling>Recipe scaling based on available quantities</recipe_scaling>
+    </phase_2_features>
+
+    <phase_3_features>
+      <meal_planning>Meal planning calendar integration</meal_planning>
+      <nutritional_analysis>Nutritional analysis and tracking</nutritional_analysis>
+      <social_features>Social features (recipe sharing, family accounts)</social_features>
+      <advanced_ai>Advanced AI features (meal prep optimization)</advanced_ai>
+      <integrations>Third-party integrations (grocery delivery APIs)</integrations>
+    </phase_3_features>
+
+    <technical_improvements>
+      <offline_first>Offline-first capability with service workers</offline_first>
+      <real_time_collaboration>Real-time collaboration features</real_time_collaboration>
+      <cdn_integration>Advanced caching with CDN integration</cdn_integration>
+      <microservice_decomposition>Microservice decomposition for scaling</microservice_decomposition>
+      <analytics>Advanced analytics and usage tracking</analytics>
+    </technical_improvements>
+
+    <privacy_enhancements>
+      <end_to_end_encryption>End-to-end encryption for user data</end_to_end_encryption>
+      <local_first_sync>Local-first data synchronization</local_first_sync>
+      <privacy_controls>Advanced privacy controls and data export</privacy_controls>
+      <compliance>Compliance with international privacy regulations</compliance>
+      <zero_knowledge>Zero-knowledge architecture exploration</zero_knowledge>
+    </privacy_enhancements>
+  </future_enhancements>
+
+  <legacy_system_cleanup>
+    <todo_removal>
+      <legacy_inventory_system>Remove legacy `/api/v1/inventory/` endpoints - Uses InventoryItem model with `quantity` field</legacy_inventory_system>
+      <current_system>Current system uses `/api/v1/containers/` - Uses Container/Contents model with `current_quantity`</current_system>
+      <action_required>
+        <verify_unused>Verify that the legacy `/api/v1/inventory/` endpoints are unused</verify_unused>
+        <remove_files>
+          <router>backend/services/inventory/router.py - Legacy inventory API endpoints</router>
+          <model>backend/shared/models/inventory.py - Legacy InventoryItem model</model>
+          <related>Related database migrations and test files</related>
+        </remove_files>
+      </action_required>
+      <risk>Frontend-backend property name mismatches (`quantity` vs `current_quantity`) can cause runtime errors</risk>
+    </todo_removal>
+  </legacy_system_cleanup>
+
+  <conclusion>
+    This specification defines a comprehensive grocery inventory and meal recommendation application designed to solve the daily "dinner decision crisis" through:
+
+    1. Privacy-first AI recommendations using local LLM processing
+    2. Intelligent inventory management with advanced filtering/sorting
+    3. URL-driven state management for seamless user experience
+    4. Mobile-first responsive design for real-world usage patterns
+    5. Performance optimization through time-aware caching strategies
+    6. Comprehensive test coverage ensuring reliability and security
+
+    The application prioritizes user privacy, performance, and simplicity while providing intelligent meal suggestions that encourage home cooking over convenience alternatives.
+
+    Key differentiators:
+    - Local AI processing (no external data sharing)
+    - Time-aware resource optimization (2pm-7pm dinner planning focus)
+    - URL-driven state (shareable, navigable filtering)
+    - Atomic transaction handling (race condition prevention)
+    - Comprehensive test coverage (178+ tests across all layers)
+
+    Target outcome: Measurable increase in home cooking frequency through elimination of daily dinner decision paralysis.
+  </conclusion>
 </project_specification>
