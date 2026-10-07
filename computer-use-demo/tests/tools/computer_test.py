@@ -129,6 +129,21 @@ async def test_computer_tool_scaling_out_of_bounds(computer_tool):
 
 
 @pytest.mark.asyncio
+async def test_computer_tool_scaling_bounded_by_the_screenshot_frame(computer_tool):
+    computer_tool._scaling_enabled = True
+    computer_tool.width = 1920
+    computer_tool.height = 1080
+
+    # 1920x1080 is advertised to the model as FWXGA, so the model answers in a
+    # 1366x768 frame; 1500, 900 fits the display but not that frame.
+    assert computer_tool.options["display_width_px"] == 1366
+    assert computer_tool.options["display_height_px"] == 768
+
+    with pytest.raises(ToolError, match="Coordinates 1500, 900 are out of bounds"):
+        computer_tool.scale_coordinates(ScalingSource.API, 1500, 900)
+
+
+@pytest.mark.asyncio
 async def test_computer_tool_invalid_action(computer_tool):
     with pytest.raises(ToolError, match="Invalid action: invalid_action"):
         await computer_tool(action="invalid_action")
