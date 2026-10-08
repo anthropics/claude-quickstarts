@@ -6,26 +6,21 @@ Most of the design is about failing well when nobody is watching. Each source ha
 
 ## Quickstart
 
-You need the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli) (1.34 or later, the first release whose `ant apply` manages vaults) signed in with `ant auth login` or an `ANTHROPIC_API_KEY`, plus `jq`.
+You need the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli) (1.34 or later, the first release whose `ant apply` manages vaults) signed in with `ant auth login` or an exported `ANTHROPIC_API_KEY`, plus `jq` and `curl`. Setup needs two secrets from you, a Slack bot token and a read-only GitHub token, and you type both at a hidden prompt that sends them straight to the vault. With Claude Code, open it in this directory and ask it to set the brief up: it runs `agents/setup.sh` and the later steps itself, and for the two tokens it asks you to run `scripts/credentials.sh` in a second terminal, because its own shell has no TTY to prompt on and a token pasted into the chat would sit in the transcript.
 
-1. **Create the Slack app** (one click, then Install to Workspace):
+1. **Set up**: `agents/setup.sh`. One `ant apply` creates the agent, environment, memory stores, vault, and deployment in your Claude Console workspace, attaches the vault to the deployment, and pauses the schedule. It then runs `scripts/credentials.sh`, which prints the links for steps 2 and 3, waits at a hidden prompt for each token while you create it in the browser, checks it against Slack or GitHub, and puts it in the vault. A token is never echoed, written to a file, or passed as a command argument.
 
-   <!-- This link is slack/manifest.yaml, URL-encoded. After editing the manifest, regenerate it with:
+2. **Slack bot token**, when the script asks. Create the app from the manifest link (choose a Slack workspace, then Create), open Install App, install it, and copy the Bot User OAuth Token (`xoxb-...`):
+
+   <!-- This link is slack/manifest.yaml, URL-encoded. scripts/credentials.sh prints the same one. After editing the manifest, regenerate it with:
         echo "https://api.slack.com/apps?new_app=1&manifest_yaml=$(jq -rRs @uri slack/manifest.yaml)" -->
    [Create the Slack app](https://api.slack.com/apps?new_app=1&manifest_yaml=display_information%3A%0A%20%20name%3A%20Daily%20brief%0A%20%20description%3A%20Posts%20one%20short%20brief%20each%20weekday%20morning.%0Afeatures%3A%0A%20%20bot_user%3A%0A%20%20%20%20display_name%3A%20Daily%20brief%0A%20%20%20%20always_online%3A%20false%0A%20%20app_home%3A%0A%20%20%20%20home_tab_enabled%3A%20false%0A%20%20%20%20messages_tab_enabled%3A%20true%0A%20%20%20%20messages_tab_read_only_enabled%3A%20true%0Aoauth_config%3A%0A%20%20scopes%3A%0A%20%20%20%20bot%3A%0A%20%20%20%20%20%20-%20channels%3Ahistory%0A%20%20%20%20%20%20-%20chat%3Awrite%0Asettings%3A%0A%20%20org_deploy_enabled%3A%20false%0A%20%20socket_mode_enabled%3A%20false%0A%20%20token_rotation_enabled%3A%20false%0A)
 
-   Copy the **Bot User OAuth Token** (`xoxb-...`) from OAuth & Permissions. In Slack, `/invite @Daily brief` into each channel it should read and into the channel it should post to. Those invitations are the bot's only access.
+   The script confirms the bot's name. In Slack, `/invite @Daily brief` into each channel it should read and into the channel it should post to. Those invitations are the bot's only access.
 
-2. **Create a GitHub token**: a [fine-grained personal access token](https://github.com/settings/personal-access-tokens/new) with read-only access (Contents: read, Pull requests: read) to the repositories you want covered. Keep it read-only: the agent runs every GitHub tool without asking.
+3. **GitHub token**, when the script asks. [This prefilled form](https://github.com/settings/personal-access-tokens/new?name=daily-brief&description=Read-only+token+for+the+daily+brief+agent&expires_in=90&contents=read&pull_requests=read) creates a fine-grained token with Contents and Pull requests read-only and a 90-day expiry. Set the resource owner to yourself or to the organization that owns the repositories (an organization can hold the token for admin approval before it works), choose Only select repositories, pick them, and generate. Keep it read-only: the agent runs every tool of the GitHub MCP server without asking, so the token's permissions are the only limit on what an instruction planted in a pull request or Slack message could make it do. The script rejects classic (`ghp_`) tokens for that reason, and it cannot see a fine-grained token's permissions, so the form's defaults are on you.
 
-3. **Set up**:
-
-   ```bash
-   cp .env.example .env        # put the two tokens in it
-   agents/setup.sh
-   ```
-
-   One `ant apply` creates the agent, environment, memory stores, vault and deployment in your workspace; the script then adds the two credentials to the vault (no secret ever passes through `ant apply`), attaches the vault to the deployment, and pauses the schedule.
+   To replace either token later (rotation, or the 90 days ran out): `scripts/credentials.sh slack` or `scripts/credentials.sh github`. To skip the prompts, export `SLACK_BOT_TOKEN` or `GITHUB_TOKEN` first, for example from a password manager: `GITHUB_TOKEN=$(op read op://dev/daily-brief/token) scripts/credentials.sh github`.
 
 4. **Write your preferences**: the agent reads `/preferences.md` from the read-only `preferences` store at the start of every run, and `ant apply` creates the store but not the file.
 
@@ -65,8 +60,9 @@ agents/daily-brief/deployment.md     schedule, time zone, budget, vault and memo
 agents/daily-brief/environment.yaml  the sandbox's network allowlist
 agents/daily-brief/memory_store_*.yaml  your preferences (read-only to the agent) and the agent's state
 agents/daily-brief/vault.yaml        the vault that holds the Slack and GitHub credentials (the container; credentials are added by setup.sh)
-agents/setup.sh                      applies all of the above, adds the credentials, attaches the vault
+agents/setup.sh                      applies all of the above, attaches the vault, then runs scripts/credentials.sh
 preferences.example.md               starting point for preferences.md
+scripts/credentials.sh               ask for the Slack and GitHub tokens at a hidden prompt, check them, put them in the vault
 scripts/run.sh                       start a run now and show what happened
 scripts/seed-preferences.sh          write preferences.md into the preferences store
 scripts/reset-state.sh               empty the state store after test runs
