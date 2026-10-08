@@ -59,7 +59,7 @@ agents/daily-brief/agent.md          model and tools in frontmatter, the run ste
 agents/daily-brief/deployment.md     schedule, time zone, budget, vault and memory stores; the first message as the body
 agents/daily-brief/environment.yaml  the sandbox's network allowlist
 agents/daily-brief/memory_store_*.yaml  your preferences (read-only to the agent) and the agent's state
-agents/daily-brief/vault.yaml        the vault that holds the Slack and GitHub credentials (the container; credentials are added by setup.sh)
+agents/daily-brief/vault.yaml        the vault that holds the Slack and GitHub credentials (the container only, nothing secret)
 agents/setup.sh                      applies all of the above, attaches the vault, then runs scripts/credentials.sh
 preferences.example.md               starting point for preferences.md
 scripts/credentials.sh               ask for the Slack and GitHub tokens at a hidden prompt, check them, put them in the vault

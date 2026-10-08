@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Put the Slack bot token and the GitHub token into the vault. Each one is asked
 # for at a hidden prompt, checked against Slack or GitHub so a wrong paste is
-# caught here rather than on the first run, and sent to the vault on ant's
+# caught here rather than on the first run, and piped to the vault on ant's
 # stdin. No token is echoed, written to a file, or put on a command line, so
 # you can run this next to a coding agent and the agent never sees a token:
 # run it in your own terminal, not through the agent.
@@ -11,33 +11,45 @@
 #   scripts/credentials.sh slack      replace the Slack token (rotation); same for `github`
 #   SLACK_BOT_TOKEN=... GITHUB_TOKEN=... scripts/credentials.sh --from-env [slack|github]
 #                                     no prompts, e.g. GITHUB_TOKEN=$(op read op://...) from a password manager
+#
+# Exit status: 0 stored (or nothing to do), 3 needs a person at a terminal, anything else is an error.
 set -euo pipefail
 cd "$(dirname "$0")/.."
+say() { printf '%s\n' "$*" >&2; }
 
 # The environment is read only when asked. GITHUB_TOKEN in particular is often
 # already exported for other tools (gh, CI, Codespaces), and storing whatever
 # happens to be there, unseen, is the opposite of what this script is for.
-if [ "${1:-}" = "--from-env" ]; then shift; else SLACK_BOT_TOKEN="" GITHUB_TOKEN=""; fi
+from_env=
+if [ "${1:-}" = "--from-env" ]; then from_env=1; shift; else SLACK_BOT_TOKEN="" GITHUB_TOKEN=""; fi
+case "${1:-}" in slack | github | "") ;; *) say "usage: scripts/credentials.sh [--from-env] [slack|github]"; exit 2 ;; esac
 
 for tool in ant jq curl; do
-  command -v "$tool" >/dev/null || { echo "install $tool first (see README)" >&2; exit 1; }
+  command -v "$tool" >/dev/null || { say "install $tool first (see README)"; exit 1; }
 done
 VAULT_ID=$(jq -r '.resources["./agents/daily-brief/vault.yaml"].id // empty' claude-lock.json 2>/dev/null || true)
-[ -n "$VAULT_ID" ] || { echo "no vault yet: run agents/setup.sh first (it creates the vault, then calls this)" >&2; exit 1; }
+[ -n "$VAULT_ID" ] || { say "no vault yet: run agents/setup.sh first (it creates the vault, then calls this)"; exit 1; }
 
-say() { printf '%s\n' "$*" >&2; }
-existing=$(ant beta:vaults:credentials list --vault-id "$VAULT_ID" --format jsonl --transform '{id,display_name}')
-cred_id() { jq -r --arg n "$1" 'select(.display_name == $n) | .id' <<<"$existing" | head -1; }
+# What the vault already holds. A credential is recognized by what makes it
+# unique in the vault (the Slack one by its secret_name, the GitHub one by its
+# MCP server URL), not by display name, so one added in the Console counts too.
+existing=$(ant beta:vaults:credentials list --vault-id "$VAULT_ID" --limit 100 --format jsonl \
+  --transform '{id,auth.secret_name,auth.mcp_server_url}') \
+  || { say "could not list the credentials in vault $VAULT_ID (is ant signed in? network?)"; exit 1; }
+cred_id() { # cred_id slack|github
+  case "$1" in
+    slack) jq -r 'select(.secret_name == "SLACK_BOT_TOKEN") | .id' <<<"$existing" ;;
+    github) jq -r 'select((.mcp_server_url // "") | startswith("https://api.githubcopilot.com/mcp")) | .id' <<<"$existing" ;;
+  esac | head -1
+}
 
 # Which credentials to do: the one named on the command line (replacing what is
 # there), otherwise whichever is missing.
-case "${1:-}" in
-  slack) want="slack" ;; github) want="github" ;;
-  "") want=""
-      [ -n "$(cred_id SLACK_BOT_TOKEN)" ] || want="slack"
-      [ -n "$(cred_id 'GitHub (read-only)')" ] || want="$want github" ;;
-  *) echo "usage: scripts/credentials.sh [--from-env] [slack|github]" >&2; exit 2 ;;
-esac
+want="${1:-}"
+if [ -z "$want" ]; then
+  [ -n "$(cred_id slack)" ] || want="slack"
+  [ -n "$(cred_id github)" ] || want="$want github"
+fi
 if [ -z "$want" ]; then
   say "vault: $VAULT_ID already holds the Slack and GitHub credentials."
   say "       To replace one (a rotated token): scripts/credentials.sh slack   or   scripts/credentials.sh github"
@@ -63,28 +75,32 @@ EOF
   exit 3
 fi
 
-# ask VAR "prompt": hidden read into VAR. Ctrl-C or Ctrl-D gives up.
+# ask VAR "prompt": hidden read into VAR. Ctrl-D gives up on this credential;
+# Ctrl-C stops the script (the trap puts terminal echo back first).
+trap 'stty echo 2>/dev/null || true; echo >&2; say "   (interrupted; nothing more stored)"; exit 130' INT
 ask() {
   IFS= read -rs -p "$2" "$1" || { echo >&2; say "   (no input; stopped without storing this one)"; exit 1; }
   echo >&2
 }
 
-# store <display_name> <create body> <update body>: bodies arrive as here-strings
-# on ant's stdin, so the token is never an argument (visible in `ps`).
+# Secrets travel on pipes from printf (a builtin, so no argument list carries
+# them), never as here-strings, which older bash (macOS's 3.2) spools to a temp file.
+# store slack|github <create body> <update body>
 store() {
   local id; id=$(cred_id "$1")
   if [ -n "$id" ]; then
-    ant beta:vaults:credentials update --vault-id "$VAULT_ID" --credential-id "$id" >/dev/null <<<"$3"
-    say "   ✓ replaced \"$1\" in vault $VAULT_ID"
+    printf '%s' "$3" | ant beta:vaults:credentials update --vault-id "$VAULT_ID" --credential-id "$id" >/dev/null
+    say "   ✓ replaced the $1 credential ($id) in vault $VAULT_ID"
   else
-    ant beta:vaults:credentials create --vault-id "$VAULT_ID" >/dev/null <<<"$2"
-    say "   ✓ added \"$1\" to vault $VAULT_ID"
+    printf '%s' "$2" | ant beta:vaults:credentials create --vault-id "$VAULT_ID" >/dev/null
+    say "   ✓ added the $1 credential to vault $VAULT_ID"
   fi
 }
+bearer() { printf 'Authorization: Bearer %s\n' "$1"; } # for curl -H @-
 
 slack() {
-  local token=${SLACK_BOT_TOKEN:-} from_env=${SLACK_BOT_TOKEN:+1} resp err bot team
-  say ""; say "== Slack bot token${from_env:+ (from \$SLACK_BOT_TOKEN)}"
+  local token=${SLACK_BOT_TOKEN:-} resp err bot team
+  say ""; say "== Slack bot token${token:+ (from \$SLACK_BOT_TOKEN)}"
   # The same link as README step 2: slack/manifest.yaml, URL-encoded.
   cat >&2 <<EOF
    1. Create the app from the manifest (choose a workspace, Next, Create):
@@ -101,7 +117,7 @@ EOF
       *) say "   That is not a bot token: they start with xoxb-. The signing secret and client secret on Basic Information are not it." ;;
     esac
     if [[ $token == xoxb-* ]]; then
-      resp=$(curl -sS -m 20 -X POST -H @- https://slack.com/api/auth.test <<<"Authorization: Bearer $token") || resp=
+      resp=$(bearer "$token" | curl -sS -m 20 -X POST -H @- https://slack.com/api/auth.test) || resp=
       if [ "$(jq -r '.ok // false' <<<"$resp" 2>/dev/null)" = true ]; then
         bot=$(jq -r .user <<<"$resp"); team=$(jq -r .team <<<"$resp")
         say "   ✓ Slack accepts it: bot @$bot in workspace \"$team\""
@@ -110,19 +126,19 @@ EOF
       err=$(jq -r '.error // empty' <<<"$resp" 2>/dev/null || true)
       say "   Slack rejected it: ${err:-could not reach slack.com}. Copy the token again from Install App, after installing."
     fi
-    [ -z "$from_env" ] || exit 1
+    [ -z "$from_env" ] || { say "   (that was \$SLACK_BOT_TOKEN; fix it, or drop --from-env to type the token)"; exit 1; }
     token=
   done
-  store SLACK_BOT_TOKEN \
+  store slack \
     "$(T=$token jq -nc '{display_name: "SLACK_BOT_TOKEN", auth: {type: "environment_variable", secret_name: "SLACK_BOT_TOKEN", secret_value: $ENV.T,
         networking: {type: "limited", allowed_hosts: ["slack.com"]}, injection_location: {header: true}}}')" \
     "$(T=$token jq -nc '{auth: {type: "environment_variable", secret_value: $ENV.T}}')"
-  say "   Next, in Slack: /invite @$bot in each channel the brief should read and in the channel it posts to."
+  say "   Next, in Slack: type /invite @ and pick the bot (@$bot) in each channel the brief should read and in the channel it posts to."
 }
 
 github() {
-  local token=${GITHUB_TOKEN:-} from_env=${GITHUB_TOKEN:+1} resp code login
-  say ""; say "== GitHub token (fine-grained, read-only)${from_env:+ (from \$GITHUB_TOKEN)}"
+  local token=${GITHUB_TOKEN:-} resp code login
+  say ""; say "== GitHub token (fine-grained, read-only)${token:+ (from \$GITHUB_TOKEN)}"
   cat >&2 <<'EOF'
    1. Open the prefilled token form:
       https://github.com/settings/personal-access-tokens/new?name=daily-brief&description=Read-only+token+for+the+daily+brief+agent&expires_in=90&contents=read&pull_requests=read
@@ -141,8 +157,8 @@ EOF
       *) say "   That is not a fine-grained token: they start with github_pat_." ;;
     esac
     if [[ $token == github_pat_* ]]; then
-      resp=$(curl -sS -m 20 -w $'\n%{http_code}' -H @- -H "Accept: application/vnd.github+json" -H "User-Agent: daily-brief-quickstart" \
-        https://api.github.com/user <<<"Authorization: Bearer $token") || resp=$'\n000'
+      resp=$(bearer "$token" | curl -sS -m 20 -w $'\n%{http_code}' -H @- -H "Accept: application/vnd.github+json" \
+        -H "User-Agent: daily-brief-quickstart" https://api.github.com/user) || resp=$'\n000'
       code=${resp##*$'\n'}
       if [ "$code" = 200 ]; then
         login=$(jq -r .login <<<"${resp%$'\n'*}")
@@ -156,10 +172,10 @@ EOF
         *) say "   GitHub answered $code: $(jq -r '.message // ""' <<<"${resp%$'\n'*}" 2>/dev/null)" ;;
       esac
     fi
-    [ -z "$from_env" ] || exit 1
+    [ -z "$from_env" ] || { say "   (that was \$GITHUB_TOKEN; fix it, or drop --from-env to type the token)"; exit 1; }
     token=
   done
-  store "GitHub (read-only)" \
+  store github \
     "$(T=$token jq -nc '{display_name: "GitHub (read-only)", auth: {type: "static_bearer", mcp_server_url: "https://api.githubcopilot.com/mcp/", token: $ENV.T}}')" \
     "$(T=$token jq -nc '{auth: {type: "static_bearer", token: $ENV.T}}')"
   say "   It expires in 90 days unless you changed that on the form; scripts/credentials.sh github replaces it then."

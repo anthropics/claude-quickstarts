@@ -42,8 +42,15 @@ echo "vault: $VAULT_ID attached to the deployment"
 #    prompt, checks each against its service, and adds it to the vault. It needs
 #    a person at a terminal; when this script runs without one (from a coding
 #    agent, say), that step is left for you to run yourself.
-pending=
-scripts/credentials.sh || pending=1
+rc=0
+trap 'rc=130' INT # a Ctrl-C at the prompt stops that step, not the summary below
+scripts/credentials.sh || rc=$?
+trap - INT
+case $rc in
+  0) pending="" ;;
+  3 | 130) pending=1 ;; # no terminal here (3) or interrupted (130): the user does this step next
+  *) pending=1; echo "credentials: scripts/credentials.sh failed (exit $rc); see its message above and run it again" >&2 ;;
+esac
 
 cat <<EOF
 
@@ -54,3 +61,4 @@ Next:${pending:+
   scripts/run.sh                                          start one run now and print what the agent did
   ant beta:deployments unpause --deployment-id $DEPLOYMENT_ID   turn the schedule on once a run looks right
 EOF
+case $rc in 0 | 3 | 130) ;; *) exit "$rc" ;; esac
