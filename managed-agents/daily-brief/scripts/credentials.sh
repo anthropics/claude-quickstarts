@@ -9,10 +9,15 @@
 # Usage:
 #   scripts/credentials.sh            add whichever of the two is missing (both, on first setup)
 #   scripts/credentials.sh slack      replace the Slack token (rotation); same for `github`
-#   SLACK_BOT_TOKEN=... GITHUB_TOKEN=... scripts/credentials.sh
-#                                     no prompts, e.g. SLACK_BOT_TOKEN=$(op read op://...) from a password manager
+#   SLACK_BOT_TOKEN=... GITHUB_TOKEN=... scripts/credentials.sh --from-env [slack|github]
+#                                     no prompts, e.g. GITHUB_TOKEN=$(op read op://...) from a password manager
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+# The environment is read only when asked. GITHUB_TOKEN in particular is often
+# already exported for other tools (gh, CI, Codespaces), and storing whatever
+# happens to be there, unseen, is the opposite of what this script is for.
+if [ "${1:-}" = "--from-env" ]; then shift; else SLACK_BOT_TOKEN="" GITHUB_TOKEN=""; fi
 
 for tool in ant jq curl; do
   command -v "$tool" >/dev/null || { echo "install $tool first (see README)" >&2; exit 1; }
@@ -31,7 +36,7 @@ case "${1:-}" in
   "") want=""
       [ -n "$(cred_id SLACK_BOT_TOKEN)" ] || want="slack"
       [ -n "$(cred_id 'GitHub (read-only)')" ] || want="$want github" ;;
-  *) echo "usage: scripts/credentials.sh [slack|github]" >&2; exit 2 ;;
+  *) echo "usage: scripts/credentials.sh [--from-env] [slack|github]" >&2; exit 2 ;;
 esac
 if [ -z "$want" ]; then
   say "vault: $VAULT_ID already holds the Slack and GitHub credentials."
@@ -41,7 +46,7 @@ fi
 
 # Prompting needs a real terminal on stdin. A coding agent's shell has none, and
 # that is the point: the agent should hand this step to you rather than ask you
-# for a token. Tokens supplied in the environment skip the prompt.
+# for a token. Tokens supplied with --from-env skip the prompt.
 needs_prompt=
 case " $want " in *" slack "*) [ -n "${SLACK_BOT_TOKEN:-}" ] || needs_prompt=1 ;; esac
 case " $want " in *" github "*) [ -n "${GITHUB_TOKEN:-}" ] || needs_prompt=1 ;; esac
