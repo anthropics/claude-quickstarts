@@ -1,12 +1,14 @@
 """Connection handling for MCP servers."""
 
 from abc import ABC, abstractmethod
-from contextlib import AsyncExitStack
+from contextlib import AsyncExitStack, asynccontextmanager
 from typing import Any
 
+import httpx
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.sse import sse_client
 from mcp.client.stdio import stdio_client
+from mcp.client.streamable_http import streamable_http_client
 
 from ..tools.mcp_tool import MCPTool
 
@@ -90,6 +92,49 @@ class MCPConnectionSSE(MCPConnection):
         return sse_client(url=self.url, headers=self.headers)
 
 
+class MCPConnectionStreamableHTTP(MCPConnection):
+    """MCP connection using Streamable HTTP."""
+
+    def __init__(self, url: str, headers: dict[str, str] | None = None):
+        super().__init__()
+        self.url = url
+        self.headers = headers or {}
+
+    @asynccontextmanager
+    async def _streams(self):
+        async with httpx.AsyncClient(
+            headers=self.headers,
+            timeout=httpx.Timeout(30, read=300),
+            follow_redirects=True,
+        ) as client, streamable_http_client(
+            url=self.url, http_client=client
+        ) as (read, write, _):
+            yield read, write
+
+    async def _create_rw_context(self):
+        return self._streams()
+
+    async def __aenter__(self):
+        self._stack = AsyncExitStack()
+        try:
+            read, write = await self._stack.enter_async_context(self._streams())
+            self.session = await self._stack.enter_async_context(
+                ClientSession(read, write)
+            )
+            await self.session.initialize()
+        except BaseException:
+            await self._stack.aclose()
+            self.session = None
+            raise
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        try:
+            return await self._stack.__aexit__(exc_type, exc_val, exc_tb)
+        finally:
+            self.session = None
+
+
 def create_mcp_connection(config: dict[str, Any]) -> MCPConnection:
     """Factory function to create the appropriate MCP connection."""
     conn_type = config.get("type", "stdio").lower()
@@ -107,6 +152,13 @@ def create_mcp_connection(config: dict[str, Any]) -> MCPConnection:
         if not config.get("url"):
             raise ValueError("URL is required for SSE connections")
         return MCPConnectionSSE(
+            url=config["url"], headers=config.get("headers")
+        )
+
+    elif conn_type == "streamable_http":
+        if not config.get("url"):
+            raise ValueError("URL is required for Streamable HTTP connections")
+        return MCPConnectionStreamableHTTP(
             url=config["url"], headers=config.get("headers")
         )
 
