@@ -1,0 +1,19 @@
+services:
+  computeruse:
+    container_name: computeruse
+    environment:
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    hostname: computeruse
+    image: ghcr.io/anthropics/anthropic-quickstarts:computer-use-demo-latest
+    ports:
+      - 5900:5900 # Direct VNC
+      - 6080:6080 # Desktop View
+      - 8080:8080 # Combined Interface
+      - 8501:8501 # Agent Chat
+    #restart: unless-stopped
+    volumes:
+      #- ${HOME:-.}/.anthropic:/home/computeruse/.anthropic
+      - computeruse:/home/computeruse/.anthropic
+
+volumes:
+  computeruse:
