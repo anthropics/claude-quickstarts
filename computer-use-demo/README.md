@@ -39,6 +39,8 @@ The demo supports every dated version of the Anthropic-defined computer use tool
 
 The most recent shape, `computer_toolset_20260801`, declares the computer tool as a *toolset*: a single nameless entry in `tools[]` that declares one member tool per computer action. The model then calls each action as its own tool — `tool_use.name` is the member name (`left_click`, `screenshot`, ...), the block carries `toolset_name: "computer"`, and the input is that action's parameters with no `action` discriminator. Every `tool_result` answering a member call carries the same `toolset_name`, member calls in a turn run sequentially and stop on the first failure, and the toolset requires no `anthropic-beta` header. Earlier dated versions of the tool (API types `computer_20241022` through `computer_20251124`, the sidebar's `computer_use_*` entries) keep the single `computer` tool with an `action` parameter and their respective beta headers. A model supports either the toolset or the earlier dated versions it was trained with — check the [computer use documentation](https://docs.claude.com/en/docs/agents-and-tools/computer-use) for each model's supported versions.
 
+The text editor's directory `view` command treats absolute paths literally, including spaces, quotes, and shell metacharacters. Listings include entries up to two levels deep and exclude hidden items.
+
 ## Quickstart: running the Docker container
 
 ### Claude API

@@ -1,4 +1,5 @@
 import asyncio
+import shlex
 from collections import defaultdict
 from pathlib import Path
 from typing import Any, Literal, get_args
@@ -119,7 +120,7 @@ class EditTool20250728(BaseAnthropicTool):
                 )
 
             _, stdout, stderr = await run(
-                rf"find {path} -maxdepth 2 -not -path '*/\.*'"
+                rf"find {shlex.quote(str(path))} -maxdepth 2 -not -path '*/\.*'"
             )
             if not stderr:
                 stdout = f"Here's the files and directories up to 2 levels deep in {path}, excluding hidden items:\n{stdout}\n"
