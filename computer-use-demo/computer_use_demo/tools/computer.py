@@ -164,7 +164,7 @@ class BaseComputerTool:
                 raise ToolError(output=f"{text} must be a string")
 
             if action == "key":
-                command_parts = [self.xdotool, f"key -- {text}"]
+                command_parts = [self.xdotool, f"key -- {shlex.quote(text)}"]
                 return await self.shell(" ".join(command_parts))
             elif action == "type":
                 results: list[ToolResult] = []
@@ -361,10 +361,10 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
 
             command_parts = [self.xdotool, mouse_move_part]
             if text:
-                command_parts.append(f"keydown {text}")
+                command_parts.append(f"keydown {shlex.quote(text)}")
             command_parts.append(f"click --repeat {scroll_amount} {scroll_button}")
             if text:
-                command_parts.append(f"keyup {text}")
+                command_parts.append(f"keyup {shlex.quote(text)}")
 
             return await self.shell(" ".join(command_parts))
 
@@ -408,10 +408,10 @@ class ComputerTool20250124(BaseComputerTool, BaseAnthropicTool):
 
             command_parts = [self.xdotool, mouse_move_part]
             if key:
-                command_parts.append(f"keydown {key}")
+                command_parts.append(f"keydown {shlex.quote(key)}")
             command_parts.append(f"click {CLICK_BUTTONS[action]}")
             if key:
-                command_parts.append(f"keyup {key}")
+                command_parts.append(f"keyup {shlex.quote(key)}")
 
             return await self.shell(" ".join(command_parts))
 
@@ -592,7 +592,7 @@ class ComputerToolset20260801(ComputerTool20251124):
         if action == "key":
             # The member's text is a single key or +-joined chord and repeat
             # defaults to 1, so an omitted repeat takes the same quoted path
-            # rather than the inherited unquoted `xdotool key -- {text}`.
+            # rather than the inherited single-press handler.
             if text is None:
                 raise ToolError(f"text is required for {action}")
             if kwargs.get("coordinate") is not None:
