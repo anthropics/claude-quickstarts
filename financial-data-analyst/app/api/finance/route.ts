@@ -73,6 +73,7 @@ const tools: ToolSchema[] = [
             footer: { type: "string" as const },
             totalLabel: { type: "string" as const },
             xAxisKey: { type: "string" as const },
+            yAxisKey: { type: "string" as const },
           },
           required: ["title", "description"],
         },
@@ -268,6 +269,7 @@ For Time-Series (Line/Bar/Area):
   ],
   config: {
     xAxisKey: "period",
+    yAxisKey: "sales",
     title: "Quarterly Revenue",
     description: "Revenue growth over time"
   },
@@ -284,6 +286,7 @@ For Comparisons (MultiBar):
   ],
   config: {
     xAxisKey: "category",
+    yAxisKey: "sales",
     title: "Product Performance",
     description: "Sales vs Costs by Product"
   },
