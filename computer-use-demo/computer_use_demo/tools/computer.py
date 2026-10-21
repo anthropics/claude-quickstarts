@@ -276,7 +276,9 @@ class BaseComputerTool:
 
         return ToolResult(output=stdout, error=stderr, base64_image=base64_image)
 
-    def scale_coordinates(self, source: ScalingSource, x: int, y: int):
+    def scale_coordinates(
+        self, source: ScalingSource, x: int, y: int, *, allow_endpoint: bool = False
+    ):
         """Scale coordinates to a target maximum resolution."""
         if not self._scaling_enabled:
             return x, y
@@ -294,7 +296,15 @@ class BaseComputerTool:
         x_scaling_factor = target_dimension["width"] / self.width
         y_scaling_factor = target_dimension["height"] / self.height
         if source == ScalingSource.API:
-            if x > target_dimension["width"] or y > target_dimension["height"]:
+            if allow_endpoint:
+                out_of_bounds = (
+                    x > target_dimension["width"] or y > target_dimension["height"]
+                )
+            else:
+                out_of_bounds = (
+                    x >= target_dimension["width"] or y >= target_dimension["height"]
+                )
+            if out_of_bounds:
                 raise ToolError(f"Coordinates {x}, {y} are out of bounds")
             # scale up
             return round(x / x_scaling_factor), round(y / y_scaling_factor)
@@ -484,7 +494,9 @@ class ComputerTool20251124(ComputerTool20250124):
         """
         # scale_coordinates(API, ...) also bounds-checks against the display.
         x0, y0 = self.scale_coordinates(ScalingSource.API, region[0], region[1])
-        x1, y1 = self.scale_coordinates(ScalingSource.API, region[2], region[3])
+        x1, y1 = self.scale_coordinates(
+            ScalingSource.API, region[2], region[3], allow_endpoint=True
+        )
         frame_w, frame_h = self.screenshot_size()
 
         raw_path = await self._new_output_path("zoom_raw")
