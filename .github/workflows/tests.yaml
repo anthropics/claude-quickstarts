@@ -21,6 +21,10 @@ jobs:
       - uses: astral-sh/ruff-action@v1
         with:
           src: "computer-use-demo"
+          # Pin to the same version as computer-use-demo/dev-requirements.txt so CI
+          # and pre-commit agree. Unpinned, the action runs latest ruff, which keeps
+          # adding new rules (e.g. ASYNC240) that the demo predates.
+          version: "0.6.7"
   pyright:
     runs-on: ubuntu-latest
     defaults:
