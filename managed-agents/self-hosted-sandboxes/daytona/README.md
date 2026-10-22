@@ -39,7 +39,7 @@ Two consequences:
 
 Needs Python 3.11+, a Daytona API key, the
 [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later (the first release with `ant apply`), `jq`, and
+2.0 or later, `jq`, and
 `ant auth login` once (or `ANTHROPIC_API_KEY` exported in your shell).
 
 One-time setup, from `managed-agents/self-hosted-sandboxes/webhook-demo/`:
@@ -61,7 +61,7 @@ Run the orchestrator:
 ```sh
 cd daytona
 # standardwebhooks backs client.beta.webhooks.unwrap(). Only this host needs it.
-pip install fastapi uvicorn daytona-sdk standardwebhooks 'anthropic>=1.9.0,<2.0.0'
+pip install fastapi uvicorn daytona-sdk standardwebhooks 'anthropic>=2.0.0,<3'
 
 export DAYTONA_API_KEY=... DAYTONA_API_URL=...
 export ANTHROPIC_ENVIRONMENT_ID=env_... ANTHROPIC_ENVIRONMENT_KEY=sk-ant-oat...

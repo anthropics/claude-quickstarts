@@ -69,7 +69,7 @@ async def main() -> None:
     secret = os.environ.get("ANTHROPIC_WORK_SECRET", "")
     token = sessions_token(secret) if secret else None
     # handle_item() prefers the token inside work_secret for every call it
-    # makes. `environment_key` is its required fallback credential: passing the
+    # makes. `environment_key` is its fallback credential, and passing the
     # token there too keeps any standing key out of this process. Left unset,
     # the SDK would read ANTHROPIC_ENVIRONMENT_KEY from the environment.
     credential = token or os.environ.get("ANTHROPIC_ENVIRONMENT_KEY", "")

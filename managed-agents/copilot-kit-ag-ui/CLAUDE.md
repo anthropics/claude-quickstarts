@@ -35,7 +35,7 @@ Four pieces:
 
 ## Commands
 
-- `npm install`, then `ant apply --yes agents environments` once (ant 1.30 or later; `--yes` because you have no terminal for its confirmation prompt), then `npm run dev` (server on :8787, web on :5173). After editing `agents/financial-assistant.md`, a bare `ant apply --yes` publishes the new version; restart the server to pin it.
+- `npm install`, then `ant apply --yes agents environments` once (ant 2.0 or later; `--yes` because you have no terminal for its confirmation prompt), then `npm run dev` (server on :8787, web on :5173). After editing `agents/financial-assistant.md`, a bare `ant apply --yes` publishes the new version; restart the server to pin it.
 - `npm run build` builds the frontend to `web/dist`. `npm start` runs the server without watch and serves `web/dist` if present.
 - `npm run typecheck` covers both workspaces. There are no tests. Verify changes by running the app.
 

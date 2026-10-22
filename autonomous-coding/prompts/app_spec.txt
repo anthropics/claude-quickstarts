@@ -133,9 +133,7 @@
     </settings_preferences>
 
     <advanced_features>
-      - Temperature control slider
       - Max tokens adjustment
-      - Top-p (nucleus sampling) control
       - System prompt override
       - Thinking/reasoning mode toggle
       - Multi-modal input (text + images)
@@ -218,7 +216,7 @@
         - id, user_id, project_id, title
         - model, created_at, updated_at, last_message_at
         - is_archived, is_pinned, is_deleted
-        - settings (JSON: temperature, max_tokens, etc.)
+        - settings (JSON: max_tokens, system prompt, etc.)
         - token_count, message_count
       </conversations>
 
@@ -597,7 +595,7 @@
       <title>Advanced Features</title>
       <tasks>
         - Add model selection dropdown
-        - Implement temperature and parameter controls
+        - Implement max tokens and system prompt controls
         - Build image upload functionality
         - Create message editing and regeneration
         - Add conversation branching

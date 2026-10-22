@@ -6,12 +6,12 @@ annotated-doc==0.0.4 ; sys_platform == 'darwin'
     # via fastapi
 annotated-types==0.7.0 ; sys_platform == 'darwin'
     # via pydantic
-anthropic==0.93.0 ; sys_platform == 'darwin'
+anthropic==2.0.0 ; sys_platform == 'darwin'
     # via computer-use-best-practices
 anyio==4.12.1 ; sys_platform == 'darwin'
     # via
     #   anthropic
-    #   httpx
+    #   httpx2
     #   starlette
 attrs==26.1.0 ; sys_platform == 'darwin'
     # via
@@ -22,18 +22,13 @@ blinker==1.9.0 ; sys_platform == 'darwin'
 cachetools==7.0.5 ; sys_platform == 'darwin'
     # via streamlit
 certifi==2026.2.25 ; sys_platform == 'darwin'
-    # via
-    #   httpcore
-    #   httpx
-    #   requests
+    # via requests
 charset-normalizer==3.4.6 ; sys_platform == 'darwin'
     # via requests
 click==8.3.1 ; sys_platform == 'darwin'
     # via
     #   streamlit
     #   uvicorn
-distro==1.9.0 ; sys_platform == 'darwin'
-    # via anthropic
 docstring-parser==0.17.0 ; sys_platform == 'darwin'
     # via anthropic
 fastapi==0.135.1 ; sys_platform == 'darwin'
@@ -46,16 +41,16 @@ greenlet==3.3.2 ; sys_platform == 'darwin'
     # via playwright
 h11==0.16.0 ; sys_platform == 'darwin'
     # via
-    #   httpcore
+    #   httpcore2
     #   uvicorn
-httpcore==1.0.9 ; sys_platform == 'darwin'
-    # via httpx
-httpx==0.28.1 ; sys_platform == 'darwin'
+httpcore2==2.13.1 ; sys_platform == 'darwin'
+    # via httpx2
+httpx2==2.13.1 ; sys_platform == 'darwin'
     # via anthropic
-idna==3.11 ; sys_platform == 'darwin'
+idna==3.20 ; sys_platform == 'darwin'
     # via
     #   anyio
-    #   httpx
+    #   httpx2
     #   requests
 jinja2==3.1.6 ; sys_platform == 'darwin'
     # via
@@ -78,6 +73,8 @@ numpy==2.4.3 ; sys_platform == 'darwin'
     #   pandas
     #   pydeck
     #   streamlit
+opentelemetry-api==1.45.1 ; sys_platform == 'darwin'
+    # via anthropic
 packaging==26.0 ; sys_platform == 'darwin'
     # via
     #   altair
@@ -164,12 +161,18 @@ toml==0.10.2 ; sys_platform == 'darwin'
     # via streamlit
 tornado==6.5.5 ; sys_platform == 'darwin'
     # via streamlit
+truststore==0.10.4 ; sys_platform == 'darwin'
+    # via
+    #   httpcore2
+    #   httpx2
 typing-extensions==4.15.0 ; sys_platform == 'darwin'
     # via
     #   altair
     #   anthropic
     #   anyio
     #   fastapi
+    #   httpx2
+    #   opentelemetry-api
     #   pydantic
     #   pydantic-core
     #   pyee

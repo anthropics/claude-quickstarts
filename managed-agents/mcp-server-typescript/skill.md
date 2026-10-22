@@ -127,7 +127,7 @@ Browser claude.ai can't spawn a local process, so stdio only works with Claude D
 
 ### `idle` means finished, and nothing else does
 
-`wait_for_idle` returns `status: "idle"` only when the agent ended its turn. `requires_action` means it is parked on a tool approval or a custom tool result that this server has no way to supply. `retries_exhausted` and `budget_reached` mean it gave up or hit its cap. `terminated` means the session is gone. In each of those, `reply` may hold a half-finished preamble. `timeout` means it is still running.
+`wait_for_idle` returns `status: "idle"` only when the agent ended its turn. `requires_action` means it is parked on a tool approval or a custom tool result that this server has no way to supply. `retries_exhausted` and `budget_reached` mean it gave up or hit its cap. `refusal` means its response was refused, for example by a safety classifier. `terminated` means the session is gone. In each of those, `reply` may hold a half-finished preamble. `timeout` means it is still running.
 
 ### Long turns vs tool timeout
 

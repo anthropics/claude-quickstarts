@@ -86,9 +86,10 @@ def stream_until_end_turn(session_id: str) -> None:
 
     `session.status_idle` is not always terminal: with `stop_reason.type ==
     "requires_action"` the agent is waiting on a client event (a tool
-    confirmation or custom tool result), so keep streaming. The terminal stop
-    reasons are `end_turn` (normal completion) and `retries_exhausted`
-    (failure). Breaking only on `end_turn` would hang forever on a failed run.
+    confirmation or custom tool result), so keep streaming. Every other stop
+    reason is terminal: `end_turn` (normal completion), or `retries_exhausted`,
+    `budget_reached`, and `refusal` (the run stopped early). Breaking only on
+    `end_turn` would hang forever on a failed run.
     """
     with client.beta.sessions.events.stream(session_id) as stream:
         for ev in stream:

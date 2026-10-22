@@ -26,7 +26,7 @@ agent is an Opus reviewer running as a session thread.
    paint and live streaming render through. `src/lib/client.ts` holds
    `ownedSession()`, the check every route runs on the session cookie.
 
-Provisioning is `./agents/setup.sh` (ant 1.34 or later, `jq`): it runs
+Provisioning is `./agents/setup.sh` (ant 2.0 or later, `jq`): it runs
 `ant apply --yes agents environments vaults`, which creates the environment,
 vault, reviewer, and planner from those directories and records their IDs in
 `claude-lock.json` (read by `src/lib/resources.ts`), then adds the two vendor

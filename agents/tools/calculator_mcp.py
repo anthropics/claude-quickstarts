@@ -4,9 +4,9 @@
 
 import math
 
-from mcp.server import FastMCP
+from mcp.server import MCPServer
 
-mcp = FastMCP("Calculator")
+mcp = MCPServer("Calculator")
 
 
 @mcp.tool(name="calculator")

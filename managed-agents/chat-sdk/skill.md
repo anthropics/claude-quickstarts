@@ -80,7 +80,7 @@ The environment uses unrestricted egress because networking posture follows what
 
 ### Token previews are gated per org
 
-`@anthropic-ai/sdk` 0.109.0 (2026-06-30) is the first published release with `event_deltas` and the `accumulateManagedAgentsEvent` helper, both under the standard `managed-agents-2026-04-01` beta header the SDK sends for you. The streaming feature itself is still enabled per organization while the 2026-07-01 update rolls out. Without the gate everything works and nothing streams: the `event_deltas` query param is silently ignored, no `event_start` ever arrives, and every reply posts whole. That is the org, not your code.
+The SDK (`@anthropic-ai/sdk` 1.0 or later here) sends `event_deltas` and ships the `accumulateManagedAgentsEvent` helper, both under the standard `managed-agents-2026-04-01` beta header it adds for you. The streaming feature itself is still enabled per organization while the 2026-07-01 update rolls out. Without the gate everything works and nothing streams: the `event_deltas` query param is silently ignored, no `event_start` ever arrives, and every reply posts whole. That is the org, not your code.
 
 ### Stop abandons the response, not the research
 
@@ -103,7 +103,7 @@ The `/api/chat` response stays open for the whole research turn, minutes at a ti
 ## Setup checklist
 
 1. `cp .env.example .env`, then add Anthropic auth: uncomment and fill in `ANTHROPIC_API_KEY`, or run `ant auth login` once and leave it out (the SDK discovers CLI credentials). Token previews are part of the 2026-07-01 Managed Agents update; use an org that has it.
-2. `npm install` (needs Node ≥ 22.9 and `@anthropic-ai/sdk` ≥ 0.109.0; `package.json` already says so).
+2. `npm install` (needs Node ≥ 22.9 and `@anthropic-ai/sdk` ≥ 1.0; `package.json` already says so).
 3. `npm run setup` → copy the printed `CLAUDE_AGENT_ID` and `CLAUDE_ENVIRONMENT_ID` into `.env`.
 4. `npm run dev` → open `http://localhost:3000` → **New chat** → ask for a brief on any topic. Expect the acknowledgment within seconds, the activity feed filling with searches for a minute or three, the brief typing itself out, then a collapsed tool-call trace and the **Brief ready** card with the turn's stats and a link to the session trace. Restart the server and reload to see the sidebar and transcript come back from the sessions API.
 

@@ -99,10 +99,9 @@ Two features must be enabled on your organization:
   returns 404 and the notebook stops at step 5; everything before that still
   runs.
 
-Request access at <https://claude.com/form/claude-managed-agents>. Dreaming
-also ships in a dedicated preview SDK build rather than the public `anthropic`
-package on PyPI — the preview onboarding tells you how to install it once
-your organization is enrolled.
+Request access at <https://claude.com/form/claude-managed-agents>. On the SDK
+side, `client.beta.dreams` ships in `anthropic` 2.0 and later, which
+`requirements.txt` installs.
 
 ## Quickstart
 
@@ -113,8 +112,7 @@ cd managed-agents/knowledge-wiki
 claude "walk me through setting up the knowledge-wiki quickstart"
 ```
 
-Or follow the steps below by hand, once you have access and the preview SDK
-installed.
+Or follow the steps below by hand, once you have access.
 
 ```bash
 pip install -r requirements.txt

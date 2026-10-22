@@ -1,9 +1,9 @@
 FROM debian:12-slim
-# 1.32 is the first release where `ant beta:worker run` takes the per-session
-# token from a file and runs without the environment key.
-ARG ANT_VERSION=1.38.0
-ARG ANT_SHA256_AMD64=a565ca407b2d28d9816c4020405a95fef0a13c987241c54a6498d23259f41ab6
-ARG ANT_SHA256_ARM64=14914ceb4c7c4140e8ead2464d7b8a30ff3385a6ec55918bc7716ca9f21d84f9
+# `ant beta:worker run` takes the per-session token from a file
+# (--work-secret-file) and runs without the environment key.
+ARG ANT_VERSION=2.0.0
+ARG ANT_SHA256_AMD64=1cce993c19c9b8e37acca52cee7671b0cf4112fac34f5adf8c3f8d91c92a735d
+ARG ANT_SHA256_ARM64=265d325816566f001ef109a10702e9782ec1d9bb1b3a05931e105d4db508dbf6
 # ca-certificates and curl for HTTPS from agent bash sessions. ripgrep, git,
 # and jq because agents expect them and slim images ship nothing. procps for
 # the pgrep that on-work.sh uses to spot a session that already has a worker.

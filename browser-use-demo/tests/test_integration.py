@@ -107,7 +107,7 @@ class TestStateInitializationAndPersistence:
             "browser_tool",
             "event_loop",
             "rendered_message_count",
-            "is_agent_running",
+            "chat_disabled",
             "active_messages",
             "active_response_container",
         }

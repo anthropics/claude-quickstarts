@@ -6,7 +6,7 @@ requires-python = ">=3.11"
 classifiers = ["Private :: Do Not Upload"]
 dependencies = [
     "Pillow>=10.0",
-    "anthropic>=0.93",
+    "anthropic>=2.0.0,<3",
     "fastapi>=0.110",
     "playwright>=1.40",
     "pyautogui>=0.9",

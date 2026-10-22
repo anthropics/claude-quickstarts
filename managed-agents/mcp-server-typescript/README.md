@@ -14,7 +14,7 @@ This is the remote-control shape: every agent the server's credentials can reach
 
 ## Quickstart
 
-Needs [Bun](https://bun.sh/), the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 1.19 or later (`brew install anthropics/tap/ant`), and Anthropic auth: `ant auth login` once, or an API key from [platform.claude.com](https://platform.claude.com/).
+Needs [Bun](https://bun.sh/), the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 2.0 or later (`brew install anthropics/tap/ant`), and Anthropic auth: `ant auth login` once, or an API key from [platform.claude.com](https://platform.claude.com/).
 
 ```bash
 cd managed-agents/mcp-server-typescript
@@ -74,4 +74,4 @@ See `skill.md`, "What the token can reach", for the rest.
 | `Dockerfile` | Fly / Railway / Render / Cloud Run deploy for the HTTP path |
 | `skill.md` | Mental model, setup for both clients, gotchas, debugging |
 
-Requires `@anthropic-ai/sdk` ≥ 0.109.0. `bun.lock` is committed because the Docker build installs from it with `--frozen-lockfile`.
+Requires `@anthropic-ai/sdk` ≥ 1.0.0. `bun.lock` is committed because the Docker build installs from it with `--frozen-lockfile`.

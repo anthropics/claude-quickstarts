@@ -11,7 +11,7 @@ cron (deployment.md) ──▶ session ──▶ agent.md run steps
         Slack conversations.history / chat.postMessage (curl)     GitHub MCP (read-only)
 ```
 
-Needs `ant` 1.34 or later (the first release whose `ant apply` manages vaults) and `jq`.
+Needs `ant` 2.0 or later and `jq`.
 
 ## When the user asks to set this up, get it working, or debug it
 
@@ -23,7 +23,7 @@ Needs `ant` 1.34 or later (the first release whose `ant apply` manages vaults) a
    - `400 invalid value for string field amount`: the budget amount must be a quoted string, in cents.
    - `ant apply` plans 3 resources instead of 5: memory stores in `deployment.md` must be `- path: ./memory_store_x.yaml` entries, not `memory_store_id: ./...`.
    - Slack `not_authed`: no vault attached (`vault_ids` empty in `deployment.md`; re-run `agents/setup.sh`) or the credential's `allowed_hosts` does not include `slack.com`. `invalid_auth`: wrong token. `not_in_channel`: invite the bot.
-   - `ant apply` says it cannot tell what kind of resource `vault.yaml` is: the file lost its `type: vault` line, or `ant` is older than 1.34.
+   - `ant apply` says it cannot tell what kind of resource `vault.yaml` is: the file lost its `type: vault` line, or `ant` is older than 2.0.
    - Run record says `status: held`: the post could not reach the destination. Nothing else in state changed, by design.
    - The agent starts hunting for tokens or writes workarounds into `notes.md`: the run steps forbid both. If you edit the steps, keep those two rules.
    - Keep `web_search` and `web_fetch` disabled in `agent.md`: they run outside the sandbox, so `environment.yaml`'s allowlist does not apply to them.

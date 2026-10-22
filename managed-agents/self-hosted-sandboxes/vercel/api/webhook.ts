@@ -27,8 +27,9 @@ import { fileURLToPath } from "node:url";
 import Anthropic from "@anthropic-ai/sdk";
 import { Sandbox } from "@vercel/sandbox";
 
-// handleItem() has accepted the per-session work secret since 0.124.0.
-const SDK_VERSION = ">=0.129.0 <1.0.0";
+// The SDK range the in-sandbox runner installs: the same major as this
+// function's own dependency, so handleItem()'s surface matches.
+const SDK_VERSION = "^1.0.0";
 const SANDBOX_TIMEOUT_MS = 30 * 60 * 1000;
 const MAX_DRAIN = 25;
 // Anthropic's deliveries are a few hundred bytes. The cap bounds the work an
@@ -321,10 +322,11 @@ async function processWorkItem(
 }
 
 /**
- * Drain the work queue. The TS `WorkPoller` long-polls and never returns on
- * an empty queue, but a serverless handler must respond, so poll → ack until
- * empty here. The runner sandbox owns the lease (heartbeat + force-stop), so
- * the webhook never posts `stop`.
+ * Drain the work queue: poll → ack until empty, by hand rather than with the
+ * SDK's `WorkPoller` (`drain: true`), because a serverless handler must
+ * respond promptly: this loop caps the batch, skips a stale-session 404, and
+ * stops on any other failure instead of backing off. The runner sandbox owns
+ * the lease (heartbeat + force-stop), so the webhook never posts `stop`.
  */
 async function drainWork(
   client: Anthropic,
