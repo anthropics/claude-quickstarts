@@ -153,6 +153,7 @@ async def run_autonomous_agent(
             break
 
         # Print session header
+        is_first_run = not tests_file.exists()
         print_session_header(iteration, is_first_run)
 
         # Create client (fresh context)
@@ -161,7 +162,6 @@ async def run_autonomous_agent(
         # Choose prompt based on session type
         if is_first_run:
             prompt = get_initializer_prompt()
-            is_first_run = False  # Only use initializer once
         else:
             prompt = get_coding_prompt()
 
