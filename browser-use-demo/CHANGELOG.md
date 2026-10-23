@@ -37,3 +37,8 @@ This file tracks all modifications made to files derived from or inspired by Mic
 - **Nature of Changes**:
   - Removed the `temperature` argument from the `find` action's `messages.create()` call. The `anthropic` SDK 1.0 and later no longer accepts it, and the resulting `TypeError` was swallowed, so `find` always fell back to plain text search.
   - Moved the `find` action's model from the retired `claude-3-5-sonnet-20241022`, which returns 404, to `claude-sonnet-5-5`. That error was swallowed the same way.
+
+### browser_use_demo/browser_tool_utils/browser_form_input_script.js
+- **Date Modified**: 10/11/26
+- **Nature of Changes**:
+  - Restricted form-input cursor positioning to textareas and text-like inputs. Filling email, URL, and color inputs now completes and dispatches input/change events instead of failing because those controls do not support selection ranges.
