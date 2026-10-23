@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": ">=0.109.0 <1.0.0",
+    "@anthropic-ai/sdk": "^1.0.0",
     "@modelcontextprotocol/sdk": "^1.22.0",
     "zod": "^3.25.0"
   },

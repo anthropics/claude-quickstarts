@@ -1,10 +1,10 @@
 #!/bin/bash
 PYTHON_MINOR_VERSION=$(python3 --version | awk -F. '{print $2}')
 
-if [ "$PYTHON_MINOR_VERSION" -gt 12 ]; then
-    echo "Python version 3.$PYTHON_MINOR_VERSION detected. Python 3.12 or lower is required for setup to complete."
+if [ "$PYTHON_MINOR_VERSION" -gt 14 ]; then
+    echo "Python version 3.$PYTHON_MINOR_VERSION detected. Python 3.14 or lower is required for setup to complete."
     echo "If you have multiple versions of Python installed, you can set the correct one by adjusting setup.sh to use a specific version, for example:"
-    echo "'python3 -m venv .venv' -> 'python3.12 -m venv .venv'"
+    echo "'python3 -m venv .venv' -> 'python3.14 -m venv .venv'"
     exit 1
 fi
 

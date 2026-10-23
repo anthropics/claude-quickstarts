@@ -80,10 +80,11 @@ function errDetail(e: unknown): string {
 }
 
 /**
- * Drain the work queue. The TS `WorkPoller` long-polls and never returns on an
- * empty queue, but a Worker fetch handler must respond, so poll → ack until
- * empty here. The container owns the lease (heartbeat + force-stop), so the
- * webhook never posts `stop`.
+ * Drain the work queue: poll → ack until empty, by hand rather than with the
+ * SDK's `WorkPoller` (`drain: true`), because a Worker fetch handler must
+ * respond promptly: this loop caps the batch, skips a stale-session 404, and
+ * stops on any other failure instead of backing off. The container owns the
+ * lease (heartbeat + force-stop), so the webhook never posts `stop`.
  */
 async function drainWork(env: Env, client: Anthropic): Promise<{ spawned: object[]; complete: boolean }> {
   const spawned: object[] = [];

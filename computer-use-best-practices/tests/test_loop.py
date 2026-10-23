@@ -2,7 +2,7 @@ from types import SimpleNamespace
 from typing import Any, ClassVar
 
 import anthropic
-import httpx
+import httpx2
 import pytest
 from anthropic.types import ImageBlockParam, MessageParam
 
@@ -75,7 +75,7 @@ def test_format_usage_missing_cache_fields():
 
 def test_is_recoverable_classification():
     assert _is_recoverable(
-        anthropic.APIConnectionError(request=httpx.Request("GET", "http://test"))
+        anthropic.APIConnectionError(request=httpx2.Request("GET", "http://test"))
     )
     assert _is_recoverable(Exception("Service overloaded, try again"))
     assert not _is_recoverable(ValueError("nope"))
@@ -94,7 +94,7 @@ def test_call_with_retry_recovers(monkeypatch):
     def fn():
         calls["n"] += 1
         if calls["n"] < 3:
-            raise anthropic.APIConnectionError(request=httpx.Request("GET", "http://test"))
+            raise anthropic.APIConnectionError(request=httpx2.Request("GET", "http://test"))
         return "ok"
 
     assert _call_with_retry(fn) == "ok"

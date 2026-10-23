@@ -23,13 +23,13 @@ from functools import cache
 from pathlib import Path
 
 import anthropic
-from anthropic.types.beta import UnwrapWebhookEvent
+from anthropic.types.beta import BetaWebhookEvent
 from daytona_sdk import CreateSandboxParams, Daytona
 from fastapi import FastAPI, HTTPException, Request, Response
 
-# The SDK the runner needs inside the sandbox. handle_item() has accepted the
-# per-session work secret since 0.125.0.
-SDK_REQUIREMENT = "anthropic>=1.9.0,<2.0.0"
+# The SDK the runner needs inside the sandbox. Pinned to one major so a fresh
+# sandbox cannot pick up a 3.x.
+SDK_REQUIREMENT = "anthropic>=2.0.0,<3"
 RUNNER_SRC = (Path(__file__).resolve().parent / "sandbox_runner.py").read_text()
 
 # Anthropic's deliveries are a few hundred bytes. The cap bounds the work an
@@ -80,7 +80,7 @@ def _client() -> anthropic.AsyncAnthropic:
 
 def _verify_webhook(
     client: anthropic.AsyncAnthropic, raw: bytes, headers: "Mapping[str, str]"
-) -> UnwrapWebhookEvent:
+) -> BetaWebhookEvent:
     # `unwrap()` verifies via `standardwebhooks` and lets its
     # `WebhookVerificationError` propagate unwrapped. Import it the same lazy
     # way the SDK does (it is the `anthropic[webhooks]` extra).

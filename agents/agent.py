@@ -1,7 +1,6 @@
 """Agent implementation with Claude API and tools."""
 
 import asyncio
-import os
 from contextlib import AsyncExitStack
 from dataclasses import dataclass
 from typing import Any
@@ -61,9 +60,10 @@ class Agent:
         self.config = config or ModelConfig()
         self.mcp_servers = mcp_servers or []
         self.message_params = message_params or {}
-        self.client = client or Anthropic(
-            api_key=os.environ.get("ANTHROPIC_API_KEY", "")
-        )
+        # Anthropic() finds its credential itself (ANTHROPIC_API_KEY,
+        # ANTHROPIC_AUTH_TOKEN, or an `ant auth login` profile); with none
+        # set, the first request raises "Could not resolve authentication".
+        self.client = client or Anthropic()
         self.history = MessageHistory(
             model=self.config.model,
             system=self.system,

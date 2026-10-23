@@ -131,6 +131,7 @@ type WaitStatus =
   | "requires_action"
   | "retries_exhausted"
   | "budget_reached"
+  | "refusal"
   | "terminated"
   | "timeout";
 
@@ -171,8 +172,8 @@ export async function waitForIdle(session_id: string, timeout_sec = 120) {
       } else if (e.type === "agent.tool_use" || e.type === "agent.mcp_tool_use") {
         activity.push(`→ ${clip(e.name, 200)}`);
       } else if (e.type === "session.status_idle") {
-        const reason = e.stop_reason?.type;
-        status = !reason || reason === "end_turn" ? "idle" : reason;
+        const reason = e.stop_reason.type;
+        status = reason === "end_turn" ? "idle" : reason;
         break;
       } else if (e.type === "session.status_terminated") {
         status = "terminated";
@@ -229,8 +230,8 @@ async function lastTurnFromLog(session_id: string) {
     } else if (e.type === "agent.tool_use" || e.type === "agent.mcp_tool_use") {
       activity.push(`→ ${clip(e.name, 200)}`);
     } else if (e.type === "session.status_idle" && status !== "terminated") {
-      const reason = e.stop_reason?.type;
-      status = !reason || reason === "end_turn" ? "idle" : reason;
+      const reason = e.stop_reason.type;
+      status = reason === "end_turn" ? "idle" : reason;
     }
   }
   // Idle with no idle event after the last user.message means that message has

@@ -38,7 +38,7 @@ from functools import cache
 from pathlib import Path
 
 import anthropic
-from anthropic.types.beta import UnwrapWebhookEvent
+from anthropic.types.beta import BetaWebhookEvent
 from fastapi import HTTPException, Request, Response
 
 import modal
@@ -46,9 +46,8 @@ import modal
 APP_NAME = "self-hosted-sandboxes"
 SECRET_NAME = "self-hosted-sandboxes-secrets"
 
-# handle_item() has accepted the per-session work secret since 0.125.0.
-# Pinned to a range so a rebuild cannot pick up a 2.x.
-SDK_REQUIREMENT = "anthropic>=1.9.0,<2.0.0"
+# Pinned to one major so a rebuild cannot pick up a 3.x.
+SDK_REQUIREMENT = "anthropic>=2.0.0,<3"
 RUNNER_PATH = "/root/sandbox_runner.py"
 
 # Anthropic's deliveries are a few hundred bytes. The cap bounds the work an
@@ -113,7 +112,7 @@ def _client() -> anthropic.AsyncAnthropic:
 
 def _verify_webhook(
     client: anthropic.AsyncAnthropic, raw: bytes, headers: "Mapping[str, str]"
-) -> UnwrapWebhookEvent:
+) -> BetaWebhookEvent:
     """``unwrap()`` is synchronous even on the async client, so do not ``await``
     it. The ``whsec_`` secret is passed to ``webhook_key`` as-is: the SDK
     decodes its URL-safe base64 internally."""

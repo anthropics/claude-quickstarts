@@ -40,15 +40,15 @@ below still apply.
 1. **Invoke `/claude-api` first** for the Managed Agents reference (agents,
    environments, sessions, memory stores). Don't guess field names.
 2. **Check the host**: `docker version` works for this user, `ant --version`
-   is 1.30 or later (the first release with `ant apply`), `jq` is on PATH,
+   is 2.0 or later, `jq` is on PATH,
    and `ant auth status` shows a login, or the user exports
    `ANTHROPIC_API_KEY` (the CLI does not read `.env` on its own). Nothing
    else: the Python SDK only runs inside the `docker-memory/` image.
    `openshell/` needs more: Docker 28 or later, `openshell --version` prints
    0.1.x (0.0.x has a different CLI), and `openshell sandbox list` succeeds.
    Don't use `openshell status` as the gateway check: it exits 0 with no
-   gateway configured. The `ant` 1.32 that `--work-secret-file` needs is the
-   copy in the image, which the Dockerfile pins. If `openshell` is missing,
+   gateway configured. The `ant` that runs inside a sandbox is the copy in
+   the image, which the Dockerfile pins. If `openshell` is missing,
    its README has the pinned install command. Ask before you run it: it
    installs a system package and starts the gateway as a user service.
 3. **`ant apply --yes .`** from the demo's directory creates the resources

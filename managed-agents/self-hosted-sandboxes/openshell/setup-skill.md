@@ -56,7 +56,7 @@ your machine, and OpenShell confines that sandbox to what `policy.yaml` allows.
 ```sh
 docker version --format '{{.Server.Version}}'   # 28 or later
 jq --version                                    # 1.6 or later
-ant --version                                   # 1.30 or later
+ant --version                                   # 2.0 or later
 ant auth status                                 # shows a login
 uname -r                                        # Linux: 6.2 or later
 ```

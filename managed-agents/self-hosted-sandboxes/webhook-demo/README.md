@@ -11,7 +11,7 @@ environment. Both are declared here, once:
 
 Create them from this directory. It needs the
 [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later and `jq`:
+2.0 or later and `jq`:
 
 ```sh
 ant apply .          # shows the plan, creates both once you approve, records their IDs in claude-lock.json

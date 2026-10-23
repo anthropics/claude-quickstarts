@@ -6,7 +6,7 @@ Most of the design is about failing well when nobody is watching. Each source ha
 
 ## Quickstart
 
-You need the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli) (1.34 or later, the first release whose `ant apply` manages vaults) signed in with `ant auth login` or an `ANTHROPIC_API_KEY`, plus `jq`.
+You need the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli) (2.0 or later) signed in with `ant auth login` or an `ANTHROPIC_API_KEY`, plus `jq`.
 
 1. **Create the Slack app** (one click, then Install to Workspace):
 

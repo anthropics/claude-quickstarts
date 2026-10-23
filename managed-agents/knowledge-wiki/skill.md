@@ -23,24 +23,24 @@ discover it an hour in.
 pip install -r requirements.txt
 ```
 
-Dreaming is not in the public PyPI `anthropic` package — it ships in a
-dedicated preview SDK build. Do not try to source that build yourself:
-the preview onboarding provides it when the org is enrolled. If the user
-is enrolled, ask them to install it per those instructions; confirm with:
+`requirements.txt` pins `anthropic>=2.0.0`, the first release that exposes
+`client.beta.dreams`. If the user already had an older `anthropic` in the
+environment, confirm the upgrade took:
 
 ```bash
 python3 -c "import anthropic; print(hasattr(anthropic.Anthropic().beta, 'dreams'))"
 ```
 
-If that prints `False`, the notebook will run up to the consolidation step
-and no further.
+If that prints `False`, run `pip install -U "anthropic>=2.0.0,<3"`. On an
+older SDK the notebook runs up to the consolidation step and no further.
 
 ## 2. Authentication and environment
 
 The notebook constructs `Anthropic()` with no arguments, so it resolves
-credentials through the standard chain: `ANTHROPIC_API_KEY`, then
-`ANTHROPIC_AUTH_TOKEN`, then an `ant auth login` profile, then Workload
-Identity Federation. Pick whichever the user's org uses:
+credentials through the standard chain and uses the first one it finds:
+`ANTHROPIC_API_KEY`, then `ANTHROPIC_AUTH_TOKEN`, then the profile
+`ANTHROPIC_PROFILE` names, then Workload Identity Federation, then the
+active `ant auth login` profile. Pick whichever the user's org uses:
 
 ```bash
 # Either an API key…
@@ -51,9 +51,9 @@ ant auth login
 ```
 
 Do not set `ANTHROPIC_API_KEY` alongside a profile — a stale exported key
-silently shadows the profile, and a key set next to `ANTHROPIC_AUTH_TOKEN`
-makes the SDK send both headers, which the API rejects. `ant auth status`
-shows which credential source won.
+silently shadows the profile. A key set next to `ANTHROPIC_AUTH_TOKEN` wins
+too (the SDK logs a warning and uses the key). `ant auth status` shows
+which credential source won.
 
 One more variable is required regardless:
 

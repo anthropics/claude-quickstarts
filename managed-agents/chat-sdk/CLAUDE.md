@@ -16,7 +16,7 @@ browser (useChat) ──▶ POST /api/chat ──▶ onDirectMessage
    (web_search: ..., thinking)                     agent.message, tool_use
 ```
 
-Needs `@anthropic-ai/sdk` ≥ 0.109.0 (the first release with `event_deltas` and `accumulateManagedAgentsEvent`); streaming is gated per org while the 2026-07-01 update rolls out (`skill.md`, "Token previews are gated per org").
+Needs `@anthropic-ai/sdk` ≥ 1.0 (`event_deltas` and `accumulateManagedAgentsEvent`); streaming is gated per org while the 2026-07-01 update rolls out (`skill.md`, "Token previews are gated per org").
 
 ## When the user asks to set this up, get it working, or debug it
 

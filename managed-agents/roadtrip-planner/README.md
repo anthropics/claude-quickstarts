@@ -40,7 +40,7 @@ The new API calls, and where to read them:
 
 ## Quickstart
 
-Needs Node 20 or later, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 1.34 or later (`brew install anthropics/tap/ant`), `jq`, and Anthropic auth for an organization with Managed Agents access: `ant auth login` once, or an API key from [platform.claude.com](https://platform.claude.com/). It also needs two free vendor keys:
+Needs Node 20 or later, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 2.0 or later (`brew install anthropics/tap/ant`), `jq`, and Anthropic auth for an organization with Managed Agents access: `ant auth login` once, or an API key from [platform.claude.com](https://platform.claude.com/). It also needs two free vendor keys:
 
 - A National Park Service API key, emailed instantly: <https://www.nps.gov/subjects/developer/get-started.htm>
 - A Windy Point Forecast API key, free tier: <https://api.windy.com/point-forecast/docs>
@@ -204,4 +204,4 @@ Everything else on the stream is a status signal: thinking starts drive the acti
 | `src/app/page.tsx` | The chat, the model picker, the tool rail |
 | `skill.md` | Setup walkthrough and debugging table |
 
-Requires `@anthropic-ai/sdk` ≥ 0.109.0.
+Requires `@anthropic-ai/sdk` ≥ 1.0.0.

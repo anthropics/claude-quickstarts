@@ -15,7 +15,7 @@
     "test": "node --import tsx --test lib/managed-agents/reducer.test.ts"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.113.0",
+    "@anthropic-ai/sdk": "^1.0.0",
     "@assistant-ui/react": "^0.14.27",
     "@assistant-ui/react-markdown": "^0.14.6",
     "assistant-stream": "^0.3.26",

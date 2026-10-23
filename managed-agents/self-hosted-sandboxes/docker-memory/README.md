@@ -14,7 +14,7 @@ sync), and the environment key never enters a container.
 ## How to use it
 
 Needs Docker, `jq`, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later (`brew install anthropics/tap/ant`), and `ant auth login` once
+2.0 or later (`brew install anthropics/tap/ant`), and `ant auth login` once
 (or `ANTHROPIC_API_KEY` exported in your shell). No Python on the host: the
 SDK lives in the image.
 
@@ -117,7 +117,7 @@ removed automatically: `docker volume rm` dead sessions' volumes.
 ## How sync behaves
 
 The SDK downloads the store before the session's tools run, reconciles the
-directory with the server every 30s (checked after each tool call, tunable
+directory with the server every 15s (checked after each tool call, tunable
 via `memory_sync_interval` on `EnvironmentWorker`) plus once at a clean end,
 gives a session that dies mid-run a bounded push-only flush, and removes the
 directory on teardown. Reconcile is per file: local-only changes upload,

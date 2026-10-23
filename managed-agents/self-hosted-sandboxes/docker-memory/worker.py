@@ -4,7 +4,7 @@
 `EnvironmentWorker.handle_item()` does the whole per-session lifecycle:
 memory-store download to each store's `mount_path`, tool dispatch against
 the session's event stream, memory sync (a reconcile with the store every
-`memory_sync_interval`, default 30s, checked after each tool call, plus a
+`memory_sync_interval`, default 15s, checked after each tool call, plus a
 final one at a clean end and a bounded push-only flush on any exit), the
 work-item lease heartbeat, and the force-stop on exit. The file tools are
 confined to /workspace plus the memory mounts, and a store attached
