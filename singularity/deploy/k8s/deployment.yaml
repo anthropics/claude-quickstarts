@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: singularity
+  labels:
+    app: singularity
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: singularity
+  template:
+    metadata:
+      labels:
+        app: singularity
+    spec:
+      containers:
+        - name: singularity
+          image: singularity:1.0.0
+          ports:
+            - name: http
+              containerPort: 8001
+          env:
+            # For multi-instance: share state via Redis (Fáze 62).
+            - name: STATE_BACKEND
+              value: "redis"
+            - name: REDIS_URL
+              value: "redis://redis:6379/0"
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: singularity-secrets
+                  key: anthropic-api-key
+          # Liveness: aggregated subsystem health (Fáze 57). 503 when a
+          # required component is down → pod restarted.
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness: gate traffic until the app has finished startup
+          # (lifespan init) — the existing /health/ready probe (Fáze 8).
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
