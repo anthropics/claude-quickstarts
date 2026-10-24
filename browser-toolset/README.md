@@ -20,7 +20,7 @@ The driver is a few hundred lines. It drives one Chromium tab over the Chrome De
 You need:
 
 - an Anthropic API key in `ANTHROPIC_API_KEY`;
-- an Anthropic SDK version with the browser toolset helpers (`anthropic.tools.browser` in Python, `@anthropic-ai/sdk/helpers/beta/toolsets` in TypeScript);
+- an Anthropic SDK with the browser toolset helpers: `anthropic` 2.0 or later in Python (`anthropic.tools.browser`), `@anthropic-ai/sdk` 1.0 or later in TypeScript (`@anthropic-ai/sdk/helpers/beta/toolsets`). `requirements.txt` and `package.json` pin them;
 - Python 3.10+ or Node.js 20+;
 - a Chromium binary, from `CHROME_PATH` or `google-chrome` / `chromium` on your `PATH`. Ubuntu's snap-packaged Chromium cannot open a profile under `/tmp`. Install Google Chrome's `.deb`, or point `CHROME_PATH` at a non-snap build.
 

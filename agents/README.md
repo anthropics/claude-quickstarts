@@ -88,6 +88,10 @@ Run the offline transport and agent-loop tests from the repository root with
 
 - Python 3.10+
 - Claude API key (set as `ANTHROPIC_API_KEY` environment variable)
-- `anthropic` Python library, 1.0 or later
-- `mcp` Python library, 1.30 or later (below 2)
+- `anthropic` Python library, 2.0 or later (below 3)
+- `mcp` Python library, 2.0 or later (below 3)
 - `httpx` Python library
+
+```bash
+pip install -r agents/requirements.txt
+```

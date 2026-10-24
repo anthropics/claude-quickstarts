@@ -1,6 +1,5 @@
-# The Anthropic SDK build with `client.beta.dreams` is not on PyPI yet.
-# Install the research-preview wheel per the README's Quickstart section
-# instead of `pip install anthropic`.
+# 2.0 is the first release with `client.beta.dreams` (the consolidation step).
+anthropic>=2.0.0,<3
 python-docx>=1.1
 pillow>=10.0
 python-dotenv>=1.0

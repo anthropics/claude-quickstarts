@@ -260,9 +260,10 @@ def _maybe_filter_to_n_most_recent_images(
         [
             item
             for message in messages
-            for item in (
-                message["content"] if isinstance(message["content"], list) else []
-            )
+            # BetaMessageParam is a union per role and only the system variant
+            # has optional content, so rule it out before indexing "content".
+            if message["role"] != "system" and isinstance(message["content"], list)
+            for item in message["content"]
             if isinstance(item, dict) and item.get("type") == "tool_result"
         ],
     )

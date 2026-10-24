@@ -24,7 +24,7 @@ session's token, piped to it over stdin.
 ## How to use it
 
 Needs Docker 28 or later, `jq` 1.6 or later, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later (`brew install anthropics/tap/ant`), `ant auth login` once (or
+2.0 or later (`brew install anthropics/tap/ant`), `ant auth login` once (or
 `ANTHROPIC_API_KEY` exported in your shell), and OpenShell. OpenShell runs on
 Linux 6.2 or later with the
 [Landlock](https://docs.kernel.org/security/landlock.html) kernel feature
@@ -285,8 +285,8 @@ that session's worker. Each sandbox holds only a token
 The token arrives inside the work item's `secret`, which bundles it with other
 tokens the worker does not use. `on-work.sh` keeps the one, drops the rest,
 and `ant beta:worker run` reads the result from `--work-secret-file
-/dev/stdin`. That flag needs `ant` 1.32 or later in the image, and the
-`Dockerfile` pins 1.38.0. The token is never in a file, on a command line, in
+/dev/stdin`. The `ant` that reads it is the copy in the image, which the
+`Dockerfile` pins at 2.0.0. The token is never in a file, on a command line, in
 the sandbox definition the gateway stores, or in the worker's environment.
 
 An agent with skills runs without them here: the policy has no route for the

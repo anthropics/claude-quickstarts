@@ -18,7 +18,7 @@ session idles.
 
 Needs Python 3.10+ with the Archil SDK (`pip install -r requirements.txt`),
 `jq`, and the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later (`brew install anthropics/tap/ant`) with `ant auth login`. On
+2.0 or later (`brew install anthropics/tap/ant`) with `ant auth login`. On
 the Archil side, in the [console](https://console.archil.com): a disk (use
 its `dsk-...` ID), an **API key** from the API keys page, and a **Disk
 Token** from the disk's page.

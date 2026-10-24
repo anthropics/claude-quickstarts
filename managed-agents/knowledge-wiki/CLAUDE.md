@@ -7,7 +7,7 @@ everything else exists to set that notebook up.
 
 When a user asks you to walk them through setting this quickstart up,
 read `skill.md` in this directory and follow it step by step. Do not
-improvise the setup — the SDK build, the SEC user-agent, and the fetch
+improvise the setup — the SDK version, the SEC user-agent, and the fetch
 order all matter.
 
 The notebook is the source of truth and is edited directly. Its saved

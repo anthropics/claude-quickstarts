@@ -2,7 +2,7 @@
 # Create this quickstart's Managed Agents resources with the ant CLI. Safe to
 # re-run: it updates what changed and skips what already exists.
 #
-# Needs: `ant` 1.34 or later signed in (`ant auth login` or ANTHROPIC_API_KEY),
+# Needs: `ant` 2.0 or later signed in (`ant auth login` or ANTHROPIC_API_KEY),
 # `jq`, and a .env with SLACK_BOT_TOKEN and GITHUB_TOKEN filled in.
 set -euo pipefail
 cd "$(dirname "$0")/.."

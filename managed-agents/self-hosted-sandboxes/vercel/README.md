@@ -31,7 +31,7 @@ every session in the environment trusts every other.
 
 Needs Node 20+, the [Vercel CLI](https://vercel.com/docs/cli) (`npm i -g vercel`),
 the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later (the first release with `ant apply`), `jq`, and
+2.0 or later, `jq`, and
 `ant auth login` once (or `ANTHROPIC_API_KEY` exported in your shell).
 
 One-time setup, from `managed-agents/self-hosted-sandboxes/webhook-demo/`:
@@ -141,8 +141,8 @@ client.beta.environments.work.worker({
 | `vercel.json` | `maxDuration: 60` for the function, and `includeFiles` so the runner source ships with it. |
 
 Both the function and the in-sandbox `npm install` use
-`@anthropic-ai/sdk >=0.129.0 <1.0.0`. `handleItem()` has accepted the
-per-session work secret since 0.124.0.
+`@anthropic-ai/sdk ^1.0.0`, so the worker API inside the sandbox matches the
+one the function was built against.
 
 - `Sandbox.create()`, `writeFiles()`, and `npm install` take 15 to 25 seconds
   before the function responds. The runner itself is detached. To cut about

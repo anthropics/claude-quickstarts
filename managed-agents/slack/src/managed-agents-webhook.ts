@@ -157,7 +157,7 @@ async function deliver(
     types: ["agent.message", "session.status_idle"],
   })) {
     if (e.type === "session.status_idle") {
-      stopReason = e.stop_reason?.type;
+      stopReason = e.stop_reason.type;
       continue;
     }
     if (e.type !== "agent.message") continue;
@@ -178,7 +178,9 @@ async function deliver(
         ? "it is waiting for a tool approval this bridge has no way to give (see skill.md, \"No approval surface\")"
         : stopReason === "budget_reached"
           ? "the session hit its budget"
-          : "it ran out of retries";
+          : stopReason === "refusal"
+            ? "its response was refused"
+            : "it ran out of retries";
     return post(channel, thread_ts, claudeSessionId, `:warning: The agent stopped before finishing: ${why}.`);
   }
 

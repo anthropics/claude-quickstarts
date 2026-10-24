@@ -160,36 +160,26 @@ async def test_loop_toolset_member_calls_run_sequentially_and_stop_on_failure():
         mock.Mock(
             spec=BetaMessage,
             content=[
-                # Built via model_validate: the SDK type does not declare
-                # toolset_name yet, but parses and round-trips it (its models
-                # allow extra fields), which is exactly what the loop relies
-                # on when it replays assistant blocks.
-                BetaToolUseBlock.model_validate(
-                    {
-                        "type": "tool_use",
-                        "id": "1",
-                        "name": "key",
-                        "input": {"text": "super"},
-                        "toolset_name": "computer",
-                    }
+                BetaToolUseBlock(
+                    type="tool_use",
+                    id="1",
+                    name="key",
+                    input={"text": "super"},
+                    toolset_name="computer",
                 ),
-                BetaToolUseBlock.model_validate(
-                    {
-                        "type": "tool_use",
-                        "id": "2",
-                        "name": "left_click",
-                        "input": {"coordinate": [100, 200]},
-                        "toolset_name": "computer",
-                    }
+                BetaToolUseBlock(
+                    type="tool_use",
+                    id="2",
+                    name="left_click",
+                    input={"coordinate": [100, 200]},
+                    toolset_name="computer",
                 ),
-                BetaToolUseBlock.model_validate(
-                    {
-                        "type": "tool_use",
-                        "id": "3",
-                        "name": "screenshot",
-                        "input": {},
-                        "toolset_name": "computer",
-                    }
+                BetaToolUseBlock(
+                    type="tool_use",
+                    id="3",
+                    name="screenshot",
+                    input={},
+                    toolset_name="computer",
                 ),
             ],
         ),
@@ -222,6 +212,7 @@ async def test_loop_toolset_member_calls_run_sequentially_and_stop_on_failure():
         )
 
     # The replayed assistant blocks keep toolset_name.
+    assert result[1]["role"] == "assistant"
     assistant_blocks = cast(list[dict[str, Any]], result[1]["content"])
     assert [block.get("toolset_name") for block in assistant_blocks] == [
         "computer",
@@ -245,6 +236,7 @@ async def test_loop_toolset_member_calls_run_sequentially_and_stop_on_failure():
         ]
     )
 
+    assert result[2]["role"] == "user"
     tool_results = cast(list[dict[str, Any]], result[2]["content"])
     assert [block["toolset_name"] for block in tool_results] == [
         "computer",

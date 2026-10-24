@@ -12,7 +12,7 @@ the API.
 ## How to use it
 
 Needs Docker, `jq`, the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later (`brew install anthropics/tap/ant`), and `ant auth login` once
+2.0 or later (`brew install anthropics/tap/ant`), and `ant auth login` once
 (or `ANTHROPIC_API_KEY` exported in your shell).
 
 ```sh

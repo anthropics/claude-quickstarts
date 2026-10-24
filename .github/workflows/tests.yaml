@@ -21,6 +21,10 @@ jobs:
       - uses: astral-sh/ruff-action@v1
         with:
           src: "computer-use-demo"
+          # Pin to the same version as computer-use-demo/dev-requirements.txt so CI
+          # and pre-commit agree. Unpinned, the action runs latest ruff, which keeps
+          # adding new rules (e.g. ASYNC240) that the demo predates.
+          version: "0.6.7"
   pyright:
     runs-on: ubuntu-latest
     defaults:
@@ -31,7 +35,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           cache: "pip"
-          python-version: "3.11.6"
+          python-version: "3.14"
       - run: |
           python -m venv .venv
           source .venv/bin/activate
@@ -50,7 +54,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           cache: "pip"
-          python-version: "3.11.6"
+          python-version: "3.14"
       - run: |
           python -m venv .venv
           source .venv/bin/activate

@@ -326,9 +326,20 @@ class TestSamplingLoopIntegration:
                 )
             ]
 
-            mock_client.beta.messages.create = Mock(return_value=mock_response)
+            final_response = Mock()
+            final_response.content = [Mock(type="text", text="Done")]
+            mock_client.beta.messages.create = Mock(
+                side_effect=[mock_response, final_response]
+            )
+
+            # Mock(name=...) names the mock rather than setting .name, so set it here
+            for block in mock_response.content:
+                if block.type == "tool_use":
+                    block.name = "browser"
 
             mock_browser = AsyncMock()
+            mock_browser.name = "browser"
+            mock_browser.to_params = Mock(return_value={"name": "browser"})
             mock_browser.return_value = ToolResult(output="Screenshot taken")
 
             messages = [{"role": "user", "content": "Take a screenshot"}]
@@ -353,8 +364,9 @@ class TestSamplingLoopIntegration:
                 browser_tool=mock_browser
             )
 
-            api_call_args = mock_client.beta.messages.create.call_args[1]
-            assert api_call_args["tool_choice"] == {"type": "auto"}
+            api_call_args = mock_client.beta.messages.create.call_args_list[0][1]
+            assert api_call_args["tools"]
+            assert tool_outputs["tool_001"].output == "Screenshot taken"
 
             assert len(output_messages) >= 2
             assert any(
@@ -364,18 +376,18 @@ class TestSamplingLoopIntegration:
             assert any(msg.get("type") == "tool_use" for msg in output_messages)
 
             assistant_msgs = [m for m in updated_messages if m["role"] == "assistant"]
-            assert len(assistant_msgs) > 0
+            assert len(assistant_msgs) == 2
 
-            last_assistant = assistant_msgs[-1]
-            assert isinstance(last_assistant["content"], list)
+            tool_turn = assistant_msgs[0]  # the final turn is text-only
+            assert isinstance(tool_turn["content"], list)
 
             has_text = any(
                 block.get("type") == "text"
-                for block in last_assistant["content"]
+                for block in tool_turn["content"]
             )
             has_tool = any(
                 block.get("type") == "tool_use"
-                for block in last_assistant["content"]
+                for block in tool_turn["content"]
             )
 
             assert has_text and has_tool, "Assistant message should contain both text and tool use"
@@ -445,9 +457,20 @@ class TestSamplingLoopIntegration:
                 )
             ]
 
-            mock_client.beta.messages.create = Mock(return_value=mock_response)
+            final_response = Mock()
+            final_response.content = [Mock(type="text", text="Done")]
+            mock_client.beta.messages.create = Mock(
+                side_effect=[mock_response, final_response]
+            )
+
+            # Mock(name=...) names the mock rather than setting .name, so set it here
+            for block in mock_response.content:
+                if block.type == "tool_use":
+                    block.name = "browser"
 
             mock_browser = AsyncMock()
+            mock_browser.name = "browser"
+            mock_browser.to_params = Mock(return_value={"name": "browser"})
             mock_browser.return_value = ToolResult(output="Action completed")
 
             messages = [{"role": "user", "content": "Do multiple things"}]
@@ -465,14 +488,14 @@ class TestSamplingLoopIntegration:
             )
 
             assistant_msgs = [m for m in updated_messages if m["role"] == "assistant"]
-            last_assistant = assistant_msgs[-1]
+            tool_turn = assistant_msgs[0]  # the final turn is text-only
 
             text_blocks = [
-                block for block in last_assistant["content"]
+                block for block in tool_turn["content"]
                 if block.get("type") == "text"
             ]
             tool_blocks = [
-                block for block in last_assistant["content"]
+                block for block in tool_turn["content"]
                 if block.get("type") == "tool_use"
             ]
 
@@ -482,8 +505,8 @@ class TestSamplingLoopIntegration:
         asyncio.run(run_test())
 
     @patch("browser_use_demo.loop.Anthropic")
-    def test_tool_choice_parameter_set(self, mock_anthropic):
-        """Test that tool_choice is explicitly set to auto."""
+    def test_request_parameters(self, mock_anthropic):
+        """Test the parameters sampling_loop sends to the Messages API."""
 
         async def run_test():
             mock_client = Mock()
@@ -505,8 +528,14 @@ class TestSamplingLoopIntegration:
                 api_key="test_key"
             )
 
+            mock_anthropic.assert_called_once_with(api_key="test_key", max_retries=4)
             call_args = mock_client.beta.messages.create.call_args[1]
-            assert "tool_choice" in call_args
-            assert call_args["tool_choice"] == {"type": "auto"}
+            assert call_args["model"] == "claude-sonnet-4-5"
+            assert call_args["max_tokens"] == 4096
+            assert call_args["betas"] == ["prompt-caching-2024-07-31"]
+            assert call_args["system"][0]["cache_control"] == {"type": "ephemeral"}
+            assert [tool["name"] for tool in call_args["tools"]] == ["browser"]
+            # anthropic>=1.0 removed these sampling parameters from messages.create()
+            assert not {"temperature", "top_p", "top_k"} & call_args.keys()
 
         asyncio.run(run_test())

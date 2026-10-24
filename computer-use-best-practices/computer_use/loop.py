@@ -184,7 +184,9 @@ def _strip_advisor(messages: list[MessageParam]) -> None:
         content = msg.get("content")
         if not isinstance(content, list):
             continue
-        msg["content"] = [
+        # MessageParam is a per-role union, so assigning a mixed block list to
+        # msg["content"] only type-checks per role; go through Any instead.
+        cast(Any, msg)["content"] = [
             b
             for b in content
             if getattr(b, "type", None) not in {"server_tool_use", "advisor_tool_result"}

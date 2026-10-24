@@ -89,9 +89,9 @@ HostedComputer = Literal["explicit", "toolset", "dated"]
 @dataclass(frozen=True)
 class Config:
     # Which API surface to call. "anthropic" = first-party api.anthropic.com
-    # via ANTHROPIC_API_KEY; "vertex" = AnthropicVertex (GOOGLE_CLOUD_PROJECT/
-    # GOOGLE_CLOUD_REGION); "bedrock" = AnthropicBedrock (standard AWS creds +
-    # AWS_REGION).
+    # via ANTHROPIC_API_KEY; "vertex" = AnthropicVertex (CLOUD_ML_REGION +
+    # Google application-default credentials); "bedrock" = AnthropicBedrock
+    # (standard AWS creds + AWS_REGION, which is required).
     provider: Provider = "anthropic"
 
     # Send the computer tool as the server-hosted declaration (the toolset on

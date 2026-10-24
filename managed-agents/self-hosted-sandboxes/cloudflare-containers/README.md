@@ -33,7 +33,7 @@ each sandbox a per-session token instead.
 
 Needs Node 20+, a Cloudflare account with Containers enabled, the
 [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later (the first release with `ant apply`), `jq`, and
+2.0 or later, `jq`, and
 `ant auth login` once (or `ANTHROPIC_API_KEY` exported in your shell).
 
 One-time setup, from `managed-agents/self-hosted-sandboxes/webhook-demo/`:

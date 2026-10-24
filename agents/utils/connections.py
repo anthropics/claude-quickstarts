@@ -108,7 +108,7 @@ class MCPConnectionStreamableHTTP(MCPConnection):
             follow_redirects=True,
         ) as client, streamable_http_client(
             url=self.url, http_client=client
-        ) as (read, write, _):
+        ) as (read, write):
             yield read, write
 
     async def _create_rw_context(self):
@@ -144,7 +144,7 @@ def create_mcp_connection(config: dict[str, Any]) -> MCPConnection:
             raise ValueError("Command is required for STDIO connections")
         return MCPConnectionStdio(
             command=config["command"],
-            args=config.get("args"),
+            args=config.get("args") or [],
             env=config.get("env"),
         )
 
@@ -188,7 +188,7 @@ async def setup_mcp_connections(
                         name=tool_info.name,
                         description=tool_info.description
                         or f"MCP tool: {tool_info.name}",
-                        input_schema=tool_info.inputSchema,
+                        input_schema=tool_info.input_schema,
                         connection=connection,
                     )
                 )

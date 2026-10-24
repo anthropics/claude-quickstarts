@@ -1,6 +1,6 @@
 # assistant-ui × Claude Managed Agents
 
-A Next.js chat app. assistant-ui renders everything; one Managed Agents session per conversation runs the analyst, and `lib/managed-agents/reducer.ts` folds each session's event log into the messages assistant-ui renders. The sidebar is the session list. There is no database. Needs Node 22+, `@anthropic-ai/sdk` 0.109.0 or later (`event_deltas` + session event helpers), and `@assistant-ui/react` 0.14.27 or later (the `defineToolkit`/`Tools` API and approvals on `useExternalStoreRuntime`).
+A Next.js chat app. assistant-ui renders everything; one Managed Agents session per conversation runs the analyst, and `lib/managed-agents/reducer.ts` folds each session's event log into the messages assistant-ui renders. The sidebar is the session list. There is no database. Needs Node 22+, `@anthropic-ai/sdk` 1.0 or later, and `@assistant-ui/react` 0.14.27 or later (the `defineToolkit`/`Tools` API and approvals on `useExternalStoreRuntime`).
 
 ## When the user asks to set this up, get it working, or debug it
 
@@ -17,7 +17,7 @@ A Next.js chat app. assistant-ui renders everything; one Managed Agents session 
 ## Commands
 
 - `npm run dev` — the app on http://localhost:3000 (binds localhost only)
-- `ant apply --yes agents environments` — one-time provisioning of the agent + environment into `claude-lock.json` (ant 1.30 or later; `--yes` because you have no terminal for its prompt; it needs `ant auth login` or an exported `ANTHROPIC_API_KEY` and does not read `.env`)
+- `ant apply --yes agents environments` — one-time provisioning of the agent + environment into `claude-lock.json` (ant 2.0 or later; `--yes` because you have no terminal for its prompt; it needs `ant auth login` or an exported `ANTHROPIC_API_KEY` and does not read `.env`)
 - `npm run typecheck` — `tsc --noEmit`
 - `npm run lint` — eslint (the copy-in `components/` are ignored on purpose)
 - `npm test` — the reducer's golden-turn test; run it whenever the event mapping changes

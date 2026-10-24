@@ -31,9 +31,8 @@ NVIDIA OpenShell sandboxes governed by a policy file.
   sandbox, governed by `policy.yaml`: a filesystem allowlist and one network
   rule (six routes on `api.anthropic.com`). The host side is the same CLI
   poller, and the sandbox side is the CLI too, with no SDK worker.
-  `ant beta:worker run` (1.32 or later) reads the per-session token from
-  stdin through `--work-secret-file`, so the environment key never enters a
-  sandbox.
+  `ant beta:worker run` reads the per-session token from stdin through
+  `--work-secret-file`, so the environment key never enters a sandbox.
 
 Five more variants are started by a webhook instead of a poller, each on a
 different provider's compute. Anthropic sends `session.status_run_started`, a

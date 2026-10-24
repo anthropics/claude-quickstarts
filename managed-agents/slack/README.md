@@ -14,7 +14,7 @@ Slack @mention ──▶ /slack/events ──▶ sessions.create (+ metadata) �
 
 ## Quickstart
 
-Needs [Bun](https://bun.sh/), the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 1.30 or later (`brew install anthropics/tap/ant`), a public HTTPS tunnel such as ngrok, and Anthropic auth: `ant auth login` once, or an API key from [platform.claude.com](https://platform.claude.com/).
+Needs [Bun](https://bun.sh/), the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 2.0 or later (`brew install anthropics/tap/ant`), a public HTTPS tunnel such as ngrok, and Anthropic auth: `ant auth login` once, or an API key from [platform.claude.com](https://platform.claude.com/).
 
 ```bash
 cd managed-agents/slack
@@ -47,4 +47,4 @@ bun run dev
 | `src/managed-agents-webhook.ts` | `beta.webhooks.unwrap` → filter by metadata → `chat.postMessage` |
 | `skill.md` | Mental model, gotchas, setup checklist, debugging |
 
-Requires `@anthropic-ai/sdk` ≥ 0.109.0.
+Requires `@anthropic-ai/sdk` ≥ 1.0.0.

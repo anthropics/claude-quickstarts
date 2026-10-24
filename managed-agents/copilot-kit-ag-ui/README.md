@@ -13,7 +13,7 @@ Claude Code reads this project's [CLAUDE.md](CLAUDE.md) and walks you through pr
 ## Prerequisites
 
 - Node 22 or newer.
-- The [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 1.30 or later (`brew install anthropics/tap/ant`), which provisions the agent.
+- The [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart) 2.0 or later (`brew install anthropics/tap/ant`), which provisions the agent.
 - Anthropic API credentials with the Managed Agents beta: either `ANTHROPIC_API_KEY` exported in your shell or an `ant auth login` profile. The SDK and the CLI find both on their own.
 - An org with 30-day data retention. `claude-fable-5` is not available under zero data retention.
 

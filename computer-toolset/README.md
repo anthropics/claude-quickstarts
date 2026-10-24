@@ -22,7 +22,7 @@ The driver is a few hundred lines. It drives one desktop over VNC (the RFB proto
 You need:
 
 - an Anthropic API key in `ANTHROPIC_API_KEY`;
-- an Anthropic SDK version with the computer toolset helpers (`anthropic.tools.computer` in Python, `@anthropic-ai/sdk/helpers/beta/toolsets` in TypeScript);
+- an Anthropic SDK with the computer toolset helpers: `anthropic` 2.0 or later in Python (`anthropic.tools.computer`), `@anthropic-ai/sdk` 1.0 or later in TypeScript (`@anthropic-ai/sdk/helpers/beta/toolsets`). `requirements.txt` and `package.json` pin them;
 - Python 3.10+ or Node.js 20+;
 - a VNC server without a password, on a screen no larger than 1920×1200. TigerVNC's `Xvnc` is one process and needs nothing else (`apt install tigervnc-standalone-server`); `-SecurityTypes None` turns off the password it asks for by default:
 

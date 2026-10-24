@@ -157,7 +157,7 @@ permission to run Autofix or open a pull request.
 
 ## Setup checklist
 
-1. Confirm `uv`, `ant` 1.34+, `jq`, and Claude Code are installed. Sign in
+1. Confirm `uv`, `ant` 2.0+, `jq`, and Claude Code are installed. Sign in
    once with [`ant auth login`](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
    or put only `ANTHROPIC_API_KEY` in `.env`. The `ant` CLI and the SDK share
    the login.

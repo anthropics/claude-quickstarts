@@ -164,7 +164,7 @@ export function registerTools(server: McpServer) {
   tool(
     "wait_for_idle",
     "session",
-    'Block until the agent finishes the current turn and return its reply text. Call this right after send_message. status "idle" means the turn finished. "timeout" means it is still running, so call again. "requires_action", "retries_exhausted", "budget_reached", and "terminated" mean the turn stopped without finishing, and reply may be partial.',
+    'Block until the agent finishes the current turn and return its reply text. Call this right after send_message. status "idle" means the turn finished. "timeout" means it is still running, so call again. "requires_action", "retries_exhausted", "budget_reached", "refusal", and "terminated" mean the turn stopped without finishing, and reply may be partial.',
     {
       session_id: sessionId,
       timeout_sec: z.number().int().min(5).max(600).optional().describe("Default 120"),

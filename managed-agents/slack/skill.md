@@ -87,7 +87,7 @@ Anthropic retries failed deliveries with the **same** top-level `event.id`. Slac
 
 ### No approval surface, so tools are `always_allow`
 
-`agents/slack-assistant.md` sets `permission_policy: {type: always_allow}` on the toolset. An `always_ask` tool idles the session with `stop_reason: requires_action`. The bridge reads the idle event's `stop_reason`, so it posts a warning that the agent is waiting on an approval nobody can give, not the half-finished preamble. `budget_reached` and `retries_exhausted` get a warning too. Only `end_turn` posts the reply. If you add an approval flow (a Slack button that sends `user.tool_confirmation`), switch the risky tools back to `always_ask`.
+`agents/slack-assistant.md` sets `permission_policy: {type: always_allow}` on the toolset. An `always_ask` tool idles the session with `stop_reason: requires_action`. The bridge reads the idle event's `stop_reason`, so it posts a warning that the agent is waiting on an approval nobody can give, not the half-finished preamble. `budget_reached`, `refusal` and `retries_exhausted` get a warning too. Only `end_turn` posts the reply. If you add an approval flow (a Slack button that sends `user.tool_confirmation`), switch the risky tools back to `always_ask`.
 
 ---
 

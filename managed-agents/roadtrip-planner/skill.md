@@ -33,7 +33,7 @@ npm install
 ./agents/setup.sh
 ```
 
-`ant apply` (which setup runs with `--yes`; needs `ant` 1.34 or later and `jq`) creates the environment (networking limited to `developer.nps.gov` and `api.windy.com`), the vault, the reviewer agent (Opus, review-only prompt), and the planner agent (bash on, `web_search`/`web_fetch` off, a `multiagent` coordinator roster naming the reviewer's file), and records their IDs in `claude-lock.json`. Then setup adds two `environment_variable` credentials to the vault with the `injection_location` each vendor documents hardcoded (NPS: header, Windy: body).
+`ant apply` (which setup runs with `--yes`; needs `ant` 2.0 or later and `jq`) creates the environment (networking limited to `developer.nps.gov` and `api.windy.com`), the vault, the reviewer agent (Opus, review-only prompt), and the planner agent (bash on, `web_search`/`web_fetch` off, a `multiagent` coordinator roster naming the reviewer's file), and records their IDs in `claude-lock.json`. Then setup adds two `environment_variable` credentials to the vault with the `injection_location` each vendor documents hardcoded (NPS: header, Windy: body).
 
 `ant apply` records each resource in the lockfile as soon as it exists, so a run that fails partway picks up where it stopped. Re-running after a full run applies edits to the vault, environment, and both agents from their files. An agent update is a new version that new trips pick up, and a reviewer update also re-pins the planner's roster. The two credentials are created once and then left alone, so a flip from README step 2 survives a re-run.
 

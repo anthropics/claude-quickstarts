@@ -31,7 +31,7 @@ You need:
 - [Claude Code](https://docs.claude.com/en/docs/claude-code)
 - [uv](https://docs.astral.sh/uv/)
 - the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-  1.34 or later (`brew install anthropics/tap/ant`) and `jq`
+  2.0 or later (`brew install anthropics/tap/ant`) and `jq`
 - Anthropic auth: `ant auth login` once, or `ANTHROPIC_API_KEY` in `.env`
 - a Sentry account with access to the organization and project to triage
 
@@ -122,7 +122,7 @@ not resolve issues, modify code, run Autofix, or open pull requests.
 | `teardown.py` | Archive everything, clear the deployment ID from `.env`, remove `claude-lock.json` |
 | `skill.md` | Mental model, gotchas, setup checklist, debugging |
 
-Requires `anthropic` ≥ 1.9.0.
+Requires `anthropic` ≥ 2.0.0.
 
 ## Credential lifecycle and re-authentication
 

@@ -4,7 +4,7 @@ import { retrieveContext, RAGSource } from "@/app/lib/utils";
 import crypto from "crypto";
 import customerSupportCategories from "@/app/lib/customer_support_categories.json";
 
-const anthropic = new Anthropic({
+const client = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
@@ -213,22 +213,23 @@ export async function POST(req: Request) {
     console.log(`🚀 Query Processing`);
     measureTime("Claude Generation Start");
 
-    const anthropicMessages = messages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    const anthropicMessages: Anthropic.MessageParam[] = messages.map(
+      (msg: any) => ({
+        role: msg.role,
+        content: msg.content,
+      }),
+    );
 
     anthropicMessages.push({
       role: "assistant",
       content: "{",
     });
 
-    const response = await anthropic.messages.create({
+    const response = await client.messages.create({
       model: model,
       max_tokens: 1000,
       messages: anthropicMessages,
       system: systemPrompt,
-      temperature: 0.3,
     });
 
     measureTime("Claude Generation Complete");

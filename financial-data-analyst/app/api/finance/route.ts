@@ -3,9 +3,9 @@ import { NextRequest } from "next/server";
 import Anthropic from "@anthropic-ai/sdk";
 import type { ChartData } from "@/types/chart";
 
-// Initialize Anthropic client with correct headers
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
+// Initialize the Anthropic client
+const client = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
 export const runtime = "edge";
@@ -24,17 +24,7 @@ interface ChartToolResponse extends ChartData {
   // Any additional properties specific to the tool response
 }
 
-interface ToolSchema {
-  name: string;
-  description: string;
-  input_schema: {
-    type: "object";
-    properties: Record<string, unknown>;
-    required: string[];
-  };
-}
-
-const tools: ToolSchema[] = [
+const tools: Anthropic.Tool[] = [
   {
     name: "generate_graph_data",
     description:
@@ -128,10 +118,15 @@ export async function POST(req: NextRequest) {
     }
 
     // Convert all previous messages
-    let anthropicMessages = messages.map((msg: any) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+    let anthropicMessages: Anthropic.MessageParam[] = messages.map(
+      (msg: {
+        role: "user" | "assistant";
+        content: Anthropic.MessageContentParam;
+      }) => ({
+        role: msg.role,
+        content: msg.content,
+      }),
+    );
 
     // Handle file in the latest message
     if (fileData) {
@@ -211,7 +206,7 @@ export async function POST(req: NextRequest) {
       ),
     });
 
-    const response = await anthropic.messages.create({
+    const response = await client.messages.create({
       model,
       max_tokens: 4096,
       tools: tools,
@@ -345,12 +340,14 @@ Focus on clear financial insights and let the visualization enhance understandin
         : "No tool used",
     });
 
-    const toolUseContent = response.content.find((c) => c.type === "tool_use");
-    const textContent = response.content.find((c) => c.type === "text");
+    const toolUseContent = response.content.find(
+      (c): c is Anthropic.ToolUseBlock => c.type === "tool_use",
+    );
+    const textContent = response.content.find(
+      (c): c is Anthropic.TextBlock => c.type === "text",
+    );
 
-    const processToolResponse = (toolUseContent: any) => {
-      if (!toolUseContent) return null;
-
+    const processToolResponse = (toolUseContent: Anthropic.ToolUseBlock) => {
       const chartData = toolUseContent.input as ChartToolResponse;
 
       if (

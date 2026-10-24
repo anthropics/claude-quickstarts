@@ -43,7 +43,7 @@ Two consequences:
 
 Needs Python 3.12, `pip install modal` and `modal setup`, the
 [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/quickstart)
-1.30 or later (the first release with `ant apply`), `jq`, and
+2.0 or later, `jq`, and
 `ant auth login` once (or `ANTHROPIC_API_KEY` exported in your shell).
 
 One-time setup, from `managed-agents/self-hosted-sandboxes/webhook-demo/`:
@@ -160,8 +160,7 @@ client.beta.environments.work.worker(..., tools=tools)
 | `modal_sandbox_webhook.py` | POST only, 1 MiB body cap, signature check, then the SDK poller drains the queue. Skips any work item whose environment or ID shape is wrong. A live Sandbox for the session is reused. |
 | `sandbox_runner.py` | Decodes the sessions token from `ANTHROPIC_WORK_SECRET`, builds the client with it, and calls `handle_item()`. |
 
-Both images pin `anthropic>=1.9.0,<2.0.0`. `handle_item()` has accepted the
-per-session work secret since 0.125.0.
+Both images pin `anthropic>=2.0.0,<3`.
 
 Idle policy is the SDK default: the runner exits 60s after
 `session.status_idle` with `stop_reason: end_turn`, and any other event resets

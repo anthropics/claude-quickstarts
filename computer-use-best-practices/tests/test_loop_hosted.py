@@ -11,7 +11,7 @@ import json
 from typing import Any
 
 import anthropic
-import httpx
+import httpx2
 import pytest
 
 import constants
@@ -82,19 +82,19 @@ def gui_calls(monkeypatch):
 
 def _run_loop(monkeypatch, *, provider: str, first_turn: list[dict[str, Any]]):
     """Run one task through the loop; return the captured (headers, body) per request."""
-    requests: list[tuple[httpx.Headers, dict[str, Any]]] = []
+    requests: list[tuple[httpx2.Headers, dict[str, Any]]] = []
 
-    def handler(request: httpx.Request) -> httpx.Response:
+    def handler(request: httpx2.Request) -> httpx2.Response:
         requests.append((request.headers, json.loads(request.content)))
         body = (
             _sse(first_turn, "tool_use")
             if len(requests) == 1
             else _sse([{"type": "text", "text": "done"}], "end_turn")
         )
-        return httpx.Response(200, headers={"content-type": "text/event-stream"}, content=body)
+        return httpx2.Response(200, headers={"content-type": "text/event-stream"}, content=body)
 
     client = anthropic.Anthropic(
-        api_key="test", http_client=httpx.Client(transport=httpx.MockTransport(handler))
+        api_key="test", http_client=httpx2.Client(transport=httpx2.MockTransport(handler))
     )
     cfg = constants.cfg.with_overrides(
         provider=provider,
