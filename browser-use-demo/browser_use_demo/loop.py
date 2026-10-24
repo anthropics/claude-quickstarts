@@ -99,6 +99,12 @@ async def sampling_loop(
     )
 
     while True:
+        if only_n_most_recent_images:
+            _maybe_filter_to_n_most_recent_images(
+                messages,
+                only_n_most_recent_images,
+            )
+
         # Configure client and betas
         betas = []
         enable_prompt_caching = False
@@ -176,21 +182,26 @@ async def sampling_loop(
 def _maybe_filter_to_n_most_recent_images(
     messages: list[BetaMessageParam],
     images_to_keep: int,
-    min_removal_threshold: int = 10,
+    min_removal_threshold: int = 1,
 ):
     """
     Filter messages to keep only the N most recent images.
+    Inspects both top-level image blocks and images nested inside tool_result blocks.
     """
     if images_to_keep <= 0:
         raise ValueError("images_to_keep must be > 0")
 
-    total_images = sum(
-        1
-        for message in messages
-        if message["role"] == "user"
-        for block in message.get("content", [])
-        if isinstance(block, dict) and block.get("type") == "image"
-    )
+    total_images = 0
+    for message in messages:
+        if message["role"] == "user" and isinstance(message.get("content"), list):
+            for block in message["content"]:
+                if isinstance(block, dict):
+                    if block.get("type") == "image":
+                        total_images += 1
+                    elif block.get("type") == "tool_result" and isinstance(block.get("content"), list):
+                        for item in block["content"]:
+                            if isinstance(item, dict) and item.get("type") == "image":
+                                total_images += 1
 
     images_to_remove = total_images - images_to_keep
     if images_to_remove < min_removal_threshold:
@@ -198,12 +209,24 @@ def _maybe_filter_to_n_most_recent_images(
 
     images_removed = 0
     for message in messages:
+        if images_removed >= images_to_remove:
+            break
         if message["role"] == "user" and isinstance(message.get("content"), list):
             new_content = []
             for block in message["content"]:
-                if isinstance(block, dict) and block.get("type") == "image":
-                    if images_removed < images_to_remove:
-                        images_removed += 1
-                        continue
+                if isinstance(block, dict):
+                    if block.get("type") == "image":
+                        if images_removed < images_to_remove:
+                            images_removed += 1
+                            continue
+                    elif block.get("type") == "tool_result" and isinstance(block.get("content"), list):
+                        new_tool_content = []
+                        for item in block["content"]:
+                            if isinstance(item, dict) and item.get("type") == "image":
+                                if images_removed < images_to_remove:
+                                    images_removed += 1
+                                    continue
+                            new_tool_content.append(item)
+                        block["content"] = new_tool_content
                 new_content.append(block)
             message["content"] = new_content
