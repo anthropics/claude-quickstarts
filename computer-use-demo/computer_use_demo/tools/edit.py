@@ -160,9 +160,8 @@ class EditTool20250728(BaseAnthropicTool):
     def str_replace(self, path: Path, old_str: str, new_str: str | None):
         """Implement the str_replace command, which replaces old_str with new_str in the file content"""
         # Read the file content
-        file_content = self.read_file(path).expandtabs()
-        old_str = old_str.expandtabs()
-        new_str = new_str.expandtabs() if new_str is not None else ""
+        file_content = self.read_file(path)
+        new_str = new_str if new_str is not None else ""
 
         # Check if old_str is unique in the file
         occurrences = file_content.count(old_str)
@@ -207,8 +206,7 @@ class EditTool20250728(BaseAnthropicTool):
 
     def insert(self, path: Path, insert_line: int, new_str: str):
         """Implement the insert command, which inserts new_str at the specified line in the file content."""
-        file_text = self.read_file(path).expandtabs()
-        new_str = new_str.expandtabs()
+        file_text = self.read_file(path)
         file_text_lines = file_text.split("\n")
         n_lines_file = len(file_text_lines)
 
@@ -263,7 +261,7 @@ class EditTool20250728(BaseAnthropicTool):
         file_content: str,
         file_descriptor: str,
         init_line: int = 1,
-        expand_tabs: bool = True,
+        expand_tabs: bool = False,
     ):
         """Generate output for the CLI based on the content of a file."""
         file_content = maybe_truncate(file_content)
