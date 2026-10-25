@@ -1,17 +1,16 @@
 """Local RFB peers exercise constructor cleanup without a desktop or model."""
 
 import base64
-from concurrent.futures import ThreadPoolExecutor
-from contextlib import contextmanager
 import io
 import socket
 import struct
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from unittest.mock import Mock
 
+import pytest
 from anthropic.types.beta import BetaComputerScreenshotInput
 from PIL import Image
-import pytest
-
 from vnc_computer import VncComputer
 
 
