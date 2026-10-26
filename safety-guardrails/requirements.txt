@@ -1,0 +1,2 @@
+anthropic>=0.40.0
+sentinel-ai>=0.5.0
