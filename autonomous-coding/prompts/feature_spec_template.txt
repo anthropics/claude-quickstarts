@@ -1,0 +1,113 @@
+<feature_specification>
+  <feature_name>[Your Feature Name]</feature_name>
+
+  <overview>
+    [2-3 paragraph description of what the feature does and why it's needed]
+  </overview>
+
+  <existing_codebase_context>
+    <project_structure>
+      Describe your project structure:
+      - Frontend: [e.g., React app in /client, uses TypeScript, Tailwind]
+      - Backend: [e.g., Express server in /server, PostgreSQL database]
+      - Testing: [e.g., Jest for unit tests, Playwright for e2e]
+      - Build: [e.g., npm workspaces, Vite for frontend]
+    </project_structure>
+
+    <relevant_existing_code>
+      List files/modules the agent should understand before implementing:
+      - [e.g., /client/src/components/Dashboard.tsx - main dashboard component]
+      - [e.g., /server/routes/api.ts - API route definitions]
+      - [e.g., /shared/types.ts - shared TypeScript types]
+    </relevant_existing_code>
+
+    <patterns_to_follow>
+      Describe coding patterns the agent must follow:
+      - [e.g., All API calls go through /client/src/api/client.ts]
+      - [e.g., Use React Query for server state]
+      - [e.g., Follow existing error handling pattern in ErrorBoundary.tsx]
+      - [e.g., Database migrations in /server/migrations using Prisma]
+    </patterns_to_follow>
+
+    <do_not_modify>
+      Files/areas the agent should NOT touch:
+      - [e.g., /server/auth/* - authentication system]
+      - [e.g., /client/src/legacy/* - deprecated code]
+    </do_not_modify>
+  </existing_codebase_context>
+
+  <feature_requirements>
+    <user_stories>
+      - As a [user type], I want to [action] so that [benefit]
+      - [Add more user stories]
+    </user_stories>
+
+    <acceptance_criteria>
+      - [Specific criterion 1]
+      - [Specific criterion 2]
+      - [Add more criteria]
+    </acceptance_criteria>
+
+    <technical_requirements>
+      - [e.g., Must support real-time updates via WebSocket]
+      - [e.g., Must work offline with service worker]
+      - [e.g., Must handle 1000+ items without performance degradation]
+    </technical_requirements>
+
+    <ui_requirements>
+      - [e.g., Follow existing design system in /client/src/design-system]
+      - [e.g., Must be responsive (mobile, tablet, desktop)]
+      - [e.g., Match mockups at [URL or path]]
+    </ui_requirements>
+  </feature_requirements>
+
+  <implementation_hints>
+    <suggested_approach>
+      [Optional: If you have ideas about how to implement, share them]
+    </suggested_approach>
+
+    <potential_challenges>
+      - [e.g., Need to handle race conditions when multiple users edit]
+      - [e.g., Large data sets may need pagination/virtualization]
+    </potential_challenges>
+
+    <dependencies>
+      - [e.g., May need to add @tanstack/react-virtual for list virtualization]
+      - [e.g., Consider using Zod for runtime validation]
+    </dependencies>
+  </implementation_hints>
+
+  <testing_requirements>
+    <unit_tests>
+      - [e.g., Test all business logic functions]
+      - [e.g., Test React components with React Testing Library]
+    </unit_tests>
+
+    <integration_tests>
+      - [e.g., Test API endpoints with supertest]
+      - [e.g., Test database operations]
+    </integration_tests>
+
+    <e2e_tests>
+      - [e.g., Test complete user flows with Playwright]
+      - [e.g., Test error scenarios]
+    </e2e_tests>
+
+    <existing_test_commands>
+      - Unit: [e.g., npm test]
+      - E2E: [e.g., npm run test:e2e]
+      - Lint: [e.g., npm run lint]
+    </existing_test_commands>
+  </testing_requirements>
+
+  <success_criteria>
+    <definition_of_done>
+      - All acceptance criteria met
+      - All tests passing
+      - Code reviewed and follows existing patterns
+      - No TypeScript errors
+      - No console errors/warnings
+      - Performance acceptable (specify metrics if relevant)
+    </definition_of_done>
+  </success_criteria>
+</feature_specification>
