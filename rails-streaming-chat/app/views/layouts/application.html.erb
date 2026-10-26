@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@hotwired/turbo@8/dist/turbo.es2017.esm.js" type="module"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3/dist/stimulus.js" type="module"></script>
+  <script type="module">
+    import { Application } from "https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3/dist/stimulus.js"
+    const application = Application.start()
+
+    application.register("chat", class extends Controller {
+      static targets = ["messages", "input", "submit", "scrollTrigger"]
+
+      connect() {
+        this.scrollToBottom()
+        this.observeNewMessages()
+      }
+
+      submitForm(event) {
+        const input = this.inputTarget
+        if (input.value.trim() === "") {
+          event.preventDefault()
+          return
+        }
+        this.submitTarget.disabled = true
+        this.submitTarget.textContent = "..."
+      }
+
+      scrollToBottom() {
+        const el = this.messagesTarget
+        el.scrollTop = el.scrollHeight
+      }
+
+      observeNewMessages() {
+        const observer = new MutationObserver(() => this.scrollToBottom())
+        observer.observe(this.messagesTarget, { childList: true, subtree: true, characterData: true })
+      }
+    })
+
+    // Import Stimulus Controller base
+    const { Controller } = await import("https://cdn.jsdelivr.net/npm/@hotwired/stimulus@3/dist/stimulus.js")
+  </script>
+</head>
+<body class="h-full bg-gray-50">
+  <%= yield %>
+</body>
+</html>
