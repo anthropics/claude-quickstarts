@@ -68,6 +68,7 @@ def setup_state():
         "messages": [],
         "system_prompt": "",
         "hide_screenshots": False,
+        "only_n_most_recent_images": 3,
         "rendered_message_count": 0,  # Track rendered messages to avoid re-rendering
         "last_error": None,  # Store last error message to display persistently
         # API Configuration
@@ -497,7 +498,7 @@ async def run_agent(user_input: str):
             api_key=st.session_state.api_key,
             max_tokens=st.session_state.max_tokens,
             browser_tool=st.session_state.browser_tool,  # Pass persistent browser instance
-            only_n_most_recent_images=3,  # Keep only 3 most recent screenshots for context
+            only_n_most_recent_images=st.session_state.only_n_most_recent_images,
         )
 
         # Update session state with the complete message history
@@ -523,20 +524,19 @@ async def run_agent(user_input: str):
         st.session_state.last_error = {"message": error_msg, "traceback": error_traceback}
         with st.session_state.active_response_container:
             st.error(error_msg)
-            st.code(error_traceback)
         st.session_state.chat_disabled = False
         st.rerun()
 
 
 def main():
     """Main application entry point."""
+    # Set page configuration
     st.set_page_config(
-        page_title="Claude Browser Use Demo",
+        page_title="Browser Use Demo",
         page_icon="🌐",
-        layout="wide"
+        layout="wide",
+        initial_sidebar_state="expanded",
     )
-
-    st.markdown(STREAMLIT_STYLE, unsafe_allow_html=True)
 
     setup_state()
 
@@ -583,6 +583,15 @@ def main():
             value=st.session_state.system_prompt,
             key="system_prompt",
             help="Add custom instructions for the browser agent",
+        )
+
+        # Only send N most recent images
+        st.number_input(
+            "Only send N most recent images",
+            min_value=0,
+            value=st.session_state.only_n_most_recent_images,
+            key="only_n_most_recent_images",
+            help="To decrease the total tokens sent, remove older screenshots from the conversation",
         )
 
         # Hide screenshots
