@@ -1,0 +1,1393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Test Intelligence System (TIS) - Watson Glaser Trainer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #2d3748;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+        
+        .btn-secondary {
+            background: #f7fafc;
+            color: #4a5568;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .btn-secondary:hover {
+            background: #edf2f7;
+        }
+        
+        .toggle-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 20px;
+            background: #f7fafc;
+            border-radius: 8px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            width: 50px;
+            height: 26px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #cbd5e0;
+            transition: .4s;
+            border-radius: 26px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #667eea;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(24px);
+        }
+        
+        .select-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+        
+        select {
+            padding: 12px 40px 12px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            background: white;
+            cursor: pointer;
+            appearance: none;
+            font-weight: 500;
+            color: #4a5568;
+        }
+        
+        .select-wrapper::after {
+            content: '▼';
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            pointer-events: none;
+            color: #667eea;
+            font-size: 12px;
+        }
+        
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .metric-label {
+            font-size: 0.9em;
+            color: #718096;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .metric-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+        
+        .question-box {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 25px;
+            border-left: 5px solid #667eea;
+        }
+        
+        .question-text {
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            line-height: 1.6;
+            color: #2d3748;
+        }
+        
+        .options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .option {
+            padding: 15px 20px;
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1.05em;
+        }
+        
+        .option:hover {
+            border-color: #667eea;
+            background: #f7fafc;
+            transform: translateX(5px);
+        }
+        
+        .option.selected {
+            background: #667eea;
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .option.correct {
+            background: #48bb78;
+            color: white;
+            border-color: #48bb78;
+        }
+        
+        .option.incorrect {
+            background: #f56565;
+            color: white;
+            border-color: #f56565;
+        }
+        
+        .feedback {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 8px;
+            font-size: 1.05em;
+        }
+        
+        .feedback.correct {
+            background: #c6f6d5;
+            color: #22543d;
+            border-left: 5px solid #48bb78;
+        }
+        
+        .feedback.incorrect {
+            background: #fed7d7;
+            color: #742a2a;
+            border-left: 5px solid #f56565;
+        }
+        
+        .thinking-process {
+            background: #edf2f7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .thinking-step {
+            margin-bottom: 12px;
+            padding: 10px;
+            background: white;
+            border-radius: 6px;
+            line-height: 1.5;
+        }
+        
+        .thinking-step strong {
+            color: #667eea;
+        }
+        
+        .neural-bank {
+            background: #fef5e7;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border: 2px solid #f9e79f;
+        }
+        
+        .neural-bank-title {
+            font-weight: 700;
+            color: #b7791f;
+            margin-bottom: 10px;
+            font-size: 1.1em;
+        }
+        
+        .neural-pattern {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #f39c12;
+        }
+        
+        .evolution-log {
+            background: #e8f4f8;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 2px solid #bee3f8;
+        }
+        
+        .evolution-log-title {
+            font-weight: 700;
+            color: #2c5282;
+            margin-bottom: 15px;
+            font-size: 1.1em;
+        }
+        
+        .evolution-entry {
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            border-left: 3px solid #4299e1;
+            font-size: 0.95em;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+        
+        .status-badge.running {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .status-badge.paused {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .agent-info {
+            background: linear-gradient(135deg, #fef5e7 0%, #fdebd0 100%);
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            border: 2px solid #f9e79f;
+        }
+        
+        .agent-name {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #b7791f;
+            margin-bottom: 8px;
+        }
+        
+        .agent-stage {
+            color: #7d6608;
+            font-size: 1.05em;
+            margin-bottom: 12px;
+        }
+        
+        .achievements {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .achievement-badge {
+            background: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            color: #744210;
+            border: 1px solid #f9e79f;
+        }
+        
+        .curriculum-gate {
+            background: #fff5f5;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border-left: 4px solid #fc8181;
+            color: #742a2a;
+            font-weight: 600;
+        }
+        
+        .view-mode-toggle {
+            display: flex;
+            gap: 0;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+        }
+        
+        .view-mode-btn {
+            padding: 10px 20px;
+            border: none;
+            background: white;
+            color: #4a5568;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            flex: 1;
+        }
+        
+        .view-mode-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .developer-only {
+            display: block;
+        }
+        
+        .developer-only.hidden {
+            display: none;
+        }
+        
+        .persistence-status {
+            background: #e6fffa;
+            padding: 10px 15px;
+            border-radius: 6px;
+            border: 2px solid #81e6d9;
+            color: #234e52;
+            font-size: 0.9em;
+            display: inline-block;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧠 Advanced Test Intelligence System</h1>
+        <p class="subtitle">Self-Evolving Watson Glaser Critical Thinking Trainer with Extended Reasoning</p>
+        
+        <div class="controls">
+            <div class="select-wrapper">
+                <select id="agentSelector">
+                    <option value="">Select Agent Profile...</option>
+                </select>
+            </div>
+            
+            <div class="view-mode-toggle">
+                <button class="view-mode-btn active" data-mode="learner">Learner View</button>
+                <button class="view-mode-btn" data-mode="developer">Developer View</button>
+            </div>
+            
+            <button class="btn btn-primary" id="startBtn">Start Evolution</button>
+            <button class="btn btn-secondary" id="selfTestBtn">Run Self-Test</button>
+            <button class="btn btn-secondary" id="saveProgressBtn">💾 Save Progress</button>
+            <button class="btn btn-secondary" id="loadProgressBtn">📂 Load Progress</button>
+            
+            <div class="toggle-container">
+                <span>Background Mode</span>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="backgroundToggle">
+                    <span class="slider"></span>
+                </label>
+                <span class="status-badge running" id="statusBadge">Paused</span>
+            </div>
+        </div>
+        
+        <div id="persistenceStatus" class="persistence-status" style="display:none;">
+            ✓ Progress auto-saved to localStorage
+        </div>
+        
+        <div id="agentInfo" style="display:none;"></div>
+        
+        <div class="metrics">
+            <div class="metric-card">
+                <div class="metric-label">Evolution Cycles</div>
+                <div class="metric-value" id="cycleCount">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Overall Accuracy</div>
+                <div class="metric-value" id="accuracy">0%</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Neural Patterns</div>
+                <div class="metric-value" id="patternCount">0</div>
+            </div>
+            <div class="metric-card">
+                <div class="metric-label">Current Complexity</div>
+                <div class="metric-value" id="complexityLevel">1</div>
+            </div>
+        </div>
+        
+        <div id="questionContainer"></div>
+        
+        <div class="developer-only" id="thinkingContainer"></div>
+        <div class="developer-only" id="neuralBankContainer"></div>
+        <div class="developer-only" id="evolutionLog"></div>
+    </div>
+    
+    <script src="agent_profiles.js"></script>
+    <script>
+        class AdvancedTestIntelligenceSystem {
+            constructor() {
+                this.cycles = 0;
+                this.correctAnswers = 0;
+                this.totalQuestions = 0;
+                this.isRunning = false;
+                this.backgroundMode = false;
+                this.currentQuestion = null;
+                this.selectedAnswer = null;
+                this.viewMode = 'learner'; // 'learner' or 'developer'
+                this.maxComplexity = 1; // Unlocked complexity level (curriculum gating)
+                
+                // Neural parameters for self-modification
+                this.neuralParams = {
+                    adaptationRate: 0.15,
+                    explorationFactor: 0.25,
+                    memoryRetention: 0.85,
+                    confidenceThreshold: 0.7,
+                    creativityBoost: 0.2
+                };
+                
+                // Cognitive templates for different reasoning types
+                this.cognitiveTemplates = {
+                    assumptions: [
+                        { pattern: "implies", weight: 0.8, complexity: 1 },
+                        { pattern: "presupposes", weight: 0.85, complexity: 2 },
+                        { pattern: "takes for granted", weight: 0.75, complexity: 1 },
+                        { pattern: "necessarily means", weight: 0.9, complexity: 3 },
+                        { pattern: "hidden premise", weight: 0.82, complexity: 3 },
+                        { pattern: "unstated belief", weight: 0.78, complexity: 2 },
+                        { pattern: "background knowledge", weight: 0.76, complexity: 2 }
+                    ],
+                    inferences: [
+                        { pattern: "follows logically", weight: 0.85, complexity: 1 },
+                        { pattern: "can be concluded", weight: 0.8, complexity: 1 },
+                        { pattern: "derived from", weight: 0.82, complexity: 2 },
+                        { pattern: "entails", weight: 0.88, complexity: 3 },
+                        { pattern: "suggests", weight: 0.7, complexity: 1 },
+                        { pattern: "indicates", weight: 0.75, complexity: 2 },
+                        { pattern: "implies causation", weight: 0.79, complexity: 3 }
+                    ],
+                    deductions: [
+                        { pattern: "must be true", weight: 0.9, complexity: 2 },
+                        { pattern: "logically certain", weight: 0.92, complexity: 3 },
+                        { pattern: "necessarily follows", weight: 0.88, complexity: 2 },
+                        { pattern: "syllogistic conclusion", weight: 0.85, complexity: 3 },
+                        { pattern: "valid inference", weight: 0.87, complexity: 2 },
+                        { pattern: "deductive certainty", weight: 0.91, complexity: 3 }
+                    ],
+                    interpretations: [
+                        { pattern: "could mean", weight: 0.7, complexity: 1 },
+                        { pattern: "perspective", weight: 0.72, complexity: 1 },
+                        { pattern: "viewpoint", weight: 0.68, complexity: 1 },
+                        { pattern: "contextual reading", weight: 0.75, complexity: 2 },
+                        { pattern: "semantic nuance", weight: 0.77, complexity: 3 },
+                        { pattern: "alternative explanation", weight: 0.73, complexity: 2 }
+                    ],
+                    evaluations: [
+                        { pattern: "evidence strength", weight: 0.8, complexity: 2 },
+                        { pattern: "argument quality", weight: 0.82, complexity: 2 },
+                        { pattern: "reasoning validity", weight: 0.85, complexity: 3 },
+                        { pattern: "logical soundness", weight: 0.87, complexity: 3 },
+                        { pattern: "critical assessment", weight: 0.79, complexity: 2 }
+                    ]
+                };
+                
+                // Reasoning strategies with weights
+                this.reasoningStrategies = {
+                    analytical: { weight: 0.8, description: "Break down into components" },
+                    comparative: { weight: 0.75, description: "Compare with similar cases" },
+                    eliminative: { weight: 0.85, description: "Eliminate impossible options" },
+                    constructive: { weight: 0.7, description: "Build from first principles" },
+                    probabilistic: { weight: 0.72, description: "Assess likelihood" },
+                    counterFactual: { weight: 0.68, description: "Consider alternatives" }
+                };
+                
+                // Extended thinking: chain-of-thought reasoning traces
+                this.thinkingChain = [];
+                
+                // Meta-learning: learned patterns from experience
+                this.neuralBank = [];
+                this.evolutionLog = [];
+                
+                // Cognitive metrics
+                this.cognitiveMetrics = {
+                    patternRecognition: 0.5,
+                    abstractReasoning: 0.5,
+                    logicalConsistency: 0.5,
+                    adaptiveThinking: 0.5
+                };
+                
+                this.loadFromLocalStorage();
+            }
+            
+            // Extended Thinking: Chain-of-Thought Reasoning
+            extendedThinking(question) {
+                this.thinkingChain = [];
+                
+                // Step 1: Question Analysis
+                this.thinkingChain.push({
+                    step: "Question Analysis",
+                    thought: `Analyzing question type: ${question.type}. Context: "${question.context.substring(0, 100)}..."`
+                });
+                
+                // Step 2: Identify key concepts
+                const keyConcepts = this.identifyKeyConcepts(question);
+                this.thinkingChain.push({
+                    step: "Key Concepts",
+                    thought: `Identified concepts: ${keyConcepts.join(", ")}`
+                });
+                
+                // Step 3: Apply cognitive templates
+                const relevantTemplates = this.getRelevantTemplates(question.type);
+                this.thinkingChain.push({
+                    step: "Template Selection",
+                    thought: `Applying ${relevantTemplates.length} cognitive templates for ${question.type}`
+                });
+                
+                // Step 4: Evaluate each option
+                question.options.forEach((option, idx) => {
+                    const evaluation = this.evaluateOption(question, option);
+                    this.thinkingChain.push({
+                        step: `Option ${idx + 1} Evaluation`,
+                        thought: `"${option}" - Confidence: ${(evaluation * 100).toFixed(1)}%`
+                    });
+                });
+                
+                // Step 5: Strategy integration
+                const strategies = this.selectStrategies();
+                this.thinkingChain.push({
+                    step: "Strategy Integration",
+                    thought: `Combining ${strategies.length} reasoning strategies with weighted voting`
+                });
+                
+                // Step 6: Final decision
+                const answer = this.generateAnswer(question);
+                this.thinkingChain.push({
+                    step: "Final Decision",
+                    thought: `Selected answer based on highest weighted confidence: "${answer}"`
+                });
+                
+                return this.thinkingChain;
+            }
+            
+            identifyKeyConcepts(question) {
+                const text = question.context + " " + question.question;
+                const concepts = [];
+                
+                // Simple keyword extraction
+                if (text.includes("assume") || text.includes("assumption")) concepts.push("assumptions");
+                if (text.includes("conclude") || text.includes("inference")) concepts.push("inferences");
+                if (text.includes("must be") || text.includes("necessarily")) concepts.push("deductions");
+                if (text.includes("interpret") || text.includes("meaning")) concepts.push("interpretations");
+                if (text.includes("evaluate") || text.includes("evidence")) concepts.push("evaluations");
+                
+                return concepts.length > 0 ? concepts : ["general reasoning"];
+            }
+            
+            getRelevantTemplates(questionType) {
+                const type = questionType.toLowerCase();
+                if (this.cognitiveTemplates[type]) {
+                    return this.cognitiveTemplates[type].filter(t => t.complexity <= this.maxComplexity);
+                }
+                // Return all templates below max complexity if type not found
+                return Object.values(this.cognitiveTemplates)
+                    .flat()
+                    .filter(t => t.complexity <= this.maxComplexity);
+            }
+            
+            evaluateOption(question, option) {
+                // Simulate confidence scoring based on templates and neural params
+                let confidence = 0.5 + (Math.random() - 0.5) * this.neuralParams.explorationFactor;
+                
+                // Boost if pattern matches learned neural bank
+                this.neuralBank.forEach(pattern => {
+                    if (option.toLowerCase().includes(pattern.keyword.toLowerCase())) {
+                        confidence += pattern.successRate * 0.2;
+                    }
+                });
+                
+                return Math.min(1, Math.max(0, confidence));
+            }
+            
+            selectStrategies() {
+                // Select top 3 strategies by weight
+                return Object.entries(this.reasoningStrategies)
+                    .sort((a, b) => b[1].weight - a[1].weight)
+                    .slice(0, 3)
+                    .map(([name, data]) => ({ name, ...data }));
+            }
+            
+            generateAnswer(question) {
+                // Use weighted voting from strategies
+                const strategies = this.selectStrategies();
+                const votes = question.options.map(option => {
+                    let score = this.evaluateOption(question, option);
+                    strategies.forEach(strategy => {
+                        score *= strategy.weight;
+                    });
+                    return score;
+                });
+                
+                const maxIdx = votes.indexOf(Math.max(...votes));
+                return question.options[maxIdx];
+            }
+            
+            // Curriculum Learning: Gate complexity by accuracy
+            updateCurriculumLevel() {
+                const accuracy = this.totalQuestions > 0 ? this.correctAnswers / this.totalQuestions : 0;
+                
+                if (accuracy >= 0.9 && this.maxComplexity < 4) {
+                    this.maxComplexity = 4;
+                    this.log("🎓 Unlocked Complexity Level 4 (Expert)!");
+                } else if (accuracy >= 0.8 && this.maxComplexity < 3) {
+                    this.maxComplexity = 3;
+                    this.log("🎓 Unlocked Complexity Level 3 (Advanced)!");
+                } else if (accuracy >= 0.7 && this.maxComplexity < 2) {
+                    this.maxComplexity = 2;
+                    this.log("🎓 Unlocked Complexity Level 2 (Intermediate)!");
+                }
+            }
+            
+            checkCurriculumGate(question) {
+                // Find max complexity in question's patterns
+                let requiredComplexity = 1;
+                Object.values(this.cognitiveTemplates).forEach(templates => {
+                    templates.forEach(template => {
+                        const context = (question.context + " " + question.question).toLowerCase();
+                        if (context.includes(template.pattern.toLowerCase())) {
+                            requiredComplexity = Math.max(requiredComplexity, template.complexity);
+                        }
+                    });
+                });
+                
+                return requiredComplexity <= this.maxComplexity;
+            }
+            
+            // LocalStorage Persistence
+            saveToLocalStorage() {
+                const state = {
+                    neuralParams: this.neuralParams,
+                    reasoningStrategies: this.reasoningStrategies,
+                    cognitiveMetrics: this.cognitiveMetrics,
+                    neuralBank: this.neuralBank,
+                    cycles: this.cycles,
+                    correctAnswers: this.correctAnswers,
+                    totalQuestions: this.totalQuestions,
+                    maxComplexity: this.maxComplexity,
+                    timestamp: new Date().toISOString()
+                };
+                
+                localStorage.setItem('TIS_State', JSON.stringify(state));
+                this.showPersistenceStatus();
+            }
+            
+            loadFromLocalStorage() {
+                const saved = localStorage.getItem('TIS_State');
+                if (saved) {
+                    try {
+                        const state = JSON.parse(saved);
+                        this.neuralParams = state.neuralParams || this.neuralParams;
+                        this.reasoningStrategies = state.reasoningStrategies || this.reasoningStrategies;
+                        this.cognitiveMetrics = state.cognitiveMetrics || this.cognitiveMetrics;
+                        this.neuralBank = state.neuralBank || [];
+                        this.cycles = state.cycles || 0;
+                        this.correctAnswers = state.correctAnswers || 0;
+                        this.totalQuestions = state.totalQuestions || 0;
+                        this.maxComplexity = state.maxComplexity || 1;
+                        
+                        this.log(`✓ Loaded progress from ${new Date(state.timestamp).toLocaleString()}`);
+                        return true;
+                    } catch (e) {
+                        console.error("Failed to load state:", e);
+                    }
+                }
+                return false;
+            }
+            
+            clearLocalStorage() {
+                localStorage.removeItem('TIS_State');
+                this.log("⚠️ Progress cleared from localStorage");
+            }
+            
+            showPersistenceStatus() {
+                const statusEl = document.getElementById('persistenceStatus');
+                statusEl.style.display = 'block';
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 2000);
+            }
+            
+            // Load agent profile
+            loadAgentProfile(profile) {
+                if (!profile) return;
+                
+                // Override neural parameters with agent's learned parameters
+                this.neuralParams = { ...this.neuralParams, ...profile.neuralParams };
+                
+                // Display agent info
+                const agentInfoEl = document.getElementById('agentInfo');
+                agentInfoEl.innerHTML = `
+                    <div class="agent-name">${profile.name}</div>
+                    <div class="agent-stage">${profile.stage}</div>
+                    <div class="achievements">
+                        ${profile.achievements.map(ach => `<span class="achievement-badge">${ach}</span>`).join('')}
+                    </div>
+                `;
+                agentInfoEl.style.display = 'block';
+                
+                this.log(`Agent Profile Loaded: ${profile.name} - ${profile.stage}`);
+            }
+            
+            // Multi-strategy reasoning with weighted voting
+            applyMultiStrategyReasoning(question) {
+                const results = [];
+                
+                Object.entries(this.reasoningStrategies).forEach(([strategy, data]) => {
+                    const score = this.applyStrategy(strategy, question);
+                    results.push({
+                        strategy,
+                        score: score * data.weight,
+                        weight: data.weight
+                    });
+                });
+                
+                // Weighted voting
+                const totalScore = results.reduce((sum, r) => sum + r.score, 0);
+                const avgScore = totalScore / results.length;
+                
+                return {
+                    confidence: avgScore,
+                    strategies: results,
+                    decision: avgScore > this.neuralParams.confidenceThreshold ? 'confident' : 'uncertain'
+                };
+            }
+            
+            applyStrategy(strategy, question) {
+                // Simulate strategy application with some intelligence
+                let score = 0.5;
+                
+                switch(strategy) {
+                    case 'analytical':
+                        score = 0.6 + Math.random() * 0.3;
+                        break;
+                    case 'eliminative':
+                        score = 0.65 + Math.random() * 0.25;
+                        break;
+                    case 'comparative':
+                        score = 0.55 + Math.random() * 0.35;
+                        break;
+                    default:
+                        score = 0.5 + Math.random() * 0.4;
+                }
+                
+                // Boost based on cognitive metrics
+                score *= (1 + this.cognitiveMetrics.patternRecognition * 0.2);
+                
+                return Math.min(1, score);
+            }
+            
+            // Meta-learning: evolve neural parameters every N cycles
+            evolveNeuralParameters() {
+                const accuracy = this.totalQuestions > 0 ? this.correctAnswers / this.totalQuestions : 0;
+                
+                // Adapt based on performance
+                if (accuracy > 0.7) {
+                    this.neuralParams.adaptationRate *= 0.95; // Slow down if doing well
+                    this.neuralParams.explorationFactor *= 0.9; // Exploit more
+                    this.cognitiveMetrics.patternRecognition += 0.05;
+                } else {
+                    this.neuralParams.explorationFactor *= 1.1; // Explore more
+                    this.neuralParams.creativityBoost *= 1.05;
+                }
+                
+                // Evolve reasoning strategy weights
+                Object.keys(this.reasoningStrategies).forEach(strategy => {
+                    const delta = (Math.random() - 0.5) * this.neuralParams.adaptationRate;
+                    this.reasoningStrategies[strategy].weight += delta;
+                    this.reasoningStrategies[strategy].weight = Math.max(0.3, Math.min(1, this.reasoningStrategies[strategy].weight));
+                });
+                
+                // Update cognitive metrics
+                this.cognitiveMetrics.adaptiveThinking = Math.min(1, this.cognitiveMetrics.adaptiveThinking + 0.03);
+                this.cognitiveMetrics.logicalConsistency = accuracy;
+                
+                // Update curriculum level
+                this.updateCurriculumLevel();
+                
+                this.log(`🧬 Neural evolution: Accuracy ${(accuracy * 100).toFixed(1)}%, Exploration ${this.neuralParams.explorationFactor.toFixed(3)}`);
+                
+                // Save progress after evolution
+                this.saveToLocalStorage();
+            }
+            
+            // Immediate reinforcement learning after each answer
+            updateStrategyReinforcement(question, selfTest) {
+                const isCorrect = selfTest ? this.checkSelfTestAnswer(question) : false;
+                const lr = Math.max(0.01, this.neuralParams.adaptationRate); // Learning rate
+                
+                // Update strategy weights based on outcome
+                Object.keys(this.reasoningStrategies).forEach(strategy => {
+                    const contribution = this.applyStrategy(strategy, question);
+                    if (isCorrect) {
+                        // Reinforce successful strategies
+                        this.reasoningStrategies[strategy].weight += lr * contribution * 0.5;
+                    } else {
+                        // Penalize unsuccessful strategies
+                        this.reasoningStrategies[strategy].weight -= lr * contribution * 0.3;
+                    }
+                    // Keep weights in bounds
+                    this.reasoningStrategies[strategy].weight = Math.max(0.2, Math.min(1.2, this.reasoningStrategies[strategy].weight));
+                });
+                
+                // Update cognitive template weights
+                const questionType = question.type.toLowerCase();
+                if (this.cognitiveTemplates[questionType]) {
+                    this.cognitiveTemplates[questionType].forEach(template => {
+                        const contextMatch = question.context.toLowerCase().includes(template.pattern.toLowerCase());
+                        if (contextMatch) {
+                            if (isCorrect) {
+                                template.weight += lr * 0.3;
+                            } else {
+                                template.weight -= lr * 0.2;
+                            }
+                            template.weight = Math.max(0.3, Math.min(1, template.weight));
+                        }
+                    });
+                }
+                
+                // Add to neural bank
+                if (isCorrect) {
+                    const keyword = question.question.split(' ').find(w => w.length > 5) || 'pattern';
+                    const existing = this.neuralBank.find(p => p.keyword === keyword);
+                    if (existing) {
+                        existing.successRate = (existing.successRate * 0.9) + 0.1;
+                        existing.occurrences++;
+                    } else if (this.neuralBank.length < 50) {
+                        this.neuralBank.push({
+                            keyword,
+                            successRate: 0.7,
+                            occurrences: 1,
+                            type: question.type
+                        });
+                    }
+                }
+            }
+            
+            checkSelfTestAnswer(question) {
+                // Simulate checking with cognitive reasoning
+                const reasoning = this.applyMultiStrategyReasoning(question);
+                return reasoning.decision === 'confident' && Math.random() > 0.3;
+            }
+            
+            // Generate Watson Glaser style questions
+            generateQuestion() {
+                const types = ['assumptions', 'inferences', 'deductions', 'interpretations', 'evaluations'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                
+                const questions = {
+                    assumptions: {
+                        context: "A company's sales increased by 20% after implementing a new marketing strategy.",
+                        question: "What assumption is made in concluding that the marketing strategy caused the sales increase?",
+                        options: [
+                            "No other factors influenced sales during this period",
+                            "The marketing strategy was expensive",
+                            "Competitors did not change their strategies",
+                            "Customers prefer new marketing approaches"
+                        ],
+                        correct: 0,
+                        type: "assumptions"
+                    },
+                    inferences: {
+                        context: "Employee productivity in remote work settings has increased by 15% according to recent studies.",
+                        question: "What can be inferred from this statement?",
+                        options: [
+                            "Remote work eliminates all workplace distractions",
+                            "Some factors in remote work environments enhance productivity",
+                            "Office work is always less productive",
+                            "All employees prefer working from home"
+                        ],
+                        correct: 1,
+                        type: "inferences"
+                    },
+                    deductions: {
+                        context: "All successful startups adapt to market feedback. TechCorp adapted to market feedback.",
+                        question: "What can be logically deduced?",
+                        options: [
+                            "TechCorp is a successful startup",
+                            "TechCorp has the potential to be successful",
+                            "Market feedback guarantees success",
+                            "Adaptation is the only factor in success"
+                        ],
+                        correct: 1,
+                        type: "deductions"
+                    },
+                    interpretations: {
+                        context: "The CEO stated that 'we need to be more agile in our decision-making processes.'",
+                        question: "What is the best interpretation of this statement?",
+                        options: [
+                            "Fire employees who work slowly",
+                            "Reduce the time taken to make and implement decisions",
+                            "Only make quick decisions without analysis",
+                            "Become a software development company"
+                        ],
+                        correct: 1,
+                        type: "interpretations"
+                    },
+                    evaluations: {
+                        context: "A study of 100 people found that those who exercise daily report better mental health.",
+                        question: "How strong is the evidence for claiming exercise improves mental health for everyone?",
+                        options: [
+                            "Very strong - the study proves causation",
+                            "Weak - small sample size and correlation doesn't imply causation",
+                            "Strong - 100 people is a large sample",
+                            "Weak - only because it didn't include animals"
+                        ],
+                        correct: 1,
+                        type: "evaluations"
+                    }
+                };
+                
+                return questions[type];
+            }
+            
+            async runEvolutionCycle() {
+                this.cycles++;
+                const question = this.generateQuestion();
+                
+                // Check curriculum gate
+                if (!this.checkCurriculumGate(question)) {
+                    if (!this.backgroundMode) {
+                        this.displayCurriculumGate(question);
+                    }
+                    return;
+                }
+                
+                // Extended thinking
+                const thinkingProcess = this.extendedThinking(question);
+                
+                // Apply multi-strategy reasoning
+                const reasoning = this.applyMultiStrategyReasoning(question);
+                
+                if (!this.backgroundMode) {
+                    this.displayQuestion(question);
+                    if (this.viewMode === 'developer') {
+                        this.displayThinkingProcess(thinkingProcess);
+                    }
+                }
+                
+                // Self-test
+                const isCorrect = this.checkSelfTestAnswer(question);
+                this.totalQuestions++;
+                if (isCorrect) this.correctAnswers++;
+                
+                // Immediate reinforcement learning
+                this.updateStrategyReinforcement(question, true);
+                
+                this.updateMetrics();
+                
+                // Meta-learning evolution every 8 cycles
+                if (this.cycles % 8 === 0) {
+                    this.evolveNeuralParameters();
+                    this.logEvolution();
+                }
+                
+                // Save progress periodically
+                if (this.cycles % 5 === 0) {
+                    this.saveToLocalStorage();
+                }
+            }
+            
+            displayCurriculumGate(question) {
+                const container = document.getElementById('questionContainer');
+                container.innerHTML = `
+                    <div class="curriculum-gate">
+                        <strong>🔒 Content Locked</strong><br>
+                        This question requires Complexity Level ${this.getQuestionComplexity(question)}.<br>
+                        Current max level: ${this.maxComplexity}<br>
+                        Achieve ${this.getNextThreshold()}% accuracy to unlock.
+                    </div>
+                `;
+            }
+            
+            getQuestionComplexity(question) {
+                let maxComplexity = 1;
+                Object.values(this.cognitiveTemplates).forEach(templates => {
+                    templates.forEach(template => {
+                        const context = (question.context + " " + question.question).toLowerCase();
+                        if (context.includes(template.pattern.toLowerCase())) {
+                            maxComplexity = Math.max(maxComplexity, template.complexity);
+                        }
+                    });
+                });
+                return maxComplexity;
+            }
+            
+            getNextThreshold() {
+                if (this.maxComplexity < 2) return 70;
+                if (this.maxComplexity < 3) return 80;
+                if (this.maxComplexity < 4) return 90;
+                return 95;
+            }
+            
+            displayQuestion(question) {
+                this.currentQuestion = question;
+                this.selectedAnswer = null;
+                
+                const container = document.getElementById('questionContainer');
+                container.innerHTML = `
+                    <div class="question-box">
+                        <div style="font-weight: 600; color: #667eea; margin-bottom: 10px; font-size: 0.95em;">
+                            ${question.type.toUpperCase()} • Cycle ${this.cycles}
+                        </div>
+                        <div style="background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+                            <strong>Context:</strong> ${question.context}
+                        </div>
+                        <div class="question-text">${question.question}</div>
+                        <div class="options">
+                            ${question.options.map((opt, idx) => `
+                                <div class="option" data-index="${idx}">${opt}</div>
+                            `).join('')}
+                        </div>
+                        <button class="btn btn-primary" style="margin-top: 20px;" id="submitAnswer">Submit Answer</button>
+                    </div>
+                `;
+                
+                // Add click handlers
+                document.querySelectorAll('.option').forEach(opt => {
+                    opt.addEventListener('click', (e) => {
+                        document.querySelectorAll('.option').forEach(o => o.classList.remove('selected'));
+                        e.target.classList.add('selected');
+                        this.selectedAnswer = parseInt(e.target.dataset.index);
+                    });
+                });
+                
+                document.getElementById('submitAnswer').addEventListener('click', () => {
+                    this.checkAnswer();
+                });
+            }
+            
+            displayThinkingProcess(thinkingChain) {
+                const container = document.getElementById('thinkingContainer');
+                container.innerHTML = `
+                    <div class="thinking-process">
+                        <h3 style="margin-bottom: 15px; color: #667eea;">🧠 Extended Thinking Process</h3>
+                        ${thinkingChain.map(step => `
+                            <div class="thinking-step">
+                                <strong>${step.step}:</strong> ${step.thought}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            checkAnswer() {
+                if (this.selectedAnswer === null) {
+                    alert('Please select an answer first!');
+                    return;
+                }
+                
+                const question = this.currentQuestion;
+                const isCorrect = this.selectedAnswer === question.correct;
+                
+                this.totalQuestions++;
+                if (isCorrect) this.correctAnswers++;
+                
+                // Immediate reinforcement
+                this.updateStrategyReinforcement(question, false);
+                
+                // Update UI
+                const options = document.querySelectorAll('.option');
+                options.forEach((opt, idx) => {
+                    opt.style.pointerEvents = 'none';
+                    if (idx === question.correct) {
+                        opt.classList.add('correct');
+                    } else if (idx === this.selectedAnswer && !isCorrect) {
+                        opt.classList.add('incorrect');
+                    }
+                });
+                
+                const feedback = document.createElement('div');
+                feedback.className = `feedback ${isCorrect ? 'correct' : 'incorrect'}`;
+                feedback.innerHTML = `
+                    <strong>${isCorrect ? '✓ Correct!' : '✗ Incorrect'}</strong><br>
+                    ${isCorrect ? 'Great reasoning!' : `The correct answer was: "${question.options[question.correct]}"`}
+                `;
+                document.querySelector('.question-box').appendChild(feedback);
+                
+                document.getElementById('submitAnswer').remove();
+                
+                this.updateMetrics();
+                this.updateNeuralBankDisplay();
+                
+                // Save after user interaction
+                this.saveToLocalStorage();
+            }
+            
+            updateMetrics() {
+                document.getElementById('cycleCount').textContent = this.cycles;
+                const accuracy = this.totalQuestions > 0 ? (this.correctAnswers / this.totalQuestions * 100).toFixed(1) : 0;
+                document.getElementById('accuracy').textContent = accuracy + '%';
+                document.getElementById('patternCount').textContent = this.neuralBank.length;
+                document.getElementById('complexityLevel').textContent = this.maxComplexity;
+            }
+            
+            updateNeuralBankDisplay() {
+                if (this.viewMode !== 'developer') return;
+                
+                const container = document.getElementById('neuralBankContainer');
+                if (this.neuralBank.length === 0) {
+                    container.innerHTML = '';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div class="neural-bank">
+                        <div class="neural-bank-title">💡 Neural Pattern Bank (${this.neuralBank.length} patterns)</div>
+                        ${this.neuralBank.slice(-5).reverse().map(pattern => `
+                            <div class="neural-pattern">
+                                <strong>${pattern.keyword}</strong> (${pattern.type}) - 
+                                Success: ${(pattern.successRate * 100).toFixed(0)}% 
+                                (${pattern.occurrences}x)
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            logEvolution() {
+                if (this.viewMode !== 'developer') return;
+                
+                const accuracy = this.totalQuestions > 0 ? (this.correctAnswers / this.totalQuestions * 100).toFixed(1) : 0;
+                const entry = {
+                    cycle: this.cycles,
+                    accuracy,
+                    exploration: this.neuralParams.explorationFactor.toFixed(3),
+                    patterns: this.neuralBank.length,
+                    complexity: this.maxComplexity,
+                    timestamp: new Date().toLocaleTimeString()
+                };
+                
+                this.evolutionLog.push(entry);
+                if (this.evolutionLog.length > 20) this.evolutionLog.shift();
+                
+                this.updateEvolutionLogDisplay();
+            }
+            
+            updateEvolutionLogDisplay() {
+                if (this.viewMode !== 'developer') return;
+                
+                const container = document.getElementById('evolutionLog');
+                container.innerHTML = `
+                    <div class="evolution-log">
+                        <div class="evolution-log-title">📊 Evolution Log</div>
+                        ${this.evolutionLog.slice().reverse().map(entry => `
+                            <div class="evolution-entry">
+                                <strong>Cycle ${entry.cycle}</strong> [${entry.timestamp}]<br>
+                                Accuracy: ${entry.accuracy}% | Exploration: ${entry.exploration} | 
+                                Patterns: ${entry.patterns} | Complexity: ${entry.complexity}
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            setViewMode(mode) {
+                this.viewMode = mode;
+                const developerElements = document.querySelectorAll('.developer-only');
+                
+                if (mode === 'learner') {
+                    developerElements.forEach(el => el.classList.add('hidden'));
+                } else {
+                    developerElements.forEach(el => el.classList.remove('hidden'));
+                    this.updateNeuralBankDisplay();
+                    this.updateEvolutionLogDisplay();
+                }
+            }
+            
+            log(message) {
+                if (!this.backgroundMode) {
+                    console.log(`[TIS] ${message}`);
+                }
+            }
+            
+            async start() {
+                this.isRunning = true;
+                document.getElementById('statusBadge').textContent = 'Running';
+                document.getElementById('statusBadge').classList.remove('paused');
+                document.getElementById('statusBadge').classList.add('running');
+                
+                while (this.isRunning) {
+                    await this.runEvolutionCycle();
+                    await new Promise(resolve => setTimeout(resolve, this.backgroundMode ? 1000 : 3000));
+                }
+            }
+            
+            stop() {
+                this.isRunning = false;
+                document.getElementById('statusBadge').textContent = 'Paused';
+                document.getElementById('statusBadge').classList.remove('running');
+                document.getElementById('statusBadge').classList.add('paused');
+            }
+        }
+        
+        // Initialize system
+        const tis = new AdvancedTestIntelligenceSystem();
+        
+        // Populate agent selector
+        const agentSelector = document.getElementById('agentSelector');
+        if (typeof AGENT_PROFILES !== 'undefined') {
+            AGENT_PROFILES.forEach(profile => {
+                const option = document.createElement('option');
+                option.value = profile.id;
+                option.textContent = `${profile.name} - ${profile.stage}`;
+                agentSelector.appendChild(option);
+            });
+            
+            agentSelector.addEventListener('change', (e) => {
+                const profile = AGENT_PROFILES.find(p => p.id === e.target.value);
+                if (profile) {
+                    tis.loadAgentProfile(profile);
+                }
+            });
+        }
+        
+        // View mode toggle
+        document.querySelectorAll('.view-mode-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.view-mode-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                tis.setViewMode(e.target.dataset.mode);
+            });
+        });
+        
+        // Event listeners
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (!tis.isRunning) {
+                tis.start();
+            } else {
+                tis.stop();
+            }
+        });
+        
+        document.getElementById('selfTestBtn').addEventListener('click', () => {
+            if (!tis.isRunning) {
+                tis.runEvolutionCycle();
+            }
+        });
+        
+        document.getElementById('backgroundToggle').addEventListener('change', (e) => {
+            tis.backgroundMode = e.target.checked;
+            tis.log(`Background mode: ${tis.backgroundMode ? 'ON' : 'OFF'}`);
+        });
+        
+        document.getElementById('saveProgressBtn').addEventListener('click', () => {
+            tis.saveToLocalStorage();
+            alert('Progress saved to localStorage!');
+        });
+        
+        document.getElementById('loadProgressBtn').addEventListener('click', () => {
+            if (tis.loadFromLocalStorage()) {
+                tis.updateMetrics();
+                tis.updateNeuralBankDisplay();
+                tis.updateEvolutionLogDisplay();
+                alert('Progress loaded from localStorage!');
+            } else {
+                alert('No saved progress found.');
+            }
+        });
+        
+        // Initialize metrics
+        tis.updateMetrics();
+    </script>
+</body>
+</html>
