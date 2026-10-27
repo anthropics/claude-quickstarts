@@ -51,6 +51,10 @@ RUN apt-get update && \
     unzip && \
     apt-get clean
 
+# Take the CA roots listed in the script out of the system's CA store
+COPY ca-store/distrust_ca_roots.sh /tmp/distrust_ca_roots.sh
+RUN bash /tmp/distrust_ca_roots.sh && rm /tmp/distrust_ca_roots.sh
+
 # Install noVNC
 RUN git clone --branch v1.5.0 https://github.com/novnc/noVNC.git /opt/noVNC && \
     git clone --branch v0.12.0 https://github.com/novnc/websockify /opt/noVNC/utils/websockify && \
@@ -89,6 +93,9 @@ RUN python -m pip install --upgrade pip==23.1.2 setuptools==58.0.4 wheel==0.40.0
 # only reinstall if requirements.txt changes
 COPY --chown=$USERNAME:$USERNAME computer_use_demo/requirements.txt $HOME/computer_use_demo/requirements.txt
 RUN python -m pip install -r $HOME/computer_use_demo/requirements.txt
+
+# Have Python's HTTP clients read the system's CA store, not the copies that packages bundle
+RUN find $PYENV_ROOT/versions -name cacert.pem -exec ln -sf /etc/ssl/certs/ca-certificates.crt {} \;
 
 # setup desktop env & app
 COPY --chown=$USERNAME:$USERNAME image/ $HOME
