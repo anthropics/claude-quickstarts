@@ -84,7 +84,15 @@ export function defuseClosingReferences(text: string): string {
 // of commits the host reads.
 export const MAX_BRANCH_COMMITS = 20;
 
-type Comparison = { total_commits?: number; commits?: { sha: string; commit: { message: string } }[] };
+type Comparison = {
+  total_commits?: number;
+  commits?: { sha: string; commit: { message: string } }[];
+  files?: { filename: string; previous_filename?: string }[];
+};
+
+// GitHub lists at most this many changed files on a comparison. A branch at
+// the cap may have more that the host cannot see.
+const MAX_LISTED_FILES = 300;
 
 // Pure so the tests can drive it. Returns why the branch is refused, or null.
 export function branchProblem(comparison: Comparison): string | null {
@@ -92,6 +100,19 @@ export function branchProblem(comparison: Comparison): string | null {
   const total = comparison.total_commits ?? commits.length;
   if (total > MAX_BRANCH_COMMITS || total !== commits.length) {
     return `The branch has ${total} commits. A fix for one issue should have at most ${MAX_BRANCH_COMMITS}. Recreate it from the base branch with only the fix.`;
+  }
+  // A workflow file added on a pushed branch can run in the repository's
+  // GitHub Actions the moment it lands, with no reviewer in the way. A token
+  // without the Workflows permission cannot push one, but the host does not
+  // depend on how the token was made: nothing under .github/ is ever part of
+  // a fix for one issue.
+  const files = comparison.files ?? [];
+  if (files.length >= MAX_LISTED_FILES) {
+    return `The branch changes ${files.length} or more files, more than the host can inspect. Recreate it from the base branch with only the fix.`;
+  }
+  const guarded = files.filter((file) => [file.filename, file.previous_filename ?? ""].some((path) => path === ".github" || path.startsWith(".github/")));
+  if (guarded.length > 0) {
+    return `The branch changes ${guarded.map((file) => file.filename).join(", ")}. Nothing under .github/ may change in a fix. Recreate the branch from the base branch without those changes, under a new autofix/ name, and call this tool again.`;
   }
   const flagged = commits.filter((entry) => hasClosingReference(entry.commit.message)).map((entry) => entry.sha.slice(0, 7));
   if (flagged.length === 0) return null;

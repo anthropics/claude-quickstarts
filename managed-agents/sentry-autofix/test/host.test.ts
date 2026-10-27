@@ -142,6 +142,20 @@ test("refuses a branch with a closing reference in any commit message", () => {
   assert.match(branchProblem({ total_commits: 2, commits: [commit("Add test"), commit("Guard lookup. Fixes #12", "1234567890")] }) ?? "", /commit 1234567/);
 });
 
+test("refuses a branch that touches anything under .github/", () => {
+  const commits = [commit("Guard the lookup")];
+  const changed = (...names: string[]) => ({ total_commits: 1, commits, files: names.map((filename) => ({ filename })) });
+  assert.equal(branchProblem(changed("src/checkout.js", "test/checkout.test.js")), null);
+  assert.match(branchProblem(changed("src/checkout.js", ".github/workflows/ci.yml")) ?? "", /\.github\/workflows\/ci\.yml/);
+  assert.match(branchProblem(changed(".github/dependabot.yml")) ?? "", /Nothing under \.github\//);
+  // A rename out of .github/ is still a change to it.
+  assert.match(branchProblem({ total_commits: 1, commits, files: [{ filename: "ci.yml", previous_filename: ".github/workflows/ci.yml" }] }) ?? "", /ci\.yml/);
+  // Lookalikes are ordinary paths.
+  assert.equal(branchProblem(changed("docs/.github/notes.md", ".githubrc")), null);
+  // GitHub stops listing files at 300, so the host cannot vouch for such a branch.
+  assert.match(branchProblem({ total_commits: 1, commits, files: Array.from({ length: 300 }, (_, i) => ({ filename: `f${i}.js` })) }) ?? "", /more than the host can inspect/);
+});
+
 test("refuses a branch it cannot inspect in full", () => {
   const many = Array.from({ length: MAX_BRANCH_COMMITS + 1 }, () => commit("Add test"));
   assert.match(branchProblem({ total_commits: many.length, commits: many }) ?? "", /at most 20/);
