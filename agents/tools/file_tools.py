@@ -241,9 +241,7 @@ class FileWriteTool(Tool):
 
             def edit_sync():
                 try:
-                    with open(
-                        file_path, encoding="utf-8", errors="replace"
-                    ) as f:
+                    with open(file_path, encoding="utf-8") as f:
                         content = f.read()
 
                     if old_text not in content:
