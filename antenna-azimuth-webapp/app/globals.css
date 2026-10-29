@@ -1,0 +1,75 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 43 24% 92%;
+    --foreground: 39 19% 11%;
+    --card: 45 40% 99%;
+    --card-foreground: 39 19% 11%;
+    --popover: 45 40% 99%;
+    --popover-foreground: 39 19% 11%;
+    --primary: 39 19% 11%;
+    --primary-foreground: 45 40% 99%;
+    --secondary: 43 20% 88%;
+    --secondary-foreground: 39 19% 11%;
+    --muted: 43 20% 88%;
+    --muted-foreground: 33 14% 41%;
+    --accent: 43 20% 88%;
+    --accent-foreground: 39 19% 11%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 45 40% 99%;
+    --border: 43 29% 81%;
+    --input: 43 29% 81%;
+    --ring: 18 75% 45%;
+    --radius: 0.75rem;
+    --brand: 18 75% 45%;
+    --brand-foreground: 45 40% 99%;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --background: 39 22% 7%;
+      --foreground: 42 45% 91%;
+      --card: 38 22% 10%;
+      --card-foreground: 42 45% 91%;
+      --popover: 38 22% 10%;
+      --popover-foreground: 42 45% 91%;
+      --primary: 42 45% 91%;
+      --primary-foreground: 39 22% 7%;
+      --secondary: 42 20% 16%;
+      --secondary-foreground: 42 45% 91%;
+      --muted: 42 20% 16%;
+      --muted-foreground: 39 19% 58%;
+      --accent: 42 20% 16%;
+      --accent-foreground: 42 45% 91%;
+      --destructive: 0 63% 41%;
+      --destructive-foreground: 42 45% 91%;
+      --border: 42 28% 17%;
+      --input: 42 28% 17%;
+      --ring: 21 100% 65%;
+      --brand: 21 100% 65%;
+      --brand-foreground: 39 22% 7%;
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Leaflet's own stylesheet is imported by AzimuthMap.tsx so it ships in that
+   component's chunk and loads with the (dynamically imported) map instead of
+   on first paint. Scoping this override under .map-shell keeps it at a higher
+   specificity than Leaflet's bare .leaflet-container, so it wins regardless of
+   which stylesheet the browser applies last. */
+.map-shell .leaflet-container {
+  font-family: var(--font-plex-sans), ui-sans-serif, system-ui, sans-serif;
+  background: hsl(var(--background));
+}

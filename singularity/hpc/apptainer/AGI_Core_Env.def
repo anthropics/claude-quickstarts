@@ -1,0 +1,102 @@
+Bootstrap: docker
+From: condaforge/miniforge3:latest
+
+%labels
+    Maintainer  singularity-agi@anthropic.com
+    Version     1.0.0
+    Description AGI training environment — PyTorch DDP + Lightning + NCCL on InfiniBand
+
+%environment
+    # Process supervision
+    export TINI_SUBREAPER=1
+
+    # NCCL tuning for InfiniBand clusters
+    export NCCL_NSOCKS_PERTHREAD=4
+    export NCCL_SOCKET_NTHREADS=2
+    export NCCL_MIN_CHANNELS=32
+    export NCCL_IB_DISABLE=0
+    export NCCL_IB_HCA=${NCCL_IB_HCA:-mlx5_0}
+    export NCCL_NET_GDR_LEVEL=5
+
+    # Threading — let PyTorch manage its own thread pools
+    export OMP_NUM_THREADS=1
+    export MKL_NUM_THREADS=1
+
+    # CUDA / driver libs visible inside container
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:/usr/local/nccl/lib:${LD_LIBRARY_PATH}
+
+    # Conda environment activation
+    export PATH=/opt/conda/envs/agi/bin:${PATH}
+    export CONDA_DEFAULT_ENV=agi
+
+%post
+    set -euo pipefail
+    export DEBIAN_FRONTEND=noninteractive
+
+    # ── System deps ──────────────────────────────────────────────────────────
+    apt-get update -qq && apt-get install -y --no-install-recommends \
+        build-essential \
+        cmake \
+        ninja-build \
+        git \
+        curl \
+        wget \
+        ca-certificates \
+        infiniband-diags \
+        ibverbs-utils \
+        rdma-core \
+        librdmacm-dev \
+        libibverbs-dev \
+        openssh-client \
+        pdsh \
+        tini \
+        && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+    # ── Conda environment ─────────────────────────────────────────────────────
+    /opt/conda/bin/conda create -y -n agi python=3.10 \
+        -c conda-forge -c pytorch -c nvidia \
+        pytorch=2.2.0 \
+        torchvision \
+        pytorch-cuda=12.1 \
+        cudatoolkit=12.1 \
+        nccl \
+        && /opt/conda/bin/conda clean -afy
+
+    # ── Python packages ───────────────────────────────────────────────────────
+    /opt/conda/envs/agi/bin/pip install --no-cache-dir \
+        lightning==2.2.0 \
+        deepspeed==0.14.0 \
+        monai==1.3.0 \
+        submitit==1.5.1 \
+        tensorboard==2.16.0 \
+        wandb==0.16.6 \
+        transformers==4.40.0 \
+        datasets==2.18.0 \
+        accelerate==0.28.0 \
+        einops==0.7.0 \
+        dvc==3.48.4 \
+        mlflow==2.12.1 \
+        structlog==24.1.0
+
+    # ── Cleanup ────────────────────────────────────────────────────────────────
+    /opt/conda/bin/conda clean -afy
+    pip cache purge 2>/dev/null || true
+
+%runscript
+    #!/bin/bash
+    # GPU diagnostics on startup (non-fatal)
+    if command -v nvidia-smi &>/dev/null; then
+        nvidia-smi --query-gpu=name,memory.total,driver_version \
+            --format=csv,noheader 2>/dev/null | head -1 || true
+    fi
+    exec python "$@"
+
+%test
+    /opt/conda/envs/agi/bin/python -c "
+import torch
+print(f'PyTorch: {torch.__version__}')
+print(f'CUDA available: {torch.cuda.is_available()}')
+import lightning
+print(f'Lightning: {lightning.__version__}')
+print('AGI_Core_Env OK')
+"
