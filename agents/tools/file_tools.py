@@ -181,28 +181,28 @@ class FileWriteTool(Tool):
         self,
         operation: str,
         path: str,
-        content: str = "",
-        old_text: str = "",
-        new_text: str = "",
+        content: str | None = None,
+        old_text: str | None = None,
+        new_text: str | None = None,
     ) -> str:
         """Execute a file write operation.
 
         Args:
             operation: The operation to perform (write or edit)
             path: The file path
-            content: Content to write (for write operation)
+            content: Content to write, including an empty string (for write operation)
             old_text: Text to replace (for edit operation)
-            new_text: Replacement text (for edit operation)
+            new_text: Replacement text; an empty string deletes old_text (for edit operation)
 
         Returns:
             Result of the operation as string
         """
         if operation == "write":
-            if not content:
+            if content is None:
                 return "Error: content parameter is required"
             return await self._write_file(path, content)
         elif operation == "edit":
-            if not old_text or not new_text:
+            if not old_text or new_text is None:
                 return (
                     "Error: both old_text and new_text parameters "
                     "are required for edit operation"
