@@ -66,8 +66,23 @@ class MessageHistory:
             self.message_tokens.append((current_turn_input, output_tokens))
             self.total_tokens += current_turn_input + output_tokens
 
+    def _removal_would_orphan_tool_results(self) -> bool:
+        """True when the only assistant turn left made the tool calls whose
+        results are the latest message. Removing that turn would send the
+        results without their tool_use blocks, which the API rejects."""
+        if len(self.message_tokens) != 1 or len(self.messages) < 3:
+            return False
+        return any(
+            isinstance(block, dict) and block.get("type") == "tool_result"
+            for block in self.messages[2]["content"]
+        )
+
     def truncate(self) -> None:
-        """Remove oldest messages when context window limit is exceeded."""
+        """Remove oldest messages when context window limit is exceeded.
+
+        A tool call and its results are never separated: the final exchange
+        stays even when it alone exceeds the limit.
+        """
         if self.total_tokens <= self.context_window_tokens:
             return
 
@@ -94,6 +109,7 @@ class MessageHistory:
             self.message_tokens
             and len(self.messages) >= 2
             and self.total_tokens > self.context_window_tokens
+            and not self._removal_would_orphan_tool_results()
         ):
             remove_message_pair()
 
