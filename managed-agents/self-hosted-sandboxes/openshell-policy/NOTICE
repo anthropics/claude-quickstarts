@@ -1,0 +1,21 @@
+OpenShell policy reference
+Copyright 2026 Anthropic PBC
+
+This directory's own code is licensed under the MIT License, in the LICENSE
+file at the root of this repository.
+
+It includes material from NVIDIA OpenShell
+(https://github.com/NVIDIA/OpenShell), version 0.1.2, which stays under the
+Apache License, Version 2.0:
+
+  third_party/openshell/proto/
+    OpenShell's gRPC protocol definitions, unmodified. Its license is in
+    third_party/openshell/LICENSE.
+    Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES.
+
+  sandbox/openshell-skills/
+    OpenShell's policy advisor guide (policy_advisor.md and
+    policy-advisor/SKILL.md), unmodified, from
+    crates/openshell-supervisor-process/src/skills/. Its license is in
+    sandbox/openshell-skills/LICENSE.
+    Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES.

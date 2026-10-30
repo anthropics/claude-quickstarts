@@ -1,0 +1,35 @@
+# The ceiling for the "hello" profile: the most network access any session of
+# an agent on this profile may ever hold, beyond the base policy.
+#
+# The full boundary the prover checks against is policy/base.yaml plus the
+# rules below. Every grant the reviewer approves, every promoted starting
+# policy, and every sandbox agentpolicy creates must prove to stay inside it.
+#
+# A person owns this file. `agentpolicy ceiling sign` signs it together with
+# base.yaml, and nothing that reads the ceiling accepts it unsigned or
+# changed since signing. Agents and the reviewer can never edit it.
+#
+# Write ceiling rules the way the prover can compare them
+# (https://docs.nvidia.com/openshell/latest/how-it-works/policies/prover):
+#   - exact binary paths, the same ones agents will use (no globs). A rule
+#     covers the programs it lists and every program they start, so never a
+#     shell or an interpreter unless the task is that program, and only
+#     binaries under read-only paths (never /workspace or /tmp);
+#   - exact hosts, not wildcards, on a port shared with other hosts;
+#   - protocol: rest with enforcement: enforce for HTTP APIs, so method and
+#     path limits are part of the proof.
+network_policies:
+  # Agents on this profile may read example.com with curl, and nothing else
+  # there: no write methods, and no program but curl and what curl starts. A
+  # GET can still carry data out in its path or query, so a host belongs here
+  # only if you would trust it with what the agent can read.
+  example_com:
+    name: example_com
+    endpoints:
+      - host: example.com
+        port: 443
+        protocol: rest
+        enforcement: enforce
+        access: read-only
+    binaries:
+      - path: /usr/bin/curl

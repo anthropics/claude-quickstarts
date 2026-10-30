@@ -34,7 +34,9 @@ directory has the design. This file is the runbook.
 
 For `openshell/`, read `openshell/setup-skill.md` first and walk the user
 through it step by step. It has that demo's steps in order, the output to expect
-from each, and where to find OpenShell's policy reference. The debugging tables
+from each, and where to find OpenShell's policy reference. For
+`openshell-policy/`, get `openshell/` working, then follow the
+`openshell-policy/` section at the end of this file. The debugging tables
 below still apply.
 
 1. **Invoke `/claude-api` first** for the Managed Agents reference (agents,
@@ -141,3 +143,69 @@ when no session is live.
 
 All four `start.sh` scripts deliberately `unset ANTHROPIC_API_KEY ANTHROPIC_AUTH_TOKEN`:
 the sandbox host runs on the environment key alone. Don't "fix" that.
+`openshell-policy/start.sh` does the same.
+
+## openshell-policy/
+
+`openshell-policy/` extends `openshell/`: its `start.sh` runs
+`openshell/on-work.sh` with `ON_WORK_HOOK=openshell-policy/dispatcher/hook.sh`,
+which decides each session's policy. Get `openshell/` working first; the
+OpenShell, Docker and gateway checks above all apply. Then, from
+`openshell-policy/`:
+
+1. **`make dev && make test`**: a venv with `agentpolicy`, the generated gRPC
+   client, and the unit tests. They need no API access and no OpenShell, and
+   they run `../openshell/on-work.sh` for real against a stub `openshell`.
+   With `openshell-prover` on PATH, `tests/test_real_prover.py` runs too.
+2. **`make keys && make check`**: signs the demo ceiling under `state/demo/`
+   with a local key, then proves the `hello` profile inside it. `check`
+   needs `openshell-prover` on PATH (it comes with OpenShell).
+3. **`make apply ANT_FLAGS=--yes`** (not `ant apply .`, and `--yes` because
+   you have no terminal for its prompt): it names `agents` and `environments`,
+   because a plain `ant apply .` would take the skill files under `sandbox/`
+   for skill resources. It then maps the worker environment to the `hello`
+   profile. The user mints the environment key in the Console and puts it in
+   `openshell-policy/.env`. Never echo it. If the user made their own
+   self-hosted environment instead, add `ANTHROPIC_ENVIRONMENT_ID=env_...` to
+   `.env` and map it: `.venv/bin/agentpolicy environment set env_... hello`.
+4. **`make openshell-settings && make image`**: gateway settings (proposals
+   on, auto-approval off), then `openshell/`'s image and this one on top.
+5. **Three long-running terminals**: `make dispatcher`, `make reviewer`,
+   `make audit`. Healthy dispatcher output ends with `polling env=env_...`;
+   the reviewer and the audit collector print one line and wait.
+6. **`make enforce-check`** (optional, no API access): one throwaway sandbox,
+   four requests, and the gateway's own log checked for the four decisions a
+   proof predicts.
+7. **`make demo`**: example.com approved then promoted, api.github.com
+   rejected as `outside_ceiling` (twice at most: the breaker stops a session
+   at three), a second session that needs no proposal, and a shrink dry run.
+   The rejection is the demo working. `make status` and `state/ledger.jsonl`
+   show every decision.
+
+On a Mac where endpoint security blocks OpenShell's binaries, the README's
+"Running the gateway in Docker" runs the gateway in a container and everything else
+through `scripts/ops`. Commands that need the user's API credentials (`make
+demo`, `make reviewer`, `agentpolicy stop`/`resume`) take `OPS_ANT_PROFILE=1`;
+`make dispatcher` never does.
+
+| Symptom | Cause and fix |
+|---|---|
+| The dispatcher logs `[hook] ... no profile for environment env_...; refusing` | The environment is not in the operator's map. `agentpolicy environment set env_... <profile>`. Metadata on the session or agent never chooses a profile, by design. |
+| The dispatcher logs `[hook] ... stopped (...); refusing` | A stop covers the session (`agentpolicy status` lists them). `agentpolicy resume` with the same scope lifts it, frees the work item the refusal left `stopping`, and interrupts the session so its next message runs. |
+| `agentpolicy check` or the dispatcher says a ceiling is `not signed` or changed since it was signed | `policy/` changed after `make keys`. Run `make keys` again; it re-signs the demo copy. In production, the policy owner re-signs. |
+| `make check` or `make sign` fails with `policy/ or agentpolicy.yaml changed since 'make keys' copied it` | The make targets read the demo's copy under `state/demo/`, which is now stale. `make keys` copies and signs again. |
+| Any command exits 2 with `no config at ...` | agentpolicy refuses to run on defaults, which would read and write a ledger no dispatcher uses. Run it from `openshell-policy/`, or set `AGENTPOLICY_CONFIG` (the make targets set it to `state/demo/agentpolicy.yaml`). |
+| The dispatcher logs `[hook] ... this session's agent reaches the network outside its sandbox: ...` | The agent has web tools, MCP servers or sub-agents, which the ceiling does not govern. Turn them off on the agent, or set `profiles.<name>.outside_routes: true` if the user accepts that. |
+| The dispatcher logs `[hook] ... profile ... does not list agent agent_...` | `profiles.<name>.agents` is set and this agent is not in it. Add the id, or send the agent's sessions to another environment. |
+| `[on-work] ... the new sandbox's policy is not the one asked for; refusing` | The gateway added to the policy at create time (a gateway-wide policy, or a provider's rules) and the result does not prove inside the ceiling. `openshell sandbox get <name> --policy-only` shows what it holds. |
+| Decisions in the ledger with code `gateway_draft` | OpenShell drafts a rule for every denied connection. They are rejected unread and do not count toward the breaker. Expected. |
+| A proposal is escalated with code `revoked`, or `promote` skips a grant that `is in revoked.txt` | The profile's `revoked.txt` lists that host and port: a person or `shrink` took it away. Deleting the line gives it back; that is the user's call. |
+| `make enforce-check` reports a missing decision | The gateway is not enforcing what the prover proved, or egress from this host intercepts TLS so no request-level decision is logged. Try `CHECK_URL=http://...` for a plain-HTTP host; if it still fails, do not trust proofs on this OpenShell version. |
+| Every proposal is rejected with `proposals_disabled` | `profiles.<name>.proposals` is off in `agentpolicy.yaml`, the default for a profile not listed. Only the demo's `hello` has it on. |
+| `make demo` stops at `no audit log for sesn_...` | `make audit` is not running, or not against this gateway. |
+| `[on-work] ... cannot be used as it is`, then `replacing ..., /workspace included` | A reused or stopped sandbox no longer proves inside the ceiling, or a stop locked it down. Expected; the new sandbox starts from a freshly proved policy and an empty `/workspace`. |
+| The dispatcher refuses a session after a prover result other than `exceeds_boundary`, and the sandbox is still there | `verify-sandbox` got no verdict, so it kept the sandbox and ran nothing. `error` or `inconclusive`: `openshell-prover` is missing from PATH or timed out. `unsupported`: the sandbox holds a rule that cannot be proved, most often one approved by hand; remove it with `openshell policy update`, or delete the sandbox and lose its `/workspace`. Then `agentpolicy resume --session sesn_...` frees the work item the refusal left `stopping` and interrupts the session, and its next message runs. |
+| A proposal is left pending with `unenforced_rule`, or with `unproven` and `without enforced inspection` | The rule names a `protocol` without `enforcement: enforce`, or sets `tls: skip` or `allowed_ips`. Reject it with a reason (`openshell rule reject`), so the agent proposes it again with `enforcement: enforce`. Approved as it is, the sandbox no longer proves inside the ceiling and gets no worker at the session's next work item. |
+| `agentpolicy stop` prints `THE STOP IS NOT RECORDED` | The ledger could not be written (a full disk, permissions). The sandboxes were still halted, but the dispatcher would serve those sessions again. Fix the disk and run the same stop again. |
+| `agentpolicy stop` prints `recorded in ...` and exits 1 | The dispatcher already refuses the covered sessions. `a sandbox this stop covers may still be running`: the gateway did not answer; run the same stop again once `openshell sandbox list` works. `could not be sent user.interrupt`: the sandboxes are halted, and the API refused the interrupt (an archived session, say); the `halt` entries in the ledger say why. |
+| `resume` says it is `not checking the Managed Agents API for stuck work items` | The process has no API credentials. Run it with `ant auth login` done (under `scripts/ops`, with `OPS_ANT_PROFILE=1`). |

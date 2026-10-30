@@ -1,0 +1,12 @@
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+/state/
+/build/
+/dist/
+src/agentpolicy/_proto/*_pb2*.py
+*.key
+!tests/**/*.key
+.env
+claude-lock.json
