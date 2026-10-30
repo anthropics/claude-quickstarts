@@ -1,0 +1,88 @@
+# agentpolicy settings. Paths are relative to this file. Environment variables
+# AGENTPOLICY_API_SCHEME, AGENTPOLICY_API_HOST, AGENTPOLICY_API_PORT, AGENTPOLICY_PROVER,
+# AGENTPOLICY_STATE_DIR, AGENTPOLICY_REVIEW_MODE and AGENTPOLICY_GATEWAY_ENDPOINT
+# override the matching settings. The reviewer and the collector read this
+# file when they start, so restart them after changing it.
+
+policy_dir: policy
+state_dir: state
+signers_file: policy/signers.yaml
+
+# Refuse any ceiling that is unsigned, signed by someone not in signers.yaml,
+# or changed (with base.yaml and the API address below) since it was
+# signed.
+require_signed_ceiling: true
+
+# Refuse a signers.yaml this account could replace: one it owns or can write,
+# in a directory it owns or can write, all the way up. Root always could, so
+# root is refused too. The demo leaves it off, because `make keys` writes the
+# file; in production turn it on, and have the policy owner, not the account
+# running agentpolicy, own the file and its directory.
+protect_signers: false
+
+# The Managed Agents API as a sandbox reaches it. The base policy's worker
+# routes name this host and port, and the worker is pointed at this URL.
+api_scheme: https
+api_host: api.anthropic.com
+api_port: 443
+
+# Where agents/, environments/ and the claude-lock.json `ant apply` writes are.
+project_dir: .
+
+# The OpenShell prover the installer ships. Every containment decision is its.
+prover: openshell-prover
+prover_timeout: 10s
+
+# The label the dispatcher puts on every sandbox it creates (app=<this>).
+sandbox_label: openshell-policy
+
+gateway:
+  name: ""          # empty: OPENSHELL_GATEWAY, or else the active gateway, as `openshell status` shows
+  workspace: default
+
+review:
+  # manual: only recommend; auto-within-ceiling: approve what proves inside
+  # the ceiling and passes OpenShell's risk check; claude: also ask the
+  # reviewer agent, which may reject or escalate what the gates let through.
+  mode: auto-within-ceiling
+  reviewer_may_override_findings: false
+
+shrink:
+  window_days: 14
+  min_hits: 1
+
+# Which profile each Managed Agents environment's sessions run under. The operator owns
+# this map; a session's or agent's metadata cannot choose a profile. Give each
+# kind of agent its own self-hosted environment. `agentpolicy environment set
+# <env_id> <profile>` writes <state_dir>/environments.yaml (make apply maps
+# the demo's environment to hello); entries here win over that file.
+environments: {}
+
+# Per-profile settings.
+#
+# proposals: whether agents on the profile may ask for more access at all. On
+# is Discover, where a profile's starting grants are worked out, as the demo
+# does. Off is Run, the setting for production and the default for a profile
+# not listed: agents work within their starting policy and every proposal is
+# rejected unreviewed.
+#
+# agents: the agent ids that may run on the profile. Empty admits any agent
+# whose session lands in an environment mapped to it.
+#
+# outside_routes: admit a session whose agent has web tools, MCP servers or
+# sub-agents. Those run on Anthropic's side, where no ceiling applies, so the
+# default refuses them.
+profiles:
+  hello:
+    proposals: true
+    agents: []
+    outside_routes: false
+
+# The circuit breaker: stop a session (as `agentpolicy stop` does) after this
+# many rejected proposals, or at the first rejection with a code in stop_on.
+# OpenShell's own drafts for denied connections do not count. A stopped session's
+# sandbox loses its network rules and is stopped, and the dispatcher runs no
+# worker for it until `agentpolicy resume`.
+breaker:
+  max_rejections: 3
+  stop_on: [suspicious]

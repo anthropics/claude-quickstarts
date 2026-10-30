@@ -1,0 +1,477 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package openshell.sandbox.v1;
+
+import "google/protobuf/struct.proto";
+import "google/protobuf/duration.proto";
+import "datamodel.proto";
+
+// Sandbox-supervisor configuration and policy messages.
+//
+// Conventions:
+// - This file owns messages exchanged between the gateway and the sandbox
+//   supervisor/runtime.
+// - Public sandbox resource types live in `openshell.proto`.
+// - Internal compute-driver sandbox observation types live in `compute_driver.proto`.
+
+// Sandbox security policy configuration.
+message SandboxPolicy {
+  // Policy version.
+  uint32 version = 1;
+  // Filesystem access policy.
+  FilesystemPolicy filesystem = 2;
+  // Landlock configuration.
+  LandlockPolicy landlock = 3;
+  // Process execution policy.
+  ProcessPolicy process = 4;
+  // Network access policies keyed by name (e.g. "claude_code", "gitlab").
+  map<string, NetworkPolicyRule> network_policies = 5;
+  // Reusable supervisor middleware configs for network egress, keyed by their
+  // policy-local names. At most 10 configs are accepted, and at most 10 stages
+  // can be selected per request.
+  map<string, NetworkMiddlewareConfig> network_middlewares = 6;
+}
+
+// Filesystem access policy.
+message FilesystemPolicy {
+  // Automatically include the workdir as read-write.
+  bool include_workdir = 1;
+  // Read-only directory allow list.
+  repeated string read_only = 2;
+  // Read-write directory allow list.
+  repeated string read_write = 3;
+}
+
+// Landlock policy configuration.
+message LandlockPolicy {
+  // Compatibility mode (e.g. "best_effort", "hard_requirement").
+  string compatibility = 1;
+}
+
+// Process execution policy.
+message ProcessPolicy {
+  // User name to run the sandboxed process as.
+  string run_as_user = 1;
+  // Group name to run the sandboxed process as.
+  string run_as_group = 2;
+}
+
+// A named network access policy rule.
+message NetworkPolicyRule {
+  // Human-readable name for this policy rule.
+  string name = 1;
+  // Allowed endpoint (host:port) pairs.
+  repeated NetworkEndpoint endpoints = 2;
+  // Allowed binary identities.
+  repeated NetworkBinary binaries = 3;
+}
+
+// A reusable middleware config selected for admitted egress by host.
+message NetworkMiddlewareConfig {
+  // Human-readable name for this middleware config.
+  string name = 1;
+  // Built-in middleware name or operator-owned registration name.
+  string middleware = 2;
+  // Service-specific configuration.
+  google.protobuf.Struct config = 3;
+  // Failure behavior: "fail_closed" (default) or "fail_open".
+  string on_error = 4;
+  // Host selector controlling which admitted destinations use this config.
+  MiddlewareEndpointSelector endpoints = 5;
+  // Execution order. Values must be unique within a policy; lower values run first.
+  int32 order = 6;
+}
+
+// Host selector controlling which admitted destinations use a middleware config.
+message MiddlewareEndpointSelector {
+  // Exact host or DNS glob patterns included in the selection. Include and
+  // exclude accept at most 32 combined patterns.
+  repeated string include = 1;
+  // Exact host or DNS glob patterns removed from the selection.
+  // Exclusions take precedence over inclusions.
+  repeated string exclude = 2;
+}
+
+// Binds a policy endpoint to static credentials from a sandbox provider.
+message NetworkCredentialBinding {
+  // Name of the provider attached to this sandbox whose static credentials
+  // may be resolved for requests admitted by this endpoint.
+  string provider = 1;
+}
+
+// TLS handling for a network endpoint.
+enum NetworkTlsMode {
+  // Auto-detect TLS and terminate it when inspection is configured.
+  NETWORK_TLS_MODE_UNSPECIFIED = 0;
+  // Disable TLS detection and relay the connection without inspection.
+  NETWORK_TLS_MODE_SKIP = 1;
+  // Rejected by policy validation; use NETWORK_TLS_MODE_UNSPECIFIED.
+  NETWORK_TLS_MODE_TERMINATE = 2 [deprecated = true];
+  // Rejected by policy validation; use NETWORK_TLS_MODE_UNSPECIFIED.
+  NETWORK_TLS_MODE_PASSTHROUGH = 3 [deprecated = true];
+}
+
+// Enforcement behavior for inspected network traffic.
+enum NetworkEnforcementMode {
+  // Preserve the existing default: log violations and allow traffic.
+  NETWORK_ENFORCEMENT_MODE_UNSPECIFIED = 0;
+  // Deny traffic that does not satisfy the endpoint policy.
+  NETWORK_ENFORCEMENT_MODE_ENFORCE = 1;
+  // Log policy violations and allow the traffic.
+  NETWORK_ENFORCEMENT_MODE_AUDIT = 2;
+}
+
+// Shorthand access policy for an inspected network endpoint.
+enum NetworkAccessPreset {
+  // No access preset; explicit rules may define allowed traffic.
+  NETWORK_ACCESS_PRESET_UNSPECIFIED = 0;
+  // Allow read-only operations for the selected protocol.
+  NETWORK_ACCESS_PRESET_READ_ONLY = 1;
+  // Allow read and write operations for the selected protocol.
+  NETWORK_ACCESS_PRESET_READ_WRITE = 2;
+  // Allow every operation supported by the selected protocol.
+  NETWORK_ACCESS_PRESET_FULL = 3;
+}
+
+// A network endpoint (host + port) with optional L7 inspection config.
+message NetworkEndpoint {
+  // Hostname or host glob pattern. Exact match is case-insensitive.
+  // Glob patterns use "." as delimiter: "*.example.com" matches a single
+  // subdomain label, "**.example.com" matches across labels.
+  string host = 1;
+  // Single port (backwards compat). Use `ports` for multiple ports.
+  // Mutually exclusive with `ports` — if both are set, `ports` takes precedence.
+  uint32 port = 2;
+  // Endpoint protocol. "tcp" and "" select L4-only handling; "rest",
+  // "websocket", "graphql", "sql", "json-rpc", and "mcp" select L7 inspection.
+  string protocol = 3;
+  // TLS handling. Unspecified enables automatic detection and termination.
+  NetworkTlsMode tls = 4;
+  // Enforcement mode. Unspecified preserves the audit default.
+  NetworkEnforcementMode enforcement = 5;
+  // Access preset shorthand. Unspecified means no preset.
+  // Mutually exclusive with rules.
+  NetworkAccessPreset access = 6;
+  // Explicit L7 rules (mutually exclusive with access).
+  repeated L7Rule rules = 7;
+  // Allowed resolved IP addresses or CIDR ranges for this endpoint.
+  // When non-empty, the SSRF internal-IP check is replaced by an allowlist check:
+  //   - If host is also set: domain must resolve to an IP in this list.
+  //   - If host is empty: any domain is allowed as long as it resolves to an IP in this list.
+  // Supports exact IPs ("10.0.5.20") and CIDR notation ("10.0.5.0/24").
+  // Loopback (127.0.0.0/8) and link-local (169.254.0.0/16) are always blocked
+  // regardless of this field.
+  repeated string allowed_ips = 8;
+  // Multiple ports. When non-empty, this endpoint covers all listed ports.
+  // If `port` is set and `ports` is empty, `port` is normalized to `ports: [port]`.
+  // If both are set, `ports` takes precedence.
+  repeated uint32 ports = 9;
+  // Explicit L7 deny rules. When present, requests matching any deny rule
+  // are blocked even if they match an allow rule or access preset.
+  // Deny rules take precedence over allow rules.
+  repeated L7DenyRule deny_rules = 10;
+  // When true, percent-encoded '/' (%2F) is preserved in path segments
+  // rather than rejected by the L7 path canonicalizer. Required for
+  // upstreams like GitLab that embed %2F in namespaced resource paths.
+  // Defaults to false (strict).
+  bool allow_encoded_slash = 11;
+  // GraphQL persisted-query behavior for hash-only/saved-query requests:
+  // "deny" (default) or "allow_registered".
+  string persisted_queries = 12;
+  // Trusted GraphQL persisted-query registry keyed by hash or service-specific ID.
+  // Only used when persisted_queries is "allow_registered".
+  map<string, GraphqlOperation> graphql_persisted_queries = 13;
+  // Maximum GraphQL request body bytes to buffer for inspection.
+  // Defaults to 65536 when unset.
+  uint32 graphql_max_body_bytes = 14;
+  // Optional HTTP path glob that scopes this L7 endpoint on shared host:port APIs.
+  // Example: use path "/graphql" for protocol "graphql" and "/repos/**" for
+  // protocol "rest" when both surfaces live under api.example.com:443.
+  // Empty means all paths.
+  string path = 15;
+  // When true on a "rest" endpoint, OpenShell rewrites credential placeholders
+  // inside client-to-server WebSocket text messages after an allowed HTTP 101
+  // upgrade. Defaults to false.
+  bool websocket_credential_rewrite = 16;
+  // When true on a "rest" endpoint, OpenShell rewrites credential placeholders
+  // inside supported textual HTTP request bodies before forwarding upstream.
+  // Defaults to false.
+  bool request_body_credential_rewrite = 17;
+  // Internal provenance marker for policy-advisor generated endpoints.
+  // Advisor-proposed endpoints must not satisfy exact-host SSRF trust unless
+  // they are converted through an explicit user-authored policy path.
+  bool advisor_proposed = 18;
+  // Proxy-side credential signing mode: "sigv4" for AWS SigV4 re-signing.
+  // When set, the proxy strips the client's Authorization header and computes
+  // a fresh SigV4 signature using real credentials from the provider.
+  string credential_signing = 19;
+  // AWS signing service name override. Required when credential_signing is
+  // "sigv4" — e.g. "bedrock" for bedrock-runtime endpoints.
+  string signing_service = 20;
+  // AWS region override for SigV4 signing. When set, takes precedence over
+  // hostname-based region extraction. Required for non-standard endpoints.
+  string signing_region = 21;
+  // Maximum JSON-RPC-over-HTTP request body bytes to buffer for inspection.
+  // Defaults to 65536 when unset.
+  uint32 json_rpc_max_body_bytes = 22;
+  // MCP-only policy and inspection options. Only used when protocol is "mcp".
+  McpOptions mcp = 23;
+  // Explicit binding authority for static credentials from an attached
+  // endpointless provider profile. Profiles that already define endpoints
+  // continue to use those profile endpoints as their credential boundary.
+  NetworkCredentialBinding credential_binding = 24;
+  // Explicitly permits credential-bearing traffic to use paths that OpenShell
+  // cannot inspect or rewrite. Defaults to false. This is a security-sensitive
+  // escape hatch and must be explicitly approved.
+  bool allow_uninspected_credentials = 25;
+  // Internal gateway-derived marker indicating that this endpoint belongs to
+  // an attached credentialed provider. User-authored values are ignored.
+  bool provider_credentialed = 26;
+}
+
+// MCP options are grouped so MCP-specific policy can grow without adding more
+// top-level NetworkEndpoint fields. OpenShell owns the supported revision
+// profiles instead of treating dependency enums as the policy contract.
+//
+// Sources:
+// - https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
+// - https://modelcontextprotocol.io/specification/2025-06-18/basic/transports
+// - https://modelcontextprotocol.io/specification/2025-11-25/basic/transports
+message McpOptions {
+  // Hardening boundary for tools/call params.name. When unset or true, the
+  // supervisor enforces the MCP recommended tool-name syntax
+  // ^[A-Za-z0-9_.-]{1,128}$ before policy evaluation. Set false only for
+  // compatibility with servers that intentionally use non-recommended names.
+  //
+  // Source:
+  // - https://modelcontextprotocol.io/specification/2025-11-25/server/tools#tool-names
+  optional bool strict_tool_names = 1;
+  // Method-layer default for MCP endpoints. When true, OpenShell allows parsed
+  // MCP-family methods at the method layer unless a tool-name policy narrows
+  // tools/call. When unset or false, explicit method rules are required.
+  optional bool allow_all_known_mcp_methods = 2;
+  // Exact MCP protocol revisions accepted by the endpoint's policy schema.
+  // Authors may omit this field. Because proto3 repeated fields do not retain
+  // presence, omission reaches protobuf ingress as an empty list. Checked
+  // normalization materializes OpenShell's pinned default revision
+  // "2025-11-25" before producing canonical downstream state, which is always
+  // nonempty.
+  //
+  // An explicit nonempty list remains an exact allowlist. Duplicates, moving
+  // aliases such as "draft" and "latest", and unknown dates are invalid.
+  // Normalization stores valid values in canonical semantic order. These
+  // values identify core revisions; they do not enable separate SEP overlays
+  // or select runtime parsing and forwarding behavior.
+  repeated string versions = 3;
+}
+
+// Trusted GraphQL operation classification.
+message GraphqlOperation {
+  // Operation type: "query", "mutation", or "subscription".
+  string operation_type = 1;
+  // Operation name, if known.
+  string operation_name = 2;
+  // Root field names selected by the operation.
+  repeated string fields = 3;
+}
+
+// An L7 deny rule that blocks specific requests.
+// Mirrors L7Allow — same fields, same matching semantics, inverted effect.
+// Deny rules are evaluated after allow rules and take precedence.
+message L7DenyRule {
+  // Protocol method: HTTP method (REST/WebSocket), JSON-RPC method name, or
+  // "*" for any when supported by the protocol.
+  string method = 1;
+  // URL path glob pattern (REST): "/repos/*/pulls/*/reviews", "**" for any.
+  string path = 2;
+  // SQL command (SQL): SELECT, INSERT, etc. or "*" for any.
+  string command = 3;
+  // Query parameter matcher map (REST).
+  // Same semantics as L7Allow.query.
+  map<string, L7QueryMatcher> query = 4;
+  // GraphQL operation type: "query", "mutation", "subscription", or "*" for any.
+  string operation_type = 5;
+  // GraphQL operation name glob. "*" matches any operation name.
+  string operation_name = 6;
+  // GraphQL root field globs. Deny rules match when any selected root field
+  // matches any configured glob.
+  repeated string fields = 7;
+  reserved 8;
+  // MCP params matcher map. Currently only params.name is supported for
+  // tools/call filtering. Generic protocol "json-rpc" rejects params matchers.
+  map<string, L7QueryMatcher> params = 9;
+}
+
+// An L7 policy rule (allow-only).
+message L7Rule {
+  L7Allow allow = 1;
+}
+
+// Allowed action definition for L7 rules.
+message L7Allow {
+  // Protocol method: HTTP method (REST/WebSocket), JSON-RPC method name, or
+  // "*" for any when supported by the protocol.
+  string method = 1;
+  // URL path glob pattern (REST): "/repos/**", "**" for any.
+  string path = 2;
+  // SQL command (SQL): SELECT, INSERT, etc. or "*" for any.
+  string command = 3;
+  // Query parameter matcher map (REST).
+  // Key is the decoded query parameter name (case-sensitive).
+  // Value supports either a single glob (`glob`) or a list (`any`).
+  map<string, L7QueryMatcher> query = 4;
+  // GraphQL operation type: "query", "mutation", "subscription", or "*" for any.
+  string operation_type = 5;
+  // GraphQL operation name glob. "*" matches any operation name.
+  string operation_name = 6;
+  // GraphQL root field globs. Allow rules match only when every selected root
+  // field matches one of the configured globs. Omit to match all fields.
+  repeated string fields = 7;
+  reserved 8;
+  // MCP params matcher map. Currently only params.name is supported for
+  // tools/call filtering. Generic protocol "json-rpc" rejects params matchers.
+  map<string, L7QueryMatcher> params = 9;
+}
+
+// Query value matcher for one query parameter key.
+message L7QueryMatcher {
+  // Single glob pattern.
+  string glob = 1;
+  // Any-of glob patterns.
+  repeated string any = 2;
+}
+
+// A binary identity for network policy matching.
+message NetworkBinary {
+  string path = 1;
+  reserved 2;
+  reserved "harness";
+}
+
+// Request to get sandbox settings by sandbox name.
+message GetSandboxConfigRequest {
+  // Workspace scope. Select one named workspace; authenticated sandbox callers may omit it during bootstrap.
+  openshell.datamodel.v1.WorkspaceSelector workspace_scope = 3;
+  string name = 1;
+}
+
+// Request to get gateway-global settings.
+message GetGatewayConfigRequest {}
+
+// Response containing gateway-global settings.
+message GetGatewayConfigResponse {
+  // Gateway-global settings map excluding the reserved policy key.
+  // Registered keys without a configured value are returned with an empty SettingValue.
+  map<string, SettingValue> settings = 1;
+  // Monotonically increasing revision for gateway-global settings.
+  uint64 settings_revision = 2;
+}
+
+// Scope that currently controls a setting.
+enum SettingScope {
+  SETTING_SCOPE_UNSPECIFIED = 0;
+  SETTING_SCOPE_SANDBOX = 1;
+  SETTING_SCOPE_GLOBAL = 2;
+}
+
+// Type-aware setting value for sandbox/gateway settings.
+message SettingValue {
+  oneof value {
+    string string_value = 1;
+    bool bool_value = 2;
+    int64 int_value = 3;
+    bytes bytes_value = 4;
+  }
+}
+
+// Effective setting value and the scope it was resolved from.
+message EffectiveSetting {
+  SettingValue value = 1;
+  SettingScope scope = 2;
+}
+
+// Source used for the policy payload in GetSandboxConfigResponse.
+enum PolicySource {
+  POLICY_SOURCE_UNSPECIFIED = 0;
+  POLICY_SOURCE_SANDBOX = 1;
+  POLICY_SOURCE_GLOBAL = 2;
+}
+
+// Response containing effective sandbox settings and policy.
+message GetSandboxConfigResponse {
+  // The sandbox policy configuration.
+  SandboxPolicy policy = 1;
+  // Current policy version (monotonically increasing per sandbox).
+  uint32 version = 2;
+  // SHA-256 hash of the serialized policy payload.
+  string policy_hash = 3;
+  // Effective settings resolved for this sandbox, excluding the reserved policy key.
+  // Registered keys without a configured value are returned with an empty EffectiveSetting.value.
+  map<string, EffectiveSetting> settings = 4;
+  // Fingerprint for effective config (policy + settings). Changes when any effective input changes.
+  uint64 config_revision = 5;
+  // Source of the policy payload for this response.
+  PolicySource policy_source = 6;
+  // When policy_source is GLOBAL, the version of the global policy revision.
+  // Zero when no global policy is active or when policy_source is SANDBOX.
+  uint32 global_policy_version = 7;
+  // Fingerprint for provider credential inputs attached to this sandbox.
+  // Changes when attached provider names or attached provider records change.
+  uint64 provider_env_revision = 8;
+  // Operator-registered supervisor middleware services required by the
+  // effective policy. Built-in middleware is not included.
+  repeated SupervisorMiddlewareService supervisor_middleware_services = 9;
+  // Workspace the sandbox belongs to. Allows the supervisor to learn its
+  // workspace context for subsequent workspace-scoped RPCs.
+  string workspace = 10;
+  // Gateway-configured posture for rejected policy generations. Valid values
+  // are "fail_closed" and "retain_last_valid". Unknown or empty values must
+  // be treated as fail_closed by the supervisor.
+  string policy_validation_failure_mode = 11;
+  // Whether this gateway can mint authenticated extension credentials.
+  // False also covers older gateways that do not advertise this capability;
+  // supervisors preserve their legacy unauthenticated connection behavior.
+  bool extension_authentication_enabled = 12;
+  // Gateway-owned attachment identity captured with this desired configuration.
+  // Compare for equality; reattachment invalidates previous installation evidence.
+  string provider_attachment_epoch = 14;
+  // True only after validating this complete policy/provider composition.
+  // Missing (older gateway) is deliberately not admission.
+  bool configuration_admitted = 13;
+  // Bounded, credential-free admission diagnostic. Empty for admitted policy.
+  string configuration_error = 16;
+  // Registration fence for a new supervisor; capture once and retain on retry.
+  string configuration_instance_id = 15;
+}
+
+// Connection details for one operator-registered supervisor middleware service.
+// V1 supports plaintext and server-authenticated TLS gRPC.
+message SupervisorMiddlewareService {
+  reserved 4;
+  reserved "timeout";
+  // Operator-owned registration name used by policy attachments and diagnostics.
+  string name = 1;
+  // gRPC endpoint reachable from the sandbox supervisor.
+  string grpc_endpoint = 2;
+  // Operator-owned logical payload limit applied to every binding exposed by
+  // the service. This caps HTTP bodies and complete WebSocket messages.
+  uint64 max_payload_bytes = 3;
+  // Default RPC timeout for this service. Absence uses the platform default of
+  // 500ms. Values must be between 10ms and 30s.
+  google.protobuf.Duration request_timeout = 104;
+  // PEM-encoded trust roots loaded by the gateway from the operator-configured
+  // tls_ca_cert_path. Empty uses the platform trust store.
+  bytes tls_ca_cert_pem = 5;
+  // Exact JWT audience for this service. The gateway resolves an omitted
+  // operator value to a kind-scoped audience derived from the registration
+  // name before sending sandbox config.
+  string audience = 6;
+  // Operator opt-out from extension authentication for this registration.
+  // When true the service may use a plaintext endpoint and OpenShell attaches
+  // no bearer credential; supervisors must not request one. Intended only for
+  // trusted-network development deployments.
+  bool allow_insecure_transport = 7;
+}

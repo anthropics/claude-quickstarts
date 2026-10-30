@@ -33,6 +33,12 @@ NVIDIA OpenShell sandboxes governed by a policy file.
   poller, and the sandbox side is the CLI too, with no SDK worker.
   `ant beta:worker run` reads the per-session token from stdin through
   `--work-secret-file`, so the environment key never enters a sandbox.
+  - [`openshell-policy/`](openshell-policy/) builds on it through its
+    policy hook: each kind of agent gets a ceiling a person signs, starts
+    with the least access, and grows, promotes and shrinks its network
+    rules, with OpenShell's prover deciding every change. It adds a kill
+    switch, a ledger of every policy decision, and a record of the connections
+    OpenShell allowed and denied.
 
 Five more variants are started by a webhook instead of a poller, each on a
 different provider's compute. Anthropic sends `session.status_run_started`, a

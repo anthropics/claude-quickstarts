@@ -1,0 +1,8 @@
+# The reviewer's sessions run here. The reviewer has no built-in tools, so
+# nothing polls this environment and it needs no key. It is kept apart from
+# worker.yaml because an environment is one queue.
+name: quickstart-self-hosted-sandbox-openshell-policy-reviewer-env
+metadata:
+  anthropic_quickstart: self-hosted-sandboxes/openshell-policy
+config:
+  type: self_hosted

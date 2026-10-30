@@ -1,0 +1,11 @@
+# The starting grants for the "hello" profile: network rules every new
+# session of this profile gets on top of policy/base.yaml.
+#
+# agentpolicy writes this file. `agentpolicy promote` adds grants the reviewer
+# approved and the agent then used; `agentpolicy shrink` removes grants the
+# agent stopped using. Each write is proved to stay inside ceiling.yaml, and
+# each shrink is also proved to grant nothing the previous version did not.
+# The history of every change is in state/ledger.jsonl.
+#
+# A new profile starts empty: agents grow into what they need.
+network_policies: {}

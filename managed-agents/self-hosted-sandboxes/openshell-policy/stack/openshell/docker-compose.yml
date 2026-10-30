@@ -1,0 +1,31 @@
+# OpenShell 0.1.2 gateway as a container, for a Mac where endpoint security
+# blocks OpenShell's host binaries. `make gateway-up` runs it; `make pki` creates
+# state/openshell/pki first.
+#
+# The gateway holds the Docker socket and creates sandboxes as sibling
+# containers through it: root-equivalent on the Docker VM, as is any
+# OpenShell gateway on the Docker driver.
+name: openshell-policy-gateway
+
+services:
+  gateway:
+    image: ghcr.io/nvidia/openshell/gateway:0.1.2
+    # Clear the image's default CMD: its --bind-address/--port flags would
+    # beat the TOML file.
+    command: ["--config", "/etc/openshell/gateway.toml"]
+    user: "0:0"                  # needs the docker socket
+    network_mode: host           # the VM's network, where supervisors dial it
+    environment:
+      OPENSHELL_TLS_CERT: /state/pki/server/tls.crt
+      OPENSHELL_TLS_KEY: /state/pki/server/tls.key
+      OPENSHELL_TLS_CLIENT_CA: /state/pki/ca.crt
+      OPENSHELL_ENABLE_MTLS_AUTH: "true"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./gateway.toml:/etc/openshell/gateway.toml:ro
+      - ../../state/openshell/pki:/state/pki:ro
+      - gateway_state:/var/lib/openshell
+    restart: unless-stopped
+
+volumes:
+  gateway_state:

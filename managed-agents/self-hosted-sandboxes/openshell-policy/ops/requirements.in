@@ -1,0 +1,13 @@
+# agentpolicy's Python dependencies, for the ops image and CI alike. Regenerate
+# requirements.txt (hash-locked, transitive) after changing this file, from ops/,
+# with pip pointed at your mirror (the --no-emit flags keep its URL, and any
+# credential in it, out of the file):
+#   pip-compile --generate-hashes --allow-unsafe --strip-extras --no-emit-index-url --no-emit-trusted-host -o requirements.txt requirements.in
+anthropic==1.12.0
+grpcio==1.84.0
+grpcio-tools==1.84.0
+protobuf==7.36.2
+pyyaml==6.0.3
+cryptography==50.0.1
+httpx==0.28.1
+pytest==8.4.2

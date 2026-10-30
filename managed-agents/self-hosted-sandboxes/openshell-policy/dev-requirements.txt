@@ -1,0 +1,10 @@
+# agentpolicy's dependencies and test tools, pinned as in ops/requirements.in
+# (which the ops image installs hash-locked). CI and `make dev` install these.
+anthropic==1.12.0
+grpcio==1.84.0
+grpcio-tools==1.84.0
+protobuf==7.36.2
+pyyaml==6.0.3
+cryptography==50.0.1
+httpx==0.28.1
+pytest==8.4.2

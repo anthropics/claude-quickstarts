@@ -1,0 +1,4 @@
+# The people trusted to sign ceilings. `make keys` creates a key for a local
+# demo and adds it to the demo's copy under state/demo; in a real deployment, list your policy owners' public
+# keys and keep their private keys off every machine that runs agents.
+signers: []
