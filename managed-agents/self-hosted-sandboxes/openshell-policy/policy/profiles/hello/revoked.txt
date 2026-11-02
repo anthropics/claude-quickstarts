@@ -1,0 +1,3 @@
+# Destinations taken away from this profile, one host:port a line. Promote
+# skips a grant that reaches one, and a proposal that reaches one waits for a
+# person. Shrink adds what it removes. Delete a line to give one back.

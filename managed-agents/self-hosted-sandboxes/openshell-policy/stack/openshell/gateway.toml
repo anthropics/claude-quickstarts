@@ -1,0 +1,43 @@
+# OpenShell 0.1.2 gateway for a Mac where host binaries cannot run.
+#
+# The gateway runs as a container on Docker Desktop's host network (the Linux
+# VM's network, not the Mac's). That is where the 0.1.2 docker driver puts each
+# sandbox's supervisor, and the supervisor dials the gateway on loopback.
+# Nothing on the Mac can reach this port; run the CLI, the prover and
+# agentpolicy through scripts/ops, which uses the same network.
+#
+# TLS, the client CA and mTLS enforcement come from the compose file's
+# environment (OPENSHELL_TLS_*, OPENSHELL_ENABLE_MTLS_AUTH): every caller,
+# including the CLI, presents a certificate from state/openshell/pki.
+[openshell]
+version = 2
+
+[openshell.gateway]
+bind_address        = "127.0.0.1:18670"
+health_bind_address = "127.0.0.1:18671"
+log_level           = "info"
+compute_driver      = "docker"
+# The client certificate each sandbox's supervisor presents to this gateway.
+# The docker driver copies it into the supervisor-only volume; the workload
+# container never sees it.
+guest_tls_ca   = "/state/pki/ca.crt"
+guest_tls_cert = "/state/pki/client/tls.crt"
+guest_tls_key  = "/state/pki/client/tls.key"
+
+# The in-sandbox supervisor authenticates with a gateway-minted JWT.
+[openshell.gateway.gateway_jwt]
+signing_key_path = "/state/pki/jwt/signing.pem"
+public_key_path  = "/state/pki/jwt/public.pem"
+kid_path         = "/state/pki/jwt/kid"
+gateway_id       = "openshell-policy"
+
+[openshell.drivers.docker]
+# Pinned to the gateway's own release, so the three always match.
+sandbox_runtime_image = "ghcr.io/nvidia/openshell/sandbox:0.1.2"
+supervisor_image      = "ghcr.io/nvidia/openshell/supervisor:0.1.2"
+image_pull_policy     = "if_not_present"
+# Distinct from any other gateway on this Docker engine, so neither one
+# reconciles the other's sandboxes.
+sandbox_label     = "openshell-policy"
+grpc_endpoint     = "https://127.0.0.1:18670"
+app_armor_profile = "Unconfined"

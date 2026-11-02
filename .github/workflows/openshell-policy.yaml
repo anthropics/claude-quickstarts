@@ -1,0 +1,51 @@
+name: openshell-policy
+on:
+  pull_request:
+    paths:
+      - .github/workflows/openshell-policy.yaml
+      - managed-agents/self-hosted-sandboxes/openshell/**
+      - managed-agents/self-hosted-sandboxes/openshell-policy/**
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/openshell-policy.yaml
+      - managed-agents/self-hosted-sandboxes/openshell/**
+      - managed-agents/self-hosted-sandboxes/openshell-policy/**
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: managed-agents/self-hosted-sandboxes/openshell-policy
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          cache: "pip"
+          cache-dependency-path: managed-agents/self-hosted-sandboxes/openshell-policy/dev-requirements.txt
+          python-version: "3.12"
+      - run: |
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install -r dev-requirements.txt
+      - run: echo "$PWD/.venv/bin" >> $GITHUB_PATH
+      # The gRPC client for the OpenShell gateway, from the vendored protocol files.
+      - run: scripts/gen-proto.sh
+      # The real prover, for tests/test_real_prover.py: the release and hash
+      # ops/Dockerfile pins.
+      - run: |
+          curl -fsSL -o /tmp/prover.tgz https://github.com/NVIDIA/OpenShell/releases/download/v0.1.2/openshell-prover-x86_64-unknown-linux-musl.tar.gz
+          echo "e1c9db66ae459850cab43765d7ad569effe2ac0a338c902a1b895d0cc361fbb0  /tmp/prover.tgz" | sha256sum -c -
+          tar -xzf /tmp/prover.tgz -C .venv/bin openshell-prover
+      # Includes ../openshell/on-work.sh run for real against a stub openshell,
+      # with and without the policy hook.
+      - run: pytest tests --junitxml=junit/test-results.xml
+  shellcheck:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: managed-agents/self-hosted-sandboxes/openshell-policy
+    steps:
+      - uses: actions/checkout@v4
+      - run: shellcheck -x start.sh dispatcher/*.sh ../openshell/on-work.sh stack/*.sh examples/*/*.sh scripts/*.sh scripts/ops

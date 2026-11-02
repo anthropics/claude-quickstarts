@@ -1,0 +1,35 @@
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+
+syntax = "proto3";
+
+package openshell.options.v1;
+
+import "google/protobuf/descriptor.proto";
+
+// Per-method authorization rule. Consumed at runtime by the gateway's
+// descriptor-pool-based auth table to enforce auth mode, role, and scope.
+message AuthorizationRule {
+  // Authentication mode: "bearer", "sandbox", "dual", or "unauthenticated".
+  string auth_mode = 1;
+  // Minimum workspace-level role required (checked by handler via
+  // authorize_workspace): "user" or "admin". Mutually exclusive with
+  // global_role.
+  string workspace_role = 2;
+  // Global role required (checked by middleware via OIDC claims):
+  // "platform_admin". Mutually exclusive with workspace_role.
+  string global_role = 3;
+  // Required OIDC scope on the bearer path (e.g. "sandbox:read").
+  string scope = 4;
+}
+
+extend google.protobuf.MethodOptions {
+  // Authorization metadata for a gRPC method.
+  AuthorizationRule authorization = 50000;
+}
+
+// Marks a protobuf field whose value must not cross generic observation or
+// extension boundaries such as gateway interceptors.
+extend google.protobuf.FieldOptions {
+  bool secret = 50001;
+}

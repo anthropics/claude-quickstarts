@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+# Runs a command in the ops container (ops/Dockerfile), for a host that cannot
+# run the OpenShell binaries itself:
+#
+#   scripts/ops openshell sandbox list
+#   scripts/ops make check
+#   scripts/ops make dispatcher
+#
+# The container shares Docker Desktop's host network, where the gateway in
+# stack/openshell listens on loopback.
+# This repository is mounted at its own path, so paths mean the same thing
+# inside and out; the CLI's gateway registration lives in state/openshell/config.
+set -euo pipefail
+root="$(cd "$(dirname "$0")/.." && pwd -P)"  # the real path: Docker mounts what this names
+# The parent too: start.sh and the tests run ../openshell's on-work.sh.
+parent="$(dirname "$root")"
+image="${AGENTPOLICY_OPS_IMAGE:-openshell-policy-ops}"
+
+args=(--rm -i --network host
+  -v /var/run/docker.sock:/var/run/docker.sock
+  -v "$parent:$parent"
+  -e "XDG_CONFIG_HOME=$root/state/openshell/config"
+  -e "HOME=$root/state/ops-home"
+  -e "AGENTPOLICY_SRC=$root/src"
+  -e PYTHONUNBUFFERED=1)
+[ -t 0 ] && [ -t 1 ] && args+=(-t)
+
+# Work where the caller is, if that is inside the repository.
+case "$PWD/" in "$root"/*) args+=(-w "$PWD") ;; *) args+=(-w "$root") ;; esac
+
+# OPS_ANT_PROFILE=1: your `ant auth login` profile, read-only, for control-plane
+# commands against the Managed Agents API (make demo, make reviewer). Never set it for
+# make dispatcher: the sandbox host runs on the environment key alone.
+if [ -n "${OPS_ANT_PROFILE:-}" ] && [ -d "$HOME/.config/anthropic" ]; then
+  args+=(-v "$HOME/.config/anthropic:$root/state/ops-home/.config/anthropic:ro")
+fi
+
+
+# Pass through only the settings these tools read, and only when set. -e NAME
+# copies a value without putting it on a command line. start.sh unsets
+# ANTHROPIC_API_KEY, so the dispatcher never holds it.
+while IFS='=' read -r name _; do
+  case "$name" in
+    AGENTPOLICY_*|ANTHROPIC_ENVIRONMENT_ID|ANTHROPIC_API_KEY|ANTHROPIC_BASE_URL|SANDBOX_MAX_IDLE|SKIP_BUILD|PROFILE|SIGNER|KEY|CHECK_URL|CHECK_OTHER_URL|SANDBOX_IMAGE) args+=(-e "$name") ;;
+  esac
+done < <(env)
+
+mkdir -p "$root/state/ops-home"
+# The Makefile defaults to the host's .venv, which cannot run in here.
+if [ "${1:-}" = make ]; then
+  set -- "$@" BIN=/usr/local/bin AGENTPOLICY=agentpolicy
+fi
+exec docker run "${args[@]}" "$image" "$@"

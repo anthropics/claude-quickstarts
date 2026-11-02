@@ -15,6 +15,12 @@
 # this script returns, so it stays until the worker idles out and exits. One
 # poller therefore serves one session at a time, and the worker's log streams
 # into the poller's output.
+#
+# ON_WORK_HOOK, when set, names a program that decides each session's policy
+# in place of the fixed policy.yaml (README, "Policy hooks"). Unset, nothing
+# below changes. SANDBOX_BASE_URL is the API as the sandbox reaches it
+# (default ANTHROPIC_BASE_URL), SANDBOX_MAX_IDLE the worker's idle limit
+# (default 60s), and SANDBOX_APP_LABEL the `app` label (default shs-openshell).
 set -euo pipefail
 
 : "${ANTHROPIC_SESSION_ID:?on-work: ANTHROPIC_SESSION_ID not set by poller}"
@@ -51,6 +57,41 @@ if [ -z "$secret" ]; then
   exit 1
 fi
 
+SANDBOX_BASE_URL="${SANDBOX_BASE_URL:-${ANTHROPIC_BASE_URL:-https://api.anthropic.com}}"
+SANDBOX_MAX_IDLE="${SANDBOX_MAX_IDLE:-60s}"
+APP_LABEL="${SANDBOX_APP_LABEL:-shs-openshell}"
+[[ "$SANDBOX_BASE_URL" =~ ^https?://[A-Za-z0-9.-]+(:[0-9]+)?$ ]] || { echo "[on-work] refusing malformed SANDBOX_BASE_URL" >&2; exit 1; }
+[[ "$SANDBOX_MAX_IDLE" =~ ^[0-9]+[smh]$ ]] || { echo "[on-work] refusing malformed SANDBOX_MAX_IDLE" >&2; exit 1; }
+[[ "$APP_LABEL" =~ ^[a-z0-9-]{1,63}$ ]] || { echo "[on-work] refusing malformed SANDBOX_APP_LABEL" >&2; exit 1; }
+
+# The policy hook. `admit` reads the session token on stdin, may refuse the
+# session (non-zero exit), and prints the sandbox's extra labels, one
+# key=value per line. Later calls get those lines in ON_WORK_LABELS.
+hook="${ON_WORK_HOOK:-}"
+labels=()
+if [ -n "$hook" ]; then
+  [ -x "$hook" ] || { echo "[on-work] ON_WORK_HOOK=${hook} is not executable" >&2; exit 1; }
+  # One run per session at a time while it decides and starts the worker, so
+  # a redelivered work item cannot replace a sandbox another run is starting.
+  if command -v flock >/dev/null; then
+    lock_dir="${ON_WORK_LOCK_DIR:-${XDG_RUNTIME_DIR:-$HOME/.cache}/on-work-locks}"
+    mkdir -p "$lock_dir" && chmod 700 "$lock_dir"
+    exec 9>"$lock_dir/${ANTHROPIC_SESSION_ID}.lock"
+    flock -w 300 9 || { echo "[on-work] session=${ANTHROPIC_SESSION_ID} is still held by another run" >&2; exit 1; }
+  else
+    echo "[on-work] warning: flock not found; runs for one session are not serialized" >&2
+  fi
+  admitted="$(printf %s "$secret" | "$hook" admit)" \
+    || { echo "[on-work] session=${ANTHROPIC_SESSION_ID} refused by ${hook}" >&2; exit 1; }
+  while IFS= read -r line; do
+    [ -n "$line" ] || continue
+    [[ "$line" =~ ^[a-z_]{1,32}=[A-Za-z0-9._@-]{1,63}$ ]] || { echo "[on-work] ${hook} printed a malformed label: ${line}" >&2; exit 1; }
+    case "${line%%=*}" in app|session) echo "[on-work] ${hook} may not set the ${line%%=*} label" >&2; exit 1 ;; esac
+    labels+=(--label "$line")
+  done <<<"$admitted"
+  export ON_WORK_LABELS="$admitted"
+fi
+
 IMAGE="${SANDBOX_IMAGE:-shs-openshell}"
 # OpenShell names are at most 19 characters of [a-z0-9-], too short for a
 # session ID. Use its last 15 characters and keep the whole ID as a label.
@@ -64,12 +105,14 @@ phase() { openshell sandbox get "$NAME" -o json 2>/dev/null | jq -r '.phase // e
 # fail and what the agent started keeps running, so delete the sandbox instead.
 owned=
 policy=
-# shellcheck disable=SC2329  # called by the EXIT trap
+current=
+# shellcheck disable=SC2317,SC2329  # called by the EXIT trap (older shellcheck says SC2317)
 cleanup() {
   # A signal that lands here would end cleanup early, and Ctrl-C would also kill
   # the `sandbox stop` below. Children inherit an ignored signal.
   trap '' TERM INT
   [ -z "$policy" ] || rm -f "$policy"
+  [ -z "$current" ] || rm -f "$current"
   [ -n "$owned" ] || return 0
   # Ctrl-C also kills a `sandbox create` in progress, but the gateway carries on
   # provisioning, and it refuses to stop a sandbox until that is done. Wait at
@@ -89,47 +132,83 @@ trap cleanup EXIT
 # cleanup before it has stopped the sandbox.
 trap 'trap "" TERM INT; exit 143' TERM INT
 
-# The same for a sandbox left in Error by a run that never reached its cleanup.
 # `sandbox delete` can return before the sandbox is gone. Wait at most 20s. If
-# it is still there, `sandbox start` refuses it and this work item fails.
-if [ "$(phase)" = Error ]; then
-  echo "[on-work] session=${ANTHROPIC_SESSION_ID} sandbox=${NAME} is in Error, deleting it" >&2
+# it is still there, `sandbox create` or `start` refuses it and this work item
+# fails.
+delete_sandbox() {
   openshell sandbox delete "$NAME" >&2
   for _ in {1..100}; do [ -n "$(phase)" ] || break; sleep 0.2; done
+}
+
+create_sandbox() {
+  # Tie the sandbox to its session. With a wildcard where the IDs go, code in
+  # the sandbox could use the same routes on any other session it had a
+  # credential for, including one in someone else's organization. A hook
+  # writes the policy itself, and no policy means no sandbox.
+  policy="$(mktemp)"
+  if [ -n "$hook" ]; then
+    { "$hook" policy "$policy" && [ -s "$policy" ]; } || { echo "[on-work] session=${ANTHROPIC_SESSION_ID}: ${hook} wrote no policy; refusing" >&2; exit 1; }
+  else
+    sed -e "s/SESSION_ID/${ANTHROPIC_SESSION_ID}/" \
+      -e "s/ENVIRONMENT_ID/${ANTHROPIC_ENVIRONMENT_ID}/" \
+      "$(dirname "$0")/policy.yaml" > "$policy"
+  fi
+  echo "[on-work] session=${ANTHROPIC_SESSION_ID} work=${ANTHROPIC_WORK_ID} sandbox=${NAME} (creating)" >&2
+  owned=1
+  # `sleep infinity` is the sandbox's main process and only holds it open.
+  # The worker cannot be the main process, because OpenShell reruns that
+  # command on `sandbox start` and each work item has its own token.
+  # SANDBOX_CREATE_ARGS adds `sandbox create` flags (--cpu, --memory).
+  # shellcheck disable=SC2086
+  openshell sandbox create \
+    --name "$NAME" \
+    --from "$IMAGE" \
+    --policy "$policy" \
+    --label "app=${APP_LABEL}" \
+    --label "session=${ANTHROPIC_SESSION_ID}" \
+    ${labels[@]+"${labels[@]}"} \
+    --detach \
+    --no-tty \
+    ${SANDBOX_CREATE_ARGS:-} \
+    -- sleep infinity >&2 || {
+    # A create the gateway accepted and then failed (an image it cannot pull)
+    # leaves a sandbox in Error for cleanup to delete. Any other failure (a
+    # second poller won the race for the name) leaves nothing of ours.
+    [ "$(phase)" = Error ] || owned=
+    exit 1
+  }
+  # The hook wrote the file, but the sandbox runs what the gateway made of it
+  # (a global policy, or a provider from SANDBOX_CREATE_ARGS, can add rules).
+  # Another new sandbox would come out the same, so this refuses the session.
+  fits || { echo "[on-work] session=${ANTHROPIC_SESSION_ID} the new sandbox's policy is not the one asked for; refusing" >&2; exit 1; }
+}
+
+# Whether an existing sandbox may be used as it is: always with no hook.
+# With one, `verify` reads the sandbox's current policy and answers 0 (use
+# it) or 1 (replace it). Anything else refuses the session.
+fits() {
+  [ -n "$hook" ] || return 0
+  current="$(mktemp)"
+  openshell sandbox get "$NAME" --policy-only > "$current" || exit 1
+  local rc=0
+  "$hook" verify "$current" || rc=$?
+  case "$rc" in
+    0) return 0 ;;
+    1) echo "[on-work] session=${ANTHROPIC_SESSION_ID} ${NAME} cannot be used as it is" >&2
+       return 1 ;;
+    *) exit 1 ;;
+  esac
+}
+
+# The same for a sandbox left in Error by a run that never reached its cleanup.
+if [ "$(phase)" = Error ]; then
+  echo "[on-work] session=${ANTHROPIC_SESSION_ID} sandbox=${NAME} is in Error, deleting it" >&2
+  delete_sandbox
 fi
 
 case "$(phase)" in
   "")
-    echo "[on-work] session=${ANTHROPIC_SESSION_ID} work=${ANTHROPIC_WORK_ID} sandbox=${NAME} (creating)" >&2
-    owned=1
-    # Tie the sandbox to its session. With a wildcard where the IDs go, code in
-    # the sandbox could use the same routes on any other session it had a
-    # credential for, including one in someone else's organization.
-    policy="$(mktemp)"
-    sed -e "s/SESSION_ID/${ANTHROPIC_SESSION_ID}/" \
-      -e "s/ENVIRONMENT_ID/${ANTHROPIC_ENVIRONMENT_ID}/" \
-      "$(dirname "$0")/policy.yaml" > "$policy"
-    # `sleep infinity` is the sandbox's main process and only holds it open.
-    # The worker cannot be the main process, because OpenShell reruns that
-    # command on `sandbox start` and each work item has its own token.
-    # SANDBOX_CREATE_ARGS adds `sandbox create` flags (--cpu, --memory).
-    # shellcheck disable=SC2086
-    openshell sandbox create \
-      --name "$NAME" \
-      --from "$IMAGE" \
-      --policy "$policy" \
-      --label app=shs-openshell \
-      --label "session=${ANTHROPIC_SESSION_ID}" \
-      --detach \
-      --no-tty \
-      ${SANDBOX_CREATE_ARGS:-} \
-      -- sleep infinity >&2 || {
-      # A create the gateway accepted and then failed (an image it cannot pull)
-      # leaves a sandbox in Error for cleanup to delete. Any other failure (a
-      # second poller won the race for the name) leaves nothing of ours.
-      [ "$(phase)" = Error ] || owned=
-      exit 1
-    }
+    create_sandbox
     ;;
   Ready)
     # A duplicate work item for a session another poller on this host is
@@ -140,8 +219,14 @@ case "$(phase)" in
       echo "[on-work] session=${ANTHROPIC_SESSION_ID} already has a live worker in ${NAME}; skipping" >&2
       exit 0
     fi
-    echo "[on-work] session=${ANTHROPIC_SESSION_ID} work=${ANTHROPIC_WORK_ID} sandbox=${NAME} (reusing)" >&2
     owned=1
+    if fits; then
+      echo "[on-work] session=${ANTHROPIC_SESSION_ID} work=${ANTHROPIC_WORK_ID} sandbox=${NAME} (reusing)" >&2
+    else
+      echo "[on-work] session=${ANTHROPIC_SESSION_ID} replacing ${NAME}, /workspace included" >&2
+      delete_sandbox
+      create_sandbox
+    fi
     ;;
   Provisioning|Starting)
     # The same duplicate, a moment earlier: the other poller is still bringing
@@ -150,11 +235,22 @@ case "$(phase)" in
     exit 0
     ;;
   *)
-    echo "[on-work] session=${ANTHROPIC_SESSION_ID} work=${ANTHROPIC_WORK_ID} sandbox=${NAME} (restarting)" >&2
     owned=1
-    openshell sandbox start "$NAME" >&2
+    if fits; then
+      echo "[on-work] session=${ANTHROPIC_SESSION_ID} work=${ANTHROPIC_WORK_ID} sandbox=${NAME} (restarting)" >&2
+      openshell sandbox start "$NAME" >&2
+    else
+      echo "[on-work] session=${ANTHROPIC_SESSION_ID} replacing ${NAME}, /workspace included" >&2
+      delete_sandbox
+      create_sandbox
+    fi
     ;;
 esac
+
+# The hook's last word, just before the worker starts.
+if [ -n "$hook" ]; then
+  "$hook" start || { echo "[on-work] session=${ANTHROPIC_SESSION_ID} refused by ${hook}" >&2; exit 1; }
+fi
 
 # The token travels on stdin and nowhere else. `sandbox exec` hands its own
 # stdin to the command as a pipe, and the worker reads that pipe once at
@@ -175,14 +271,14 @@ printf %s "$secret" | openshell sandbox exec \
   --name "$NAME" \
   --no-tty \
   --no-login-shell \
-  --env "ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-https://api.anthropic.com}" \
+  --env "ANTHROPIC_BASE_URL=${SANDBOX_BASE_URL}" \
   --env "ANTHROPIC_SESSION_ID=${ANTHROPIC_SESSION_ID}" \
   --env "ANTHROPIC_ENVIRONMENT_ID=${ANTHROPIC_ENVIRONMENT_ID}" \
   --env "ANTHROPIC_WORK_ID=${ANTHROPIC_WORK_ID}" \
   -- /usr/local/bin/ant beta:worker run \
     --work-secret-file /dev/stdin \
     --workdir /workspace \
-    --max-idle 60s \
+    --max-idle "$SANDBOX_MAX_IDLE" \
     --log-format text &
 unset secret
 

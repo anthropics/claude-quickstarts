@@ -1,0 +1,4 @@
+#!/bin/sh
+# agentpolicy from the mounted source tree; AGENTPOLICY_SRC is set by scripts/ops.
+export PYTHONPATH="${AGENTPOLICY_SRC:?}${PYTHONPATH:+:$PYTHONPATH}"
+exec python3 -c 'import sys; from agentpolicy.cli import main; sys.exit(main())' "$@"

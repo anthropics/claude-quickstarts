@@ -1,0 +1,9 @@
+# The self-hosted environment the demo agent's sessions run in: a work queue
+# that start.sh polls. The operator maps it to a profile on the sandbox host
+# (`agentpolicy environment set`; `make apply` maps it to hello). Mint its key
+# in the Console and put it in .env as ANTHROPIC_ENVIRONMENT_KEY.
+name: quickstart-self-hosted-sandbox-openshell-policy-env
+metadata:
+  anthropic_quickstart: self-hosted-sandboxes/openshell-policy
+config:
+  type: self_hosted
