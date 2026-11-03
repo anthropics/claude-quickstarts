@@ -1,0 +1,17 @@
+{
+  "name": "fpl-draft-dashboard",
+  "version": "1.0.0",
+  "description": "FPL Draft league dashboard with historic performance, H2H records, team ratings, and more",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": ["fpl", "fantasy-premier-league", "draft", "dashboard"],
+  "license": "MIT",
+  "dependencies": {
+    "better-sqlite3": "^11.0.0",
+    "express": "^4.21.0",
+    "node-fetch": "^2.7.0"
+  }
+}
