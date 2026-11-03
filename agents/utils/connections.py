@@ -18,6 +18,7 @@ class MCPConnection(ABC):
         self.session = None
         self._rw_ctx = None
         self._session_ctx = None
+        self._stack: AsyncExitStack | None = None
 
     @abstractmethod
     async def _create_rw_context(self):
@@ -25,27 +26,35 @@ class MCPConnection(ABC):
 
     async def __aenter__(self):
         """Initialize MCP server connection."""
-        self._rw_ctx = await self._create_rw_context()
-        read_write = await self._rw_ctx.__aenter__()
-        read, write = read_write
-        self._session_ctx = ClientSession(read, write)
-        self.session = await self._session_ctx.__aenter__()
-        await self.session.initialize()
-        return self
+        self._stack = AsyncExitStack()
+        try:
+            self._rw_ctx = await self._create_rw_context()
+            read_write = await self._stack.enter_async_context(self._rw_ctx)
+            read, write = read_write
+            self._session_ctx = ClientSession(read, write)
+            self.session = await self._stack.enter_async_context(self._session_ctx)
+            await self.session.initialize()
+            return self
+        except BaseException:
+            await self._stack.aclose()
+            self.session = None
+            self._session_ctx = None
+            self._rw_ctx = None
+            self._stack = None
+            raise
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         """Clean up MCP server connection resources."""
         try:
-            if self._session_ctx:
-                await self._session_ctx.__aexit__(exc_type, exc_val, exc_tb)
-            if self._rw_ctx:
-                await self._rw_ctx.__aexit__(exc_type, exc_val, exc_tb)
+            if self._stack:
+                return await self._stack.__aexit__(exc_type, exc_val, exc_tb)
         except Exception as e:
             print(f"Error during cleanup: {e}")
         finally:
             self.session = None
             self._session_ctx = None
             self._rw_ctx = None
+            self._stack = None
 
     async def list_tools(self) -> Any:
         """Retrieve available tools from the MCP server."""
