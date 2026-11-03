@@ -144,6 +144,7 @@ class CdpBrowser(BetaAbstractBrowserToolset20260801):
                 self._process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 self._process.kill()
+                self._process.wait()
             self._process = None
         if self._log is not None:
             self._log.close()
