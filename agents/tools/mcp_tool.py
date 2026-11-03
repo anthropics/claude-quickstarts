@@ -29,11 +29,15 @@ class MCPTool(Tool):
                 self.name, arguments=kwargs
             )
 
+            text = "No text content in tool response"
             if hasattr(result, "content") and result.content:
                 for item in result.content:
                     if getattr(item, "type", None) == "text":
-                        return item.text
+                        text = item.text
+                        break
 
-            return "No text content in tool response"
+            if getattr(result, "is_error", False):
+                raise RuntimeError(text)
+            return text
         except Exception as e:
-            return f"Error executing {self.name}: {e}"
+            raise RuntimeError(f"Error executing {self.name}: {e}") from e
