@@ -15,7 +15,11 @@ if ! command -v cargo &> /dev/null; then
 fi
 
 python3 -m venv .venv
-source .venv/bin/activate
+if [ -f .venv/Scripts/activate ]; then
+    source .venv/Scripts/activate
+else
+    source .venv/bin/activate
+fi
 pip install --upgrade pip
 pip install -r dev-requirements.txt
 pre-commit install
