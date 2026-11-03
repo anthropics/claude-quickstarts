@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autonomous-agent"
+version = "0.1.0"
+description = "Autonomous coding agent for long-running development tasks"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Your Name", email = "you@example.com" }
+]
+keywords = ["ai", "coding", "agent", "claude", "automation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development",
+]
+
+dependencies = [
+    "claude-code-sdk>=0.0.25",
+    "click>=8.0",
+    "rich>=13.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "ruff>=0.1.0",
+]
+
+[project.scripts]
+# Main CLI entry points
+autonomous-agent = "autonomous_agent.cli:main"
+junior = "autonomous_agent.cli:main"  # Short alias
+
+[project.urls]
+Homepage = "https://github.com/anthropics/claude-quickstarts"
+Documentation = "https://github.com/anthropics/claude-quickstarts/tree/main/autonomous-coding"
+Repository = "https://github.com/anthropics/claude-quickstarts"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/autonomous_agent"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
