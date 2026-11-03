@@ -1,0 +1,10 @@
+<%= form_with url: chats_path, method: :post, id: "message-form",
+    class: "flex gap-3", data: { action: "submit->chat#submitForm" } do |f| %>
+  <%= f.text_field :message, placeholder: "Type a message...", autofocus: true,
+      autocomplete: "off",
+      class: "flex-1 rounded-full border border-gray-300 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent",
+      data: { chat_target: "input" } %>
+  <%= f.submit "Send",
+      class: "rounded-full bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer disabled:opacity-50",
+      data: { chat_target: "submit" } %>
+<% end %>
