@@ -1,0 +1,10 @@
+{
+  "extends": "@hrcore/config/tsconfig.nextjs.json",
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
