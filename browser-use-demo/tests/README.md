@@ -12,6 +12,14 @@ pip install -r test-requirements.txt
 pip install -e ".[test]"
 ```
 
+The form-input integration test uses real headless Chromium and a local page,
+without API credentials or an X display. Install its browser before running it:
+
+```bash
+python -m playwright install chromium
+pytest tests/test_browser_form_input.py -v
+```
+
 ## Running Tests
 
 ### Run all tests
@@ -132,7 +140,7 @@ All Streamlit components are mocked to enable testing without a running Streamli
 - `st.chat_input`, `st.stop`
 
 ### External Dependencies
-- `BrowserTool` - Mocked to avoid Playwright dependencies
+- `BrowserTool` - Mocked in the existing rendering and sampling tests; `test_browser_form_input.py` uses a real Playwright page.
 - `asyncio` event loops - Mocked for controlled testing
 - Environment variables - Mocked via `monkeypatch`
 
