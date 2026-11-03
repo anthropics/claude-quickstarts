@@ -78,6 +78,58 @@ async def test_view_command(edit_tool):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "directory_name",
+    [
+        "project files",
+        "project's files",
+        "project[1]",
+        "project; touch injected-marker; #",
+        "project$(touch injected-marker)",
+    ],
+)
+async def test_view_directory_treats_path_literally(
+    edit_tool: EditTool20250728,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    directory_name: str,
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    directory = tmp_path / directory_name
+    directory.mkdir()
+    visible_file = directory / "visible.txt"
+    visible_file.write_text("visible")
+    hidden_file = directory / ".hidden.txt"
+    hidden_file.write_text("hidden")
+    nested = directory / "nested"
+    nested.mkdir()
+    nested_file = nested / "child.txt"
+    nested_file.write_text("child")
+    deeper = nested / "deeper"
+    deeper.mkdir()
+    deeper_file = deeper / "excluded.txt"
+    deeper_file.write_text("too deep")
+    other_directory = tmp_path / "project1"
+    other_directory.mkdir()
+    other_file = other_directory / "unrelated.txt"
+    other_file.write_text("unrelated")
+
+    result = await edit_tool(command="view", path=str(directory))
+
+    assert not (tmp_path / "injected-marker").exists()
+    assert not result.error
+    assert result.output is not None
+    listed_paths = {line for line in result.output.splitlines()[1:] if line}
+    assert listed_paths == {
+        str(directory),
+        str(visible_file),
+        str(nested),
+        str(nested_file),
+        str(deeper),
+    }
+
+
+@pytest.mark.asyncio
 async def test_create_command(edit_tool):
     # Test creating a new file with content
     with (
