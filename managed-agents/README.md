@@ -45,12 +45,11 @@ Projects built on [Claude Managed Agents](https://platform.claude.com/docs/en/ma
   credential the sandbox never sees.
 
 - **[knowledge-wiki/](knowledge-wiki/)** distills a document corpus
-  once into a knowledge wiki (a versioned memory store) using
-  parallel extraction sessions, a resolve pass, and a steered
-  consolidation dream (research-preview `client.beta.dreams`), then
-  answers repeated analyst questions from the wiki instead of
-  re-reading documents — with `[source | as-of]` provenance on every
-  fact and a fraction of the per-question token cost. The worked
+  once into a knowledge wiki (a versioned memory store) using one
+  dynamic workflow run (extractors, a resolver, analyzers, an
+  organizer), then answers repeated analyst questions from the wiki
+  instead of re-reading documents — with `[source | as-of]` provenance
+  on every fact and a lower per-question cost. The worked
   example is a real M&A data room: the 2024 Squarespace / Permira
   take-private, fetched from public SEC EDGAR filings.
 

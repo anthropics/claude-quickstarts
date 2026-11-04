@@ -76,7 +76,7 @@ A scheduled agent that reads your Slack channels and GitHub pull requests each w
 
 ### Managed Agents: Knowledge Wiki
 
-A deal-room knowledge wiki built with Claude Managed Agents. This project demonstrates how to distill a document corpus once into a versioned memory-store knowledge wiki — using parallel extraction sessions, a resolve pass, and a steered consolidation dream — then answer repeated analyst questions from the wiki with provenance on every fact and a fraction of the per-question token cost of raw-document search. The worked example is a real M&A data room fetched from public SEC EDGAR filings.
+A deal-room knowledge wiki built with Claude Managed Agents. This project demonstrates how to distill a document corpus once into a versioned memory-store knowledge wiki — using one dynamic workflow run that extracts, resolves, and consolidates — then answer repeated analyst questions from the wiki with provenance on every fact and a lower per-question cost than raw-document search. The worked example is a real M&A data room fetched from public SEC EDGAR filings.
 
 [Go to Managed Agents Knowledge Wiki Quickstart](./managed-agents/knowledge-wiki)
 

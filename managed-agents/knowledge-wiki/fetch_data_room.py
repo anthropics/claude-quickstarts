@@ -6,11 +6,16 @@ build_manifest.py) and converts them to plain text for knowledge-wiki
 extraction.
 
 Usage:
-    python3 fetch_data_room.py --tier=quickstart  # 8 docs — the ~40-minute path
-    python3 fetch_data_room.py --tier=mini        # 26 docs, ~0.5 MB text (default)
+    python3 fetch_data_room.py --tier=core        # 8 filings, 2.8 MB text: the recorded run (default)
+    python3 fetch_data_room.py --tier=quickstart  # 8 short deal-window filings: the cheap path
+    python3 fetch_data_room.py --tier=mini        # 26 docs, ~0.5 MB text
     python3 fetch_data_room.py --tier=standard    # +proxy, tender docs, 10-Qs
-    python3 fetch_data_room.py --tier=full        # everything
+    python3 fetch_data_room.py --tier=full        # all 42 deal-window filings
     python3 fetch_data_room.py --convert          # re-extract docs/ from raw/
+
+The notebook builds whatever is in data_room/docs/, and the tiers name some of the same filings differently, so
+the script stops if docs/ already holds text files that are not part of the chosen tier: empty the folder (or
+pass --keep-other-files if you mean to mix them) and run it again.
 
 Stdlib only — no pip installs needed. SEC asks for a descriptive
 User-Agent on all EDGAR requests; set EDGAR_USER_AGENT or edit below.
@@ -88,8 +93,10 @@ def fetch(url: str, dest: Path):
     if dest.exists() and url_marker.exists() and url_marker.read_text() == url:
         print(f"  cached  {dest.name}")
         return
+    if not url.startswith("https://www.sec.gov/"):  # the manifests point at EDGAR only
+        raise ValueError(f"refusing to fetch {url!r}: not an https://www.sec.gov/ URL")
     req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(req) as resp:
+    with urllib.request.urlopen(req, timeout=60) as resp:
         dest.write_bytes(resp.read())
     url_marker.write_text(url)
     print(f"  fetched {dest.name} ({dest.stat().st_size:,} bytes)")
@@ -114,20 +121,33 @@ def convert(raw_path: Path, txt_path: Path, meta: dict):
 
 
 def main():
-    tier = "mini"
+    tier = "core"
     for a in sys.argv[1:]:
         if a.startswith("--tier="):
             tier = a.split("=", 1)[1]
     manifest_path = HERE / f"manifest_{tier}.json"
     if not manifest_path.exists():
-        sys.exit(f"{manifest_path.name} not found — run build_manifest.py first")
+        sys.exit(f"{manifest_path.name} not found (the tiers are core, quickstart, mini, standard and full)")
     manifest = json.loads(manifest_path.read_text())
     print(f"tier={tier}: {len(manifest['documents'])} documents")
     RAW.mkdir(parents=True, exist_ok=True)
     DOCS.mkdir(parents=True, exist_ok=True)
     convert_only = "--convert" in sys.argv
+    # The notebook builds every .txt file in docs/. Files left from another tier (or anything else) would be built
+    # too, some of them the same filing under another name, so stop unless the caller says to keep them. The worked
+    # example's own companions, which the notebook writes there, are fine.
+    example_files = {"analyst_note.txt", "data_provider_extract.csv.txt", "board_deck_cii.txt"}
+    wanted = {f"{item['slug']}.txt" for item in manifest["documents"]} | example_files
+    others = sorted(p.name for p in DOCS.glob("*.txt") if p.name not in wanted)
+    if others and "--keep-other-files" not in sys.argv:
+        sys.exit(
+            f"{DOCS} already holds {len(others)} text file(s) that are not part of tier {tier!r} "
+            f"(first: {others[0]}). Empty the folder, or pass --keep-other-files to build them as well."
+        )
 
     for item in manifest["documents"]:
+        if not re.fullmatch(r"[a-z0-9_.-]+", item["slug"]) or ".." in item["slug"]:  # a file name, nothing more
+            sys.exit(f"bad slug in {manifest_path.name}: {item['slug']!r}")
         raw_path = RAW / f"{item['slug']}.htm"
         txt_path = DOCS / f"{item['slug']}.txt"
         if not convert_only:

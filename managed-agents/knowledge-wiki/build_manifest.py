@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
 """Build tiered document manifests for the deal data room from SEC EDGAR.
 
-Queries the submissions index for Squarespace, Inc. (CIK 1496963) and emits
-four manifest_*.json files describing real public filings from the 2024
-Permira take-private:
+Queries the submissions index for Squarespace, Inc. (CIK 1496963) and rewrites
+the four size-tiered manifest_*.json files describing real public filings from
+the 2024 Permira take-private. All four ship with this folder already, so run
+this only to refresh them from EDGAR, and before fetch_data_room.py, not after.
+The default tier, core (manifest_core.json: the eight filings the notebook's
+recorded run used), is a fixed list and is never rewritten here.
 
-- quickstart (~8 docs)               — the ~40-minute path.
-- mini       (~26 docs, <1 MB text)  — announce/amend/close press releases,
-             small schedules, a handful of insider Form 4s. Start here.
+- quickstart (~8 short docs)         — deal-window 8-Ks and two Form 4s; the
+             cheap path for trying the mechanics.
+- mini       (~26 docs, <1 MB text)  — the smaller deal-window filings: press
+             releases, small schedules, a handful of insider Form 4s.
 - standard   (~37 docs, ~4 MB text)  — adds the merger proxy (DEFM14A), the
              tender offer documents, quarterly reports, and more Form 4s.
-             This is study scale; expect a build in the tens of dollars.
-- full       (everything the window offers, ~42 docs) — for the ambitious.
+- full       (everything the window offers, ~42 docs).
 
-Stdlib only. Set EDGAR_USER_AGENT to "your-name your-email" per SEC policy.
+The notebook prints a cost estimate for whichever tier you fetched before
+anything is spent. Stdlib only. Set EDGAR_USER_AGENT to "your-name your-email"
+per SEC policy.
 """
 
 import json
@@ -54,7 +59,8 @@ def main():
         urllib.request.urlopen(
             urllib.request.Request(
                 f"https://data.sec.gov/submissions/CIK{CIK}.json", headers=UA
-            )
+            ),
+            timeout=60,
         )
     )
     r = d["filings"]["recent"]
@@ -115,14 +121,17 @@ def main():
             e["slug"] += "_" + e["accession"][-4:]
         seen[e["slug"]] = True
 
-    # quickstart: ~8 docs chosen for cross-document connectivity — the merger
-    # agreement + amendment pair, deal-window 8-Ks, the proxy, and two Form 4s
-    # give entity resolution, temporal supersession, and code-name work in a
-    # ~40-minute build. Hand-ranked by form priority, then recency.
+    # quickstart: ~8 short docs chosen for cross-document connectivity —
+    # deal-window 8-Ks (among them the September revised terms and the October
+    # closing) and two Form 4s give entity resolution and temporal supersession
+    # work in a small build. Hand-ranked by form priority, then recency. (The
+    # May 13 merger-announcement 8-K, whose exhibits make it one of the largest
+    # filings, lands in the full tier, and the merger proxy in standard; both
+    # are in the core tier. Neither is here.)
     mini_docs = [e for e in docs if e["tier"] == "mini"]
-    # Drop the June 6 proxy-supplement 8-K so the eight slots keep the full
-    # deal arc: original May 7 announcement -> September revised terms ->
-    # October closing (the original/revised pair is the supersession demo).
+    # Drop the June 6 proxy-supplement 8-K so the eight slots span the deal
+    # window: the May 7 8-K (filed the week before the deal was announced) ->
+    # September revised terms -> October closing.
     eightks = sorted(
         (e for e in mini_docs if e["form"] == "8-K" and e["filed"] != "2024-06-06"),
         key=lambda e: e["filed"],
