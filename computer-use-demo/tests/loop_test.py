@@ -13,8 +13,10 @@ from anthropic.types.beta import (
 from computer_use_demo.loop import (
     PROMPT_CACHING_BETA_FLAG,
     APIProvider,
+    _make_api_tool_result,
     sampling_loop,
 )
+from computer_use_demo.tools.base import CLIResult, ToolResult
 
 
 async def test_loop():
@@ -35,7 +37,7 @@ async def test_loop():
 
     tool_collection = mock.AsyncMock()
     tool_collection.run.return_value = mock.Mock(
-        output="Tool output", error=None, base64_image=None
+        output="Tool output", error=None, base64_image=None, exit_code=None
     )
 
     output_callback = mock.Mock()
@@ -188,8 +190,12 @@ async def test_loop_toolset_member_calls_run_sequentially_and_stop_on_failure():
 
     tool_collection = mock.AsyncMock()
     tool_collection.run.side_effect = [
-        mock.Mock(output="Pressed key: super", error=None, base64_image=None),
-        mock.Mock(output=None, error="xdotool failed", base64_image=None),
+        mock.Mock(
+            output="Pressed key: super", error=None, base64_image=None, exit_code=None
+        ),
+        mock.Mock(
+            output=None, error="xdotool failed", base64_image=None, exit_code=None
+        ),
     ]
 
     with (
@@ -247,3 +253,35 @@ async def test_loop_toolset_member_calls_run_sequentially_and_stop_on_failure():
     assert tool_results[2]["content"] == (
         "Not executed: an earlier computer action in this turn failed."
     )
+
+
+def test_tool_result_non_zero_exit_status_is_an_error_without_stderr():
+    block = _make_api_tool_result(CLIResult(output="", error="", exit_code=1), "1")
+    assert block.get("is_error") is True
+    assert block.get("content") == "[exit status 1]"
+
+
+def test_tool_result_non_zero_exit_status_keeps_stdout_and_stderr():
+    block = _make_api_tool_result(
+        CLIResult(output="partial output", error="boom", exit_code=7), "1"
+    )
+    assert block.get("is_error") is True
+    assert block.get("content") == "partial output\nboom\n[exit status 7]"
+
+
+def test_tool_result_stderr_on_a_zero_exit_status_is_not_an_error():
+    block = _make_api_tool_result(
+        CLIResult(output="ok", error="warn", exit_code=0), "1"
+    )
+    assert block.get("is_error") is False
+    assert block.get("content") == [{"type": "text", "text": "ok\nwarn"}]
+
+
+def test_tool_result_without_an_exit_status_still_reads_error():
+    block = _make_api_tool_result(ToolResult(output="ignored", error="failed"), "1")
+    assert block.get("is_error") is True
+    assert block.get("content") == "failed"
+
+    block = _make_api_tool_result(ToolResult(output="fine"), "1")
+    assert block.get("is_error") is False
+    assert block.get("content") == [{"type": "text", "text": "fine"}]

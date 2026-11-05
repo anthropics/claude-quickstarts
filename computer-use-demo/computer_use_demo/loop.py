@@ -349,16 +349,17 @@ def _make_api_tool_result(
     toolset_name as its paired tool_use block, so it is stamped here.
     """
     tool_result_content: list[BetaTextBlockParam | BetaImageBlockParam] | str = []
-    is_error = False
-    if result.error:
-        is_error = True
-        tool_result_content = _maybe_prepend_system_tool_result(result, result.error)
+    is_error = _is_error(result)
+    if is_error:
+        tool_result_content = _maybe_prepend_system_tool_result(
+            result, _tool_result_text(result)
+        )
     else:
-        if result.output:
+        if result_text := _tool_result_text(result):
             tool_result_content.append(
                 {
                     "type": "text",
-                    "text": _maybe_prepend_system_tool_result(result, result.output),
+                    "text": _maybe_prepend_system_tool_result(result, result_text),
                 }
             )
         if result.base64_image:
@@ -381,6 +382,26 @@ def _make_api_tool_result(
     if toolset_name is not None:
         tool_result_block["toolset_name"] = toolset_name
     return cast(BetaToolResultBlockParam, tool_result_block)
+
+
+def _is_error(result: ToolResult) -> bool:
+    """A tool that reports an exit status fails on a non-zero status, whatever
+    it wrote to stderr; a tool that reports none fails when it set error."""
+    if result.exit_code is not None:
+        return result.exit_code != 0
+    return bool(result.error)
+
+
+def _tool_result_text(result: ToolResult) -> str:
+    """The text the model reads: for a tool reporting an exit status, stdout,
+    then stderr, then the status when it is non-zero; otherwise the error when
+    there is one, else the output."""
+    if result.exit_code is None:
+        return result.error or result.output or ""
+    parts = [part for part in (result.output, result.error) if part]
+    if result.exit_code != 0:
+        parts.append(f"[exit status {result.exit_code}]")
+    return "\n".join(parts)
 
 
 def _maybe_prepend_system_tool_result(result: ToolResult, result_text: str):
