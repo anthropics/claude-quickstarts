@@ -12,6 +12,12 @@ from .utils.connections import setup_mcp_connections
 from .utils.history_util import MessageHistory
 from .utils.tool_util import execute_tools
 
+# A server-tool turn can pause (stop_reason="pause_turn") and must be
+# continued to finish. Bound consecutive continuations so a response
+# that keeps pausing cannot loop forever; each continuation is one
+# additional API call.
+MAX_PAUSE_TURN_CONTINUATIONS = 10
+
 
 @dataclass
 class ModelConfig:
@@ -96,6 +102,7 @@ class Agent:
         await self.history.add_message("user", user_input, None)
 
         tool_dict = {tool.name: tool for tool in self.tools}
+        pause_turn_continuations = 0
 
         while True:
             self.history.truncate()
@@ -136,6 +143,7 @@ class Agent:
             )
 
             if tool_calls:
+                pause_turn_continuations = 0
                 tool_results = await execute_tools(
                     tool_calls,
                     tool_dict,
@@ -147,6 +155,20 @@ class Agent:
                             f"{block.get('content')}"
                         )
                 await self.history.add_message("user", tool_results)
+            elif response.stop_reason == "pause_turn":
+                # A paused server-tool turn is unfinished: the assistant
+                # message is already in history, so looping issues the
+                # follow-up request that continues it. Give up after the
+                # cap and return the last response rather than looping
+                # forever on a turn that never completes.
+                pause_turn_continuations += 1
+                if pause_turn_continuations > MAX_PAUSE_TURN_CONTINUATIONS:
+                    return response
+                if self.verbose:
+                    print(
+                        f"\n[{self.name}] Server tool turn paused "
+                        f"(pause_turn); continuing..."
+                    )
             else:
                 return response
 
