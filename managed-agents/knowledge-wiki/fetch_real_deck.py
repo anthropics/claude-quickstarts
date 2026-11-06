@@ -13,6 +13,7 @@ exhibit (c)(ii). Requires: pillow. SEC asks for a descriptive User-Agent.
 """
 
 import io
+import os
 import sys
 import urllib.request
 from pathlib import Path
@@ -21,7 +22,9 @@ BASE = "https://www.sec.gov/Archives/edgar/data/1496963/000114036124030374"
 SLIDES = [f"ny20030653x1_ex16cii-img{n:02d}.jpg" for n in range(1, 7)]
 OUT = Path(__file__).parent / "example_data" / "deal_room_real" / "real_board_deck.pdf"
 UA = {
-    "User-Agent": "kg-cookbook-demo research contact: replace-with-your-email@example.com"
+    "User-Agent": os.environ.get(
+        "EDGAR_USER_AGENT", "kg-cookbook-demo research contact: replace-with-your-email@example.com"
+    )
 }
 
 

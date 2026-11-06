@@ -1,107 +1,49 @@
-# A knowledge wiki for cheap, correct agentic retrieval
+# Knowledge wiki with a dynamic workflow
 
-When agents answer questions by searching a document corpus, every question
-re-pays the reading tax. This cookbook reads the corpus **once** into a
-knowledge wiki — plain markdown in a Claude Managed Agents memory store —
-then answers from the wiki instead of re-reading the documents. Answers cost
-a fraction of a raw-document search and carry provenance on every fact.
+*A knowledge wiki for agentic retrieval that keeps its sources and its conflicts. For developers whose agents answer repeated questions over a slow-changing set of documents. A tutorial: run it top to bottom once on the worked example, then point it at your own corpus.*
 
-The pattern fits any slow-changing corpus that agents query repeatedly: M&A
-due diligence (the worked example), legal discovery, support over product
-docs.
+![How it works: build the wiki, then ask it read-only.](assets/wiki_how_it_works.png)
 
-**What it costs to run.** The default `mini` tier is about **$35** and **an
-hour** end to end. The smaller `quickstart` tier is about **$25** and **40
-minutes**. Both figures are from the committed run and will move with your
-model choice, corpus, and current API pricing.
+This quickstart reads a corpus **once** into a knowledge wiki, plain markdown in a Claude Managed Agents memory store, then answers from the wiki. Provenance sits on every fact, conflicts between documents stay conflicts, and superseded figures stay superseded.
 
-**No preview access yet?** The consolidation step uses a gated research
-preview (see *Access* below), but every cell in the notebook ships with the
-real output from the committed run. You can read it top to bottom as a
-worked case study without running anything.
+When agents search documents, every question starts from scratch, and the facts between documents aren't in any single passage. With the wiki, a small model answers within a point of a larger model that searches the raw documents with no wiki, at about 1/15 of the price per answer, and about 3 points better than it does searching the documents itself. The wiki costs about $19 to build once on the benchmark's average (the run recorded in the notebook cost about $16) and, on the benchmark's figures, pays for itself after about 240 questions against that larger model. The notebook measures these costs on your own run.
+
+The build is one Managed Agents session running one **dynamic workflow**, described in one message.
+
+The pattern fits any slow-changing corpus that agents query repeatedly: M&A due diligence (the worked example), legal discovery, support over product docs.
+
+**Just reading?** Every cell in the notebook ships with the real output from the recorded run. You can read it top to bottom as a worked case study without running anything.
 
 ## The corpus
 
-The worked example is a real, completed take-private transaction: 42 public
-SEC filings spanning 11 months, from deal announcement through closing. It
-was chosen because it is public, it has narrative structure worth mapping,
-and it is maximally adversarial — a price that changed mid-process,
-look-alike shell entities, code names, and numbers that exist only inside a
-chart.
+The worked example is a real, completed take-private deal, using public SEC filings fetched live from EDGAR. The filings themselves are not included. Two small files, marked as synthetic, stand in for internal documents; one gives an EBITDA estimate on a different basis from the company's reported figure, so you can watch the wiki keep the two apart.
 
-Every document is fetched live from SEC EDGAR by accession number; nothing
-is redistributed here. Two small synthetic files, marked as synthetic in
-their own text, stand in for the internal documents a real deal room adds —
-and one of them deliberately conflicts with the filings, so you can watch
-the wiki catch it.
+To build from your own documents, set `COOKBOOK_DOCS` to a folder of provenance-stamped `.txt` files; `kw.normalize_any` converts PDFs, Word, Excel, PowerPoint and email to text. Office files from a counterparty are untrusted input: convert them in a container or on a machine you don't mind exposing to a malformed file, or convert them to text first with a tool you trust.
 
 ## What's inside
 
 | file | what it is |
-|---|---|
-| `distill_documents_into_knowledge_wiki.ipynb` | the cookbook — run top to bottom |
-| `build_manifest.py` | queries SEC EDGAR, writes tiered document manifests |
+| --- | --- |
+| `distill_documents_into_knowledge_wiki.ipynb` | the notebook: run top to bottom |
+| `prompts/` | the consolidation method (`analyzer_system.md`, `organizer_system.md`, each ending in an instructions block the notebook fills when it creates the agents), the lead agent's prompt (`lead_system.md`, with the run's standing rules and the report's shape) and the baseline analyst's prompt (`baseline_system.md`) |
+| `utilities.py` | the notebook's functions: uploads, session exports, following and stopping a workflow run, checks on what ran, memory-store copies and exports, pricing |
+| `build_manifest.py` | queries SEC EDGAR, writes the size-tiered document manifests (`manifest_core.json`, the default tier, is a fixed list that ships here) |
 | `fetch_data_room.py` | downloads the filings for a tier and converts to provenance-stamped text |
 | `fetch_real_deck.py` | downloads a real board deck (scanned slides from 13E-3 exhibits) into a PDF |
 | `make_analyst_docx.py` | generates the marked-synthetic Word analyst note |
-| `utilities.py` | session polling helpers |
 | `example_data/` | the synthetic companions (analyst note, vendor CSV) |
+| `requirements.txt` | the Python packages the notebook and scripts need |
 
 ## How it works
 
-The pipeline builds your corpus once into a knowledge wiki, then answers
-every question from the wiki instead of re-reading the documents. These are
-the main steps, in order; the notebook walks through each one.
+1. **Build the wiki.** A workflow run gives each batch of documents to an extractor. A resolver then works the top gaps the extractors flagged, and the consolidation follows: analyzers check what was filed against the documents, and an organizer tidies the whole wiki.
+2. **Ask it.** Your agents mount the wiki read-only, one session per question, and cite every fact.
 
-1. **Assemble your corpus.** Gather the documents your agents will query
-   repeatedly — a data room, a discovery set, a support knowledge base. The
-   worked example fetches a real M&amp;A data room from public filings.
-2. **Normalize every file type to provenance-stamped text.** Route each format
-   (PDF, Word, spreadsheets, email, slides) to plain text with a `[SOURCE: …]`
-   header, and fail loudly on anything unsupported — a loader that silently
-   skips a format makes the wiki look complete when it is not.
-3. **Extract in parallel into one shared memory store — that store is the
-   wiki.** Split the corpus into batches, run one agent session per batch
-   concurrently, and have each session write structured notes into the store.
-   Put the note schema on the store's attachment instructions, and give every
-   source document its own single-writer path so concurrent sessions never
-   overwrite each other.
-4. **Resolve the wiki's open questions before consolidating.** Have a pass
-   cross-read the wiki and close the questions the extraction left open,
-   marking anything genuinely missing as confirmed-unresolvable rather than
-   guessing.
-5. **Consolidate with one steered dream.** *Dreaming* is a server-side
-   consolidation pass — sleep-time compute: it reads the build sessions'
-   transcripts and the store, then writes a *new*, reorganized store with
-   deduplicated entities, an index that turns exploratory reads into one
-   lookup, a ranked escalations file, and repaired links. It never sees the
-   raw corpus, so everything true in the wiki was won at extraction.
-6. **Query read-only from a fresh session per question.** Attach the
-   consolidated store read-only, require provenance on every fact, and script
-   the miss behavior ("not in the data room" — name the document that would be
-   needed, never guess).
-7. **Operate: periodically dream over real usage.** After enough real queries,
-   dream over the work transcripts together with the wiki so it reorganizes
-   around what people actually ask.
-8. **Evaluate and tune** *(not shipped here).* Grade each deliverable against
-   a fixed rubric with an evaluator, then iterate the prompt files —
-   extraction rules, store schema, analyst instructions, dream steering —
-   against the evaluator's failure reasons until the scores hold. This package
-   does not ship a grading harness or a tuning loop; it is the natural next
-   step once you have a rubric for your own corpus.
+The notebook also checks what ran against the platform's records, measures what a question costs with the wiki and without it, and points to the dreaming cookbook for keeping the wiki current from your agents' transcripts.
 
 ## Access
 
-Two features must be enabled on your organization:
-
-- **Managed Agents** — the memory stores and agent sessions the build runs on.
-- **Dreaming** — a gated research preview. Without it, `POST /v1/dreams`
-  returns 404 and the notebook stops at step 5; everything before that still
-  runs.
-
-Request access at <https://claude.com/form/claude-managed-agents>. On the SDK
-side, `client.beta.dreams` ships in `anthropic` 2.0 and later, which
-`requirements.txt` installs.
+Everything runs on **Managed Agents** (beta), which provides the memory stores, agents, sessions and dynamic workflows and is enabled by default for API organizations; the SDK sends the beta headers. If `client.beta.agents.create` returns a permission error, ask your organization's admin. The notebook needs Python 3.11 or later and the public `anthropic` Python SDK, version 2.0 or later, which `requirements.txt` installs.
 
 ## Quickstart
 
@@ -112,36 +54,40 @@ cd managed-agents/knowledge-wiki
 claude "walk me through setting up the knowledge-wiki quickstart"
 ```
 
-Or follow the steps below by hand, once you have access.
+Or follow the steps by hand:
 
 ```bash
 pip install -r requirements.txt
 
 export EDGAR_USER_AGENT="your-name your-email"   # SEC asks for a contact
 
-python3 build_manifest.py
-python3 fetch_data_room.py --tier=mini   # 26 documents, ~0.5 MB text
-python3 fetch_real_deck.py               # 6 slides of a real board deck (~1 MB)
-python3 make_analyst_docx.py
+python3 fetch_data_room.py --tier=core   # 8 filings, 2.8 MB text: the recorded run (or --tier=quickstart)
+python3 fetch_real_deck.py               # optional: 6 slides of a real board deck (~1 MB) for the normalize step
+python3 make_analyst_docx.py             # optional: regenerates example_data/analyst_note.docx, which ships here
+# All five manifests ship with the folder. build_manifest.py is an optional refresh from EDGAR that
+# rewrites the quickstart, mini, standard and full manifests (never core); run it before fetching, not after.
 
 jupyter lab distill_documents_into_knowledge_wiki.ipynb
 ```
 
-Authentication follows the standard Anthropic credential chain — construct
-the client with no arguments and it picks up whichever of an API key, an
-`ant auth login` profile, or Workload Identity Federation applies to you.
+Authentication follows the standard Anthropic credential chain. Construct the client with no credential arguments and it picks up whichever of `ANTHROPIC_API_KEY` (in the environment or a `.env` file here), an `ant auth login` profile (the [`ant` CLI](https://platform.claude.com/docs/en/cli-sdks-libraries/cli/authentication), version 2.0 or later), or Workload Identity Federation applies to you.
+
+Run records go to a new folder under your system's temporary directory (`/tmp/knowledge_wiki-<uid>/runs/` on Linux), readable only by you, which most systems clear when the machine restarts. Set `COOKBOOK_RECORDS_DIR` to keep them somewhere lasting.
 
 ## Cost and tier expectations
 
-| tier | documents | wall-clock | approx. cost |
-|---|---|---|---|
-| `quickstart` | 8 | ~40 min | ~$25 |
-| `mini` (default) | 26 | ~1 h | ~$35 |
-| `standard` | 37 | hours | tens of $ |
-| `full` | 42 | hours | more |
+- The recorded run on the default `core` tier (8 filings, 2.8 MB of text) took 23 minutes and cost about $16 at list price.
+- It used the default models: Claude Haiku 5.5 for the agents that read, Claude Sonnet 5.5 for the lead agent and the raw-documents baseline.
+- Only `core` was recorded. For any other tier or your own folder, the notebook prints a list-price estimate before it builds and stops if that is over your budget. Your run will vary with model, corpus and current pricing.
 
-Every number in the notebook's saved outputs comes from the `mini` tier.
-Treat all costs as order-of-magnitude: your run will vary with model choice,
-corpus, and current pricing. A query against the finished wiki runs roughly
-five times cheaper than the same question answered by searching the raw
-documents — the notebook measures both and shows the breakeven.
+The other tiers:
+
+- `quickstart`: 8 short filings around the deal.
+- `mini`: 26 filings, less text than `core`.
+- `standard`: 37 filings.
+- `full`: all 42 from the deal window, which leaves out `core`'s FY2022 annual report.
+
+Empty `data_room/docs` before you fetch a different tier: the build reads whatever is in the folder, and the fetch script stops if it finds another tier's files there.
+
+- **File size:** a file in the store is capped at 100 KB. On a larger corpus the main company's entity page and the red-flags file (`escalations.md`) reach that sooner and have to be split into linked files.
+- **Shared pages:** agents write straight onto shared pages, so they sometimes overwrite each other: about 5% of the lines filed to the busiest entity page lose content. We accept that because a shared page brings figures from different documents together, where agents can flag disagreements.

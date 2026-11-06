@@ -1,21 +1,16 @@
 # Setting up the knowledge-wiki quickstart
 
 Follow these steps in order when the user asks you to set up or run
-this cookbook. Confirm each step's output before moving to the next.
+this quickstart. Confirm each step's output before moving to the next.
 
-## 0. Check access (blocks the consolidation step)
+## 0. Check access
 
-Two features must be enabled on the user's organization:
-
-- **Managed Agents** — memory stores and agent sessions.
-- **Dreaming** — a gated research preview.
-
-Ask the user to confirm both, and point them at
-<https://claude.com/form/claude-managed-agents> if not. Without dreaming,
-`POST /v1/dreams` returns 404 and the notebook fails at the consolidation
-step. Everything before that still runs, so it's fine to proceed for a
-partial walkthrough — just say so up front rather than letting them
-discover it an hour in.
+Everything runs on **Managed Agents** (beta) — memory stores, agents, sessions
+and dynamic workflows — which is enabled by default for API organizations; the
+SDK sends the beta headers itself. If `client.beta.memory_stores.create` or
+`client.beta.agents.create` returns a permission error later, the user should ask their organization's
+admin whether it was turned off or the key restricted. Python 3.11 or later is
+required.
 
 ## 1. Install dependencies
 
@@ -23,20 +18,18 @@ discover it an hour in.
 pip install -r requirements.txt
 ```
 
-`requirements.txt` pins `anthropic>=2.0.0`, the first release that exposes
-`client.beta.dreams`. If the user already had an older `anthropic` in the
-environment, confirm the upgrade took:
+`requirements.txt` pins the `anthropic` Python SDK at `>=2.0.0,<3`. If the user already
+had an older version in the environment, confirm the upgrade took:
 
 ```bash
-python3 -c "import anthropic; print(hasattr(anthropic.Anthropic().beta, 'dreams'))"
+python3 -c "import anthropic; print(anthropic.__version__)"
 ```
 
-If that prints `False`, run `pip install -U "anthropic>=2.0.0,<3"`. On an
-older SDK the notebook runs up to the consolidation step and no further.
+If that prints a version below 2.0, run `pip install -U "anthropic>=2.0.0,<3"`.
 
 ## 2. Authentication and environment
 
-The notebook constructs `Anthropic()` with no arguments, so it resolves
+The notebook constructs `Anthropic()` with no credential arguments, so it resolves
 credentials through the standard chain and uses the first one it finds:
 `ANTHROPIC_API_KEY`, then `ANTHROPIC_AUTH_TOKEN`, then the profile
 `ANTHROPIC_PROFILE` names, then Workload Identity Federation, then the
@@ -46,7 +39,8 @@ active `ant auth login` profile. Pick whichever the user's org uses:
 # Either an API key…
 export ANTHROPIC_API_KEY=...
 
-# …or an interactive login, which stores a profile the SDK finds on its own.
+# …or an interactive login with the ant CLI, version 2.0 or later (ant --version prints it),
+# which stores a profile the SDK finds on its own.
 ant auth login
 ```
 
@@ -61,36 +55,52 @@ One more variable is required regardless:
 export EDGAR_USER_AGENT="your-name your-email"  # SEC policy
 ```
 
-If `EDGAR_USER_AGENT` is missing, EDGAR requests will be refused.
+If `EDGAR_USER_AGENT` is missing, the scripts send a placeholder contact,
+which SEC may throttle or refuse.
 
 ## 3. Pick a tier and set the cost expectation
 
-Tell the user what they're about to spend before fetching anything.
+Before fetching, tell the user what the `core` run cost. For other tiers, say no
+figure was recorded, and that the notebook prints an estimate before the build
+and stops if it is over budget.
 
-| Tier | Docs | Wall-clock | Approx. cost | Use when |
-|---|---|---|---|---|
-| `quickstart` | 8 | ~40 min | ~$25 | first look, lunch break |
-| `mini` (default) | 26 | ~1 h | ~$35 | full walkthrough |
-| `standard` | 37 | hours | tens of $ | study-scale reproduction |
-| `full` | 42 | hours | more | the ambitious |
+| Tier | Docs | Use when |
+|---|---|---|
+| `core` (default) | 8 filings (annual reports, proxies, a 10-Q, the deal's 8-Ks), 2.8 MB text | the recorded run, 23 min and ≈ $16 at list price on the default models: the demo questions and the measured comparison are written for it |
+| `quickstart` | 8 short deal-window filings | a first look at the mechanics on short filings |
+| `mini` | 26: the smaller deal-window filings | more documents, less text than core |
+| `standard` | 37 | the larger room |
+| `full` | all 42 deal-window filings | every filing in the deal window; it leaves out core's FY2022 annual report |
 
-Costs are order-of-magnitude estimates from the committed run on
-`claude-sonnet-5`; the user's run will vary with model choice and API
-pricing at the time.
+Only `core` was recorded (Claude Haiku 5.5 for the agents that read, Claude
+Sonnet 5.5 for the lead agent and the raw-documents baseline, thinking at the
+platform's default); the user's run will vary with model choice and API pricing
+at the time. For any tier the notebook prints its own list-price estimate for
+the chosen corpus before the build (the cell that creates the agents) and stops
+if it is over `BUDGET_USD`; the build session also carries that budget as a cap
+(the platform stops new work there, to within one model request per working
+agent). Empty `data_room/docs` before fetching a different tier: the build
+reads whatever is in the folder, and the fetch script stops if it finds
+another tier's files there.
 
 ## 4. Fetch the corpus
 
 Run in this order (network required):
 
 ```bash
-python3 build_manifest.py
-python3 fetch_data_room.py --tier=mini    # or the tier chosen in step 3
-python3 fetch_real_deck.py                # 6 slides of a real board deck (~1 MB)
-python3 make_analyst_docx.py
+python3 fetch_data_room.py --tier=core    # or the tier chosen in step 3
+python3 fetch_real_deck.py                # optional: 6 slides of a real board deck (~1 MB)
+python3 make_analyst_docx.py              # optional: regenerates the Word note that ships in example_data/
 ```
 
-Expected after this: `data_room/docs/` contains one `.txt` file per
-document in the chosen tier — 8 files for `quickstart`, 26 for `mini`.
+All five manifests ship with the folder, so nothing else is needed before the
+fetch. `build_manifest.py` is an optional refresh from EDGAR: it rewrites the
+quickstart, mini, standard and full manifests (never core), so run it before
+`fetch_data_room.py` if at all, not after. Expected after this:
+`data_room/docs/` contains one `.txt` file per document in the chosen tier
+— 8 files for `core` (about 2.8 MB) or `quickstart`, 26 for `mini` — and
+the notebook's normalize step adds the two synthetic files, plus the deck if it was
+fetched.
 
 ## 5. Open the notebook
 
@@ -99,15 +109,34 @@ jupyter lab distill_documents_into_knowledge_wiki.ipynb
 ```
 
 Recommend the user reads `README.md` §"How it works" before running cells
-— the pipeline has a few non-obvious steps (the resolve pass, the
-read-only analyst attach, the usage-driven re-dream).
+— the pipeline has a few non-obvious steps (the schema seeded into the
+store, one message stating the goal and naming the agents, the checks on what ran, the
+read-only analyst attach).
 
 ## Gotchas to warn about
 
-- The dream step can take 20–60 minutes; tell the user to kick it off
-  and check back rather than watching it.
-- Model choice: the default is `claude-sonnet-5` everywhere. The setup
-  cell notes that an Opus-tier dream model (`claude-opus-5`) is a
-  reasonable A/B against the default.
-- If the user hits an error on `client.beta.memory_stores.create`, their
-  org likely doesn't have Managed Agents enabled — see step 0.
+- The build is one long cell (Run the build): it prints each phase and thread as it
+  starts; tell the user to kick it off and check back rather than watching
+  it. If the kernel is interrupted, the cell's `finally` asks the agent to
+  stop the run, waits for it to end, then saves the records and archives the
+  session; the wiki store keeps what was written. If it prints that a
+  session was not archived, archive it by hand: an open run keeps spending
+  until it reaches the budget.
+- The message states the goal and names the agents, and the lead agent writes
+  the workflow; after the run the notebook asks the lead agent to print the
+  workflow it wrote and sets that beside the platform's records (Check what ran). The reprint is the
+  lead agent's account; if it and the records disagree, the records win.
+- Model choice: by default the agents that read (extractors, resolver,
+  analyzers, organizer, analysts) run on `claude-haiku-5-5` and the lead agent
+  and the raw-documents baseline on `claude-sonnet-5-5`. `COOKBOOK_MODEL` sets
+  every stage; `COOKBOOK_BUILD_MODEL` (extractors, resolver),
+  `COOKBOOK_CONSOLIDATE_MODEL` (analyzers, organizer), `COOKBOOK_QUERY_MODEL`
+  (analysts), `COOKBOOK_LEAD_MODEL` (the lead agent) and
+  `COOKBOOK_BASELINE_MODEL` (the baseline in "What it costs") override one
+  stage each. The extractors and analyzers read the whole corpus and are most
+  of the cost.
+- Run records go under the system's temporary directory (`/tmp/knowledge_wiki-<uid>/runs/`,
+  readable only by the user; or `COOKBOOK_RECORDS_DIR`), never into the repository: they
+  hold the documents' contents.
+- If the user hits a permission error on `client.beta.memory_stores.create`,
+  see step 0.
