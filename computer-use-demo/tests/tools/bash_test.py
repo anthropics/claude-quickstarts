@@ -56,8 +56,51 @@ async def test_bash_tool_session_error(bash_tool):
 @pytest.mark.asyncio
 async def test_bash_tool_non_zero_exit(bash_tool):
     result = await bash_tool(command="bash -c 'exit 1'")
+    assert result.exit_code == 1
     assert result.error.strip() == ""
     assert result.output.strip() == ""
+
+
+@pytest.mark.asyncio
+async def test_bash_tool_reports_the_command_exit_code(bash_tool):
+    result = await bash_tool(command="echo ok")
+    assert result.exit_code == 0
+    assert result.output.strip() == "ok"
+
+    result = await bash_tool(command="(exit 7)")
+    assert result.exit_code == 7
+
+    result = await bash_tool(command="echo partial output; false")
+    assert result.exit_code == 1
+    assert result.output.strip() == "partial output"
+
+
+@pytest.mark.asyncio
+async def test_bash_tool_stderr_on_success_keeps_a_zero_exit_code(bash_tool):
+    result = await bash_tool(command="echo warn >&2; echo ok")
+    assert result.exit_code == 0
+    assert result.output.strip() == "ok"
+    assert result.error.strip() == "warn"
+
+
+@pytest.mark.asyncio
+async def test_bash_tool_exit_code_does_not_leak_into_output(bash_tool):
+    result = await bash_tool(command="printf 'no trailing newline'")
+    assert result.exit_code == 0
+    assert result.output == "no trailing newline"
+    assert "<<exit>>" not in result.output
+
+
+@pytest.mark.asyncio
+async def test_bash_tool_output_containing_the_sentinel_is_kept(bash_tool):
+    sentinel = bash_tool._session._sentinel if bash_tool._session else "<<exit>>"
+    result = await bash_tool(command=f"echo 'see {sentinel} marker'; echo done")
+    assert result.exit_code == 0
+    assert result.output.strip() == f"see {sentinel} marker\ndone"
+
+    result = await bash_tool(command=f"echo '{sentinel} 5'; (exit 3)")
+    assert result.exit_code == 3
+    assert result.output.strip() == f"{sentinel} 5"
 
 
 @pytest.mark.asyncio
