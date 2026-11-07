@@ -156,6 +156,23 @@ export const themes = {
 ```
 You can add new themes or modify existing ones by adjusting the color values in this file.
 
+## Deploy with Vercel
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fanthropics%2Fanthropic-quickstarts%2Ftree%2Fmain%2Fcustomer-support-agent&env=ANTHROPIC_API_KEY,BAWS_ACCESS_KEY_ID,BAWS_SECRET_ACCESS_KEY&envDescription=See%20the%20README%20for%20instructions%20to%20get%20your%20keys&envLink=https%3A%2F%2Fgithub.com%2Fanthropics%2Fanthropic-quickstarts%2Ftree%2Fmain%2Fcustomer-support-agent%23how-to-get-your-keys&project-name=customer-support-agent&repository-name=customer-support-agent&demo-title=Anthropic%20Quickstarts%3A%20Customer%20Support%20Agent&demo-description=This%20project%20demonstrates%20how%20to%20leverage%20Claude's%20natural%20language%20understanding%20and%20generation%20capabilities%20to%20create%20an%20AI-assisted%20customer%20support%20system%20with%20access%20to%20a%20knowledge%20base.&demo-url=https%3A%2F%2Fgithub.com%2Fanthropics%2Fanthropic-quickstarts%2Ftree%2Fmain%2Fcustomer-support-agent)
+
+To deploy this application using Vercel, follow these steps. 
+
+1. Follow [the steps above](#how-to-get-your-keys) to get your required keys
+
+```
+ANTHROPIC_API_KEY=your_anthropic_api_key
+BAWS_ACCESS_KEY_ID=your_aws_access_key
+BAWS_SECRET_ACCESS_KEY=your_aws_secret_key
+```
+
+2. Click the Deploy Button and follow the new project creation flow.
+
+
 ##  Deploy with AWS Amplify
 
 To deploy this application using AWS Amplify, follow these steps:
