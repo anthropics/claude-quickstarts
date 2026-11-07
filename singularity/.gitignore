@@ -1,0 +1,31 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtuální prostředí
+.venv/
+venv/
+env/
+
+# Konfigurace
+.env
+
+# Data / persistence
+data/
+*.coverage
+.coverage
+htmlcov/
+
+# Testy / cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.deepeval/
+
+# IDE
+.vscode/
+.idea/

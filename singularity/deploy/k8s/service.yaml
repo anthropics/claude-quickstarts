@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: singularity
+  labels:
+    app: singularity
+spec:
+  selector:
+    app: singularity
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      protocol: TCP
+  type: ClusterIP
