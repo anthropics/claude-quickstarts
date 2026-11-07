@@ -74,11 +74,34 @@ def split_command_segments(command_string: str) -> list[str]:
     return result
 
 
+# Forms this parser cannot see as separate commands. A newline is whitespace
+# to shlex, but the shell runs the next line as a new command. Substitution
+# runs even when it is only an argument to an allowed command. The hook
+# rejects these instead of treating the outer command as the whole story.
+_UNSEEN_SYNTAX = (
+    ("\n", "a newline"),
+    ("\r", "a carriage return"),
+    ("$(", "command substitution"),
+    ("`", "a backtick"),
+    ("<(", "process substitution"),
+    (">(", "process substitution"),
+)
+
+
+def unseen_command_syntax(command: str) -> str | None:
+    """Return a short label if ``command`` hides work this parser cannot list."""
+    for needle, label in _UNSEEN_SYNTAX:
+        if needle in command:
+            return label
+    return None
+
+
 def extract_commands(command_string: str) -> list[str]:
     """
     Extract command names from a shell command string.
 
-    Handles pipes, command chaining (&&, ||, ;), and subshells.
+    Handles pipes and command chaining (&&, ||, ;).
+    Does not see newlines or substitutions; bash_security_hook rejects those.
     Returns the base command names (without paths).
 
     Args:
@@ -314,6 +337,16 @@ async def bash_security_hook(input_data, tool_use_id=None, context=None):
     command = input_data.get("tool_input", {}).get("command", "")
     if not command:
         return {}
+
+    hidden = unseen_command_syntax(command)
+    if hidden:
+        return {
+            "decision": "block",
+            "reason": (
+                f"Command contains {hidden}. The allowlist cannot see "
+                "commands hidden in that syntax, so the command is blocked."
+            ),
+        }
 
     # Extract all commands from the command string
     commands = extract_commands(command)
