@@ -116,9 +116,21 @@ class MessageHistory:
             {"role": m["role"], "content": m["content"]} for m in self.messages
         ]
 
+        # The last message's blocks are not always dicts: assistant
+        # responses are stored as raw SDK block models, and a continued
+        # pause_turn leaves such a message last. Dump models to dicts
+        # (exclude_unset matches the SDK's own wire form) before adding
+        # cache_control; dict blocks pass through unchanged.
         if self.enable_caching and self.messages:
             result[-1]["content"] = [
-                {**block, "cache_control": {"type": "ephemeral"}}
+                {
+                    **(
+                        block
+                        if isinstance(block, dict)
+                        else block.model_dump(exclude_unset=True)
+                    ),
+                    "cache_control": {"type": "ephemeral"},
+                }
                 for block in self.messages[-1]["content"]
             ]
         return result
