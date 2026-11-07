@@ -1,8 +1,21 @@
 import asyncio
 import os
 from typing import Any, Literal
+from uuid import uuid4
 
 from .base import BaseAnthropicTool, CLIResult, ToolError, ToolResult
+
+
+async def _read_until_sentinel(stream: asyncio.StreamReader, sentinel: bytes) -> bytes:
+    """Read a stream through the command's completion marker."""
+    output = bytearray()
+    while True:
+        chunk = await stream.read(65536)
+        if not chunk:
+            raise ToolError("bash output stream closed before command completion")
+        output.extend(chunk)
+        if sentinel in output:
+            return bytes(output[: output.index(sentinel)])
 
 
 class _BashSession:
@@ -12,9 +25,9 @@ class _BashSession:
     _process: asyncio.subprocess.Process
 
     command: str = "/bin/bash"
-    _output_delay: float = 0.2  # seconds
     _timeout: float = 120.0  # seconds
     _sentinel: str = "<<exit>>"
+    _stderr_completion_fd: int = 9
 
     def __init__(self):
         self._started = False
@@ -25,7 +38,7 @@ class _BashSession:
             return
 
         self._process = await asyncio.create_subprocess_shell(
-            self.command,
+            f"{self.command} {self._stderr_completion_fd}>&2",
             preexec_fn=os.setsid,
             shell=True,
             bufsize=0,
@@ -64,41 +77,35 @@ class _BashSession:
         assert self._process.stderr
 
         # send command to the process
+        sentinel = f"{self._sentinel}{uuid4().hex}"
         self._process.stdin.write(
-            command.encode() + f"; echo '{self._sentinel}'\n".encode()
+            command.encode()
+            + f"; echo '{sentinel}'; echo '{sentinel}' >&{self._stderr_completion_fd}\n".encode()
         )
         await self._process.stdin.drain()
 
-        # read output from the process, until the sentinel is found
+        sentinel_bytes = f"{sentinel}\n".encode()
+        readers = [
+            asyncio.create_task(_read_until_sentinel(stream, sentinel_bytes))
+            for stream in (self._process.stdout, self._process.stderr)
+        ]
         try:
             async with asyncio.timeout(self._timeout):
-                while True:
-                    await asyncio.sleep(self._output_delay)
-                    # if we read directly from stdout/stderr, it will wait forever for
-                    # EOF. use the StreamReader buffer directly instead.
-                    output = self._process.stdout._buffer.decode()  # pyright: ignore[reportAttributeAccessIssue]
-                    if self._sentinel in output:
-                        # strip the sentinel and break
-                        output = output[: output.index(self._sentinel)]
-                        break
+                output, error = await asyncio.gather(*readers)
         except asyncio.TimeoutError:
             self._timed_out = True
             raise ToolError(
                 f"timed out: bash has not returned in {self._timeout} seconds and must be restarted",
             ) from None
+        finally:
+            for reader in readers:
+                reader.cancel()
+            await asyncio.gather(*readers, return_exceptions=True)
 
-        if output.endswith("\n"):
-            output = output[:-1]
-
-        error = self._process.stderr._buffer.decode()  # pyright: ignore[reportAttributeAccessIssue]
-        if error.endswith("\n"):
-            error = error[:-1]
-
-        # clear the buffers so that the next output can be read correctly
-        self._process.stdout._buffer.clear()  # pyright: ignore[reportAttributeAccessIssue]
-        self._process.stderr._buffer.clear()  # pyright: ignore[reportAttributeAccessIssue]
-
-        return CLIResult(output=output, error=error)
+        return CLIResult(
+            output=output.decode().removesuffix("\n"),
+            error=error.decode().removesuffix("\n"),
+        )
 
 
 class BashTool20250124(BaseAnthropicTool):
