@@ -12,6 +12,8 @@ Layout:
 import base64
 import datetime as dt
 import json
+import tempfile
+from pathlib import Path
 from typing import Any
 
 from constants import RUNS_DIR
@@ -20,7 +22,8 @@ from constants import RUNS_DIR
 class Trajectory:
     def __init__(self, model: str, task: str, system_prompt: str | None = None) -> None:
         ts = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
-        self.dir = RUNS_DIR / ts
+        RUNS_DIR.mkdir(parents=True, exist_ok=True)
+        self.dir = Path(tempfile.mkdtemp(prefix=f"{ts}-", dir=RUNS_DIR))
         (self.dir / "images").mkdir(parents=True, exist_ok=True)
         self.scratch_dir = self.dir / "scratch"
         self.scratch_dir.mkdir(parents=True, exist_ok=True)
