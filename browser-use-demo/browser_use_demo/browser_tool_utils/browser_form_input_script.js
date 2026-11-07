@@ -186,8 +186,11 @@
             element.value = String(inputValue);
             element.focus();
             
-            // Set cursor position to end
-            element.setSelectionRange(element.value.length, element.value.length);
+            // Only text-like inputs and textareas support selection ranges.
+            if (element instanceof HTMLTextAreaElement ||
+                ['text', 'search', 'tel', 'password'].includes(element.type)) {
+                element.setSelectionRange(element.value.length, element.value.length);
+            }
             
             element.dispatchEvent(new Event('change', { bubbles: true }));
             element.dispatchEvent(new Event('input', { bubbles: true }));
