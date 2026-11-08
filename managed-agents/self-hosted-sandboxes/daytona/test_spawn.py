@@ -154,3 +154,51 @@ def test_successful_spawn_keeps_the_sandbox(monkeypatch) -> None:
     assert sandbox_id == "sb-3"
     assert deleted == []
     assert any(cmd.startswith("nohup ") for cmd in process.commands)
+
+
+class ListedSandbox:
+    def __init__(self, sandbox_id: str, commands: dict[str, int]) -> None:
+        self.id = sandbox_id
+        self.state = "started"
+        self.commands = commands
+        self.process = self
+
+    def exec(self, command: str, timeout: int | None = None):
+        for needle, code in self.commands.items():
+            if needle in command:
+                return types.SimpleNamespace(exit_code=code, result="")
+        return types.SimpleNamespace(exit_code=0, result="")
+
+
+def test_exited_runner_is_not_reused(monkeypatch) -> None:
+    deleted: list[str] = []
+    dead = ListedSandbox("sb-dead", {"runner-started": 0, "pgrep": 1})
+
+    class Client:
+        def list(self, labels: dict[str, str]):
+            assert labels == {"session_id": "sesn_dead"}
+            return [dead]
+
+        def delete(self, sb: ListedSandbox) -> None:
+            deleted.append(sb.id)
+
+    monkeypatch.setattr(wh, "daytona", Client())
+    assert wh._find_live("sesn_dead") is None
+    assert deleted == ["sb-dead"]
+
+
+def test_install_in_progress_is_not_deleted(monkeypatch) -> None:
+    deleted: list[str] = []
+    installing = ListedSandbox("sb-new", {"runner-started": 1})
+
+    class Client:
+        def list(self, labels: dict[str, str]):
+            assert labels == {"session_id": "sesn_new"}
+            return [installing]
+
+        def delete(self, sb: ListedSandbox) -> None:
+            deleted.append(sb.id)
+
+    monkeypatch.setattr(wh, "daytona", Client())
+    assert wh._find_live("sesn_new") == "sb-new"
+    assert deleted == []

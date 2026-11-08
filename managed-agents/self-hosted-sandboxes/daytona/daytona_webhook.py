@@ -143,6 +143,7 @@ def _spawn(
         if code not in (0, None):
             raise RuntimeError(f"pip install exited {code}")
         sb.process.exec("nohup python /root/sandbox_runner.py >/tmp/runner.log 2>&1 &")
+        sb.process.exec("touch /tmp/runner-started")
     except Exception:
         # A started sandbox with no runner is what the next reclaim treats as
         # live. Delete it so that reclaim can spawn again.
@@ -154,10 +155,39 @@ def _spawn(
     return sb.id
 
 
+def _runner_still_serving(sb) -> bool | None:
+    """False only when the runner was started and its process is gone.
+
+    None means setup has not finished, or the probe failed. Those sandboxes
+    stay; a blip must not delete a session that is still installing.
+    """
+    try:
+        marker = sb.process.exec("test -f /tmp/runner-started", timeout=15)
+    except Exception:  # noqa: BLE001 - a failed probe must not delete the sandbox
+        return None
+    if getattr(marker, "exit_code", 1) not in (0, None):
+        return None
+    try:
+        probe = sb.process.exec("pgrep -f '[s]andbox_runner.py'", timeout=15)
+    except Exception:  # noqa: BLE001 - a failed probe must not delete the sandbox
+        return None
+    return getattr(probe, "exit_code", 1) in (0, None)
+
+
 def _find_live(session_id: str) -> str | None:
     for sb in daytona.list(labels={"session_id": session_id}):
-        if sb.state == "started":
-            return sb.id
+        if getattr(sb, "state", None) != "started":
+            continue
+        if _runner_still_serving(sb) is False:
+            try:
+                daytona.delete(sb)
+            except Exception as cleanup_error:  # noqa: BLE001 - lookup must keep scanning
+                print(
+                    f"[webhook] dead-runner cleanup failed: {type(cleanup_error).__name__}",
+                    flush=True,
+                )
+            continue
+        return sb.id
     return None
 
 

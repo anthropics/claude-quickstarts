@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { processWorkItem } from "../api/webhook.ts";
+import { findLiveSandbox, processWorkItem } from "../api/webhook.ts";
 
 const sessionId = "sesn_abc";
 
@@ -98,5 +98,36 @@ describe("failed sandbox setup", () => {
     assert.equal(result.sandbox_id, "sb_ok");
     assert.equal(kv.data.get(`shs:sandbox:${sessionId}`), "sb_ok");
     assert.deepEqual(events, []);
+  });
+});
+
+describe("runner that has exited", () => {
+  it("drops the mapping and stops the VM instead of extending it", async () => {
+    const kv = memoryKv();
+    await kv.set(`shs:sandbox:${sessionId}`, "sb_dead");
+    const events: string[] = [];
+    const sandbox = {
+      sandboxId: "sb_dead",
+      status: "running",
+      stop: async () => {
+        events.push("stop");
+      },
+      extendTimeout: async () => {
+        events.push("extend");
+      },
+      runCommand: async (opts: { args?: string[] }) => {
+        const line = (opts.args ?? []).join(" ");
+        if (line.includes("pgrep")) return { exitCode: 1, output: async () => "" };
+        return { exitCode: 0, output: async () => "" };
+      },
+    };
+
+    const found = await findLiveSandbox(sessionId, {
+      kv,
+      getSandbox: async () => sandbox as never,
+    });
+    assert.equal(found, null);
+    assert.equal(kv.data.size, 0);
+    assert.deepEqual(events, ["stop"]);
   });
 });

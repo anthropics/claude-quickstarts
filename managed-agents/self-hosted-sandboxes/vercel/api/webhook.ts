@@ -143,25 +143,52 @@ async function kvStore(): Promise<KVLike | null> {
 const sandboxKey = (sessionId: string) => `shs:sandbox:${sessionId}`;
 
 /**
- * Find an existing running sandbox for this session and renew its lifetime.
- * Returns `null` when there's no mapping, the mapped sandbox is no longer
- * running, or KV isn't configured.
+ * Find an existing sandbox for this session whose runner process is still up,
+ * and renew that VM. Returns `null` when there's no mapping, the VM is gone,
+ * the runner process has exited, or KV isn't configured.
  */
-async function findLiveSandbox(sessionId: string): Promise<Sandbox | null> {
-  const kv = await kvStore();
+async function runnerProcessAlive(sb: {
+  runCommand: Sandbox["runCommand"];
+}): Promise<boolean | null> {
+  try {
+    // The bracket keeps pgrep from matching its own command line.
+    const probe = await sb.runCommand({
+      cmd: "sh",
+      args: ["-c", "pgrep -f '[r]unner.mjs' >/dev/null"],
+    });
+    return probe.exitCode === 0;
+  } catch {
+    return null;
+  }
+}
+
+export async function findLiveSandbox(
+  sessionId: string,
+  io: {
+    kv?: KVLike | null;
+    getSandbox?: (opts: { sandboxId: string }) => Promise<Sandbox>;
+  } = {},
+): Promise<Sandbox | null> {
+  const kv = io.kv !== undefined ? io.kv : await kvStore();
   if (!kv) return null;
   const sandboxId = await kv.get<string>(sandboxKey(sessionId));
   if (!sandboxId) return null;
   try {
-    const sb = await Sandbox.get({ sandboxId });
+    const sb = io.getSandbox ? await io.getSandbox({ sandboxId }) : await Sandbox.get({ sandboxId });
     if (sb.status !== "running") {
       await kv.del(sandboxKey(sessionId));
       return null;
     }
+    // The VM stays "running" after runner.mjs exits. Extending it would ack
+    // the next delivery into a sandbox with nobody listening.
+    const alive = await runnerProcessAlive(sb);
+    if (alive === false) {
+      await kv.del(sandboxKey(sessionId)).catch(() => {});
+      await sb.stop().catch(() => {});
+      return null;
+    }
     // The sandbox VM has its own clock independent of the runner. Renew it on
-    // each new run so an active session doesn't get killed mid-turn. Once the
-    // runner exits (60s after end_turn idle) renewals stop and the sandbox
-    // dies at the next timeout boundary.
+    // each new run so an active session doesn't get killed mid-turn.
     await sb.extendTimeout(SANDBOX_TIMEOUT_MS).catch(() => {});
     return sb;
   } catch {
@@ -207,6 +234,7 @@ export async function processWorkItem(
   io: {
     createSandbox?: typeof Sandbox.create;
     kv?: KVLike | null;
+    getSandbox?: (opts: { sandboxId: string }) => Promise<Sandbox>;
   } = {},
 ): Promise<ProcessedItem> {
   const sessionId = work.data.id;
@@ -220,7 +248,7 @@ export async function processWorkItem(
   // already-extended VM timeout. Without KV every delivery creates a fresh
   // sandbox. SessionToolRunner dedups via seen/answered, so a duplicate runner
   // is wasteful, not wrong.
-  const existing = await findLiveSandbox(sessionId);
+  const existing = await findLiveSandbox(sessionId, io);
   if (existing) {
     console.log(`[webhook] work=${work.id} session=${sessionId} sandbox=${existing.sandboxId} (reused)`);
     return { session_id: sessionId, work_id: work.id, sandbox_id: existing.sandboxId, reused: true };
