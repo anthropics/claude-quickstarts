@@ -134,11 +134,23 @@ def _spawn(
             },
         )
     )
-    sb.fs.upload_file("/root/sandbox_runner.py", RUNNER_SRC.encode())
-    # Both command strings are constants. Nothing from the webhook or the work
-    # item is ever interpolated into a shell command.
-    sb.process.exec(f"pip install -q '{SDK_REQUIREMENT}'", timeout=180)
-    sb.process.exec("nohup python /root/sandbox_runner.py >/tmp/runner.log 2>&1 &")
+    try:
+        sb.fs.upload_file("/root/sandbox_runner.py", RUNNER_SRC.encode())
+        # Both command strings are constants. Nothing from the webhook or the work
+        # item is ever interpolated into a shell command.
+        installed = sb.process.exec(f"pip install -q '{SDK_REQUIREMENT}'", timeout=180)
+        code = getattr(installed, "exit_code", 0)
+        if code not in (0, None):
+            raise RuntimeError(f"pip install exited {code}")
+        sb.process.exec("nohup python /root/sandbox_runner.py >/tmp/runner.log 2>&1 &")
+    except Exception:
+        # A started sandbox with no runner is what the next reclaim treats as
+        # live. Delete it so that reclaim can spawn again.
+        try:
+            daytona.delete(sb)
+        except Exception as cleanup_error:  # noqa: BLE001 - cleanup must not hide the setup error
+            print(f"[webhook] sandbox cleanup failed: {type(cleanup_error).__name__}", flush=True)
+        raise
     return sb.id
 
 
