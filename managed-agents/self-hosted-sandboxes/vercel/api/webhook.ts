@@ -143,25 +143,52 @@ async function kvStore(): Promise<KVLike | null> {
 const sandboxKey = (sessionId: string) => `shs:sandbox:${sessionId}`;
 
 /**
- * Find an existing running sandbox for this session and renew its lifetime.
- * Returns `null` when there's no mapping, the mapped sandbox is no longer
- * running, or KV isn't configured.
+ * Find an existing sandbox for this session whose runner process is still up,
+ * and renew that VM. Returns `null` when there's no mapping, the VM is gone,
+ * the runner process has exited, or KV isn't configured.
  */
-async function findLiveSandbox(sessionId: string): Promise<Sandbox | null> {
-  const kv = await kvStore();
+async function runnerProcessAlive(sb: {
+  runCommand: Sandbox["runCommand"];
+}): Promise<boolean | null> {
+  try {
+    // The bracket keeps pgrep from matching its own command line.
+    const probe = await sb.runCommand({
+      cmd: "sh",
+      args: ["-c", "pgrep -f '[r]unner.mjs' >/dev/null"],
+    });
+    return probe.exitCode === 0;
+  } catch {
+    return null;
+  }
+}
+
+export async function findLiveSandbox(
+  sessionId: string,
+  io: {
+    kv?: KVLike | null;
+    getSandbox?: (opts: { sandboxId: string }) => Promise<Sandbox>;
+  } = {},
+): Promise<Sandbox | null> {
+  const kv = io.kv !== undefined ? io.kv : await kvStore();
   if (!kv) return null;
   const sandboxId = await kv.get<string>(sandboxKey(sessionId));
   if (!sandboxId) return null;
   try {
-    const sb = await Sandbox.get({ sandboxId });
+    const sb = io.getSandbox ? await io.getSandbox({ sandboxId }) : await Sandbox.get({ sandboxId });
     if (sb.status !== "running") {
       await kv.del(sandboxKey(sessionId));
       return null;
     }
+    // The VM stays "running" after runner.mjs exits. Extending it would ack
+    // the next delivery into a sandbox with nobody listening.
+    const alive = await runnerProcessAlive(sb);
+    if (alive === false) {
+      await kv.del(sandboxKey(sessionId)).catch(() => {});
+      await sb.stop().catch(() => {});
+      return null;
+    }
     // The sandbox VM has its own clock independent of the runner. Renew it on
-    // each new run so an active session doesn't get killed mid-turn. Once the
-    // runner exits (60s after end_turn idle) renewals stop and the sandbox
-    // dies at the next timeout boundary.
+    // each new run so an active session doesn't get killed mid-turn.
     await sb.extendTimeout(SANDBOX_TIMEOUT_MS).catch(() => {});
     return sb;
   } catch {
@@ -199,11 +226,16 @@ function sandboxCredentials(
  * Raises on ack failure or Vercel API errors. The caller treats any raise as
  * "skip this item and keep draining".
  */
-async function processWorkItem(
+export async function processWorkItem(
   client: Anthropic,
   work: { id: string; secret?: string | null; data: { id: string } },
   environmentId: string,
   environmentKey: string,
+  io: {
+    createSandbox?: typeof Sandbox.create;
+    kv?: KVLike | null;
+    getSandbox?: (opts: { sandboxId: string }) => Promise<Sandbox>;
+  } = {},
 ): Promise<ProcessedItem> {
   const sessionId = work.data.id;
 
@@ -216,7 +248,7 @@ async function processWorkItem(
   // already-extended VM timeout. Without KV every delivery creates a fresh
   // sandbox. SessionToolRunner dedups via seen/answered, so a duplicate runner
   // is wasteful, not wrong.
-  const existing = await findLiveSandbox(sessionId);
+  const existing = await findLiveSandbox(sessionId, io);
   if (existing) {
     console.log(`[webhook] work=${work.id} session=${sessionId} sandbox=${existing.sandboxId} (reused)`);
     return { session_id: sessionId, work_id: work.id, sandbox_id: existing.sandboxId, reused: true };
@@ -236,7 +268,9 @@ async function processWorkItem(
     console.warn(`[webhook] session=${sessionId}: the sandbox receives the ENVIRONMENT KEY (opt-in fallback)`);
   }
 
-  const sandbox = await Sandbox.create({
+  const createSandbox = io.createSandbox ?? Sandbox.create.bind(Sandbox);
+  const kv = io.kv !== undefined ? io.kv : await kvStore();
+  const sandbox = await createSandbox({
     runtime: "node24",
     timeout: SANDBOX_TIMEOUT_MS,
     networkPolicy: {
@@ -244,81 +278,88 @@ async function processWorkItem(
       allow: [new URL(baseURL()).hostname, "registry.npmjs.org"],
     },
   });
-  // Record session_id → sandbox_id with a TTL matching the VM timeout so stale
-  // mappings self-evict. Best effort: a failed write means the next delivery
-  // creates a duplicate sandbox.
-  await (await kvStore())?.set(sandboxKey(sessionId), sandbox.sandboxId, { px: SANDBOX_TIMEOUT_MS }).catch(() => {});
-
-  await sandbox.writeFiles([
-    { path: `${RUNNER_DIR}/runner.mjs`, content: Buffer.from(RUNNER_SOURCE) },
-    { path: `${RUNNER_DIR}/package.json`, content: Buffer.from(RUNNER_PACKAGE_JSON) },
-  ]);
-
-  // Root-owned paths: create them as root, then chown to the sandbox user so
-  // the runner (which runs unprivileged) can write the agent's working tree.
-  // The command string is built from constants only.
-  const mkdirs = await sandbox.runCommand({
-    cmd: "sh",
-    args: ["-c", `mkdir -p ${AGENT_DIRS.join(" ")} && chown -R "$(stat -c %u:%g ${RUNNER_DIR})" ${AGENT_DIRS.join(" ")}`],
-    sudo: true,
-  });
-  if (mkdirs.exitCode !== 0) {
-    console.warn(`[webhook] sandbox=${sandbox.sandboxId} mkdir rc=${mkdirs.exitCode}: ${redact((await mkdirs.output("both")).trim())}`);
-  }
-
-  // Install runner deps and surface the result in the *function* logs
-  // (`vercel logs <project>`). Sandbox stdout isn't visible without the
-  // Sandboxes observability tab, which not every plan has.
-  const install = await sandbox.runCommand({
-    cmd: "sh",
-    args: ["-c", `cd ${RUNNER_DIR} && npm install --no-audit --no-fund 2>&1`],
-  });
-  const installOut = await install.output("both");
-  console.log(
-    `[webhook] sandbox=${sandbox.sandboxId} npm install rc=${install.exitCode}: ${redact(installOut.slice(-500).trim())}`,
-  );
-  if (install.exitCode !== 0) throw new WorkError(`npm install failed rc=${install.exitCode}`);
-
-  // Runner detached: its heartbeat must outlive this function invocation.
-  const runner = await sandbox.runCommand({
-    cmd: "node",
-    args: ["runner.mjs"],
-    cwd: RUNNER_DIR,
-    // Same env contract as `ant beta:worker poll --on-work`: runner.mjs reads these
-    // to build the client and run EnvironmentWorker.handleItem(). The credential
-    // is whatever sandboxCredentials() picked above.
-    env: {
-      ANTHROPIC_BASE_URL: baseURL(),
-      ...credentials,
-      ANTHROPIC_SESSION_ID: sessionId,
-      ANTHROPIC_ENVIRONMENT_ID: environmentId,
-      ANTHROPIC_WORK_ID: work.id,
-      WORKDIR,
-    },
-    detached: true,
-  });
-
-  // Mirror the runner's first ~30s of stdout/stderr into the function log so
-  // crash-on-start (bad import, 401, missing env) and the first tool dispatch
-  // are debuggable from `vercel logs` alone. The runner keeps going after we
-  // stop listening.
-  const tail: string[] = [];
-  const tailAbort = new AbortController();
-  const tailTimeout = setTimeout(() => tailAbort.abort(), 30_000);
   try {
-    for await (const log of runner.logs({ signal: tailAbort.signal })) {
-      tail.push(log.data);
-      if (tail.join("").length > 8_000) break;
-    }
-  } catch {
-    // aborted by timeout, as expected
-  } finally {
-    clearTimeout(tailTimeout);
-  }
-  console.log(`[webhook] sandbox=${sandbox.sandboxId} runner head:\n${redact(tail.join("").trim()) || "(no output yet)"}`);
+    await sandbox.writeFiles([
+      { path: `${RUNNER_DIR}/runner.mjs`, content: Buffer.from(RUNNER_SOURCE) },
+      { path: `${RUNNER_DIR}/package.json`, content: Buffer.from(RUNNER_PACKAGE_JSON) },
+    ]);
 
-  console.log(`[webhook] acked work=${work.id} session=${sessionId} sandbox=${sandbox.sandboxId} (created)`);
-  return { session_id: sessionId, work_id: work.id, sandbox_id: sandbox.sandboxId };
+    // Root-owned paths: create them as root, then chown to the sandbox user so
+    // the runner (which runs unprivileged) can write the agent's working tree.
+    // The command string is built from constants only.
+    const mkdirs = await sandbox.runCommand({
+      cmd: "sh",
+      args: ["-c", `mkdir -p ${AGENT_DIRS.join(" ")} && chown -R "$(stat -c %u:%g ${RUNNER_DIR})" ${AGENT_DIRS.join(" ")}`],
+      sudo: true,
+    });
+    if (mkdirs.exitCode !== 0) {
+      console.warn(`[webhook] sandbox=${sandbox.sandboxId} mkdir rc=${mkdirs.exitCode}: ${redact((await mkdirs.output("both")).trim())}`);
+    }
+
+    // Install runner deps and surface the result in the *function* logs
+    // (`vercel logs <project>`). Sandbox stdout isn't visible without the
+    // Sandboxes observability tab, which not every plan has.
+    const install = await sandbox.runCommand({
+      cmd: "sh",
+      args: ["-c", `cd ${RUNNER_DIR} && npm install --no-audit --no-fund 2>&1`],
+    });
+    const installOut = await install.output("both");
+    console.log(
+      `[webhook] sandbox=${sandbox.sandboxId} npm install rc=${install.exitCode}: ${redact(installOut.slice(-500).trim())}`,
+    );
+    if (install.exitCode !== 0) throw new WorkError(`npm install failed rc=${install.exitCode}`);
+
+    // Runner detached: its heartbeat must outlive this function invocation.
+    const runner = await sandbox.runCommand({
+      cmd: "node",
+      args: ["runner.mjs"],
+      cwd: RUNNER_DIR,
+      // Same env contract as `ant beta:worker poll --on-work`: runner.mjs reads these
+      // to build the client and run EnvironmentWorker.handleItem(). The credential
+      // is whatever sandboxCredentials() picked above.
+      env: {
+        ANTHROPIC_BASE_URL: baseURL(),
+        ...credentials,
+        ANTHROPIC_SESSION_ID: sessionId,
+        ANTHROPIC_ENVIRONMENT_ID: environmentId,
+        ANTHROPIC_WORK_ID: work.id,
+        WORKDIR,
+      },
+      detached: true,
+    });
+
+    // Record the mapping only after the runner is started. A VM recorded earlier
+    // still looks "running" when install fails, and the next delivery acks work
+    // into it and extends the timeout, so the item never respawns.
+    // Best effort: a failed write means the next delivery creates a duplicate sandbox.
+    await kv?.set(sandboxKey(sessionId), sandbox.sandboxId, { px: SANDBOX_TIMEOUT_MS }).catch(() => {});
+
+    // Mirror the runner's first ~30s of stdout/stderr into the function log so
+    // crash-on-start (bad import, 401, missing env) and the first tool dispatch
+    // are debuggable from `vercel logs` alone. The runner keeps going after we
+    // stop listening.
+    const tail: string[] = [];
+    const tailAbort = new AbortController();
+    const tailTimeout = setTimeout(() => tailAbort.abort(), 30_000);
+    try {
+      for await (const log of runner.logs({ signal: tailAbort.signal })) {
+        tail.push(log.data);
+        if (tail.join("").length > 8_000) break;
+      }
+    } catch {
+      // aborted by timeout, as expected
+    } finally {
+      clearTimeout(tailTimeout);
+    }
+    console.log(`[webhook] sandbox=${sandbox.sandboxId} runner head:\n${redact(tail.join("").trim()) || "(no output yet)"}`);
+
+    console.log(`[webhook] acked work=${work.id} session=${sessionId} sandbox=${sandbox.sandboxId} (created)`);
+    return { session_id: sessionId, work_id: work.id, sandbox_id: sandbox.sandboxId };
+  } catch (error) {
+    await kv?.del(sandboxKey(sessionId)).catch(() => {});
+    await sandbox.stop().catch(() => {});
+    throw error;
+  }
 }
 
 /**

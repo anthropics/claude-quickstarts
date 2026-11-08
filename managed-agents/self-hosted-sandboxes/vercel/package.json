@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vercel dev",
     "deploy": "vercel deploy",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test test/webhook.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.0.0",
