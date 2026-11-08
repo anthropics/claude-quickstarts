@@ -152,6 +152,11 @@ async def run_autonomous_agent(
             print("To continue, run the script again without --max-iterations")
             break
 
+        # The feature list is the initializer's artifact. Decide from the
+        # file each iteration so an error, or a session that exits before
+        # writing it, is retried as initialization.
+        is_first_run = not tests_file.exists()
+
         # Print session header
         print_session_header(iteration, is_first_run)
 
@@ -161,7 +166,6 @@ async def run_autonomous_agent(
         # Choose prompt based on session type
         if is_first_run:
             prompt = get_initializer_prompt()
-            is_first_run = False  # Only use initializer once
         else:
             prompt = get_coding_prompt()
 
