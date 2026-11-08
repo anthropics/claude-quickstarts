@@ -27,8 +27,33 @@ function compile(pattern: string): RegExp | string {
 }
 
 function globToRegex(pat: string): RegExp {
-  const esc = pat.replace(/[.+^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`^${esc.replace(/\*\*/g, ".*").replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]")}$`);
+  let out = "";
+  for (let i = 0; i < pat.length; i++) {
+    const c = pat[i]!;
+    if (c === "*" && pat[i + 1] === "*") {
+      const prev = i === 0 ? "/" : pat[i - 1]!;
+      const after = pat[i + 2];
+      i += 1;
+      if (prev === "/" && (after === "/" || after === undefined)) {
+        if (after === "/") i += 1;
+        out += after === "/" ? "(?:[^/]+/)*" : ".*";
+      } else {
+        out += "[^/]*";
+      }
+      continue;
+    }
+    if (c === "*") {
+      out += "[^/]*";
+      continue;
+    }
+    if (c === "?") {
+      out += "[^/]";
+      continue;
+    }
+    if (".+^${}()|[]\\".includes(c)) out += "\\";
+    out += c;
+  }
+  return new RegExp(`^${out}$`);
 }
 
 export function fakeTools(fs: FakeFS) {
@@ -57,7 +82,8 @@ export function fakeTools(fs: FakeFS) {
       const cur = fs.get(file_path);
       if (cur === undefined) return `error: ${file_path}: no such file`;
       if (!cur.includes(old_string)) return `error: old_string not found in ${file_path}`;
-      fs.set(file_path, cur.replace(old_string, new_string));
+      const at = cur.indexOf(old_string);
+      fs.set(file_path, cur.slice(0, at) + new_string + cur.slice(at + old_string.length));
       return `edited ${file_path}`;
     },
   });
