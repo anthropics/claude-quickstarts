@@ -52,9 +52,20 @@ with st.expander("System prompt", expanded=False):
     else:
         st.caption("Not recorded for this run (older trajectory).")
 
-turns = [json.loads(line) for line in (run / "transcript.jsonl").read_text().splitlines()]
+try:
+    transcript = (run / "transcript.jsonl").read_text()
+except FileNotFoundError:
+    transcript = ""
+
+turns = [json.loads(line) for line in transcript.splitlines()]
 n_turns = len(turns)
-show_upto = st.slider("Show through turn", min_value=1, max_value=max(n_turns, 1), value=n_turns)
+if not n_turns:
+    st.info("No turns recorded for this run.")
+    st.stop()
+
+show_upto = n_turns
+if n_turns > 1:
+    show_upto = st.slider("Show through turn", min_value=1, max_value=n_turns, value=n_turns)
 
 for i, turn in enumerate(turns[:show_upto], start=1):
     role = turn["role"]
