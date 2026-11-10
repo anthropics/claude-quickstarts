@@ -267,8 +267,11 @@ class CdpBrowser(BetaAbstractBrowserToolset20260801):
 READ_PAGE = """(() => {
   const refs = (window.__cdpBrowserRefs ||= { next: 1, byRef: new Map(), byElement: new WeakMap() });
   const roles = { A: 'link', BUTTON: 'button', INPUT: 'textbox', SELECT: 'combobox', TEXTAREA: 'textbox' };
+  const secret = (el) => el.type === 'password' ||
+    /^(?:one-time-code|cc-csc|(?:current|new)-password)$/i.test(el.getAttribute('autocomplete') || '') ||
+    (typeof getComputedStyle === 'function' && (getComputedStyle(el).webkitTextSecurity || 'none') !== 'none');
   const name = (el) => (el.getAttribute('aria-label') || el.innerText ||
-    (el.type !== 'password' && el.value) || el.placeholder || '')
+    (!secret(el) && el.value) || el.placeholder || '')
     .trim().replace(/\\s+/g, ' ').slice(0, 80);
   const lines = [];
   const selector = 'h1, h2, h3, a[href], button, input, select, textarea, [role=button], [role=link]';

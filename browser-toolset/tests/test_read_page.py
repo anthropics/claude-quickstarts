@@ -1,5 +1,7 @@
 import ast
 import json
+import re
+import shutil
 import subprocess
 import unittest
 from pathlib import Path
@@ -15,11 +17,12 @@ function readTypescriptScript() {
 }
 
 function runReadPage(script) {
-  function element(type, value, attributes = {}) {
+  function element(type, value, attributes = {}, style = {}) {
     return {
       tagName: "INPUT",
       type,
       value,
+      style,
       innerText: "",
       placeholder: attributes.placeholder || "",
       getAttribute(name) {
@@ -33,19 +36,36 @@ function runReadPage(script) {
 
   const password = element("password", "FAKE_PASSWORD_123", { "aria-label": "Password" });
   const unlabelledPassword = element("password", "ANOTHER_FAKE_PASSWORD");
+  const cssMaskedPin = element("tel", "FAKE_PIN_4567", { placeholder: "PIN" }, { webkitTextSecurity: "disc" });
+  const otpCode = element("text", "FAKE_OTP_890123", { autocomplete: "one-time-code", placeholder: "Verification code" });
+  const cardCvc = element("text", "FAKE_CVC_999", { autocomplete: "cc-csc", placeholder: "CVC" });
   const text = element("text", "visible-user");
-  const window = {};
-  const document = { querySelectorAll: () => [password, unlabelledPassword, text] };
-  return vm.runInNewContext(script, { window, document });
+  const getComputedStyle = (el) => ({ webkitTextSecurity: el.style?.webkitTextSecurity || "none" });
+  const window = { getComputedStyle };
+  const document = {
+    querySelectorAll: () => [password, unlabelledPassword, cssMaskedPin, otpCode, cardCvc, text],
+  };
+  return vm.runInNewContext(script, { window, document, getComputedStyle });
 }
 
 for (const script of [pythonScript, readTypescriptScript()]) {
   const output = runReadPage(script);
-  if (output.includes("FAKE_PASSWORD_123") || output.includes("ANOTHER_FAKE_PASSWORD")) {
-    throw new Error(`password value leaked: ${output}`);
+  for (const secret of [
+    "FAKE_PASSWORD_123",
+    "ANOTHER_FAKE_PASSWORD",
+    "FAKE_PIN_4567",
+    "FAKE_OTP_890123",
+    "FAKE_CVC_999",
+  ]) {
+    if (output.includes(secret)) {
+      throw new Error(`secret value leaked (${secret}): ${output}`);
+    }
   }
   if (!output.includes('textbox "Password"')) {
     throw new Error(`password control lost its accessible label: ${output}`);
+  }
+  if (!output.includes('textbox "PIN"') || !output.includes('textbox "Verification code"') || !output.includes('textbox "CVC"')) {
+    throw new Error(`masked control lost its placeholder fallback: ${output}`);
   }
   if (!output.includes('textbox "visible-user"')) {
     throw new Error(`ordinary input value disappeared: ${output}`);
@@ -65,11 +85,16 @@ def read_page_script(path: Path) -> str:
             and any(getattr(target, "id", None) == "READ_PAGE" for target in node.targets)
         )
 
-    start = text.index("const READ_PAGE = `")
-    end = text.index("`;\n\n// The viewport", start) + 1
+    prefix = "const READ_PAGE = `"
+    start = text.index(prefix)
+    close = re.search(r"(?<!\\)`", text[start + len(prefix) :])
+    if close is None:
+        raise ValueError(f"unterminated READ_PAGE template literal in {path}")
+    end = start + len(prefix) + close.end()
     return text[start:end]
 
 
+@unittest.skipUnless(shutil.which("node"), "node is required to execute READ_PAGE scripts")
 class ReadPageTest(unittest.TestCase):
     def test_password_values_are_not_exposed(self) -> None:
         scripts = [
