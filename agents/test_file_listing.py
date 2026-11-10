@@ -43,8 +43,11 @@ def test_list_directory_with_glob_characters(tmp_path: Path, name: str) -> None:
     assert result == "📄 notes.txt"
 
 
-def test_list_preserves_nested_relative_paths(tmp_path: Path) -> None:
-    directory = tmp_path / "reports"
+def test_list_preserves_nested_relative_paths(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    directory = Path("reports")
     nested = directory / "child" / "reports"
     nested.mkdir(parents=True)
     (nested / "notes.txt").write_text("notes", encoding="utf-8")
