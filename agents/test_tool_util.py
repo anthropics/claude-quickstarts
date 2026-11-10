@@ -24,7 +24,7 @@ def test_tool_lookup_and_execution_errors(parallel):
         {
             "type": "tool_result",
             "tool_use_id": "execution-error",
-            "content": "Error executing tool: 'missing'",
+            "content": "Error executing tool: KeyError: 'missing'",
             "is_error": True,
         },
         {

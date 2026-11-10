@@ -20,7 +20,7 @@ async def _execute_single_tool(
         result = await tool.execute(**call.input)
         response["content"] = str(result)
     except Exception as e:
-        response["content"] = f"Error executing tool: {str(e)}"
+        response["content"] = f"Error executing tool: {type(e).__name__}: {e!s}"
         response["is_error"] = True
 
     return response
