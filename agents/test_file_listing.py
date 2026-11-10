@@ -57,3 +57,15 @@ def test_list_preserves_nested_relative_paths(
     )
 
     assert result == "📄 child/reports/notes.txt"
+
+
+def test_list_directory_with_parent_component(tmp_path: Path) -> None:
+    (tmp_path / "parent").mkdir()
+    directory = tmp_path / "reports[2026]"
+    directory.mkdir()
+    (directory / "notes.txt").write_text("notes", encoding="utf-8")
+    path = str(tmp_path / "parent" / ".." / "reports[2026]")
+
+    result = asyncio.run(FileReadTool().execute("list", path, pattern="*.txt"))
+
+    assert result == "📄 notes.txt"
