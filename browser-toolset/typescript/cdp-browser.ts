@@ -370,7 +370,8 @@ const PAGE_TEXT = "document.body ? document.body.innerText : ''";
 const READ_PAGE = `(() => {
   const refs = (window.__cdpBrowserRefs ||= { next: 1, byRef: new Map(), byElement: new WeakMap() });
   const roles = { A: 'link', BUTTON: 'button', INPUT: 'textbox', SELECT: 'combobox', TEXTAREA: 'textbox' };
-  const name = (el) => (el.getAttribute('aria-label') || el.innerText || el.value || el.placeholder || '')
+  const name = (el) => (el.getAttribute('aria-label') || el.innerText ||
+    (el.type !== 'password' && el.value) || el.placeholder || '')
     .trim().replace(/\\s+/g, ' ').slice(0, 80);
   const lines = [];
   const selector = 'h1, h2, h3, a[href], button, input, select, textarea, [role=button], [role=link]';
