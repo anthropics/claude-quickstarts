@@ -10,15 +10,17 @@ async def _execute_single_tool(
     """Execute a single tool and handle errors."""
     response = {"type": "tool_result", "tool_use_id": call.id}
 
-    try:
-        # Execute the tool directly
-        result = await tool_dict[call.name].execute(**call.input)
-        response["content"] = str(result)
-    except KeyError:
+    tool = tool_dict.get(call.name)
+    if tool is None:
         response["content"] = f"Tool '{call.name}' not found"
         response["is_error"] = True
+        return response
+
+    try:
+        result = await tool.execute(**call.input)
+        response["content"] = str(result)
     except Exception as e:
-        response["content"] = f"Error executing tool: {str(e)}"
+        response["content"] = f"Error executing tool: {type(e).__name__}: {e!s}"
         response["is_error"] = True
 
     return response
