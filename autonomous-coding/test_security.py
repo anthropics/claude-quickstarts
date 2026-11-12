@@ -54,6 +54,8 @@ def test_extract_commands():
         ("/usr/bin/node script.js", ["node"]),
         ("VAR=value ls", ["ls"]),
         ("git status || git init", ["git", "git"]),
+        ("ls\nrm -rf /", ["ls", "rm"]),
+        ("ls; rm -rf /", ["ls", "rm"]),
     ]
 
     for cmd, expected in test_cases:
@@ -195,6 +197,7 @@ def main():
         "pkill chrome",
         "pkill python",
         # Shell injection attempts
+        "ls\nrm -rf /",
         "$(echo pkill) node",
         'eval "pkill node"',
         'bash -c "pkill node"',
