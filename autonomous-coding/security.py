@@ -65,7 +65,7 @@ def split_command_segments(command_string: str) -> list[str]:
     # Further split on semicolons
     result = []
     for segment in segments:
-        sub_segments = re.split(r'(?<!["\'])\s*;\s*(?!["\'])', segment)
+        sub_segments = re.split(r'(?<!["\'])\s*[;\n\r]+\s*(?!["\'])', segment)
         for sub in sub_segments:
             sub = sub.strip()
             if sub:
@@ -92,9 +92,10 @@ def extract_commands(command_string: str) -> list[str]:
     # shlex doesn't treat ; as a separator, so we need to pre-process
     import re
 
-    # Split on semicolons that aren't inside quotes (simple heuristic)
-    # This handles common cases like "echo hello; ls"
-    segments = re.split(r'(?<!["\'])\s*;\s*(?!["\'])', command_string)
+    # Split on semicolons and newlines that aren't inside quotes.
+    # shlex treats a newline as whitespace, so "ls\nrm" would otherwise
+    # look like "ls rm" and the second command would be skipped.
+    segments = re.split(r'(?<!["\'])\s*[;\n\r]+\s*(?!["\'])', command_string)
 
     for segment in segments:
         segment = segment.strip()
