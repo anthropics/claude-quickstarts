@@ -231,7 +231,7 @@ This is less relevant for browser automation since the `ref` parameter provides 
 
 **API errors?**
 - Verify your Anthropic API key is set correctly
-- Check you're using a compatible model (Claude 4.5 models: claude-sonnet-4-5-20250929, claude-opus-4-5-20251101, or claude-haiku-4-5-20251001)
+- Check you're using a compatible model (claude-sonnet-4-6, claude-opus-4-5-20251101, or claude-haiku-4-5-20251001)
 
 **Browser actions failing?**
 - Some websites may have anti-automation measures
