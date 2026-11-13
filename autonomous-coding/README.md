@@ -131,7 +131,7 @@ The application will typically be available at `http://localhost:3000` or simila
 |--------|-------------|---------|
 | `--project-dir` | Directory for the project | `./autonomous_demo_project` |
 | `--max-iterations` | Max agent iterations | Unlimited |
-| `--model` | Claude model to use | `claude-sonnet-4-5-20250929` |
+| `--model` | Claude model to use | `claude-sonnet-4-6` |
 
 ## Customization
 
