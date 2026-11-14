@@ -18,14 +18,20 @@
       "name": "Billing",
       "keywords": [
         "AR",
+        "admin API",
+        "api_key_id",
         "billing details",
+        "cost report",
+        "cost_report",
+        "cost reporting",
         "invoice",
         "receipt",
         "payment method",
         "pricing",
         "refund request",
         "subscription management",
-        "taxes"
+        "taxes",
+        "usage cost"
       ]
     },
     {
@@ -79,12 +85,15 @@
       "id": "usage",
       "name": "Usage",
       "keywords": [
-        "errors",
+        "api_key_id",
+        "availability",
         "capabilities",
+        "errors",
+        "limits",
         "quality",
         "techniques",
-        "limits",
-        "availability"
+        "usage report",
+        "usage_report"
       ]
     }
   ]
