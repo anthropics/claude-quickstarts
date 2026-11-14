@@ -22,6 +22,21 @@ def computer_tool(request):
     return request.param()
 
 
+@pytest.fixture(
+    params=[
+        ComputerTool20241022,
+        ComputerTool20250124,
+        ComputerTool20251124,
+        ComputerToolset20260801,
+    ]
+)
+def scaled_computer_tool(request):
+    tool = request.param()
+    tool._scaling_enabled = True
+    tool.width, tool.height = 1920, 1080
+    return tool
+
+
 @pytest.mark.asyncio
 async def test_computer_tool_mouse_move(computer_tool):
     with patch.object(computer_tool, "shell", new_callable=AsyncMock) as mock_shell:
@@ -68,9 +83,9 @@ async def test_computer_tool_scaling(computer_tool):
     computer_tool.height = 1080
 
     # Test scaling from API to computer
-    x, y = computer_tool.scale_coordinates(ScalingSource.API, 1366, 768)
-    assert x == 1920
-    assert y == 1080
+    x, y = computer_tool.scale_coordinates(ScalingSource.API, 1365, 767)
+    assert x == 1919
+    assert y == 1079
 
     # Test scaling from computer to API
     x, y = computer_tool.scale_coordinates(ScalingSource.COMPUTER, 1920, 1080)
@@ -91,14 +106,26 @@ async def test_computer_tool_scaling_with_different_aspect_ratio(computer_tool):
     computer_tool.height = 1200  # 16:10 aspect ratio
 
     # Test scaling from API to computer
-    x, y = computer_tool.scale_coordinates(ScalingSource.API, 1280, 800)
-    assert x == 1920
-    assert y == 1200
+    x, y = computer_tool.scale_coordinates(ScalingSource.API, 640, 400)
+    assert x == 960
+    assert y == 600
 
     # Test scaling from computer to API
     x, y = computer_tool.scale_coordinates(ScalingSource.COMPUTER, 1920, 1200)
     assert x == 1280
     assert y == 800
+
+
+def test_computer_tool_scaling_last_pixel_with_different_aspect_ratio(computer_tool):
+    computer_tool._scaling_enabled = True
+    computer_tool.width, computer_tool.height = 1920, 1200
+
+    assert computer_tool.options["display_width_px"] == 1280
+    assert computer_tool.options["display_height_px"] == 800
+    assert computer_tool.scale_coordinates(ScalingSource.API, 1279, 799) == (
+        1918,
+        1198,
+    )
 
 
 @pytest.mark.asyncio
@@ -126,6 +153,50 @@ async def test_computer_tool_scaling_out_of_bounds(computer_tool):
     # Test scaling from API with out of bounds coordinates
     with pytest.raises(ToolError, match="Coordinates .*, .* are out of bounds"):
         x, y = computer_tool.scale_coordinates(ScalingSource.API, 2000, 1500)
+
+
+@pytest.mark.asyncio
+async def test_computer_tool_scaling_bounded_by_the_screenshot_frame(computer_tool):
+    computer_tool._scaling_enabled = True
+    computer_tool.width = 1920
+    computer_tool.height = 1080
+
+    # 1920x1080 is advertised to the model as FWXGA, so the model answers in a
+    # 1366x768 frame; 1500, 900 fits the display but not that frame.
+    assert computer_tool.options["display_width_px"] == 1366
+    assert computer_tool.options["display_height_px"] == 768
+
+    with pytest.raises(ToolError, match="Coordinates 1500, 900 are out of bounds"):
+        computer_tool.scale_coordinates(ScalingSource.API, 1500, 900)
+
+
+def test_computer_tool_rejects_coordinate_at_frame_width(scaled_computer_tool):
+    assert scaled_computer_tool.options["display_width_px"] == 1366
+    with pytest.raises(ToolError, match="Coordinates 1366, 384 are out of bounds"):
+        scaled_computer_tool.scale_coordinates(ScalingSource.API, 1366, 384)
+
+
+def test_computer_tool_rejects_coordinate_at_frame_height(scaled_computer_tool):
+    assert scaled_computer_tool.options["display_height_px"] == 768
+    with pytest.raises(ToolError, match="Coordinates 683, 768 are out of bounds"):
+        scaled_computer_tool.scale_coordinates(ScalingSource.API, 683, 768)
+
+
+def test_computer_tool_accepts_last_frame_pixel(scaled_computer_tool):
+    assert scaled_computer_tool.scale_coordinates(ScalingSource.API, 1365, 767) == (
+        1919,
+        1079,
+    )
+
+
+@pytest.mark.asyncio
+async def test_computer_tool_does_not_move_to_frame_edge(scaled_computer_tool):
+    with patch.object(
+        scaled_computer_tool, "shell", new_callable=AsyncMock
+    ) as mock_shell:
+        with pytest.raises(ToolError, match="Coordinates 1366, 384 are out of bounds"):
+            await scaled_computer_tool(action="mouse_move", coordinate=[1366, 384])
+        mock_shell.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -300,6 +371,31 @@ async def test_zoom_without_scaling_uses_screenshot_pixels_directly(zoom_capture
     (command,) = zoom_capture
     assert "-crop 100x50+10+20 +repage" in command
     assert "-resize 1024x768 " in command
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("tool_class", [ComputerTool20251124, ComputerToolset20260801])
+async def test_zoom_accepts_full_scaled_frame(zoom_capture, tool_class):
+    tool = tool_class()
+    tool._scaling_enabled = True
+    tool.width, tool.height = 1920, 1080
+
+    await tool(action="zoom", region=(0, 0, 1366, 768))
+
+    (command,) = zoom_capture
+    assert "-crop 1920x1080+0+0 +repage" in command
+    assert "-resize 1366x768 " in command
+
+
+@pytest.mark.asyncio
+async def test_zoom_rejects_end_beyond_scaled_frame(zoom_capture):
+    tool = ComputerTool20251124()
+    tool._scaling_enabled = True
+    tool.width, tool.height = 1920, 1080
+
+    with pytest.raises(ToolError, match="Coordinates 1367, 768 are out of bounds"):
+        await tool(action="zoom", region=(0, 0, 1367, 768))
+    assert zoom_capture == []
 
 
 @pytest.mark.asyncio
