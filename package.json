@@ -1,0 +1,12 @@
+{
+  "name": "watson-glaser-tis-tests",
+  "version": "1.0.0",
+  "description": "Puppeteer tests for Advanced Test Intelligence System",
+  "main": "index.js",
+  "scripts": {
+    "test-puppeteer": "node watson-glaser-trainer/tests/puppeteer_test.js"
+  },
+  "devDependencies": {
+    "puppeteer": "^21.0.0"
+  }
+}

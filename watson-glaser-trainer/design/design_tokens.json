@@ -1,0 +1,114 @@
+{
+  "name": "Claude-Style TIS Design Tokens",
+  "meta": {
+    "source": "designprompts.dev (inspired)",
+    "createdAt": "2025-12-03",
+    "description": "Single-file design token set for the Watson Glaser TIS and Claude.ai clone UI. Designed for easy mapping into Tailwind or CSS variables."
+  },
+  "colors": {
+    "brand": {
+      "primary": "#CC785C",
+      "primary-600": "#c06449",
+      "primary-700": "#b4533a",
+      "accent": "#00d4ff"
+    },
+    "background": {
+      "light": "#FFFFFF",
+      "dark": "#0F1724",
+      "panel": "#1A1A1A",
+      "muted": "#0a0a0f"
+    },
+    "surface": {
+      "card": "#2A2A2A",
+      "muted": "#15151A"
+    },
+    "text": {
+      "base": "#E5E5E5",
+      "muted": "#9CA3AF",
+      "title": "#F8F7F6",
+      "inverse": "#0b0b0b"
+    },
+    "state": {
+      "success": "#00FF88",
+      "warning": "#FFD93D",
+      "danger": "#FF6B6B",
+      "info": "#00D4FF"
+    },
+    "borders": {
+      "default": "#404040",
+      "muted": "#2A2A3A"
+    },
+    "code": {
+      "bg": "#0b1220",
+      "text": "#d6deff",
+      "keyword": "#ffcc66",
+      "string": "#a8ffb8",
+      "function": "#79b8ff"
+    }
+  },
+  "typography": {
+    "fontFamily": {
+      "ui": "Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial",
+      "mono": "JetBrains Mono, Monaco, 'Courier New', monospace"
+    },
+    "size": {
+      "xs": "12px",
+      "sm": "14px",
+      "base": "16px",
+      "lg": "18px",
+      "xl": "20px",
+      "2xl": "24px"
+    },
+    "weights": {
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    }
+  },
+  "spacing": {
+    "xs": "4px",
+    "sm": "8px",
+    "md": "16px",
+    "lg": "24px",
+    "xl": "32px",
+    "2xl": "48px"
+  },
+  "radii": {
+    "sm": "6px",
+    "md": "8px",
+    "lg": "12px",
+    "pill": "9999px"
+  },
+  "shadows": {
+    "soft": "0 6px 18px rgba(3,10,18,0.45)",
+    "card": "0 6px 20px rgba(2,6,23,0.6)",
+    "focus": "0 0 0 4px rgba(204,120,92,0.12)"
+  },
+  "grid": {
+    "gutter": "16px",
+    "maxWidth": "1400px"
+  },
+  "tokensForTailwind": {
+    "colors": {
+      "brand": "#CC785C",
+      "accent": "#00d4ff",
+      "bg-dark": "#0F1724",
+      "panel": "#1A1A1A",
+      "text": "#E5E5E5",
+      "muted": "#9CA3AF",
+      "success": "#00FF88",
+      "warning": "#FFD93D",
+      "danger": "#FF6B6B"
+    },
+    "fontFamily": {
+      "sans": ["Inter", "system-ui", "-apple-system", "Segoe UI", "Roboto"],
+      "mono": ["JetBrains Mono", "Monaco", "monospace"]
+    }
+  },
+  "usageNotes": {
+    "applyAsCssVars": "Map top-level tokens to :root CSS variables (see README snippet)",
+    "applyToTailwind": "Use tokens under tokensForTailwind to create a small tailwind.config.js extension",
+    "oneFileGoal": "This single JSON should be all you need to change look-and-feel. Components can reference tokens by name."
+  }
+}

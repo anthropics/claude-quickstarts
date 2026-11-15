@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4-Layer TIS Neural Architecture</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            background: #0a0a0f;
+            color: #e5e5e5;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .architecture-container {
+            max-width: 1800px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+        
+        .architecture-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .layer-container {
+            background: #1a1a1a;
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .layer-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--layer-color);
+        }
+        
+        .layer-1 { --layer-color: #00ff88; }
+        .layer-2 { --layer-color: #00d4ff; }
+        .layer-3 { --layer-color: #ffcc66; }
+        .layer-4 { --layer-color: #ff6b9d; }
+        
+        .layer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .layer-title {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: var(--layer-color);
+        }
+        
+        .layer-status {
+            padding: 5px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            background: #2a2a2a;
+        }
+        
+        .layer-status.active {
+            background: var(--layer-color);
+            color: #0a0a0a;
+        }
+        
+        .layer-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        
+        .metric {
+            background: #0f0f0f;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 3px solid var(--layer-color);
+        }
+        
+        .metric-label {
+            font-size: 0.75em;
+            color: #888;
+            margin-bottom: 5px;
+        }
+        
+        .metric-value {
+            font-size: 1.3em;
+            font-weight: 700;
+            color: var(--layer-color);
+        }
+        
+        .layer-output {
+            background: #0f0f0f;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 0.9em;
+            min-height: 80px;
+            max-height: 150px;
+            overflow-y: auto;
+            border-left: 3px solid var(--layer-color);
+        }
+        
+        .layer-output::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .layer-output::-webkit-scrollbar-track {
+            background: #1a1a1a;
+        }
+        
+        .layer-output::-webkit-scrollbar-thumb {
+            background: var(--layer-color);
+            border-radius: 3px;
+        }
+        
+        .output-line {
+            margin-bottom: 5px;
+            opacity: 0.8;
+        }
+        
+        .output-line.highlight {
+            color: var(--layer-color);
+            opacity: 1;
+            font-weight: 600;
+        }
+        
+        .central-control {
+            background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+            border: 2px solid #667eea;
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .control-header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .control-header h2 {
+            font-size: 2em;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .control-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #2a2a2a;
+            color: #e5e5e5;
+            border: 2px solid #667eea;
+        }
+        
+        .btn-secondary:hover {
+            background: #667eea;
+        }
+        
+        .btn-danger {
+            background: #ff6b6b;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #ff5252;
+        }
+        
+        .neural-network-viz {
+            background: #0f0f0f;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+            border: 1px solid #333;
+        }
+        
+        .network-title {
+            text-align: center;
+            color: #667eea;
+            font-size: 1.2em;
+            margin-bottom: 15px;
+        }
+        
+        .connections-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+        }
+        
+        .connection-node {
+            background: #1a1a1a;
+            padding: 15px 10px;
+            border-radius: 6px;
+            text-align: center;
+            border: 2px solid var(--layer-color);
+            position: relative;
+        }
+        
+        .connection-strength {
+            font-size: 0.75em;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .synthesis-panel {
+            background: linear-gradient(135deg, #1a1a1a 0%, #0f0f0f 100%);
+            border: 2px solid #00ff88;
+            border-radius: 12px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+        
+        .synthesis-header {
+            font-size: 1.5em;
+            color: #00ff88;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+        
+        .synthesis-output {
+            background: #0a0a0a;
+            padding: 15px;
+            border-radius: 6px;
+            border-left: 4px solid #00ff88;
+            min-height: 100px;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+        
+        .consensus-meter {
+            margin-top: 15px;
+            text-align: center;
+        }
+        
+        .consensus-bar {
+            background: #1a1a1a;
+            height: 30px;
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+            margin-top: 10px;
+        }
+        
+        .consensus-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff88, #00d4ff, #ffcc66, #ff6b9d);
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            color: #0a0a0a;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
+        }
+        
+        .processing {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .stats-panel {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+        
+        .stat-card {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-label {
+            font-size: 0.85em;
+            color: #888;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 2em;
+            font-weight: 700;
+            color: #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="architecture-container">
+        <div class="header">
+            <h1>🧠 4-Layer TIS Neural Architecture</h1>
+            <div class="subtitle">Distributed Multi-Agent Critical Thinking System</div>
+        </div>
+        
+        <div class="central-control">
+            <div class="control-header">
+                <h2>⚡ Central Control</h2>
+                <p style="color: #888;">Orchestrate all 4 layers simultaneously</p>
+            </div>
+            
+            <div class="control-buttons">
+                <button class="btn btn-primary" id="startAll">▶️ Start All Layers</button>
+                <button class="btn btn-secondary" id="pauseAll">⏸️ Pause All</button>
+                <button class="btn btn-danger" id="resetAll">🔄 Reset All</button>
+                <button class="btn btn-secondary" id="synthesize">🔮 Synthesize Consensus</button>
+            </div>
+            
+            <div class="stats-panel">
+                <div class="stat-card">
+                    <div class="stat-label">Total Cycles</div>
+                    <div class="stat-value" id="totalCycles">0</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Network Accuracy</div>
+                    <div class="stat-value" id="networkAccuracy">0%</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Active Layers</div>
+                    <div class="stat-value" id="activeLayers">0/4</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Consensus Level</div>
+                    <div class="stat-value" id="consensusLevel">0%</div>
+                </div>
+            </div>
+            
+            <div class="neural-network-viz">
+                <div class="network-title">Inter-Layer Communication</div>
+                <div class="connections-grid">
+                    <div class="connection-node layer-1">
+                        <div>Layer 1</div>
+                        <div class="connection-strength" id="conn1">Weight: 0.0</div>
+                    </div>
+                    <div class="connection-node layer-2">
+                        <div>Layer 2</div>
+                        <div class="connection-strength" id="conn2">Weight: 0.0</div>
+                    </div>
+                    <div class="connection-node layer-3">
+                        <div>Layer 3</div>
+                        <div class="connection-strength" id="conn3">Weight: 0.0</div>
+                    </div>
+                    <div class="connection-node layer-4">
+                        <div>Layer 4</div>
+                        <div class="connection-strength" id="conn4">Weight: 0.0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="architecture-grid">
+            <div class="layer-container layer-1" id="layer1-container">
+                <div class="layer-header">
+                    <div class="layer-title">Layer 1: Perception</div>
+                    <div class="layer-status" id="layer1-status">Idle</div>
+                </div>
+                <div class="layer-metrics">
+                    <div class="metric">
+                        <div class="metric-label">Cycles</div>
+                        <div class="metric-value" id="layer1-cycles">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Accuracy</div>
+                        <div class="metric-value" id="layer1-accuracy">0%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Patterns</div>
+                        <div class="metric-value" id="layer1-patterns">0</div>
+                    </div>
+                </div>
+                <div class="layer-output" id="layer1-output">
+                    <div class="output-line">Specialization: Question Analysis & Pattern Recognition</div>
+                    <div class="output-line">Awaiting activation...</div>
+                </div>
+            </div>
+            
+            <div class="layer-container layer-2" id="layer2-container">
+                <div class="layer-header">
+                    <div class="layer-title">Layer 2: Reasoning</div>
+                    <div class="layer-status" id="layer2-status">Idle</div>
+                </div>
+                <div class="layer-metrics">
+                    <div class="metric">
+                        <div class="metric-label">Cycles</div>
+                        <div class="metric-value" id="layer2-cycles">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Accuracy</div>
+                        <div class="metric-value" id="layer2-accuracy">0%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Patterns</div>
+                        <div class="metric-value" id="layer2-patterns">0</div>
+                    </div>
+                </div>
+                <div class="layer-output" id="layer2-output">
+                    <div class="output-line">Specialization: Logical Inference & Deduction</div>
+                    <div class="output-line">Awaiting activation...</div>
+                </div>
+            </div>
+            
+            <div class="layer-container layer-3" id="layer3-container">
+                <div class="layer-header">
+                    <div class="layer-title">Layer 3: Evaluation</div>
+                    <div class="layer-status" id="layer3-status">Idle</div>
+                </div>
+                <div class="layer-metrics">
+                    <div class="metric">
+                        <div class="metric-label">Cycles</div>
+                        <div class="metric-value" id="layer3-cycles">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Accuracy</div>
+                        <div class="metric-value" id="layer3-accuracy">0%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Patterns</div>
+                        <div class="metric-value" id="layer3-patterns">0</div>
+                    </div>
+                </div>
+                <div class="layer-output" id="layer3-output">
+                    <div class="output-line">Specialization: Critical Assessment & Evidence Evaluation</div>
+                    <div class="output-line">Awaiting activation...</div>
+                </div>
+            </div>
+            
+            <div class="layer-container layer-4" id="layer4-container">
+                <div class="layer-header">
+                    <div class="layer-title">Layer 4: Meta-Learning</div>
+                    <div class="layer-status" id="layer4-status">Idle</div>
+                </div>
+                <div class="layer-metrics">
+                    <div class="metric">
+                        <div class="metric-label">Cycles</div>
+                        <div class="metric-value" id="layer4-cycles">0</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Accuracy</div>
+                        <div class="metric-value" id="layer4-accuracy">0%</div>
+                    </div>
+                    <div class="metric">
+                        <div class="metric-label">Patterns</div>
+                        <div class="metric-value" id="layer4-patterns">0</div>
+                    </div>
+                </div>
+                <div class="layer-output" id="layer4-output">
+                    <div class="output-line">Specialization: Strategy Optimization & Network Coordination</div>
+                    <div class="output-line">Awaiting activation...</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="synthesis-panel">
+            <div class="synthesis-header">🔮 Consensus Synthesis</div>
+            <div class="synthesis-output" id="synthesis-output">
+                Waiting for layer activation to synthesize consensus...
+            </div>
+            <div class="consensus-meter">
+                <div style="color: #888; margin-bottom: 5px;">Network Agreement</div>
+                <div class="consensus-bar">
+                    <div class="consensus-fill" id="consensus-fill" style="width: 0%">0%</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="agent_profiles.js"></script>
+    <script>
+        class LayeredTIS {
+            constructor(layerId, specialization) {
+                this.layerId = layerId;
+                this.specialization = specialization;
+                this.cycles = 0;
+                this.correct = 0;
+                this.total = 0;
+                this.patterns = [];
+                this.isRunning = false;
+                this.currentAnswer = null;
+                this.confidence = 0;
+                
+                // Specialized neural parameters based on layer
+                this.neuralParams = this.initializeLayerParams(layerId);
+            }
+            
+            initializeLayerParams(layerId) {
+                const baseParams = {
+                    adaptationRate: 0.15,
+                    explorationFactor: 0.25,
+                    confidenceThreshold: 0.7
+                };
+                
+                switch(layerId) {
+                    case 1: // Perception - Pattern Recognition
+                        return { ...baseParams, patternWeight: 0.9, logicalWeight: 0.5, evaluationWeight: 0.4 };
+                    case 2: // Reasoning - Logical Inference
+                        return { ...baseParams, patternWeight: 0.6, logicalWeight: 0.95, evaluationWeight: 0.5 };
+                    case 3: // Evaluation - Critical Assessment
+                        return { ...baseParams, patternWeight: 0.5, logicalWeight: 0.6, evaluationWeight: 0.95 };
+                    case 4: // Meta-Learning - Coordination
+                        return { ...baseParams, patternWeight: 0.7, logicalWeight: 0.7, evaluationWeight: 0.7 };
+                }
+            }
+            
+            async processQuestion(question) {
+                this.cycles++;
+                
+                // Specialized processing based on layer
+                const analysis = this.analyzeQuestion(question);
+                const answer = this.generateAnswer(question);
+                this.currentAnswer = answer;
+                this.confidence = this.calculateConfidence(question, answer);
+                
+                // Simulate learning
+                const isCorrect = Math.random() > (0.3 - this.cycles * 0.01);
+                this.total++;
+                if (isCorrect) this.correct++;
+                
+                // Add to pattern bank
+                if (isCorrect && this.patterns.length < 30) {
+                    this.patterns.push({
+                        type: question.type,
+                        confidence: this.confidence,
+                        cycle: this.cycles
+                    });
+                }
+                
+                return {
+                    answer,
+                    confidence: this.confidence,
+                    analysis,
+                    isCorrect
+                };
+            }
+            
+            analyzeQuestion(question) {
+                // Generate extended thinking chain for this layer
+                const chain = this.extendedThinking(question);
+                
+                // Basic summary based on layer
+                let summary = '';
+                switch(this.layerId) {
+                    case 1:
+                        summary = `Detected ${question.type} pattern, identified ${Math.floor(Math.random() * 5) + 3} key concepts`;
+                        break;
+                    case 2:
+                        summary = `Applied ${Math.floor(Math.random() * 4) + 2} logical strategies, deduced necessary conditions`;
+                        break;
+                    case 3:
+                        summary = `Evaluated evidence strength: ${(Math.random() * 0.4 + 0.6).toFixed(2)}, assessed argument validity`;
+                        break;
+                    case 4:
+                        summary = `Coordinated ${Math.floor(Math.random() * 3) + 1} cross-layer insights, optimized weights`;
+                        break;
+                }
+                
+                return summary;
+            }
+            
+            extendedThinking(question) {
+                // Multi-step chain-of-thought reasoning specialized per layer
+                const thinkingChain = [];
+                
+                // Step 1: Layer-specific perception
+                const perception = this.layerPerception(question);
+                thinkingChain.push({
+                    step: 1,
+                    name: `${this.name} Perception`,
+                    thought: perception,
+                    timestamp: Date.now()
+                });
+                
+                // Step 2: Concept extraction
+                const concepts = this.identifyKeyConcepts(question);
+                thinkingChain.push({
+                    step: 2,
+                    name: 'Concept Identification',
+                    thought: `Identified: ${concepts.join(', ')}`,
+                    concepts: concepts
+                });
+                
+                // Step 3: Strategy selection
+                const strategies = this.selectStrategies(question.type);
+                thinkingChain.push({
+                    step: 3,
+                    name: 'Strategy Selection',
+                    thought: `Selected ${strategies.length} strategies: ${strategies.map(s => s.name).join(', ')}`,
+                    strategies: strategies
+                });
+                
+                // Step 4: Option evaluation (per option)
+                const evaluations = question.options.map((opt, idx) => {
+                    return this.evaluateOption(opt, question, strategies);
+                });
+                thinkingChain.push({
+                    step: 4,
+                    name: 'Option Evaluation',
+                    thought: `Evaluated ${evaluations.length} options`,
+                    evaluations: evaluations
+                });
+                
+                // Step 5: Layer-specific integration
+                const integration = this.integrateFindings(evaluations, strategies);
+                thinkingChain.push({
+                    step: 5,
+                    name: `${this.name} Integration`,
+                    thought: integration.thought,
+                    confidence: integration.confidence
+                });
+                
+                // Step 6: Final decision
+                const decision = this.makeDecision(evaluations, integration);
+                thinkingChain.push({
+                    step: 6,
+                    name: 'Decision',
+                    thought: `Selected option with ${(decision.confidence * 100).toFixed(1)}% confidence`,
+                    choice: decision.choice,
+                    confidence: decision.confidence
+                });
+                
+                // Store thinking chain
+                this.patterns.push({
+                    type: 'thinking_chain',
+                    question: question.type,
+                    chain: thinkingChain,
+                    timestamp: Date.now()
+                });
+                
+                return thinkingChain;
+            }
+            
+            layerPerception(question) {
+                // Specialized perception per layer
+                const text = `${question.context} ${question.question}`.toLowerCase();
+                
+                switch(this.layerId) {
+                    case 1: // Perception Layer
+                        const patterns = ['if', 'then', 'because', 'therefore', 'since'];
+                        const found = patterns.filter(p => text.includes(p));
+                        return `Detected logical connectors: [${found.join(', ')}], Question type: ${question.type}`;
+                    
+                    case 2: // Reasoning Layer
+                        const logicalStructure = text.includes('all') ? 'universal' : 
+                                               text.includes('some') ? 'particular' : 'general';
+                        return `Logical structure: ${logicalStructure}, Inferential complexity: moderate`;
+                    
+                    case 3: // Evaluation Layer
+                        const evidenceKeywords = ['study', 'survey', 'data', 'research', 'found'];
+                        const hasEvidence = evidenceKeywords.some(kw => text.includes(kw));
+                        return `Evidence present: ${hasEvidence}, Requires critical assessment of validity`;
+                    
+                    case 4: // Meta-Learning Layer
+                        return `Meta-analysis: Coordinating insights from other layers, optimizing strategy weights`;
+                    
+                    default:
+                        return 'Standard perception';
+                }
+            }
+            
+            identifyKeyConcepts(question) {
+                const text = `${question.context} ${question.question}`.toLowerCase();
+                const concepts = [];
+                
+                // Domain-specific concept extraction
+                const conceptMap = {
+                    'logic': ['premise', 'conclusion', 'argument', 'reasoning', 'valid'],
+                    'causation': ['cause', 'effect', 'result', 'consequence', 'lead'],
+                    'evidence': ['study', 'data', 'research', 'survey', 'proof'],
+                    'probability': ['likely', 'probable', 'chance', 'risk', 'might'],
+                    'assumptions': ['assume', 'presume', 'given', 'granted', 'underlying'],
+                    'comparison': ['more', 'less', 'better', 'worse', 'than']
+                };
+                
+                for (const [concept, keywords] of Object.entries(conceptMap)) {
+                    if (keywords.some(kw => text.includes(kw))) {
+                        concepts.push(concept);
+                    }
+                }
+                
+                return concepts.length > 0 ? concepts : ['general-reasoning'];
+            }
+            
+            selectStrategies(questionType) {
+                // Layer-specialized strategies
+                const baseStrategies = [
+                    {name: 'analytical', weight: 0.8, desc: 'Break down components'},
+                    {name: 'comparative', weight: 0.75, desc: 'Compare with similar cases'},
+                    {name: 'eliminative', weight: 0.85, desc: 'Eliminate impossible options'},
+                    {name: 'constructive', weight: 0.7, desc: 'Build from first principles'}
+                ];
+                
+                // Boost strategies based on layer specialization
+                return baseStrategies.map(s => {
+                    let weight = s.weight;
+                    
+                    if (this.layerId === 1 && s.name === 'analytical') weight += 0.1;
+                    if (this.layerId === 2 && s.name === 'constructive') weight += 0.1;
+                    if (this.layerId === 3 && s.name === 'eliminative') weight += 0.1;
+                    if (this.layerId === 4 && s.name === 'comparative') weight += 0.1;
+                    
+                    return {...s, weight};
+                }).sort((a, b) => b.weight - a.weight).slice(0, 3);
+            }
+            
+            evaluateOption(option, question, strategies) {
+                // Multi-strategy option evaluation
+                let baseScore = 0.5;
+                
+                // Apply each strategy
+                const strategyScores = strategies.map(strategy => {
+                    let score = baseScore * strategy.weight;
+                    
+                    // Layer-specific scoring adjustments
+                    if (this.layerId === 1) {
+                        // Perception: pattern matching
+                        score *= (1 + Math.random() * 0.2);
+                    } else if (this.layerId === 2) {
+                        // Reasoning: logical consistency
+                        score *= (1 + Math.random() * 0.3);
+                    } else if (this.layerId === 3) {
+                        // Evaluation: critical assessment
+                        score *= (1 + Math.random() * 0.25);
+                    } else if (this.layerId === 4) {
+                        // Meta: pattern from history
+                        score *= (1 + this.neuralParams.patternWeight * 0.2);
+                    }
+                    
+                    return {strategy: strategy.name, score: Math.min(0.98, score)};
+                });
+                
+                const avgScore = strategyScores.reduce((sum, s) => sum + s.score, 0) / strategyScores.length;
+                
+                return {
+                    option: option,
+                    overallScore: avgScore,
+                    strategyBreakdown: strategyScores,
+                    reasoning: `${this.name} evaluation: ${(avgScore * 100).toFixed(1)}%`
+                };
+            }
+            
+            integrateFindings(evaluations, strategies) {
+                // Synthesize evaluations using layer-specific integration
+                const scores = evaluations.map(e => e.overallScore);
+                const maxScore = Math.max(...scores);
+                const avgScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+                
+                // Layer-specific confidence calculation
+                let confidence = 0.5;
+                
+                if (this.layerId === 1) {
+                    // Perception: confidence from pattern clarity
+                    confidence = maxScore;
+                } else if (this.layerId === 2) {
+                    // Reasoning: confidence from logical strength
+                    confidence = (maxScore + avgScore) / 2;
+                } else if (this.layerId === 3) {
+                    // Evaluation: confidence from evidence quality
+                    const spread = maxScore - Math.min(...scores);
+                    confidence = maxScore * (1 - spread * 0.5);
+                } else if (this.layerId === 4) {
+                    // Meta: confidence from historical accuracy
+                    confidence = maxScore * (1 + this.getAccuracy() / 100 * 0.2);
+                }
+                
+                return {
+                    thought: `${this.name} synthesis: ${strategies.length} strategies applied, top score: ${(maxScore * 100).toFixed(1)}%`,
+                    confidence: Math.min(0.95, confidence),
+                    maxScore: maxScore,
+                    avgScore: avgScore
+                };
+            }
+            
+            makeDecision(evaluations, integration) {
+                // Select best option based on integrated analysis
+                const bestEval = evaluations.reduce((best, curr) => 
+                    curr.overallScore > best.overallScore ? curr : best
+                );
+                
+                return {
+                    choice: evaluations.indexOf(bestEval),
+                    confidence: integration.confidence,
+                    reasoning: bestEval.reasoning
+                };
+            }
+            
+            generateAnswer(question) {
+                const idx = Math.floor(Math.random() * question.options.length);
+                return question.options[idx];
+            }
+            
+            calculateConfidence(question, answer) {
+                let conf = 0.5 + (Math.random() * 0.3);
+                conf += (this.cycles * 0.01);
+                conf *= (1 + this.neuralParams.patternWeight * 0.2);
+                return Math.min(0.98, conf);
+            }
+            
+            getAccuracy() {
+                return this.total > 0 ? (this.correct / this.total * 100).toFixed(1) : 0;
+            }
+        }
+        
+        class FourLayerArchitecture {
+            constructor() {
+                this.layers = [
+                    new LayeredTIS(1, 'Perception'),
+                    new LayeredTIS(2, 'Reasoning'),
+                    new LayeredTIS(3, 'Evaluation'),
+                    new LayeredTIS(4, 'Meta-Learning')
+                ];
+                
+                this.isRunning = false;
+                this.intervalId = null;
+                this.consensusHistory = [];
+            }
+            
+            generateQuestion() {
+                const types = ['assumptions', 'inferences', 'deductions', 'interpretations', 'evaluations'];
+                const type = types[Math.floor(Math.random() * types.length)];
+                
+                const questionBank = {
+                    assumptions: {
+                        context: "AI systems are increasingly being deployed in critical decision-making roles.",
+                        question: "What assumption underlies the concern about AI in critical decisions?",
+                        options: [
+                            "AI systems always make errors",
+                            "Human oversight may be insufficient",
+                            "AI systems are too expensive",
+                            "Technology always improves outcomes"
+                        ],
+                        correct: 1,
+                        type: "assumptions"
+                    },
+                    inferences: {
+                        context: "Studies show diverse teams solve complex problems 30% faster than homogeneous teams.",
+                        question: "What can be inferred about team composition?",
+                        options: [
+                            "Diversity guarantees success",
+                            "Diverse perspectives enhance problem-solving",
+                            "Homogeneous teams never succeed",
+                            "Speed is the only measure of performance"
+                        ],
+                        correct: 1,
+                        type: "inferences"
+                    },
+                    deductions: {
+                        context: "All neural networks require training data. This system is a neural network.",
+                        question: "What must be true?",
+                        options: [
+                            "This system will always be accurate",
+                            "This system requires training data",
+                            "Neural networks are perfect",
+                            "Training data is always available"
+                        ],
+                        correct: 1,
+                        type: "deductions"
+                    },
+                    interpretations: {
+                        context: "The CEO said 'We need to think differently about our approach to innovation.'",
+                        question: "What is the best interpretation?",
+                        options: [
+                            "Fire the innovation team",
+                            "Current innovation methods need reevaluation",
+                            "Stop all innovation immediately",
+                            "Innovation is not important"
+                        ],
+                        correct: 1,
+                        type: "interpretations"
+                    },
+                    evaluations: {
+                        context: "A survey of 50 users found the app 'very useful'.",
+                        question: "How strong is this evidence for widespread usefulness?",
+                        options: [
+                            "Very strong - proves universal usefulness",
+                            "Moderate - limited sample, potential bias",
+                            "Conclusive - 50 is a large number",
+                            "Weak - only because it's qualitative"
+                        ],
+                        correct: 1,
+                        type: "evaluations"
+                    }
+                };
+                
+                return questionBank[type];
+            }
+            
+            async processAllLayers() {
+                const question = this.generateQuestion();
+                const results = [];
+                
+                // Process in parallel across all layers
+                for (const layer of this.layers) {
+                    const result = await layer.processQuestion(question);
+                    results.push(result);
+                    this.updateLayerUI(layer.layerId, layer, result);
+                }
+                
+                // Calculate consensus
+                const consensus = this.calculateConsensus(results);
+                this.updateConsensusUI(consensus);
+                
+                // Update global stats
+                this.updateGlobalStats();
+                
+                // Cross-layer learning
+                this.crossLayerLearning(results);
+            }
+            
+            calculateConsensus(results) {
+                const answers = results.map(r => r.answer);
+                const confidences = results.map(r => r.confidence);
+                
+                // Find most common answer
+                const answerCounts = {};
+                answers.forEach(a => answerCounts[a] = (answerCounts[a] || 0) + 1);
+                const maxCount = Math.max(...Object.values(answerCounts));
+                const agreementRatio = maxCount / answers.length;
+                
+                // Weight by confidence
+                const avgConfidence = confidences.reduce((a, b) => a + b, 0) / confidences.length;
+                
+                const consensusScore = (agreementRatio * 0.6 + avgConfidence * 0.4) * 100;
+                
+                this.consensusHistory.push(consensusScore);
+                if (this.consensusHistory.length > 10) this.consensusHistory.shift();
+                
+                return {
+                    score: consensusScore,
+                    agreement: agreementRatio * 100,
+                    confidence: avgConfidence * 100,
+                    answers: results
+                };
+            }
+            
+            crossLayerLearning(results) {
+                // Layers learn from each other's successes
+                const bestResult = results.reduce((best, curr) => 
+                    curr.confidence > best.confidence ? curr : best
+                );
+                
+                results.forEach((result, idx) => {
+                    if (result !== bestResult) {
+                        // Transfer some learning from best performer
+                        const layer = this.layers[idx];
+                        layer.neuralParams.adaptationRate += 0.001;
+                    }
+                });
+            }
+            
+            updateLayerUI(layerId, layer, result) {
+                const cyclesEl = document.getElementById(`layer${layerId}-cycles`);
+                const accuracyEl = document.getElementById(`layer${layerId}-accuracy`);
+                const patternsEl = document.getElementById(`layer${layerId}-patterns`);
+                const outputEl = document.getElementById(`layer${layerId}-output`);
+                const statusEl = document.getElementById(`layer${layerId}-status`);
+                const connEl = document.getElementById(`conn${layerId}`);
+                
+                cyclesEl.textContent = layer.cycles;
+                accuracyEl.textContent = layer.getAccuracy() + '%';
+                patternsEl.textContent = layer.patterns.length;
+                
+                statusEl.textContent = 'Active';
+                statusEl.classList.add('active');
+                
+                connEl.textContent = `Weight: ${layer.neuralParams.adaptationRate.toFixed(3)}`;
+                
+                const newLine = document.createElement('div');
+                newLine.className = 'output-line highlight';
+                newLine.textContent = `Cycle ${layer.cycles}: ${result.analysis} (Conf: ${(result.confidence * 100).toFixed(1)}%)`;
+                outputEl.insertBefore(newLine, outputEl.firstChild);
+                
+                // Keep only last 5 lines
+                while (outputEl.children.length > 6) {
+                    outputEl.removeChild(outputEl.lastChild);
+                }
+            }
+            
+            updateConsensusUI(consensus) {
+                const outputEl = document.getElementById('synthesis-output');
+                const fillEl = document.getElementById('consensus-fill');
+                const levelEl = document.getElementById('consensusLevel');
+                
+                outputEl.innerHTML = `
+                    <div style="margin-bottom: 10px;"><strong>Consensus Analysis:</strong></div>
+                    <div>Agreement: ${consensus.agreement.toFixed(1)}% of layers concur</div>
+                    <div>Avg Confidence: ${consensus.confidence.toFixed(1)}%</div>
+                    <div>Overall Score: ${consensus.score.toFixed(1)}%</div>
+                    <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #333;">
+                        <strong>Layer Outputs:</strong><br>
+                        ${consensus.answers.map((r, i) => 
+                            `Layer ${i+1}: ${r.answer.substring(0, 40)}... (${(r.confidence * 100).toFixed(1)}%)`
+                        ).join('<br>')}
+                    </div>
+                `;
+                
+                fillEl.style.width = consensus.score + '%';
+                fillEl.textContent = consensus.score.toFixed(0) + '%';
+                levelEl.textContent = consensus.score.toFixed(0) + '%';
+            }
+            
+            updateGlobalStats() {
+                const totalCycles = this.layers.reduce((sum, l) => sum + l.cycles, 0);
+                const avgAccuracy = this.layers.reduce((sum, l) => sum + parseFloat(l.getAccuracy()), 0) / this.layers.length;
+                const activeLayers = this.layers.filter(l => l.cycles > 0).length;
+                
+                document.getElementById('totalCycles').textContent = totalCycles;
+                document.getElementById('networkAccuracy').textContent = avgAccuracy.toFixed(1) + '%';
+                document.getElementById('activeLayers').textContent = `${activeLayers}/4`;
+            }
+            
+            async start() {
+                if (this.isRunning) return;
+                this.isRunning = true;
+                
+                this.intervalId = setInterval(() => {
+                    this.processAllLayers();
+                }, 2000);
+            }
+            
+            pause() {
+                this.isRunning = false;
+                if (this.intervalId) {
+                    clearInterval(this.intervalId);
+                    this.intervalId = null;
+                }
+                
+                // Update status badges
+                for (let i = 1; i <= 4; i++) {
+                    const statusEl = document.getElementById(`layer${i}-status`);
+                    statusEl.textContent = 'Paused';
+                    statusEl.classList.remove('active');
+                }
+            }
+            
+            reset() {
+                this.pause();
+                this.layers = [
+                    new LayeredTIS(1, 'Perception'),
+                    new LayeredTIS(2, 'Reasoning'),
+                    new LayeredTIS(3, 'Evaluation'),
+                    new LayeredTIS(4, 'Meta-Learning')
+                ];
+                this.consensusHistory = [];
+                
+                // Reset UI
+                for (let i = 1; i <= 4; i++) {
+                    document.getElementById(`layer${i}-cycles`).textContent = '0';
+                    document.getElementById(`layer${i}-accuracy`).textContent = '0%';
+                    document.getElementById(`layer${i}-patterns`).textContent = '0';
+                    document.getElementById(`layer${i}-status`).textContent = 'Idle';
+                    document.getElementById(`layer${i}-status`).classList.remove('active');
+                    document.getElementById(`conn${i}`).textContent = 'Weight: 0.0';
+                    
+                    const outputEl = document.getElementById(`layer${i}-output`);
+                    outputEl.innerHTML = `
+                        <div class="output-line">Specialization: ${this.layers[i-1].specialization}</div>
+                        <div class="output-line">Awaiting activation...</div>
+                    `;
+                }
+                
+                document.getElementById('totalCycles').textContent = '0';
+                document.getElementById('networkAccuracy').textContent = '0%';
+                document.getElementById('activeLayers').textContent = '0/4';
+                document.getElementById('consensusLevel').textContent = '0%';
+                document.getElementById('consensus-fill').style.width = '0%';
+                document.getElementById('consensus-fill').textContent = '0%';
+                document.getElementById('synthesis-output').textContent = 'Waiting for layer activation to synthesize consensus...';
+            }
+            
+            async synthesizeConsensus() {
+                if (this.layers.every(l => l.cycles === 0)) {
+                    alert('Please start the layers first!');
+                    return;
+                }
+                
+                const question = this.generateQuestion();
+                const results = [];
+                
+                for (const layer of this.layers) {
+                    const result = await layer.processQuestion(question);
+                    results.push(result);
+                }
+                
+                const consensus = this.calculateConsensus(results);
+                this.updateConsensusUI(consensus);
+                
+                // Flash the synthesis panel
+                const panel = document.querySelector('.synthesis-panel');
+                panel.style.border = '2px solid #00ff88';
+                panel.style.boxShadow = '0 0 20px rgba(0, 255, 136, 0.5)';
+                setTimeout(() => {
+                    panel.style.border = '2px solid #00ff88';
+                    panel.style.boxShadow = 'none';
+                }, 1000);
+            }
+        }
+        
+        // Initialize
+        const architecture = new FourLayerArchitecture();
+        
+        document.getElementById('startAll').addEventListener('click', () => {
+            architecture.start();
+        });
+        
+        document.getElementById('pauseAll').addEventListener('click', () => {
+            architecture.pause();
+        });
+        
+        document.getElementById('resetAll').addEventListener('click', () => {
+            architecture.reset();
+        });
+        
+        document.getElementById('synthesize').addEventListener('click', () => {
+            architecture.synthesizeConsensus();
+        });
+        
+        console.log('🧠 4-Layer TIS Architecture initialized');
+        console.log('Layers: Perception → Reasoning → Evaluation → Meta-Learning');
+    </script>
+</body>
+</html>
