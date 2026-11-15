@@ -117,8 +117,8 @@ class MessageHistory:
         ]
 
         if self.enable_caching and self.messages:
-            result[-1]["content"] = [
-                {**block, "cache_control": {"type": "ephemeral"}}
-                for block in self.messages[-1]["content"]
-            ]
+            content = [dict(block) for block in self.messages[-1]["content"]]
+            if content:
+                content[-1]["cache_control"] = {"type": "ephemeral"}
+            result[-1]["content"] = content
         return result
