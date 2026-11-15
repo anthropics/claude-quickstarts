@@ -21,6 +21,7 @@ import io
 import socket
 import struct
 import time
+from contextlib import suppress
 from typing import Any
 
 from anthropic.tools import ToolError
@@ -77,14 +78,20 @@ class VncComputer(BetaAbstractComputerToolset20260801):
         super().__init__(**options)
         # A server that stops answering fails the call after 10 s rather than hanging the run.
         self._socket = socket.create_connection((host, port), timeout=10)
-        self._stream = self._socket.makefile("rb")
-        # VNC cannot report where the pointer is, so a click without a coordinate uses the last position set here.
-        self._cursor = (0, 0)
-        self.width, self.height = self._handshake()
-        if self.width > MAX_WIDTH or self.height > MAX_HEIGHT:
-            raise RuntimeError(
-                f"the screen is {self.width}x{self.height}; lower it to {MAX_WIDTH}x{MAX_HEIGHT} or less"
-            )
+        try:
+            self._stream = self._socket.makefile("rb")
+            # VNC cannot report where the pointer is, so a click without a coordinate uses the last position set here.
+            self._cursor = (0, 0)
+            self.width, self.height = self._handshake()
+            if self.width > MAX_WIDTH or self.height > MAX_HEIGHT:
+                raise RuntimeError(
+                    f"the screen is {self.width}x{self.height}; lower it to {MAX_WIDTH}x{MAX_HEIGHT} or less"
+                )
+        except BaseException:
+            # Preserve the initialization error if cleanup also fails.
+            with suppress(Exception):
+                self.close()
+            raise
 
     def _handshake(self) -> tuple[int, int]:
         """Do the RFB handshake (version, security, ClientInit, ServerInit), then set the pixel format and encoding."""
@@ -119,8 +126,11 @@ class VncComputer(BetaAbstractComputerToolset20260801):
     @override
     def close(self) -> None:
         super().close()
-        self._stream.close()
-        self._socket.close()
+        try:
+            if hasattr(self, "_stream"):
+                self._stream.close()
+        finally:
+            self._socket.close()
 
     def _move(self, x: int, y: int, buttons: int = 0) -> None:
         """Send one PointerEvent. A point off the screen is refused, not clamped, so the model sees its mistake."""
