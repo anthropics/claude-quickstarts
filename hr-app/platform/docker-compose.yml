@@ -1,0 +1,46 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: hrcore
+      POSTGRES_PASSWORD: hrcore_dev
+      POSTGRES_DB: hrcore
+    ports:
+      - "5432:5432"
+    volumes:
+      - hrcore_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hrcore"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Optional: enable with `docker compose --profile search up` once a real
+  # Meilisearch deployment target is available. The app runs against the
+  # Postgres full-text-search adapter by default (see packages/db/src/search).
+  meilisearch:
+    image: getmeili/meilisearch:v1.11
+    profiles: ["search"]
+    environment:
+      MEILI_MASTER_KEY: hrcore_dev_master_key
+      MEILI_ENV: development
+    ports:
+      - "7700:7700"
+    volumes:
+      - hrcore_meili_data:/meili_data
+
+volumes:
+  hrcore_postgres_data:
+  hrcore_meili_data:

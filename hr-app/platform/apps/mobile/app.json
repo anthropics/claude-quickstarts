@@ -1,0 +1,18 @@
+{
+  "expo": {
+    "name": "HRCore",
+    "slug": "hrcore-mobile",
+    "scheme": "hrcore",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hrcore.mobile"
+    },
+    "android": {
+      "package": "com.hrcore.mobile"
+    }
+  }
+}
