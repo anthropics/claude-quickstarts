@@ -19,6 +19,7 @@ export interface ChartData {
     footer?: string;
     totalLabel?: string;
     xAxisKey?: string;
+    yAxisKey?: string;
   };
   data: Array<Record<string, any>>;
   chartConfig: ChartConfig;
