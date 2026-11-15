@@ -14,6 +14,7 @@ import {
   BookOpenText,
   ChevronDown,
   Send,
+  Paperclip,
 } from "lucide-react";
 import "highlight.js/styles/atom-one-dark.css";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -25,6 +26,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import FilePreview from "@/components/FilePreview";
+import { toast } from "@/hooks/use-toast";
 
 const TypedText = ({ text = "", delay = 5 }) => {
   const [displayedText, setDisplayedText] = useState("");
@@ -200,6 +203,12 @@ interface Message {
   id: string;
   role: string;
   content: string;
+  file?: {
+    base64: string;
+    fileName: string;
+    mediaType: string;
+    isText?: boolean;
+  };
 }
 
 // Define the props interface for ConversationHeader
@@ -297,7 +306,19 @@ const ConversationHeader: React.FC<ConversationHeaderProps> = ({
   </div>
 );
 
-function ChatArea() {
+function ChatArea({
+  currentUpload,
+  setCurrentUpload,
+  fileInputRef,
+  isUploading,
+  handleFileSelect,
+}: {
+  currentUpload: any;
+  setCurrentUpload: any;
+  fileInputRef: any;
+  isUploading: boolean;
+  handleFileSelect: any;
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -415,6 +436,7 @@ function ChatArea() {
       id: crypto.randomUUID(),
       role: "user",
       content: typeof event === "string" ? event : input,
+      file: currentUpload || undefined,
     };
 
     const placeholderMessage = {
@@ -656,6 +678,11 @@ function ChatArea() {
                         content={message.content}
                         role={message.role}
                       />
+                      {message.file && (
+                        <div className="mt-1.5">
+                          <FilePreview file={message.file} size="small" />
+                        </div>
+                      )}
                     </div>
                   </div>
                   {message.role === "assistant" && (
@@ -690,6 +717,30 @@ function ChatArea() {
             rows={1}
           />
           <div className="flex justify-between items-center p-3">
+            <div className="flex items-center">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || isUploading}
+                className="h-8 w-8"
+              >
+                <Paperclip className="h-5 w-5" />
+              </Button>
+              <input
+                type="file"
+                ref={fileInputRef}
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+              {currentUpload && (
+                <FilePreview
+                  file={currentUpload}
+                  onRemove={() => setCurrentUpload(null)}
+                />
+              )}
+            </div>
             <div>
               <Image
                 src="/claude-icon.svg"
