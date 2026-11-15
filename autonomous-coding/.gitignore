@@ -3,3 +3,9 @@ generations/
 
 # Log files
 logs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/

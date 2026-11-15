@@ -1,0 +1,93 @@
+<project_specification>
+  <project_name>Simple Todo CLI - Testing Demo</project_name>
+
+  <overview>
+    Build a minimal command-line todo list application in Python. This is a simplified
+    test project to validate the autonomous coding agent workflow.
+  </overview>
+
+  <technology_stack>
+    <language>Python 3.12+</language>
+    <storage>JSON file for persistence</storage>
+    <cli_framework>Click library</cli_framework>
+    <testing>pytest for tests</testing>
+  </technology_stack>
+
+  <core_features>
+    <feature_1>
+      - Add a new todo item with description
+      - Command: `todo add "Buy groceries"`
+      - Store in todos.json file
+    </feature_1>
+
+    <feature_2>
+      - List all todo items with numbers
+      - Command: `todo list`
+      - Show format: "1. Buy groceries [pending]"
+    </feature_2>
+
+    <feature_3>
+      - Mark a todo as complete by number
+      - Command: `todo complete 1`
+      - Update status in todos.json
+    </feature_3>
+
+    <feature_4>
+      - Delete a todo by number
+      - Command: `todo delete 1`
+      - Remove from todos.json
+    </feature_4>
+
+    <feature_5>
+      - Show help with all commands
+      - Command: `todo --help`
+      - Display usage information
+    </feature_5>
+  </core_features>
+
+  <implementation_steps>
+    <step number="1">
+      <title>Project Setup</title>
+      <tasks>
+        - Create Python project structure
+        - Set up Click CLI framework
+        - Create todos.json storage system
+        - Add basic error handling
+      </tasks>
+    </step>
+
+    <step number="2">
+      <title>Core Commands</title>
+      <tasks>
+        - Implement add command
+        - Implement list command
+        - Implement complete command
+        - Implement delete command
+      </tasks>
+    </step>
+
+    <step number="3">
+      <title>Testing and Polish</title>
+      <tasks>
+        - Write pytest tests
+        - Add input validation
+        - Improve error messages
+        - Create README with examples
+      </tasks>
+    </step>
+  </implementation_steps>
+
+  <success_criteria>
+    <functionality>
+      - All commands work without errors
+      - Data persists across runs
+      - Tests pass
+    </functionality>
+
+    <technical_quality>
+      - Clean code structure
+      - Proper error handling
+      - Good test coverage
+    </technical_quality>
+  </success_criteria>
+</project_specification>
