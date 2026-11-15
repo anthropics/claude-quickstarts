@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FPL Draft Dashboard</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <!-- Setup Modal -->
+  <div id="setup-modal" class="modal hidden">
+    <div class="modal-content">
+      <h2>FPL Draft Dashboard</h2>
+      <p>Enter your FPL Draft league ID to get started.</p>
+      <p class="hint">You can find it in the URL when viewing your league on draft.premierleague.com</p>
+      <div class="input-group">
+        <input type="text" id="league-id-input" placeholder="e.g. 12345" autocomplete="off">
+        <button id="sync-btn" onclick="startSync()">Sync League</button>
+      </div>
+      <div id="setup-status" class="status-msg hidden"></div>
+    </div>
+  </div>
+
+  <!-- Sync Progress Overlay -->
+  <div id="sync-overlay" class="modal hidden">
+    <div class="modal-content">
+      <h2>Syncing Data...</h2>
+      <div id="sync-log" class="sync-log"></div>
+      <div class="progress-bar"><div id="sync-progress" class="progress-fill"></div></div>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div id="dashboard" class="hidden">
+    <header>
+      <div class="header-left">
+        <h1>FPL Draft Dashboard</h1>
+        <span id="league-info" class="league-info"></span>
+      </div>
+      <div class="header-right">
+        <span id="last-sync" class="last-sync"></span>
+        <button id="resync-btn" class="btn-small" onclick="resync()">Re-sync</button>
+      </div>
+    </header>
+
+    <nav class="tab-bar">
+      <button class="tab active" data-tab="league">League</button>
+      <button class="tab" data-tab="h2h">Head-to-Head</button>
+      <button class="tab" data-tab="teams">Teams</button>
+      <button class="tab" data-tab="trends">Trends</button>
+      <button class="tab" data-tab="players">Players</button>
+      <button class="tab" data-tab="draft">Draft</button>
+      <button class="tab" data-tab="transactions">Transactions</button>
+    </nav>
+
+    <main class="content">
+      <!-- League Tab -->
+      <section id="tab-league" class="tab-content active">
+        <div class="stats-cards" id="season-stats"></div>
+        <div class="card">
+          <h3>Standings</h3>
+          <div class="table-wrap">
+            <table id="standings-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th>Manager</th>
+                  <th>Team</th>
+                  <th>W</th>
+                  <th>D</th>
+                  <th>L</th>
+                  <th>PF</th>
+                  <th>PA</th>
+                  <th>Pts</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- H2H Tab -->
+      <section id="tab-h2h" class="tab-content">
+        <div class="card">
+          <h3>Head-to-Head Matrix</h3>
+          <p class="hint">Click a cell to see detailed H2H history</p>
+          <div class="table-wrap">
+            <table id="h2h-matrix" class="h2h-table"></table>
+          </div>
+        </div>
+        <div id="h2h-detail" class="card hidden">
+          <h3 id="h2h-detail-title"></h3>
+          <div class="table-wrap">
+            <table id="h2h-detail-table">
+              <thead>
+                <tr>
+                  <th>GW</th>
+                  <th id="h2h-p1-name">Manager 1</th>
+                  <th>Score</th>
+                  <th id="h2h-p2-name">Manager 2</th>
+                  <th>Result</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Teams Tab -->
+      <section id="tab-teams" class="tab-content">
+        <div class="card">
+          <h3>Team Ratings</h3>
+          <div class="chart-container">
+            <canvas id="team-ratings-chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Position Strength</h3>
+          <div class="chart-container">
+            <canvas id="position-chart"></canvas>
+          </div>
+        </div>
+        <div id="squad-lists"></div>
+      </section>
+
+      <!-- Trends Tab -->
+      <section id="tab-trends" class="tab-content">
+        <div class="card">
+          <h3>Points per Gameweek</h3>
+          <div class="chart-container">
+            <canvas id="points-per-gw-chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Cumulative Points</h3>
+          <div class="chart-container">
+            <canvas id="cumulative-chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Weekly Highs &amp; Lows</h3>
+          <div class="chart-container">
+            <canvas id="highs-lows-chart"></canvas>
+          </div>
+        </div>
+        <div class="card">
+          <h3>Consistency (Lower = More Consistent)</h3>
+          <div class="chart-container">
+            <canvas id="consistency-chart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- Players Tab -->
+      <section id="tab-players" class="tab-content">
+        <div class="card">
+          <div class="filter-bar">
+            <input type="text" id="player-search" placeholder="Search players..." oninput="filterPlayers()">
+            <select id="player-pos-filter" onchange="filterPlayers()">
+              <option value="">All Positions</option>
+              <option value="1">GK</option>
+              <option value="2">DEF</option>
+              <option value="3">MID</option>
+              <option value="4">FWD</option>
+            </select>
+            <select id="player-sort" onchange="filterPlayers()">
+              <option value="total_points">Total Points</option>
+              <option value="goals_scored">Goals</option>
+              <option value="assists">Assists</option>
+              <option value="ict_index">ICT Index</option>
+              <option value="form">Form</option>
+              <option value="minutes">Minutes</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table id="players-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Pos</th>
+                  <th>Pts</th>
+                  <th>Goals</th>
+                  <th>Assists</th>
+                  <th>CS</th>
+                  <th>ICT</th>
+                  <th>Form</th>
+                  <th>Owner</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Draft Tab -->
+      <section id="tab-draft" class="tab-content">
+        <div class="card">
+          <h3>Draft Board</h3>
+          <div class="table-wrap">
+            <table id="draft-table">
+              <thead>
+                <tr>
+                  <th>Round</th>
+                  <th>Pick</th>
+                  <th>Manager</th>
+                  <th>Player</th>
+                  <th>Pos</th>
+                  <th>Season Pts</th>
+                  <th>Auto</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Transactions Tab -->
+      <section id="tab-transactions" class="tab-content">
+        <div class="card">
+          <h3>Transactions</h3>
+          <div class="filter-bar">
+            <select id="tx-manager-filter" onchange="filterTransactions()">
+              <option value="">All Managers</option>
+            </select>
+            <select id="tx-type-filter" onchange="filterTransactions()">
+              <option value="">All Types</option>
+              <option value="w">Waivers</option>
+              <option value="f">Free Agent</option>
+            </select>
+            <select id="tx-result-filter" onchange="filterTransactions()">
+              <option value="">All Results</option>
+              <option value="a">Accepted</option>
+              <option value="di">Declined</option>
+            </select>
+          </div>
+          <div class="table-wrap">
+            <table id="transactions-table">
+              <thead>
+                <tr>
+                  <th>GW</th>
+                  <th>Manager</th>
+                  <th>In</th>
+                  <th>Out</th>
+                  <th>Type</th>
+                  <th>Result</th>
+                  <th>Date</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
