@@ -28,6 +28,7 @@ class ToolResult:
     error: str | None = None
     base64_image: str | None = None
     system: str | None = None
+    exit_code: int | None = None
 
     def __bool__(self):
         return any(getattr(self, field.name) for field in fields(self))
@@ -47,6 +48,7 @@ class ToolResult:
             error=combine_fields(self.error, other.error),
             base64_image=combine_fields(self.base64_image, other.base64_image, False),
             system=combine_fields(self.system, other.system),
+            exit_code=self.exit_code if other.exit_code is None else other.exit_code,
         )
 
     def replace(self, **kwargs):

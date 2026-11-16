@@ -1,5 +1,7 @@
 import asyncio
 import os
+import re
+import uuid
 from typing import Any, Literal
 
 from .base import BaseAnthropicTool, CLIResult, ToolError, ToolResult
@@ -64,12 +66,14 @@ class _BashSession:
         assert self._process.stderr
 
         # send command to the process
-        self._process.stdin.write(
-            command.encode() + f"; echo '{self._sentinel}'\n".encode()
-        )
+        # a marker unique to this call, so nothing the command prints can be
+        # mistaken for the end of its output
+        marker = f"{self._sentinel}{uuid.uuid4().hex}"
+        self._process.stdin.write(command.encode() + f"; echo '{marker}' $?\n".encode())
         await self._process.stdin.drain()
 
         # read output from the process, until the sentinel is found
+        exit_code: int | None = None
         try:
             async with asyncio.timeout(self._timeout):
                 while True:
@@ -77,9 +81,10 @@ class _BashSession:
                     # if we read directly from stdout/stderr, it will wait forever for
                     # EOF. use the StreamReader buffer directly instead.
                     output = self._process.stdout._buffer.decode()  # pyright: ignore[reportAttributeAccessIssue]
-                    if self._sentinel in output:
-                        # strip the sentinel and break
-                        output = output[: output.index(self._sentinel)]
+                    match = re.search(rf"{re.escape(marker)} (\d+)\n", output)
+                    if match:
+                        exit_code = int(match.group(1))
+                        output = output[: match.start()]
                         break
         except asyncio.TimeoutError:
             self._timed_out = True
@@ -98,7 +103,7 @@ class _BashSession:
         self._process.stdout._buffer.clear()  # pyright: ignore[reportAttributeAccessIssue]
         self._process.stderr._buffer.clear()  # pyright: ignore[reportAttributeAccessIssue]
 
-        return CLIResult(output=output, error=error)
+        return CLIResult(output=output, error=error, exit_code=exit_code)
 
 
 class BashTool20250124(BaseAnthropicTool):
