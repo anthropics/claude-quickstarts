@@ -104,6 +104,13 @@ async def test_bash_tool_output_containing_the_sentinel_is_kept(bash_tool):
 
 
 @pytest.mark.asyncio
+async def test_bash_tool_waits_for_its_own_marker_after_sentinel_like_output(bash_tool):
+    result = await bash_tool(command="printf '<<exit>> 9\\n'; sleep 1; echo actual")
+    assert result.exit_code == 0
+    assert result.output.strip() == "<<exit>> 9\nactual"
+
+
+@pytest.mark.asyncio
 async def test_bash_tool_timeout(bash_tool):
     await bash_tool(command="echo 'Hello, World!'")
     bash_tool._session._timeout = 0.1  # Set a very short timeout for testing

@@ -1,6 +1,7 @@
 import asyncio
 import os
 import re
+import uuid
 from typing import Any, Literal
 
 from .base import BaseAnthropicTool, CLIResult, ToolError, ToolResult
@@ -65,9 +66,10 @@ class _BashSession:
         assert self._process.stderr
 
         # send command to the process
-        self._process.stdin.write(
-            command.encode() + f"; echo '{self._sentinel}' $?\n".encode()
-        )
+        # a marker unique to this call, so nothing the command prints can be
+        # mistaken for the end of its output
+        marker = f"{self._sentinel}{uuid.uuid4().hex}"
+        self._process.stdin.write(command.encode() + f"; echo '{marker}' $?\n".encode())
         await self._process.stdin.drain()
 
         # read output from the process, until the sentinel is found
@@ -79,14 +81,10 @@ class _BashSession:
                     # if we read directly from stdout/stderr, it will wait forever for
                     # EOF. use the StreamReader buffer directly instead.
                     output = self._process.stdout._buffer.decode()  # pyright: ignore[reportAttributeAccessIssue]
-                    # the shell writes the sentinel line last, so the final
-                    # complete match is ours; an earlier one is command output
-                    matches = list(
-                        re.finditer(rf"{re.escape(self._sentinel)} (\d+)\n", output)
-                    )
-                    if matches:
-                        exit_code = int(matches[-1].group(1))
-                        output = output[: matches[-1].start()]
+                    match = re.search(rf"{re.escape(marker)} (\d+)\n", output)
+                    if match:
+                        exit_code = int(match.group(1))
+                        output = output[: match.start()]
                         break
         except asyncio.TimeoutError:
             self._timed_out = True
