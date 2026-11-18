@@ -463,4 +463,75 @@ describe("reducer: the golden turn", () => {
     ]);
     assert.deepEqual(state.messages[1]!.status, { type: "incomplete", reason: "error", error: "boom" });
   });
+
+  it("propagates isError onto a custom tool part when user.custom_tool_result fails", () => {
+    const state = project([
+      T({ type: "user.message", id: "u", content: [{ type: "text", text: "chart" }], processed_at: "t" }),
+      T({ type: "session.status_running", id: "r", processed_at: "t" }),
+      T({ type: "agent.custom_tool_use", id: "c1", name: "show_chart", input: {}, processed_at: "t" }),
+      T({ type: "session.status_idle", id: "i", stop_reason: { type: "requires_action", event_ids: ["c1"] }, processed_at: "t" }),
+      T({ type: "user.custom_tool_result", id: "res", custom_tool_use_id: "c1", content: [{ type: "text", text: "bad data" }], is_error: true, processed_at: "t" }),
+    ]);
+    const chart = toolParts(state)[0]!;
+    assert.equal(chart.result?.isError, true);
+    assert.equal(chart.isError, true);
+  });
+
+  it("does not overwrite a pending optimistic bubble with a textless user.message", () => {
+    let state = applyEvent(
+      initialProjection(),
+      T({ type: "user.message", id: "optimistic-1", content: [{ type: "text", text: "analyze this" }], processed_at: "2026-07-23T12:00:00Z" }),
+    );
+    state = applyEvent(
+      state,
+      T({ type: "user.message", id: "sevt_img", content: [{ type: "image" }], processed_at: "2026-07-23T11:59:00Z" }),
+    );
+    assert.equal(state.messages.length, 2);
+    assert.equal(state.echoedOptimistic.has("optimistic-1"), false);
+    const first = state.messages[0]!.content[0]!;
+    assert.equal(first.type === "text" && first.text, "analyze this");
+  });
+
+  it("clears open previews when a turn ends so later model errors do not mutate settled turns", () => {
+    let state = project([
+      T({ type: "user.message", id: "u1", content: [{ type: "text", text: "start" }], processed_at: "t" }),
+      T({ type: "session.status_running", id: "r1", processed_at: "t" }),
+      T({ type: "event_start", event: { type: "agent.message", id: "m1" } }),
+      T({ type: "event_delta", event_id: "m1", delta: { type: "content_delta", index: 0, content: { type: "text", text: "Partial reply" } } }),
+      T({ type: "user.interrupt", id: "int", processed_at: "t" }),
+      T({ type: "session.status_idle", id: "i1", stop_reason: { type: "end_turn" }, processed_at: "t" }),
+    ]);
+    assert.equal(state.previews.size, 0);
+
+    state = project(
+      [
+        T({ type: "user.message", id: "u2", content: [{ type: "text", text: "next" }], processed_at: "t2" }),
+        T({ type: "session.status_running", id: "r2", processed_at: "t2" }),
+        T({ type: "span.model_request_end", id: "end2", model_request_start_id: "req2", is_error: true, processed_at: "t2" }),
+      ],
+      state,
+    );
+    const turn1Text = state.messages[1]!.content.find((p) => p.type === "text");
+    assert.equal(turn1Text?.type === "text" && turn1Text.text, "Partial reply");
+  });
+
+  it("ignores event_start for non-text/thinking events and shifts preview indices on eviction", () => {
+    let state = project([
+      T({ type: "user.message", id: "optimistic-1", content: [{ type: "text", text: "failed send" }], processed_at: "t" }),
+      T({ type: "user.message", id: "u2", content: [{ type: "text", text: "real turn" }], processed_at: "t" }),
+      T({ type: "session.status_running", id: "r2", processed_at: "t" }),
+      T({ type: "event_start", event: { type: "agent.tool_use", id: "tu1" } }),
+      T({ type: "event_start", event: { type: "agent.message", id: "m2" } }),
+    ]);
+    assert.equal(state.previews.has("tu1"), false);
+    assert.equal(state.messages[2]!.content.length, 1);
+
+    state = evictOptimisticMessage(state, "optimistic-1");
+    state = applyEvent(
+      state,
+      T({ type: "event_delta", event_id: "m2", delta: { type: "content_delta", index: 0, content: { type: "text", text: "Recovered" } } }),
+    );
+    const reply = state.messages[1]!.content[0]!;
+    assert.equal(reply.type === "text" && reply.text, "Recovered");
+  });
 });
