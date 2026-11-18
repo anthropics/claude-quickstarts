@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { test } from "node:test";
-import { budgetCents, fixIssue } from "../src/fixer";
+import { budgetCents, client, fixIssue, runs } from "../src/fixer";
 import {
   branchProblem,
   defuseClosingReferences,
@@ -263,4 +263,121 @@ test("tells an open pull request from a merged or closed one", async () => {
     }
   }
   await assert.rejects(pullRequestState(repo, "token", "https://github.com/acme/shop/issues/7"), /not a pull request URL/);
+});
+
+function asyncIter<T>(items: T[], onCancel?: () => void) {
+  const controller = new AbortController();
+  if (onCancel) controller.signal.addEventListener("abort", onCancel, { once: true });
+  return {
+    controller,
+    async *[Symbol.asyncIterator]() {
+      for (const item of items) yield item;
+    },
+  };
+}
+
+test("a session resumed after budget_reached resets to running and settles on its latest idle", async () => {
+  const realSessions = client.beta.sessions;
+  let aborted = 0;
+  runs.length = 0;
+
+  (client.beta as { sessions: unknown }).sessions = {
+    list: () => asyncIter([{ id: "sesn_resumed", status: "running", title: "SHOP-1A: boom", metadata: { sentry_short_id: "SHOP-1A" } }]),
+    events: {
+      list: () =>
+        asyncIter([
+          { id: "ev_1", type: "session.status_idle", stop_reason: { type: "budget_reached" } },
+          { id: "ev_2", type: "session.status_running" },
+        ]),
+      stream: async () =>
+        asyncIter(
+          [
+            { id: "ev_3", type: "agent.message", content: [{ type: "text", text: "Already fixed on main." }] },
+            { id: "ev_4", type: "session.status_idle", stop_reason: { type: "end_turn" } },
+          ],
+          () => aborted++,
+        ),
+    },
+  };
+
+  try {
+    const config = {
+      repo,
+      base: "main",
+      githubToken: "token",
+      agentId: "agent_1",
+      environmentId: "env_1",
+      vaultId: "vlt_1",
+      maxCents: 1000,
+      maxActive: 3,
+    };
+    const issue = { id: "42", shortId: "SHOP-1A", title: "boom", url: "", project: "shop" };
+    const result = await fixIssue(issue, config);
+
+    assert.equal(result?.status, "no_pr");
+    assert.equal(result?.note, "Already fixed on main.");
+    assert.equal(aborted, 1, "live stream aborted once session completes");
+  } finally {
+    (client.beta as { sessions: unknown }).sessions = realSessions;
+    runs.length = 0;
+  }
+});
+
+test("picking an existing session back up replaces its stale run entry and preserves pr_opened notes", async () => {
+  const realSessions = client.beta.sessions;
+  const github = stubGitHub({
+    "GET /repos/acme/shop/pulls/7": { status: 200, body: { state: "open", merged: false } },
+    "GET /repos/acme/shop/compare/main...autofix%2FSHOP-1A": {
+      status: 200,
+      body: {
+        total_commits: 1,
+        commits: [{ sha: "abcdef1234567890", commit: { message: "Guard coupon lookup" } }],
+        files: [{ filename: "src/checkout.js" }],
+      },
+    },
+  });
+  runs.length = 0;
+  runs.push({ issue: "SHOP-1A", title: "boom", sessionId: "sesn_pickup", status: "failed", note: "lost the event stream" });
+
+  (client.beta as { sessions: unknown }).sessions = {
+    list: () => asyncIter([{ id: "sesn_pickup", status: "idle", title: "SHOP-1A: boom", metadata: { sentry_short_id: "SHOP-1A" } }]),
+    events: {
+      list: () =>
+        asyncIter([
+          {
+            id: "ev_pr",
+            type: "user.custom_tool_result",
+            custom_tool_use_id: "ctu_1",
+            is_error: false,
+            content: [{ type: "text", text: "Pull request opened: https://github.com/acme/shop/pull/7 (branch autofix/SHOP-1A, inspected at abcdef1234567890)" }],
+          },
+          { id: "ev_msg", type: "agent.message", content: [{ type: "text", text: "Opened PR #7." }] },
+          { id: "ev_idle", type: "session.status_idle", stop_reason: { type: "budget_reached" } },
+        ]),
+      stream: async () => asyncIter([]),
+    },
+  };
+
+  try {
+    const config = {
+      repo,
+      base: "main",
+      githubToken: "token",
+      agentId: "agent_1",
+      environmentId: "env_1",
+      vaultId: "vlt_1",
+      maxCents: 1000,
+      maxActive: 3,
+    };
+    const issue = { id: "42", shortId: "SHOP-1A", title: "boom", url: "", project: "shop" };
+    const result = await fixIssue(issue, config);
+
+    assert.equal(runs.length, 1, "replaces stale entry for the same sessionId");
+    assert.equal(result?.status, "pr_opened");
+    assert.equal(result?.note, "Opened PR #7.");
+  } finally {
+    github.restore();
+    (client.beta as { sessions: unknown }).sessions = realSessions;
+    runs.length = 0;
+  }
 });
