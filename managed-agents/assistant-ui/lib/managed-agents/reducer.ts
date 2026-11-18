@@ -253,6 +253,7 @@ function sameOpening(a: readonly ContentPart[], b: readonly ContentPart[]): bool
   const at = a.find((p) => p.type === "text");
   const bt = b.find((p) => p.type === "text");
   if (!at || !bt || at.type !== "text" || bt.type !== "text") return false;
+  if (!at.text || !bt.text) return at.text === bt.text;
   return at.text === bt.text || bt.text.startsWith(at.text) || at.text.startsWith(bt.text);
 }
 
@@ -274,10 +275,41 @@ function updatePart(
   pi: number,
   update: (part: ContentPart) => ContentPart,
 ) {
-  const msg = messages[mi]!;
+  const msg = messages[mi];
+  if (!msg || pi < 0 || pi >= msg.content.length) return;
   const content = [...msg.content];
   content[pi] = update(content[pi]!);
   messages[mi] = withContent(msg, content);
+}
+
+function dropEmptyPreviews(
+  messages: readonly ThreadMessage[],
+  previews: ReadonlyMap<string, Preview>,
+): readonly ThreadMessage[] {
+  if (previews.size === 0) return messages;
+  const emptyByMsg = new Map<number, Set<number>>();
+  for (const [, p] of previews) {
+    const part = messages[p.messageIndex]?.content[p.partIndex];
+    if (part?.type === "text" && part.text === "") {
+      let indices = emptyByMsg.get(p.messageIndex);
+      if (!indices) {
+        indices = new Set();
+        emptyByMsg.set(p.messageIndex, indices);
+      }
+      indices.add(p.partIndex);
+    }
+  }
+  if (emptyByMsg.size === 0) return messages;
+  const next = draft(messages);
+  for (const [mi, indices] of emptyByMsg) {
+    const msg = next[mi];
+    if (!msg) continue;
+    next[mi] = withContent(
+      msg,
+      msg.content.filter((_, pi) => !indices.has(pi)),
+    );
+  }
+  return next;
 }
 
 const updateTool =
@@ -417,11 +449,12 @@ function applyEventInner(state: Projection, event: StreamEvent): Projection {
         // still on screen was abandoned (interrupted while parked).
         return {
           ...state,
-          messages: stripUnresolvedApprovals(state.messages),
+          messages: dropEmptyPreviews(stripUnresolvedApprovals(state.messages), state.previews),
           isRunning: false,
           pendingApprovals: [],
           parkedIds: [],
           pendingCustomTools: [],
+          previews: new Map(),
           lastError: clearRetrying(state.lastError),
         };
       }
@@ -464,12 +497,13 @@ function applyEventInner(state: Projection, event: StreamEvent): Projection {
     case "session.deleted":
       return {
         ...state,
-        messages: stripUnresolvedApprovals(state.messages),
+        messages: dropEmptyPreviews(stripUnresolvedApprovals(state.messages), state.previews),
         isRunning: false,
         isDead: true,
         pendingApprovals: [],
         parkedIds: [],
         pendingCustomTools: [],
+        previews: new Map(),
       };
 
     // ------------------------------------------------------------- thinking
@@ -483,6 +517,9 @@ function applyEventInner(state: Projection, event: StreamEvent): Projection {
       // the persisted copy dedupes on `seen`, so nothing would ever
       // reconcile the duplicate away.
       if (state.seen.has(event.event.id)) return state;
+      if (event.event.type !== "agent.thinking" && event.event.type !== "agent.message") {
+        return state;
+      }
       const messages = draft(state.messages);
       const mi = currentAssistantIndex(messages);
       const msg = messages[mi]!;
@@ -516,8 +553,8 @@ function applyEventInner(state: Projection, event: StreamEvent): Projection {
         const previews = new Map(state.previews);
         previews.delete(event.id);
         const messages = draft(state.messages);
-        const msg = messages[preview.messageIndex]!;
-        if (msg.createdAt.getTime() === UNKNOWN_TIME.getTime()) {
+        const msg = messages[preview.messageIndex];
+        if (msg && msg.createdAt.getTime() === UNKNOWN_TIME.getTime()) {
           messages[preview.messageIndex] = { ...msg, createdAt: timeOf(event.processed_at) };
         }
         return { ...state, messages, previews };
@@ -557,8 +594,8 @@ function applyEventInner(state: Projection, event: StreamEvent): Projection {
         );
         // The preview opened the message without a timestamp; the buffered
         // event has the real one, and replay will use it too.
-        const msg = messages[preview.messageIndex]!;
-        if (msg.createdAt.getTime() === UNKNOWN_TIME.getTime()) {
+        const msg = messages[preview.messageIndex];
+        if (msg && msg.createdAt.getTime() === UNKNOWN_TIME.getTime()) {
           messages[preview.messageIndex] = { ...msg, createdAt: timeOf(event.processed_at) };
         }
         // Output proves a mid-turn "retrying" recovered (no status_running
@@ -637,7 +674,7 @@ function applyEventInner(state: Projection, event: StreamEvent): Projection {
       if (found) {
         const next = draft(messages);
         const result = toToolResult(event.content, !!event.is_error);
-        updatePart(next, found.mi, found.pi, updateTool({ result }));
+        updatePart(next, found.mi, found.pi, updateTool({ result, isError: result.isError }));
         messages = next;
       }
       return {
@@ -768,5 +805,14 @@ export function evictOptimisticMessage(state: Projection, optimisticId: string):
   if (idx === -1) return { ...state, isRunning: false };
   const messages = draft(state.messages);
   messages.splice(idx, 1);
-  return withDerivedStatuses({ ...state, messages, isRunning: false });
+  let previews = state.previews;
+  if (previews.size > 0) {
+    const shifted = new Map<string, Preview>();
+    for (const [id, p] of previews) {
+      if (p.messageIndex < idx) shifted.set(id, p);
+      else if (p.messageIndex > idx) shifted.set(id, { ...p, messageIndex: p.messageIndex - 1 });
+    }
+    previews = shifted;
+  }
+  return withDerivedStatuses({ ...state, messages, previews, isRunning: false });
 }
