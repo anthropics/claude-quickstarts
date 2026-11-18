@@ -207,6 +207,8 @@ async function startAndDrive(issue: SentryIssue, shortId: string, config: Config
         initial_events: [{ type: "user.message", content: [{ type: "text", text: kickoff(issue, config) }] }],
       }));
     run = { issue: shortId, title: issue.title || (existing?.title ?? ""), sessionId: session.id, status: "running" };
+    const prior = runs.findIndex((entry) => entry.sessionId === session.id);
+    if (prior !== -1) runs.splice(prior, 1);
     runs.unshift(run);
     driving.add(session.id);
     console.log(`[managed-agent] ${shortId} -> session ${session.id}${existing ? " (picked back up)" : ""}`);
@@ -246,6 +248,12 @@ async function drive(run: Run, issue: SentryIssue, config: Config): Promise<void
 
   const handle = async (event: SessionEvent): Promise<boolean> => {
     switch (event.type) {
+      case "session.status_running":
+        if (run.status !== "pr_opened") {
+          run.status = "running";
+          run.note = undefined;
+        }
+        break;
       case "agent.tool_use":
         console.log(`[managed-agent] ${run.sessionId} tool: ${event.name}`);
         break;
@@ -284,12 +292,12 @@ async function drive(run: Run, issue: SentryIssue, config: Config): Promise<void
         const stop = event.stop_reason?.type;
         if (stop === "requires_action") break;
         if (run.status === "running") run.status = stop === "end_turn" ? "no_pr" : "failed";
-        if (stop !== "end_turn") run.note = `stopped: ${stop}`;
+        if (stop !== "end_turn" && run.status !== "pr_opened") run.note = `stopped: ${stop}`;
         return true;
       }
       case "session.status_terminated":
         if (run.status === "running") run.status = "failed";
-        run.note = "session terminated";
+        if (run.status !== "pr_opened") run.note = "session terminated";
         return true;
     }
     return false;
@@ -303,56 +311,58 @@ async function drive(run: Run, issue: SentryIssue, config: Config): Promise<void
     // Stream first: it buffers from the moment it opens, so nothing falls
     // between the end of the replay and the start of the tail.
     const stream = await client.beta.sessions.events.stream(run.sessionId);
-    const history: Anthropic.Beta.Sessions.BetaManagedAgentsSessionEvent[] = [];
-    for await (const event of client.beta.sessions.events.list(run.sessionId, { order: "asc" })) history.push(event);
-
-    // Rebuild what an earlier connection (or an earlier process) already did
-    // before replaying, so the replay does not do it again.
-    for (const event of history) {
-      if (event.type !== "user.custom_tool_result") continue;
-      answered.add(event.custom_tool_use_id);
-      const text = event.content?.map((block) => (block.type === "text" ? block.text : "")).join("") ?? "";
-      const opened = event.is_error ? null : PR_RESULT.exec(text);
-      if (opened) {
-        [, run.pullRequestUrl, run.branch, run.inspectedHead] = opened;
-        run.status = "pr_opened";
-      }
-    }
-
     let done = false;
-    for (const event of history) {
-      if (seen.has(event.id)) continue;
-      seen.add(event.id);
-      // The log can hold more than one idle. Only the last one is current.
-      done = await handle(event);
-    }
-    if (!done) {
-      // Step the iterator by hand. The SDK's stream rethrows every error but
-      // an abort, so a TCP reset or a proxy idle timeout would otherwise throw
-      // straight past the reconnect loop and orphan a session that is still
-      // working. A stream error means "ended early". An error from handling an
-      // event is a real failure and still propagates.
-      const events = stream[Symbol.asyncIterator]();
-      for (;;) {
-        let next: Awaited<ReturnType<typeof events.next>>;
-        try {
-          next = await events.next();
-        } catch (err) {
-          console.warn(`[managed-agent] ${run.sessionId} stream error: ${err instanceof Error ? err.message : err}`);
-          break;
+    try {
+      const history: Anthropic.Beta.Sessions.BetaManagedAgentsSessionEvent[] = [];
+      for await (const event of client.beta.sessions.events.list(run.sessionId, { order: "asc" })) history.push(event);
+
+      // Rebuild what an earlier connection (or an earlier process) already did
+      // before replaying, so the replay does not do it again.
+      for (const event of history) {
+        if (event.type !== "user.custom_tool_result") continue;
+        answered.add(event.custom_tool_use_id);
+        const text = event.content?.map((block) => (block.type === "text" ? block.text : "")).join("") ?? "";
+        const opened = event.is_error ? null : PR_RESULT.exec(text);
+        if (opened) {
+          [, run.pullRequestUrl, run.branch, run.inspectedHead] = opened;
+          run.status = "pr_opened";
         }
-        if (next.done) break;
-        const event = next.value;
-        // Token previews (event_start, event_delta) carry no id of their own.
-        const { id } = event as { id?: unknown };
-        if (typeof id === "string") {
-          if (seen.has(id)) continue;
-          seen.add(id);
-        }
-        done = await handle(event);
-        if (done) break;
       }
-    } else {
+
+      for (const event of history) {
+        if (seen.has(event.id)) continue;
+        seen.add(event.id);
+        // The log can hold more than one idle. Only the last one is current.
+        done = await handle(event);
+      }
+      if (!done) {
+        // Step the iterator by hand. The SDK's stream rethrows every error but
+        // an abort, so a TCP reset or a proxy idle timeout would otherwise throw
+        // straight past the reconnect loop and orphan a session that is still
+        // working. A stream error means "ended early". An error from handling an
+        // event is a real failure and still propagates.
+        const events = stream[Symbol.asyncIterator]();
+        for (;;) {
+          let next: Awaited<ReturnType<typeof events.next>>;
+          try {
+            next = await events.next();
+          } catch (err) {
+            console.warn(`[managed-agent] ${run.sessionId} stream error: ${err instanceof Error ? err.message : err}`);
+            break;
+          }
+          if (next.done) break;
+          const event = next.value;
+          // Token previews (event_start, event_delta) carry no id of their own.
+          const { id } = event as { id?: unknown };
+          if (typeof id === "string") {
+            if (seen.has(id)) continue;
+            seen.add(id);
+          }
+          done = await handle(event);
+          if (done) break;
+        }
+      }
+    } finally {
       stream.controller.abort();
     }
     if (done) {
