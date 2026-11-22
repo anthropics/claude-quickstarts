@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { z } from "zod";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { z } from "zod/v4";
 import { retrieveContext, RAGSource } from "@/app/lib/utils";
 import crypto from "crypto";
 import customerSupportCategories from "@/app/lib/customer_support_categories.json";
@@ -195,20 +196,6 @@ export async function POST(req: Request) {
   }
   `
 
-  function sanitizeAndParseJSON(jsonString : string) {
-    // Replace newlines within string values
-    const sanitized = jsonString.replace(/(?<=:\s*")(.|\n)*?(?=")/g, match => 
-      match.replace(/\n/g, "\\n")
-    );
-  
-    try {
-      return JSON.parse(sanitized);
-    } catch (parseError) {
-      console.error("Error parsing JSON response:", parseError);
-      throw new Error("Invalid JSON response from AI");
-    }
-  }
-
   try {
     console.log(`🚀 Query Processing`);
     measureTime("Claude Generation Start");
@@ -220,41 +207,24 @@ export async function POST(req: Request) {
       }),
     );
 
-    anthropicMessages.push({
-      role: "assistant",
-      content: "{",
-    });
-
-    const response = await client.messages.create({
+    const response = await client.messages.parse({
       model: model,
       max_tokens: 1000,
       messages: anthropicMessages,
       system: systemPrompt,
+      output_config: { format: zodOutputFormat(responseSchema) },
     });
 
     measureTime("Claude Generation Complete");
     console.log("✅ Message generation completed");
 
-    // Extract text content from the response
-    const textContent = "{" + response.content
-      .filter((block): block is Anthropic.TextBlock => block.type === "text")
-      .map((block) => block.text)
-      .join(" ");
-
-    // Parse the JSON response
-    let parsedResponse;
-    try {
-      parsedResponse = sanitizeAndParseJSON(textContent);
-    } catch (parseError) {
-      console.error("Error parsing JSON response:", parseError);
+    if (response.parsed_output === null) {
       throw new Error("Invalid JSON response from AI");
     }
 
-    const validatedResponse = responseSchema.parse(parsedResponse);
-
     const responseWithId = {
       id: crypto.randomUUID(),
-      ...validatedResponse,
+      ...response.parsed_output,
     };
 
     // Check if redirection to a human agent is needed
