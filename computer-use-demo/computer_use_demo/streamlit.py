@@ -5,6 +5,7 @@ Entrypoint for streamlit, see https://docs.streamlit.io/
 import asyncio
 import base64
 import os
+import re
 import subprocess
 import traceback
 from contextlib import contextmanager
@@ -35,7 +36,7 @@ from computer_use_demo.tools import ToolResult, ToolVersion
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
     APIProvider.ANTHROPIC: "claude-opus-4-8",
-    APIProvider.BEDROCK: "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    APIProvider.BEDROCK: "us.anthropic.claude-sonnet-4-6",
     APIProvider.VERTEX: "claude-3-5-sonnet-v2@20241022",
 }
 
@@ -141,8 +142,10 @@ def _lookup_model_conf(model: str) -> ModelConfig:
     """
     if model in MODEL_TO_MODEL_CONF:
         return MODEL_TO_MODEL_CONF[model]
-    # anthropic.claude-sonnet-4-5-20250929-v1:0 -> claude-sonnet-4-5-20250929...
-    normalized = model.removeprefix("anthropic.").replace("@", "-")
+    # us.anthropic.claude-sonnet-4-6 -> claude-sonnet-4-6
+    # (Bedrock cross-region inference profiles add a geography prefix)
+    normalized = re.sub(r"^(?:(?:us|eu|apac|jp|au|global)\.)?anthropic\.", "", model)
+    normalized = normalized.replace("@", "-")
     prefix_matches = [k for k in MODEL_TO_MODEL_CONF if normalized.startswith(k)]
     if prefix_matches:
         return MODEL_TO_MODEL_CONF[max(prefix_matches, key=len)]

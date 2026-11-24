@@ -42,6 +42,8 @@ def test_streamlit(streamlit_app: AppTest):
         ("claude-opus-4-8", ["adaptive", "off"]),
         # Bedrock form of a known family resolves to that family's config.
         ("anthropic.claude-sonnet-4-5-20250929-v1:0", ["off", "extended"]),
+        # Bedrock cross-region inference profile of the same family.
+        ("us.anthropic.claude-sonnet-4-6", ["adaptive", "extended", "off"]),
         # Unknown model: every mode is selectable, defaulting to off.
         ("some-unknown-model", ["off", "adaptive", "extended"]),
     ],
@@ -55,6 +57,23 @@ def test_thinking_modes_follow_selected_model(
     assert len(thinking_radios) == 1
     assert list(thinking_radios[0].options) == [m.capitalize() for m in expected_modes]
     assert streamlit_app.session_state["thinking_mode"] == expected_modes[0]
+    assert not streamlit_app.exception
+
+
+def test_bedrock_default_model_is_a_known_model(
+    streamlit_app: AppTest, monkeypatch: pytest.MonkeyPatch
+):
+    """The default Bedrock model must resolve to its own config. Falling through
+    to the unknown-model config sends tool versions the model rejects."""
+    monkeypatch.setenv("API_PROVIDER", "bedrock")
+    streamlit_app.run()
+    assert streamlit_app.session_state["model"].startswith("us.anthropic.claude-")
+    assert streamlit_app.session_state["tool_version"] == "computer_use_20251124"
+    assert list(streamlit_app.session_state["thinking_modes"]) == [
+        "adaptive",
+        "extended",
+        "off",
+    ]
     assert not streamlit_app.exception
 
 
