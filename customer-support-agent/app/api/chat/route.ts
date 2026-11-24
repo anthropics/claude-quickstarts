@@ -60,14 +60,104 @@ const logTimestamp = (label: string, start: number) => {
   console.log(`⏱️ [${timestamp}] ${label}: ${time}s`);
 };
 
+// Build an error reply in the shape the client already renders, with a
+// machine-readable cause attached next to the human-readable text.
+const chatErrorResponse = (status: number, type: string, message: string) =>
+  new Response(
+    JSON.stringify({
+      response: message,
+      thinking: "Error occurred during message generation.",
+      user_mood: "neutral",
+      debug: { context_used: false },
+      error: { type },
+    }),
+    { status, headers: { "Content-Type": "application/json" } },
+  );
+
+// Map a failure from the Anthropic API to the status that describes it and a
+// short message the caller can act on. The raw error stays in the server log;
+// it is never copied into the response.
+const apiErrorResponse = (error: unknown): Response | null => {
+  if (error instanceof Anthropic.AuthenticationError) {
+    return chatErrorResponse(
+      401,
+      "provider_auth",
+      "The API key was rejected, so the assistant cannot reply. Check the API key configuration.",
+    );
+  }
+  if (error instanceof Anthropic.PermissionDeniedError) {
+    return chatErrorResponse(
+      403,
+      "provider_permission",
+      "The API key does not have permission to make this request.",
+    );
+  }
+  if (error instanceof Anthropic.NotFoundError) {
+    return chatErrorResponse(
+      404,
+      "not_found",
+      "The selected model is not available. Choose a different model.",
+    );
+  }
+  if (error instanceof Anthropic.RateLimitError) {
+    return chatErrorResponse(
+      429,
+      "rate_limit",
+      "Too many requests right now. Please try again in a moment.",
+    );
+  }
+  if (error instanceof Anthropic.BadRequestError) {
+    return chatErrorResponse(
+      400,
+      "bad_request",
+      "The request was rejected by the API. Check the model and account settings.",
+    );
+  }
+  if (error instanceof Anthropic.APIError && typeof error.status === "number") {
+    if (error.status === 529) {
+      return chatErrorResponse(
+        529,
+        "overloaded",
+        "The model is overloaded right now. Please try again later.",
+      );
+    }
+    return chatErrorResponse(
+      error.status,
+      "provider_error",
+      "The API returned an error. Please try again later.",
+    );
+  }
+  return null;
+};
+
 // Main POST request handler
 export async function POST(req: Request) {
   const apiStart = performance.now();
   const measureTime = (label: string) => logTimestamp(label, apiStart);
 
-  // Extract data from the request body
-  const { messages, model, knowledgeBaseId } = await req.json();
-  const latestMessage = messages[messages.length - 1].content;
+  // Extract data from the request body. A body that cannot be read, or whose
+  // last message has no text, is a client error rather than a server error.
+  let requestBody: any;
+  try {
+    requestBody = await req.json();
+  } catch {
+    return chatErrorResponse(
+      400,
+      "invalid_request",
+      "The request body was not valid JSON.",
+    );
+  }
+  const { messages, model, knowledgeBaseId } = requestBody ?? {};
+  const latestMessage = Array.isArray(messages)
+    ? messages[messages.length - 1]?.content
+    : undefined;
+  if (typeof latestMessage !== "string") {
+    return chatErrorResponse(
+      400,
+      "invalid_request",
+      "Send a messages array whose last message has text content.",
+    );
+  }
 
   console.log("📝 Latest Query:", latestMessage);
   measureTime("User Input Received");
@@ -235,6 +325,24 @@ export async function POST(req: Request) {
     measureTime("Claude Generation Complete");
     console.log("✅ Message generation completed");
 
+    // A reply cut off by max_tokens leaves truncated JSON behind, and a
+    // refusal carries no usable answer. Name both here instead of letting
+    // them surface below as a parse failure.
+    if (response.stop_reason === "max_tokens") {
+      return chatErrorResponse(
+        500,
+        "response_truncated",
+        "The reply hit the length limit and was cut off. Try asking a shorter question.",
+      );
+    }
+    if (response.stop_reason === "refusal") {
+      return chatErrorResponse(
+        500,
+        "refusal",
+        "The model declined to answer that. Try rephrasing your question.",
+      );
+    }
+
     // Extract text content from the response
     const textContent = "{" + response.content
       .filter((block): block is Anthropic.TextBlock => block.type === "text")
@@ -286,18 +394,28 @@ export async function POST(req: Request) {
 
     return apiResponse;
   } catch (error) {
-    // Handle errors in AI response generation
+    // Handle errors in AI response generation. The raw error stays in the
+    // server log; the browser gets the status and the cause it can act on.
     console.error("💥 Error in message generation:", error);
-    const errorResponse = {
-      response:
-        "Sorry, there was an issue processing your request. Please try again later.",
-      thinking: "Error occurred during message generation.",
-      user_mood: "neutral",
-      debug: { context_used: false },
-    };
-    return new Response(JSON.stringify(errorResponse), {
-      status: 500,
-      headers: { "Content-Type": "application/json" },
-    });
+    const mapped = apiErrorResponse(error);
+    if (mapped) {
+      return mapped;
+    }
+    if (
+      error instanceof z.ZodError ||
+      (error instanceof Error &&
+        error.message === "Invalid JSON response from AI")
+    ) {
+      return chatErrorResponse(
+        500,
+        "invalid_response",
+        "The model returned a reply that could not be read. Please try again.",
+      );
+    }
+    return chatErrorResponse(
+      500,
+      "internal_error",
+      "Sorry, there was an issue processing your request. Please try again later.",
+    );
   }
 }
