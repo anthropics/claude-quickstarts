@@ -90,6 +90,15 @@ Platform notes:
 - Cloudflare Workers does not run this Express server. Host the frontend on Cloudflare Pages and the server on a Node platform.
 - The deployed runtime endpoint has no auth and every message spends your API credits. See [Security posture](#security-posture).
 
+## Run it in OpenBot
+
+[OpenBot](https://open.bot) is an open-source, self-hostable workspace for AI coworkers that connects to agents over AG-UI. The runtime in this quickstart already serves the finance assistant at an AG-UI run endpoint, so you can register it as a Bot without code changes:
+
+1. In OpenBot, create a Bot, choose **Bring your own agent**, and pick **An agent you already run**.
+2. Enter the agent's address: `https://<your-server>/api/copilotkit/agent/financial-assistant/run` (locally, the same path on the server's port).
+
+OpenBot sends a short test run to the address before it saves the Bot. The chart and table renderers live in this repo's `web/` frontend and do not carry over. The endpoint has no auth, so read [Security posture](#security-posture) before you point a shared workspace at it. See the [OpenBot repository](https://github.com/CopilotKit/OpenBot) for setup.
+
 ## Architecture
 
 The Managed Agents ↔ AG-UI translation is the upstream [`@ag-ui/claude-managed-agents`](https://www.npmjs.com/package/@ag-ui/claude-managed-agents) package: one AG-UI thread per managed session, token streaming, tool activity, interrupts, and turn time caps all live there. This repo wires that adapter into a self-hosted CopilotKit runtime and renders the visual tools.
