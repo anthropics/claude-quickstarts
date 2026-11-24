@@ -47,6 +47,12 @@
             (targetElement.id ? '#' + targetElement.id : '') +
             (targetElement.className ? '.' + targetElement.className.split(' ').filter(c => c).join('.') : '');
         
+        // Web Components expose disabled state via aria-disabled or a
+        // disabled class instead of the disabled property
+        const isDisabled = targetElement.disabled === true ||
+                           targetElement.getAttribute('aria-disabled') === 'true' ||
+                           targetElement.classList.contains('disabled');
+
         // Get additional element properties
         const elementType = targetElement.getAttribute('type') || '';
         const elementRole = targetElement.getAttribute('role') || '';
@@ -73,7 +79,8 @@
                 text: elementText
             },
             isVisible: rect.width > 0 && rect.height > 0,
-            isInteractable: !targetElement.disabled && 
+            disabled: isDisabled,
+            isInteractable: !isDisabled &&
                            targetElement.style.display !== 'none' &&
                            targetElement.style.visibility !== 'hidden'
         };
