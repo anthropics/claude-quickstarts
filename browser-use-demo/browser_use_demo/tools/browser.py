@@ -531,6 +531,19 @@ class BrowserTool(BaseAnthropicTool):
                         element_info.get("message", "Failed to find element")
                     )
 
+                # Refuse clicks on disabled elements: the click would do
+                # nothing and the model would retry it in a loop. Custom
+                # elements report disabled via aria-disabled or a class,
+                # which browser_element_script.js folds into "disabled".
+                if element_info.get("disabled"):
+                    raise ToolError(
+                        f"Element with ref {ref} is disabled and cannot be "
+                        "clicked. If it becomes available after another "
+                        "action (for example, selecting an option first), "
+                        "do that action and try again; otherwise wait or "
+                        "choose a different element."
+                    )
+
                 # Get the coordinates from element_info
                 click_x, click_y = element_info["coordinates"]
 

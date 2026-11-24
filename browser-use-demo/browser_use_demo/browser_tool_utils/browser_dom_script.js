@@ -28,6 +28,11 @@
         var tag = element.tagName.toLowerCase();
         var type = element.getAttribute("type");
 
+        // Web Components carry the widget type in the tag name or the
+        // type attribute instead of a role, e.g. tp-yt-paper-radio-button.
+        if (tag.includes("radio") || type === "radio") return "radio";
+        if (tag === "dialog" || tag.includes("dialog")) return "dialog";
+
         var roleMap = {
           a: "link",
           button: "button",
@@ -190,6 +195,7 @@
 
       function isInteractive(element) {
         var tag = element.tagName.toLowerCase();
+        var role = element.getAttribute("role");
         var interactiveTags = [
           "a",
           "button",
@@ -202,11 +208,33 @@
 
         return (
           interactiveTags.includes(tag) ||
+          // Web Component radios have no native tag to match on
+          tag.includes("radio") ||
           element.getAttribute("onclick") !== null ||
           element.getAttribute("tabindex") !== null ||
-          element.getAttribute("role") === "button" ||
-          element.getAttribute("role") === "link" ||
+          role === "button" ||
+          role === "link" ||
+          role === "radio" ||
+          role === "checkbox" ||
           element.getAttribute("contenteditable") === "true"
+        );
+      }
+
+      // Web Components expose state through ARIA attributes or classes
+      // instead of the native properties.
+      function isDisabled(element) {
+        return (
+          element.disabled === true ||
+          element.getAttribute("aria-disabled") === "true" ||
+          (element.classList && element.classList.contains("disabled"))
+        );
+      }
+
+      function isChecked(element) {
+        return (
+          element.checked === true ||
+          element.getAttribute("aria-checked") === "true" ||
+          (element.classList && element.classList.contains("checked"))
         );
       }
 
@@ -228,7 +256,12 @@
           "aside",
         ];
         return (
-          semanticTags.includes(tag) || element.getAttribute("role") !== null
+          semanticTags.includes(tag) ||
+          // Custom-element dialogs (tp-yt-paper-dialog, ytcp-dialog)
+          // act as popups and must surface in the tree
+          tag === "dialog" ||
+          tag.includes("dialog") ||
+          element.getAttribute("role") !== null
         );
       }
 
@@ -392,6 +425,12 @@
           if (element.getAttribute("placeholder"))
             yaml +=
               ' placeholder="' + element.getAttribute("placeholder") + '"';
+
+          // Surface state the model needs: which option is selected,
+          // and which controls cannot be used right now
+          if ((role === "radio" || role === "checkbox") && isChecked(element))
+            yaml += " [checked]";
+          if (isDisabled(element)) yaml += " [disabled]";
 
           result.push(yaml);
         }
