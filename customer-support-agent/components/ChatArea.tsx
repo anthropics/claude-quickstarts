@@ -437,6 +437,30 @@ function ChatArea() {
     ]);
     setInput("");
 
+    // Replace the "Thinking..." placeholder with a finished reply. Used for
+    // failures, so the person sees what went wrong as soon as it is known
+    // instead of waiting for the placeholder's 30-second timeout.
+    const setPlaceholderContent = (content: string) => {
+      setMessages((prevMessages) =>
+        prevMessages.map((message) =>
+          message.id === placeholderMessage.id
+            ? { ...message, content }
+            : message,
+        ),
+      );
+    };
+
+    const showErrorInPlaceholder = (text: string) => {
+      setPlaceholderContent(
+        JSON.stringify({
+          response: text,
+          thinking: "Error occurred during message generation.",
+          user_mood: "neutral",
+          debug: { context_used: false },
+        }),
+      );
+    };
+
     const placeholderDisplayed = performance.now();
     logDuration("Perceived Latency", placeholderDisplayed - clientStart);
 
@@ -459,11 +483,19 @@ function ChatArea() {
 
       decodeDebugData(response);
 
-      if (!response.ok) {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
+      const data = await response.json().catch(() => null);
 
-      const data = await response.json();
+      if (!response.ok) {
+        // The server has already answered and its body says what failed.
+        // Show that now; the 30-second timer in MessageContent stays as a
+        // backstop for a request that never returns at all.
+        if (data && typeof data.response === "string" && data.response) {
+          setPlaceholderContent(JSON.stringify(data));
+        } else {
+          showErrorInPlaceholder("Something went wrong. Please try again.");
+        }
+        return;
+      }
       const endTime = performance.now();
       logDuration("JSON Parse Duration", endTime - responseReceived);
       logDuration("Total API Duration", endTime - startTime);
@@ -530,6 +562,7 @@ function ChatArea() {
     } catch (error) {
       console.error("Error fetching chat response:", error);
       console.error("Failed to process message:", userMessage.content);
+      showErrorInPlaceholder("Something went wrong. Please try again.");
     } finally {
       setIsLoading(false);
       const clientEnd = performance.now();
