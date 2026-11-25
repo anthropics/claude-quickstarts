@@ -131,7 +131,16 @@ The application will typically be available at `http://localhost:3000` or simila
 |--------|-------------|---------|
 | `--project-dir` | Directory for the project | `./autonomous_demo_project` |
 | `--max-iterations` | Max agent iterations | Unlimited |
-| `--model` | Claude model to use | `claude-sonnet-4-5-20250929` |
+| `--model` | Claude model to use | `claude-sonnet-5-5` |
+
+The application specification also defaults to `claude-sonnet-5-5`. Sonnet 5.5
+thinks by default; the SDK manages the tool loop and preserves thinking blocks
+between tool calls. Sonnet 4.5
+retires on November 30, 2026
+([model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations)).
+If you pass `--model` explicitly, update that value too. For projects already
+created by the demo, update the model in the generated application separately;
+the harness preserves existing project files.
 
 ## Customization
 

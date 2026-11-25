@@ -102,6 +102,9 @@ class MessageRenderer:
         if not message:
             return True
 
+        if isinstance(message, dict) and message.get("type") in ("thinking", "redacted_thinking"):
+            return True
+
         # Skip tool results that only have screenshots when screenshots are hidden
         is_tool_result = not isinstance(message, str | dict)
         if is_tool_result and self.session_state.hide_screenshots:
