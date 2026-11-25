@@ -22,7 +22,7 @@ from browser_use_demo.message_renderer import MessageRenderer, Sender
 from browser_use_demo.tools import ToolResult
 
 PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
-    APIProvider.ANTHROPIC: "claude-sonnet-4-6",
+    APIProvider.ANTHROPIC: "claude-sonnet-5-5",
     APIProvider.BEDROCK: "anthropic.claude-sonnet-4-5-20250929-v1:0",
     APIProvider.VERTEX: "claude-sonnet-4-5@20250929",
 }
@@ -51,8 +51,8 @@ STREAMLIT_STYLE = """
 
 # Claude models for browser automation
 BROWSER_COMPATIBLE_MODELS = [
-    "claude-sonnet-4-6",
-    "claude-opus-4-5-20251101",
+    "claude-sonnet-5-5",
+    "claude-opus-5-5",
     "claude-haiku-4-5-20251001",
 ]
 
@@ -470,6 +470,8 @@ async def run_agent(user_input: str):
         # Setup callbacks for streaming responses
         def output_callback(content_block: BetaContentBlockParam):
             """Handle agent output - both text and tool use."""
+            if content_block["type"] in ("thinking", "redacted_thinking"):
+                return
             # Stream to active container in real-time
             with st.session_state.active_response_container:
                 renderer.render(Sender.BOT, content_block)

@@ -55,7 +55,18 @@ class ResponseProcessor:
         has_tools = False
 
         for content_block in response.content:
-            if content_block.type == "text":
+            if content_block.type == "thinking":
+                assistant_content.append({
+                    "type": "thinking",
+                    "thinking": content_block.thinking,
+                    "signature": content_block.signature
+                })
+            elif content_block.type == "redacted_thinking":
+                assistant_content.append({
+                    "type": "redacted_thinking",
+                    "data": content_block.data
+                })
+            elif content_block.type == "text":
                 has_text = True
                 assistant_content.append({
                     "type": "text",

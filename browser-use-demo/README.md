@@ -231,14 +231,13 @@ This is less relevant for browser automation since the `ref` parameter provides 
 
 **API errors?**
 - Verify your Anthropic API key is set correctly
-- Check you're using a compatible model (claude-sonnet-4-6, claude-opus-4-5-20251101, or claude-haiku-4-5-20251001)
+- Check you're using a compatible model (claude-sonnet-5-5, claude-opus-5-5, or claude-haiku-4-5-20251001)
 
-The default is `claude-sonnet-4-6`. Existing sessions using Sonnet 4.5 switch to
+The default is `claude-sonnet-5-5`. Existing sessions using Sonnet 4.5 switch to
 this default because Sonnet 4.5 retires on November 30, 2026
 ([model deprecations](https://platform.claude.com/docs/en/about-claude/model-deprecations)).
-Sonnet 4.6 retains the current non-thinking tool loop. The recommended long-term
-replacement, Sonnet 5.5, enables thinking by default and requires preserving
-thinking blocks between tool calls
+Sonnet 5.5 thinks by default. The tool loop preserves thinking blocks between
+tool calls without displaying them in chat
 ([migration guide](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide)).
 
 **Browser actions failing?**
