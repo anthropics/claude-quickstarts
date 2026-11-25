@@ -94,6 +94,12 @@ def setup_state():
             else:
                 st.session_state[key] = default_value
 
+    if st.session_state.provider == APIProvider.ANTHROPIC and st.session_state.model in (
+        "claude-sonnet-4-5-20250929",
+        "claude-sonnet-4-5",
+    ):
+        st.session_state.model = PROVIDER_TO_DEFAULT_MODEL_NAME[APIProvider.ANTHROPIC]
+
 
 def _clean_text_extraction_markers(text: str) -> str:
     """Remove text extraction markers and return a summary."""
